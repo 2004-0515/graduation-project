@@ -62,8 +62,12 @@
                   <span class="original-price" v-if="product.originalPrice">{{ product.originalPrice }}</span>
                 </div>
                 <div class="product-stats">
-                  <el-rate v-model="product.rating" disabled show-score :max="5"></el-rate>
-                  <span class="sales">销量: {{ product.sales }}</span>
+                  <div class="rate-container">
+                    <el-rate v-model="product.rating" disabled show-score :max="5"></el-rate>
+                  </div>
+                  <div class="sales-container">
+                    <span class="sales">销量: {{ product.sales }}</span>
+                  </div>
                 </div>
                 <div class="product-actions">
                   <el-button type="primary" size="small" @click="addToCart(product)">加入购物车</el-button>
@@ -80,6 +84,7 @@
             layout="total, sizes, prev, pager, next, jumper"
             :total="total"
             :page-size="pageSize"
+            :page-sizes="[10, 20, 50, 100]"
             v-model:current-page="currentPage"
             @size-change="handleSizeChange"
             @current-change="handleCurrentChange"
@@ -120,7 +125,7 @@ const sortBy = ref('sales')
 
 // 分页信息
 const currentPage = ref(1)
-const pageSize = ref(16)
+const pageSize = ref(10)
 
 // 完整商品列表（用于分页）
 const allProducts = reactive([
@@ -406,9 +411,10 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 15px;
   width: 100%;
+  overflow-x: hidden;
 }
 
 .filter-options {
@@ -439,9 +445,67 @@ onMounted(() => {
 /* 商品列表 */
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: 1fr;
+  gap: 15px;
   margin-bottom: 30px;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* 在不同屏幕尺寸下设置固定列数 */
+@media (min-width: 769px) {
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 992px) {
+  .product-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .product-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* 在标准屏幕尺寸下强制显示5列 */
+@media (min-width: 1200px) {
+  .product-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 15px;
+  }
+}
+
+/* 在大屏幕尺寸下调整间距，确保5个商品卡片能够整齐排列 */
+@media (min-width: 1400px) {
+  .product-grid {
+    gap: 20px;
+  }
+}
+
+/* 确保商品卡片内容不会溢出 */
+.product-info h3 {
+  font-size: 14px;
+  height: 36px;
+  line-height: 1.4;
+}
+
+.product-price {
+  font-size: 16px;
+}
+
+.product-stats {
+  font-size: 12px;
+}
+
+.product-actions .el-button {
+  padding: 5px 10px;
+  font-size: 12px;
 }
 
 .product-item {
@@ -459,7 +523,7 @@ onMounted(() => {
 
 .product-image {
   width: 100%;
-  height: 250px;
+  height: 180px;
   border-radius: 4px;
   cursor: pointer;
   transition: transform 0.3s;
@@ -511,15 +575,20 @@ onMounted(() => {
 
 .product-stats {
   margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .product-stats .el-rate {
-  margin-bottom: 8px;
+  margin-bottom: 0;
+  align-self: flex-start;
 }
 
 .sales {
   font-size: 14px;
   color: #666;
+  align-self: flex-start;
 }
 
 .product-actions {

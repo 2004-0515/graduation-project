@@ -3,7 +3,9 @@ package com.shopping.controller;
 import com.shopping.dto.Response;
 import com.shopping.entity.User;
 import com.shopping.service.AuthService;
+import com.shopping.utils.CaptchaUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,6 +22,16 @@ public class AuthController {
 
     @Autowired
     private AuthService authService;
+
+    /**
+     * 生成验证码
+     * @return 验证码和图片
+     */
+    @GetMapping("/captcha")
+    public Response<Map<String, String>> generateCaptcha() {
+        Map<String, String> captcha = CaptchaUtil.generateCaptcha();
+        return Response.success("Captcha generated successfully", captcha);
+    }
 
     /**
      * 用户注册
@@ -43,5 +55,18 @@ public class AuthController {
         String password = loginRequest.get("password");
         String token = authService.login(username, password);
         return Response.success("Login successful", Map.of("token", token));
+    }
+
+    /**
+     * 验证验证码
+     * @param request 验证请求，包含captchaCode（用户输入的验证码）和correctCode（正确的验证码）
+     * @return 验证结果
+     */
+    @PostMapping("/validate-captcha")
+    public Response<Boolean> validateCaptcha(@RequestBody Map<String, String> request) {
+        String captchaCode = request.get("captchaCode");
+        String correctCode = request.get("correctCode");
+        boolean isValid = CaptchaUtil.validateCaptcha(captchaCode, correctCode);
+        return Response.success("Captcha validated successfully", isValid);
     }
 }

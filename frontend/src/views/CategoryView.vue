@@ -53,7 +53,7 @@
                       <el-tag type="success" v-if="product.discount">{{ product.discount }}折</el-tag>
                     </div>
                   </template>
-                  <el-image :src="product.mainImage" fit="cover" :preview-src-list="[product.mainImage]" @click="$router.push(`/product/${product.id}`)" preview-teleported></el-image>
+                  <el-image :src="product.mainImage" fit="cover" :preview-src-list="[product.mainImage]" @click="$router.push(`/product/${product.id}`)" preview-teleported class="product-image"></el-image>
                   <div class="product-info">
                     <h3 @click="$router.push(`/product/${product.id}`)">{{ product.name }}</h3>
                     <div class="product-price">
@@ -79,6 +79,7 @@
                 layout="total, sizes, prev, pager, next, jumper"
                 :total="total"
                 :page-size="pageSize"
+                :page-sizes="[10, 20, 50, 100]"
                 v-model:current-page="currentPage"
                 @size-change="handleSizeChange"
                 @current-change="handleCurrentChange"
@@ -140,17 +141,31 @@ const products = ref([])
 
 // 分页信息
 const currentPage = ref(1)
-const pageSize = ref(12)
+const pageSize = ref(10)
 const total = ref(0)
 
 // 排序方式
 const sortBy = ref('default')
 
+// 添加防抖功能，避免频繁请求
+const debounce = (func, delay) => {
+  let timeoutId
+  return (...args) => {
+    clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => func.apply(null, args), delay)
+  }
+}
+
+// 缓存机制，避免重复请求
+const cache = {
+  products: new Map()
+}
+
 // 监听排序方式变化，重新获取商品列表
 const sortByChange = (value) => {
   sortBy.value = value
   currentPage.value = 1
-  fetchProducts()
+  debouncedFetchProducts()
 }
 
 // 获取分类信息
@@ -332,7 +347,7 @@ const buyNow = (product) => {
 const handleSizeChange = (size) => {
   pageSize.value = size
   currentPage.value = 1
-  fetchProducts()
+  optimizedFetchProducts()
 }
 
 // 计算当前激活的菜单ID
@@ -362,7 +377,7 @@ const handleMenuSelect = (index) => {
 // 当前页码变化
 const handleCurrentChange = (current) => {
   currentPage.value = current
-  fetchProducts()
+  optimizedFetchProducts()
 }
 
 // 页面加载时获取数据
@@ -381,7 +396,7 @@ const fetchData = async () => {
   await Promise.all([
     fetchCategories(),
     fetchCategoryInfo(),
-    fetchProducts()
+    optimizedFetchProducts()
   ])
   
   // 数据加载完成后，使用nextTick确保DOM更新，然后滚动到页面顶部
@@ -397,14 +412,46 @@ const fetchData = async () => {
     }
   })
 }
+
+// 优化后的fetchProducts函数，带缓存机制
+const optimizedFetchProducts = async () => {
+  try {
+    // 生成缓存键
+    const cacheKey = `${categoryId.value}-${sortBy.value}-${currentPage.value}-${pageSize.value}`
+    
+    // 检查缓存
+    if (cache.products.has(cacheKey)) {
+      const cachedData = cache.products.get(cacheKey)
+      products.value = cachedData.products
+      total.value = cachedData.total
+      return
+    }
+    
+    // 调用原始fetchProducts获取数据
+    await fetchProducts()
+    
+    // 缓存数据
+    cache.products.set(cacheKey, {
+      products: [...products.value],
+      total: total.value
+    })
+  } catch (error) {
+    console.error('获取商品列表失败:', error)
+    ElMessage.error('获取商品列表失败')
+  }
+}
+
+// 防抖处理后的获取商品函数
+const debouncedFetchProducts = debounce(optimizedFetchProducts, 300)
 </script>
 
 <style scoped>
 /* 全局样式 */
 .container {
-  max-width: 1200px;
+  max-width: 1500px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 10px;
+  width: 100%;
 }
 
 .section-title {
@@ -496,11 +543,17 @@ const fetchData = async () => {
 .content-wrapper {
   display: flex;
   gap: 20px;
+  flex-wrap: wrap;
+  overflow-x: hidden;
 }
 
 /* 左侧分类导航 */
 .category-sidebar {
-  flex: 0 0 250px;
+  flex: 0 0 160px;
+  min-width: 140px;
+  margin-right: 10px;
+  padding-right: 10px;
+  border-right: 1px solid #ebeef5;
 }
 
 .category-sidebar h3 {
@@ -518,6 +571,9 @@ const fetchData = async () => {
 /* 右侧商品列表 */
 .product-list {
   flex: 1;
+  min-width: 0;
+  overflow-x: hidden;
+  padding-right: 10px;
 }
 
 .filter-bar {
@@ -526,6 +582,8 @@ const fetchData = async () => {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   margin-bottom: 20px;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .filter-label {
@@ -534,11 +592,69 @@ const fetchData = async () => {
 }
 
 .product-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
-  margin-bottom: 30px;
-}
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin-bottom: 30px;
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+
+  /* 在不同屏幕尺寸下设置固定列数 */
+  @media (min-width: 769px) {
+    .product-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 992px) {
+    .product-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+  }
+
+  @media (min-width: 1100px) {
+    .product-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  /* 在标准屏幕尺寸下强制显示5列 */
+  @media (min-width: 1200px) {
+    .product-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 15px;
+    }
+  }
+
+  /* 在大屏幕尺寸下调整间距，确保5个商品卡片能够整齐排列 */
+  @media (min-width: 1400px) {
+    .product-grid {
+      gap: 20px;
+    }
+  }
+
+  /* 确保商品卡片内容不会溢出 */
+  .product-info h3 {
+    font-size: 14px;
+    height: 36px;
+    line-height: 1.4;
+  }
+
+  .product-price {
+    font-size: 16px;
+  }
+
+  .product-stats {
+    font-size: 12px;
+  }
+
+  .product-actions .el-button {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
 
 .product-item {
   transition: transform 0.3s;
@@ -551,6 +667,18 @@ const fetchData = async () => {
 .product-header {
   display: flex;
   justify-content: flex-end;
+}
+
+.product-image {
+  width: 100%;
+  height: 180px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.3s;
+}
+
+.product-image:hover {
+  transform: scale(1.02);
 }
 
 .product-info h3 {
@@ -715,6 +843,23 @@ const fetchData = async () => {
   .footer-content {
     grid-template-columns: 1fr;
     gap: 30px;
+  }
+}
+
+/* 中等屏幕尺寸 - 2-4列布局 */
+@media (min-width: 769px) and (max-width: 1199px) {
+  /* 小屏幕下显示2列 */
+  @media (min-width: 769px) and (max-width: 991px) {
+    .product-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  /* 确保在接近1200px时过渡到4列布局 */
+  @media (min-width: 992px) and (max-width: 1199px) {
+    .product-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
   }
 }
 </style>

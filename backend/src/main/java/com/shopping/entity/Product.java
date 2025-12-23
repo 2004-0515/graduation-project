@@ -1,6 +1,7 @@
 package com.shopping.entity;
 
 import jakarta.persistence.*;
+import jakarta.persistence.Index;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -14,7 +15,11 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "tb_product")
+@Table(name = "tb_product", indexes = {
+    @Index(name = "idx_product_category", columnList = "category_id"),
+    @Index(name = "idx_product_status", columnList = "status"),
+    @Index(name = "idx_product_name", columnList = "name")
+})
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

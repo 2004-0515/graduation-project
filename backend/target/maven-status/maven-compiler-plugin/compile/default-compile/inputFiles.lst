@@ -19,6 +19,7 @@ D:\graduation project\backend\src\main\java\com\shopping\service\ProductService.
 D:\graduation project\backend\src\main\java\com\shopping\dto\Response.java
 D:\graduation project\backend\src\main\java\com\shopping\repository\CartRepository.java
 D:\graduation project\backend\src\main\java\com\shopping\repository\UserRepository.java
+D:\graduation project\backend\src\main\java\com\shopping\utils\CaptchaUtil.java
 D:\graduation project\backend\src\main\java\com\shopping\utils\JwtUtil.java
 D:\graduation project\backend\src\main\java\com\shopping\config\RedisConfig.java
 D:\graduation project\backend\src\main\java\com\shopping\entity\OrderItem.java
