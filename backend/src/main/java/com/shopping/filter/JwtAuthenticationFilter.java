@@ -27,6 +27,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        // 获取请求路径
+        String requestPath = request.getRequestURI();
+        
+        // 跳过对分类和商品API的认证检查
+        if (requestPath.contains("/categories") || requestPath.contains("/products")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+        
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
         final String username;

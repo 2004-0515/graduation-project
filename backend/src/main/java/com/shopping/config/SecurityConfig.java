@@ -37,15 +37,11 @@ public class SecurityConfig {
             .cors() // 使用CorsConfig中定义的CORS配置
             .and()
             .csrf().disable() // 前后端分离，禁用CSRF
-            .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS) // 无状态会话
+            .sessionManagement()
+            .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // 无状态会话
             .and()
             .authorizeHttpRequests()
-            .requestMatchers("/api/auth/**").permitAll() // 认证端点允许匿名访问
-            .requestMatchers("/api/public/**").permitAll() // 公共端点
-            .anyRequest().authenticated(); // 其他所有请求需要认证
-
-        // 添加JWT过滤器，在UsernamePasswordAuthenticationFilter之前执行
-        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            .anyRequest().permitAll(); // 允许所有请求匿名访问
 
         return http.build();
     }

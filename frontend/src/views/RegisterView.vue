@@ -10,6 +10,9 @@
         <el-form-item label="用户名" prop="username">
           <el-input v-model="registerForm.username" placeholder="请输入用户名" prefix-icon="User" />
         </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="registerForm.email" placeholder="请输入邮箱" prefix-icon="Message" />
+        </el-form-item>
         <el-form-item label="密码" prop="password">
           <el-input v-model="registerForm.password" type="password" placeholder="请输入密码" prefix-icon="Lock" show-password />
         </el-form-item>
@@ -34,21 +37,27 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '../stores/userStore'
 
 const router = useRouter()
+const userStore = useUserStore()
 const registerFormRef = ref(null)
-const loading = ref(false)
 
 const registerForm = reactive({
   username: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  email: ''
 })
 
 const registerRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
+  ],
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -74,16 +83,23 @@ const handleRegister = async () => {
   
   try {
     await registerFormRef.value.validate()
-    loading.value = true
-    // 这里可以添加实际的注册逻辑
-    ElMessage.success('注册成功')
+    
+    // 准备注册数据，移除confirmPassword字段
+    const registerData = {
+      username: registerForm.username,
+      email: registerForm.email,
+      password: registerForm.password
+    }
+    
+    // 调用注册API
+    await userStore.register(registerData)
+    
+    ElMessage.success('注册成功，请登录')
     // 注册成功后跳转到登录页面
     router.push('/login')
   } catch (error) {
     console.error('注册失败:', error)
-    ElMessage.error('注册失败，请检查输入信息')
-  } finally {
-    loading.value = false
+    ElMessage.error(userStore.error || '注册失败，请检查输入信息')
   }
 }
 </script>

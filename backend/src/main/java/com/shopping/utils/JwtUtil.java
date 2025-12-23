@@ -21,7 +21,7 @@ public class JwtUtil {
         this.jwtProperties = jwtProperties;
     }
 
-    private Key getSigningKey() {
+    private javax.crypto.SecretKey getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode(jwtProperties.getSecret());
         return Keys.hmacShaKeyFor(keyBytes);
     }
@@ -40,10 +40,11 @@ public class JwtUtil {
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
-                    .build()
-                    .parseClaimsJws(token);
+            // For JJWT 0.12.5, use the correct parsing method
+            Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token);
             return true;
         } catch (Exception e) {
             return false;
@@ -51,11 +52,12 @@ public class JwtUtil {
     }
 
     public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+        // For JJWT 0.12.5, use the correct parsing method
+        var claims = Jwts.parser()
+            .verifyWith(getSigningKey())
+            .build()
+            .parseSignedClaims(token)
+            .getPayload();
         return claims.getSubject();
     }
 }

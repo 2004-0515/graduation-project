@@ -16,9 +16,12 @@ import java.time.Duration;
  * Redis缓存配置类
  */
 @Configuration
-@EnableCaching
+// 暂时禁用缓存功能
+// @EnableCaching
 public class RedisConfig {
 
+    // 暂时注释掉缓存管理器配置
+    /*
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         RedisCacheConfiguration cacheConfig = RedisCacheConfiguration.defaultCacheConfig()
@@ -30,4 +33,5 @@ public class RedisConfig {
                 .cacheDefaults(cacheConfig)
                 .build();
     }
+    */
 }

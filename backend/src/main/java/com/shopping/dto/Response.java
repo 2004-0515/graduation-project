@@ -39,6 +39,13 @@ public class Response<T> implements Serializable {
     }
 
     /**
+     * 成功响应，自定义消息
+     */
+    public static <T> Response<T> success(String message) {
+        return new Response<>(200, message, true, null);
+    }
+
+    /**
      * 成功响应，自定义消息和数据
      */
     public static <T> Response<T> success(String message, T data) {

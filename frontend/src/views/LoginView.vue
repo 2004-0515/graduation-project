@@ -31,10 +31,11 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '../stores/userStore'
 
 const router = useRouter()
+const userStore = useUserStore()
 const loginFormRef = ref(null)
-const loading = ref(false)
 
 const loginForm = reactive({
   username: '',
@@ -57,16 +58,16 @@ const handleLogin = async () => {
   
   try {
     await loginFormRef.value.validate()
-    loading.value = true
-    // 这里可以添加实际的登录逻辑
+    
+    // 调用登录API
+    await userStore.login(loginForm)
+    
     ElMessage.success('登录成功')
-    // 登录成功后跳转到首页或其他页面
+    // 登录成功后跳转到首页
     router.push('/')
   } catch (error) {
     console.error('登录失败:', error)
-    ElMessage.error('登录失败，请检查用户名和密码')
-  } finally {
-    loading.value = false
+    ElMessage.error(userStore.error || '登录失败，请检查用户名和密码')
   }
 }
 </script>

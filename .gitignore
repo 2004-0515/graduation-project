@@ -4,6 +4,7 @@ node_modules/
 # 编译输出目录
 dist/
 build/
+backend/target/
 
 # 日志文件
 logs/
@@ -18,6 +19,7 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+backend/src/main/resources/application.properties
 
 # 编辑器配置
 .vscode/
@@ -33,6 +35,16 @@ Thumbs.db
 # 测试覆盖率报告
 coverage/
 
+# Maven相关文件
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+
 # 其他临时文件
 *.tmp
 *.temp
+BUG_REPORT.md
+settings.xml
