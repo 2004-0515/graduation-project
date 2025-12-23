@@ -16,7 +16,7 @@
             <el-card shadow="hover">
               <h3>商品分类</h3>
               <el-menu :default-active="activeMenuId" class="category-menu" @select="handleMenuSelect">
-                <el-menu-item index="0" @click="$router.push('/')">
+                <el-menu-item index="0" @click="$router.push('/category/0')">
                   全部商品
                 </el-menu-item>
                 <el-sub-menu :index="parent.id.toString()" v-for="parent in parentCategories" :key="parent.id">
@@ -82,6 +82,7 @@
                 v-model:current-page="currentPage"
                 @size-change="handleSizeChange"
                 @current-change="handleCurrentChange"
+                total-text="共 {total} 件商品"
               ></el-pagination>
             </div>
           </main>
@@ -90,46 +91,12 @@
     </section>
 
     <!-- 页脚 -->
-    <footer class="footer">
-      <div class="container">
-        <div class="footer-content">
-          <div class="footer-section">
-            <h3>关于我们</h3>
-            <p>我们是一家专业的在线购物商城，提供优质的商品和服务。</p>
-          </div>
-          <div class="footer-section">
-            <h3>客户服务</h3>
-            <ul>
-              <li><a href="#">联系我们</a></li>
-              <li><a href="#">售后服务</a></li>
-              <li><a href="#">常见问题</a></li>
-            </ul>
-          </div>
-          <div class="footer-section">
-            <h3>支付方式</h3>
-            <ul>
-              <li>微信支付</li>
-              <li>支付宝</li>
-              <li>银行卡支付</li>
-            </ul>
-          </div>
-          <div class="footer-section">
-            <h3>关注我们</h3>
-            <div class="social-icons">
-              <el-icon class="icon-social"><ShoppingCart /></el-icon>
-            </div>
-          </div>
-        </div>
-        <div class="footer-bottom">
-          <p>© 2025 购物商城. All rights reserved.</p>
-        </div>
-      </div>
-    </footer>
+    <Footer />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ShoppingCart, Bell } from '@element-plus/icons-vue'
@@ -138,6 +105,7 @@ import productApi from '../api/productApi'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
 import Navbar from '../components/Navbar.vue'
+import Footer from '../components/Footer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -189,16 +157,12 @@ const sortByChange = (value) => {
 const fetchCategoryInfo = async () => {
   try {
     if (categoryId.value > 0) {
-      // 模拟数据
-      const mockCategories = [
-        { id: 1, name: '手机数码', description: '各种品牌手机、电脑、数码产品' },
-        { id: 2, name: '家用电器', description: '冰箱、洗衣机、空调等家用电器' },
-        { id: 3, name: '服装鞋帽', description: '时尚服装、鞋帽配饰' },
-        { id: 4, name: '美妆护肤', description: '各种品牌化妆品、护肤品' }
-      ]
-      const currentCategory = mockCategories.find(cat => cat.id === categoryId.value)
+      // 从所有分类中查找当前分类
+      const currentCategory = allCategories.value.find(cat => cat.id === categoryId.value)
       if (currentCategory) {
-        Object.assign(category, currentCategory)
+        // 如果是子分类，使用子分类名称
+        category.name = currentCategory.name
+        category.description = ''
       } else {
         category.name = '商品列表'
         category.description = ''
@@ -247,8 +211,9 @@ const fetchCategories = async () => {
 // 获取商品列表
 const fetchProducts = async () => {
   try {
-    // 模拟数据
+    // 模拟数据 - 增加更多数据用于测试分页
     const mockProducts = [
+      // 智能手机分类（categoryId: 11）
       { id: 1, name: 'iPhone 15 Pro', price: '8999', originalPrice: '9999', discount: 9, sales: 1234, stock: 500, mainImage: 'https://picsum.photos/300/300?random=11', categoryId: 11 },
       { id: 2, name: '华为 Mate 60 Pro', price: '6999', originalPrice: '7999', discount: 8.7, sales: 2345, stock: 300, mainImage: 'https://picsum.photos/300/300?random=12', categoryId: 11 },
       { id: 3, name: '小米 14 Ultra', price: '5999', originalPrice: '6499', discount: 9.2, sales: 3456, stock: 400, mainImage: 'https://picsum.photos/300/300?random=13', categoryId: 11 },
@@ -257,8 +222,42 @@ const fetchProducts = async () => {
       { id: 6, name: 'vivo X100 Pro', price: '5299', originalPrice: '5799', discount: 9.1, sales: 1432, stock: 420, mainImage: 'https://picsum.photos/300/300?random=16', categoryId: 11 },
       { id: 7, name: '荣耀 Magic6 Pro', price: '5699', originalPrice: '6199', discount: 9.2, sales: 1789, stock: 280, mainImage: 'https://picsum.photos/300/300?random=17', categoryId: 11 },
       { id: 8, name: '一加 12', price: '4999', originalPrice: '5499', discount: 9.1, sales: 1345, stock: 360, mainImage: 'https://picsum.photos/300/300?random=18', categoryId: 11 },
+      { id: 17, name: '魅族 21 Pro', price: '4599', originalPrice: '4999', discount: 9.2, sales: 987, stock: 200, mainImage: 'https://picsum.photos/300/300?random=27', categoryId: 11 },
+      { id: 18, name: '努比亚 Z60 Ultra', price: '4699', originalPrice: '5199', discount: 9.0, sales: 876, stock: 180, mainImage: 'https://picsum.photos/300/300?random=28', categoryId: 11 },
+      { id: 19, name: '坚果 R2', price: '3999', originalPrice: '4499', discount: 8.9, sales: 765, stock: 150, mainImage: 'https://picsum.photos/300/300?random=29', categoryId: 11 },
+      { id: 20, name: '摩托罗拉 edge 50 Pro', price: '3599', originalPrice: '3999', discount: 9.0, sales: 654, stock: 120, mainImage: 'https://picsum.photos/300/300?random=30', categoryId: 11 },
+      
+      // 笔记本电脑分类（categoryId: 12）
       { id: 9, name: '联想 ThinkPad X1 Carbon', price: '12999', originalPrice: '13999', discount: 9.3, sales: 897, stock: 150, mainImage: 'https://picsum.photos/300/300?random=19', categoryId: 12 },
-      { id: 10, name: '戴尔 XPS 13', price: '9999', originalPrice: '10999', discount: 9.1, sales: 1123, stock: 220, mainImage: 'https://picsum.photos/300/300?random=20', categoryId: 12 }
+      { id: 10, name: '戴尔 XPS 13', price: '9999', originalPrice: '10999', discount: 9.1, sales: 1123, stock: 220, mainImage: 'https://picsum.photos/300/300?random=20', categoryId: 12 },
+      { id: 11, name: 'MacBook Pro 14', price: '15999', originalPrice: '16999', discount: 9.4, sales: 789, stock: 180, mainImage: 'https://picsum.photos/300/300?random=21', categoryId: 12 },
+      { id: 12, name: '惠普 Spectre x360', price: '11999', originalPrice: '12999', discount: 9.2, sales: 654, stock: 120, mainImage: 'https://picsum.photos/300/300?random=22', categoryId: 12 },
+      { id: 21, name: '华硕 ROG Zephyrus G14', price: '8999', originalPrice: '9999', discount: 9.0, sales: 1098, stock: 190, mainImage: 'https://picsum.photos/300/300?random=31', categoryId: 12 },
+      { id: 22, name: '微星 Stealth 15', price: '10999', originalPrice: '11999', discount: 9.1, sales: 876, stock: 130, mainImage: 'https://picsum.photos/300/300?random=32', categoryId: 12 },
+      { id: 23, name: '雷蛇灵刃 14', price: '13999', originalPrice: '14999', discount: 9.3, sales: 765, stock: 100, mainImage: 'https://picsum.photos/300/300?random=33', categoryId: 12 },
+      { id: 24, name: '华为 MateBook X Pro', price: '9999', originalPrice: '10999', discount: 9.1, sales: 1234, stock: 210, mainImage: 'https://picsum.photos/300/300?random=34', categoryId: 12 },
+      
+      // 平板电脑分类（categoryId: 13）
+      { id: 13, name: 'iPad Pro 12.9', price: '8999', originalPrice: '9999', discount: 9.0, sales: 3456, stock: 400, mainImage: 'https://picsum.photos/300/300?random=23', categoryId: 13 },
+      { id: 14, name: '华为 MatePad Pro 13.2', price: '6999', originalPrice: '7999', discount: 8.7, sales: 2345, stock: 300, mainImage: 'https://picsum.photos/300/300?random=24', categoryId: 13 },
+      { id: 15, name: '小米平板 7 Pro', price: '3999', originalPrice: '4499', discount: 8.9, sales: 4567, stock: 500, mainImage: 'https://picsum.photos/300/300?random=25', categoryId: 13 },
+      { id: 16, name: '三星 Galaxy Tab S9 Ultra', price: '8499', originalPrice: '9499', discount: 8.9, sales: 1876, stock: 250, mainImage: 'https://picsum.photos/300/300?random=26', categoryId: 13 },
+      { id: 25, name: '联想小新 Pad Pro', price: '2999', originalPrice: '3499', discount: 8.6, sales: 5678, stock: 600, mainImage: 'https://picsum.photos/300/300?random=35', categoryId: 13 },
+      { id: 26, name: '荣耀平板 V9 Pro', price: '3299', originalPrice: '3799', discount: 8.7, sales: 4321, stock: 450, mainImage: 'https://picsum.photos/300/300?random=36', categoryId: 13 },
+      { id: 27, name: 'OPPO Pad 2', price: '2799', originalPrice: '3299', discount: 8.5, sales: 3890, stock: 550, mainImage: 'https://picsum.photos/300/300?random=37', categoryId: 13 },
+      { id: 28, name: 'vivo Pad Air', price: '2599', originalPrice: '2999', discount: 8.6, sales: 3456, stock: 500, mainImage: 'https://picsum.photos/300/300?random=38', categoryId: 13 },
+      
+      // 冰箱分类（categoryId: 21）
+      { id: 29, name: '海尔 冰箱 BCD-500WGHTD78B1U1', price: '5999', originalPrice: '6999', discount: 8.6, sales: 2109, stock: 150, mainImage: 'https://picsum.photos/300/300?random=39', categoryId: 21 },
+      { id: 30, name: '美的 冰箱 BCD-542WKPZM(E)', price: '4999', originalPrice: '5999', discount: 8.3, sales: 1890, stock: 130, mainImage: 'https://picsum.photos/300/300?random=40', categoryId: 21 },
+      { id: 31, name: '西门子 冰箱 KA92NV09TI', price: '7999', originalPrice: '8999', discount: 8.9, sales: 1567, stock: 100, mainImage: 'https://picsum.photos/300/300?random=41', categoryId: 21 },
+      { id: 32, name: '容声 冰箱 BCD-536WD18HP', price: '4599', originalPrice: '5299', discount: 8.7, sales: 1345, stock: 120, mainImage: 'https://picsum.photos/300/300?random=42', categoryId: 21 },
+      
+      // 洗衣机分类（categoryId: 22）
+      { id: 33, name: '海尔 洗衣机 EG100HMAX2S', price: '3999', originalPrice: '4599', discount: 8.7, sales: 2890, stock: 180, mainImage: 'https://picsum.photos/300/300?random=43', categoryId: 22 },
+      { id: 34, name: '美的 洗衣机 MD100VT717WDY5', price: '3499', originalPrice: '3999', discount: 8.7, sales: 2567, stock: 160, mainImage: 'https://picsum.photos/300/300?random=44', categoryId: 22 },
+      { id: 35, name: '小天鹅 洗衣机 TG100VT096WDG-Y1T', price: '2999', originalPrice: '3599', discount: 8.3, sales: 3210, stock: 200, mainImage: 'https://picsum.photos/300/300?random=45', categoryId: 22 },
+      { id: 36, name: '西门子 洗衣机 WM12P2689W', price: '5999', originalPrice: '6999', discount: 8.6, sales: 1789, stock: 110, mainImage: 'https://picsum.photos/300/300?random=46', categoryId: 22 }
     ]
     
     let filteredProducts = mockProducts
@@ -271,8 +270,46 @@ const fetchProducts = async () => {
       })
     }
     
-    products.value = filteredProducts
-    total.value = filteredProducts.length
+    // 根据排序方式对商品进行排序
+    let sortedProducts = [...filteredProducts]
+    switch (sortBy.value) {
+      case 'price-asc':
+        // 价格从低到高排序
+        sortedProducts.sort((a, b) => parseFloat(a.price) - parseFloat(b.price))
+        break
+      case 'price-desc':
+        // 价格从高到低排序
+        sortedProducts.sort((a, b) => parseFloat(b.price) - parseFloat(a.price))
+        break
+      case 'sales':
+        // 销量最高排序
+        sortedProducts.sort((a, b) => b.sales - a.sales)
+        break
+      case 'default':
+      default:
+        // 默认排序，按商品ID排序
+        sortedProducts.sort((a, b) => a.id - b.id)
+        break
+    }
+    
+    // 实现分页逻辑
+    const startIndex = (currentPage.value - 1) * pageSize.value
+    const endIndex = startIndex + pageSize.value
+    products.value = sortedProducts.slice(startIndex, endIndex)
+    total.value = sortedProducts.length
+    
+    // 数据加载完成后，使用nextTick确保DOM更新，然后滚动到页面顶部
+    nextTick(() => {
+      // 兼容各种浏览器的滚动到顶部方法
+      if (window.scrollTo) {
+        // 现代浏览器支持的平滑滚动
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      } else {
+        // 兼容旧版浏览器
+        document.documentElement.scrollTop = 0
+        document.body.scrollTop = 0
+      }
+    })
   } catch (error) {
     console.error('获取商品列表失败:', error)
     ElMessage.error('获取商品列表失败')
@@ -310,15 +347,15 @@ const activeMenuId = computed(() => {
 
 // 处理菜单选择
 const handleMenuSelect = (index) => {
-  // 当选择父菜单时，不跳转
-  const parentId = parseInt(index)
-  if (parentId > 0) {
+  const categoryId = parseInt(index)
+  if (categoryId > 0) {
     // 检查是否是父分类
-    const isParent = allCategories.value.some(cat => cat.parentId === parentId)
-    if (isParent) {
-      // 是父分类，不跳转，只展开
-      return
+    const isParent = allCategories.value.some(cat => cat.parentId === categoryId)
+    if (!isParent) {
+      // 不是父分类，是子分类，跳转到对应的分类页面
+      router.push(`/category/${categoryId}`)
     }
+    // 如果是父分类，不跳转，只展开
   }
 }
 
@@ -346,6 +383,19 @@ const fetchData = async () => {
     fetchCategoryInfo(),
     fetchProducts()
   ])
+  
+  // 数据加载完成后，使用nextTick确保DOM更新，然后滚动到页面顶部
+  nextTick(() => {
+    // 兼容各种浏览器的滚动到顶部方法
+    if (window.scrollTo) {
+      // 现代浏览器支持的平滑滚动
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      // 兼容旧版浏览器
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+    }
+  })
 }
 </script>
 

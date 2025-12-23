@@ -70,9 +70,12 @@ const router = createRouter({
 const pinia = createPinia()
 
 // 注册插件
+import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 app.use(router)
 app.use(pinia)
-app.use(ElementPlus)
+app.use(ElementPlus, {
+  locale: zhCn
+})
 
 // 初始化用户信息
 import { useUserStore } from './stores/userStore'

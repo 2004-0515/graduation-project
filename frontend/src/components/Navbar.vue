@@ -10,7 +10,7 @@
             <a href="#" @click.prevent="navigateTo('/')" :class="{ active: $route.path === '/' }">首页</a>
           </li>
           <li>
-            <a href="#" @click.prevent="navigateTo('/category/1')" :class="{ active: $route.path.startsWith('/category') }">商品分类</a>
+            <a href="#" @click.prevent="navigateTo('/category/0')" :class="{ active: $route.path.startsWith('/category') }">商品分类</a>
           </li>
           <li>
             <a href="#" @click.prevent="navigateTo('/hot-products')" :class="{ active: $route.path === '/hot-products' }">热销商品</a>

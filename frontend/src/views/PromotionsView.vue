@@ -98,47 +98,14 @@
             v-model:current-page="currentPage"
             @size-change="handleSizeChange"
             @current-change="handleCurrentChange"
+            total-text="共 {total} 个活动"
           ></el-pagination>
         </div>
       </div>
     </main>
 
     <!-- 页脚 -->
-    <footer class="footer">
-      <div class="container">
-        <div class="footer-content">
-          <div class="footer-section">
-            <h3>关于我们</h3>
-            <p>我们是一家专业的在线购物商城，提供优质的商品和服务。</p>
-          </div>
-          <div class="footer-section">
-            <h3>客户服务</h3>
-            <ul>
-              <li><a href="#" @click="$router.push('/')">联系我们</a></li>
-              <li><a href="#" @click="$router.push('/')">售后服务</a></li>
-              <li><a href="#" @click="$router.push('/')">常见问题</a></li>
-            </ul>
-          </div>
-          <div class="footer-section">
-            <h3>支付方式</h3>
-            <ul>
-              <li>微信支付</li>
-              <li>支付宝</li>
-              <li>银行卡支付</li>
-            </ul>
-          </div>
-          <div class="footer-section">
-            <h3>关注我们</h3>
-            <div class="social-icons">
-              <el-icon class="icon-social"><ShoppingCart /></el-icon>
-            </div>
-          </div>
-        </div>
-        <div class="footer-bottom">
-          <p>© 2025 购物商城. All rights reserved.</p>
-        </div>
-      </div>
-    </footer>
+    <Footer />
   </div>
 </template>
 
@@ -150,6 +117,7 @@ import { ShoppingCart, Bell, Timer } from '@element-plus/icons-vue'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
 import Navbar from '../components/Navbar.vue'
+import Footer from '../components/Footer.vue'
 
 const router = useRouter()
 
