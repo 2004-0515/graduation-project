@@ -27,11 +27,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        // 获取请求路径
-        String requestPath = request.getRequestURI();
-        
-        // 跳过对分类和商品API的认证检查
-        if (requestPath.contains("/categories") || requestPath.contains("/products")) {
+        // 跳过OPTIONS请求，这些是CORS预检请求，不应该携带认证信息
+        if (request.getMethod().equals("OPTIONS")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -53,18 +50,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 如果用户名存在且当前上下文没有认证信息
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            // 加载用户详情
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-            // 验证令牌
-            if (jwtUtil.validateToken(jwt)) {
-                // 创建认证令牌
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities()
-                );
-                // 设置认证详情
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                // 将认证信息设置到上下文
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+            try {
+                // 先验证令牌
+                if (jwtUtil.validateToken(jwt)) {
+                    // 再加载用户详情
+                    UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+                    // 创建认证令牌
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities()
+                    );
+                    // 设置认证详情
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    // 将认证信息设置到上下文
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            } catch (Exception e) {
+                // 处理异常，不设置认证信息
+                System.err.println("JWT认证失败: " + e.getMessage());
             }
         }
         // 继续过滤链

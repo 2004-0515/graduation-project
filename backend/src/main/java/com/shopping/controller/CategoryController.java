@@ -39,7 +39,7 @@ public class CategoryController {
         if (category != null) {
             return Response.success(category);
         } else {
-            return Response.fail(404, "Category not found");
+            return Response.fail(404, "分类不存在");
         }
     }
     
@@ -62,7 +62,7 @@ public class CategoryController {
     @PostMapping
     public Response<Category> createCategory(@RequestBody Category category) {
         Category createdCategory = categoryService.saveCategory(category);
-        return Response.success("Category created successfully", createdCategory);
+        return Response.success("分类创建成功", createdCategory);
     }
     
     /**
@@ -75,7 +75,7 @@ public class CategoryController {
     public Response<Category> updateCategory(@PathVariable Long id, @RequestBody Category category) {
         category.setId(id);
         Category updatedCategory = categoryService.saveCategory(category);
-        return Response.success("Category updated successfully", updatedCategory);
+        return Response.success("分类更新成功", updatedCategory);
     }
     
     /**
@@ -86,6 +86,6 @@ public class CategoryController {
     @DeleteMapping("/{id}")
     public Response<Void> deleteCategory(@PathVariable Long id) {
         categoryService.deleteCategory(id);
-        return Response.success("Category deleted successfully");
+        return Response.success("分类删除成功");
     }
 }

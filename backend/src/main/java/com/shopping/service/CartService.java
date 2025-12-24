@@ -1,9 +1,11 @@
 package com.shopping.service;
 
 import com.shopping.entity.Cart;
+import com.shopping.entity.Product;
 import com.shopping.repository.CartRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -66,15 +68,33 @@ public class CartService {
      * 更新购物车项数量
      * @param cartId 购物车项ID
      * @param quantity 新的数量
-     * @return 更新后的购物车项
+     * @return 更新后的购物车项，如果数量为0则返回null（表示已删除）
      */
+    @Transactional
     public Cart updateCartQuantity(Long cartId, Integer quantity) {
-        Cart cart = cartRepository.findById(cartId).orElse(null);
-        if (cart != null) {
-            cart.setQuantity(quantity);
-            return cartRepository.save(cart);
+        // 查找购物车项，使用JOIN FETCH加载Product，避免懒加载问题
+        Cart cart = cartRepository.findByIdWithProduct(cartId).orElse(null);
+        if (cart == null) {
+            return null;
         }
-        return null;
+        
+        // 验证数量范围
+        if (quantity <= 0) {
+            // 如果数量为0或负数，删除该购物车项
+            cartRepository.deleteById(cartId);
+            return null;
+        }
+        
+        // 检查是否超过商品库存
+        Product product = cart.getProduct();
+        if (product != null && quantity > product.getStock()) {
+            // 数量超过库存，返回null表示操作失败
+            return null;
+        }
+        
+        // 更新数量并保存
+        cart.setQuantity(quantity);
+        return cartRepository.save(cart);
     }
     
     /**

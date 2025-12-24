@@ -139,22 +139,26 @@ const refreshCaptcha = () => {
 const registerRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
+    { min: 3, max: 20, message: '用户名长度必须在 3 到 20 个字符之间', trigger: 'blur' }
   ],
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' }
+    {
+      pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|cn|net|org|edu|gov|mil|biz|info|io|us)$/i,
+      message: '请输入有效的邮箱地址（支持 .com、.cn、.net、.org、.edu、.gov、.mil、.biz、.info、.io、.us）',
+      trigger: 'blur'
+    }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度在 6 到 20 个字符', trigger: 'blur' }
+    { min: 6, max: 20, message: '密码长度必须在 6 到 20 个字符之间', trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请再次输入密码', trigger: 'blur' },
     {
       validator: (rule, value, callback) => {
         if (value !== registerForm.password) {
-          callback(new Error('两次输入密码不一致'))
+          callback(new Error('两次输入的密码不一致，请重新输入'))
         } else {
           callback()
         }
@@ -169,7 +173,7 @@ const registerRules = {
         if (!value) {
           callback(new Error('请输入验证码'))
         } else if (value.toLowerCase() !== captchaData.value.code.toLowerCase()) {
-          callback(new Error('验证码错误'))
+          callback(new Error('验证码输入错误，请重新输入'))
         } else {
           callback()
         }
@@ -200,7 +204,7 @@ const handleRegister = async () => {
     router.push('/login')
   } catch (error) {
     console.error('注册失败:', error)
-    ElMessage.error(userStore.error || '注册失败，请检查输入信息')
+    ElMessage.error(userStore.error || '注册失败，请检查输入信息是否符合要求')
   }
 }
 </script>

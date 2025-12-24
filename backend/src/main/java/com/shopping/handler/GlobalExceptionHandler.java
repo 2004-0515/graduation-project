@@ -1,7 +1,7 @@
 package com.shopping.handler;
 
+import com.shopping.dto.Response;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
@@ -22,31 +22,23 @@ public class GlobalExceptionHandler {
      * 处理认证异常
      */
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<Map<String, Object>> handleAuthenticationException(AuthenticationException e) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("message", "Authentication failed: " + e.getMessage());
-        response.put("code", HttpStatus.UNAUTHORIZED.value());
-        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+    public Response<?> handleAuthenticationException(AuthenticationException e) {
+        return Response.fail(HttpStatus.UNAUTHORIZED.value(), "认证失败: " + e.getMessage());
     }
 
     /**
      * 处理密码错误异常
      */
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<Map<String, Object>> handleBadCredentialsException(BadCredentialsException e) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("message", "Invalid username or password");
-        response.put("code", HttpStatus.UNAUTHORIZED.value());
-        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+    public Response<?> handleBadCredentialsException(BadCredentialsException e) {
+        return Response.fail(HttpStatus.UNAUTHORIZED.value(), "用户名或密码错误");
     }
 
     /**
      * 处理请求参数验证异常
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException e) {
+    public Response<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException e) {
         Map<String, String> errors = new HashMap<>();
         e.getBindingResult().getAllErrors().forEach((error) -> {
             String fieldName = ((FieldError) error).getField();
@@ -54,35 +46,22 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("message", "Validation failed");
-        response.put("code", HttpStatus.BAD_REQUEST.value());
-        response.put("errors", errors);
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        return Response.fail(HttpStatus.BAD_REQUEST.value(), "请求参数验证失败", errors);
     }
 
     /**
      * 处理通用运行时异常
      */
     @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException e) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("message", e.getMessage());
-        response.put("code", HttpStatus.INTERNAL_SERVER_ERROR.value());
-        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    public Response<?> handleRuntimeException(RuntimeException e) {
+        return Response.fail(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
     }
 
     /**
      * 处理所有其他异常
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleException(Exception e) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("message", "Internal server error: " + e.getMessage());
-        response.put("code", HttpStatus.INTERNAL_SERVER_ERROR.value());
-        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    public Response<?> handleException(Exception e) {
+        return Response.fail(HttpStatus.INTERNAL_SERVER_ERROR.value(), "服务器内部错误: " + e.getMessage());
     }
 }

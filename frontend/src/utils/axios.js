@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // 创建axios实例
 const instance = axios.create({
-  baseURL: 'http://localhost:8083/api',
+  baseURL: 'http://localhost:8080/api',
   timeout: 5000,
   headers: {
     'Content-Type': 'application/json'
@@ -27,26 +27,28 @@ instance.interceptors.request.use(
 // 响应拦截器
 instance.interceptors.response.use(
   response => {
-    // 如果响应数据已经是后端返回的标准格式，则直接返回
-    if (response.data && typeof response.data === 'object') {
-      return response.data
-    }
-    // 否则，包装成标准格式返回
-    return {
-      code: 200,
-      message: 'success',
-      data: response.data
-    }
+    // 直接返回完整的响应，包括状态码和数据
+    return response.data
   },
   error => {
     // 处理错误响应
     const { response } = error
-    let errorMessage = '请求失败，请稍后重试'
-    let errorCode = 500
     
+    // 如果服务器返回了响应
     if (response) {
-      // 服务器返回错误状态码
-      errorCode = response.status
+      // 使用服务器返回的错误信息
+      if (response.data && typeof response.data === 'object') {
+        return Promise.reject({
+          ...response.data,
+          success: false
+        })
+      }
+      
+      // 否则，包装成标准格式返回
+      let errorMessage = '请求失败，请稍后重试'
+      let errorCode = response.status
+      
+      // 根据状态码设置错误信息
       switch (response.status) {
         case 401:
           errorMessage = '未授权，请重新登录'
@@ -66,17 +68,20 @@ instance.interceptors.response.use(
         default:
           errorMessage = `请求错误: ${response.status}`
       }
+      
+      return Promise.reject({
+        code: errorCode,
+        message: errorMessage,
+        success: false
+      })
     } else {
       // 网络错误或其他错误
-      errorMessage = '网络错误，请检查网络连接'
-      errorCode = 0
+      return Promise.reject({
+        code: 0,
+        message: '网络错误，请检查网络连接',
+        success: false
+      })
     }
-    
-    // 包装错误响应为标准格式
-    return Promise.reject({
-      code: errorCode,
-      message: errorMessage
-    })
   }
 )
 

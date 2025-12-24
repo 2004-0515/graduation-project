@@ -1,12 +1,21 @@
 import { defineStore } from 'pinia'
 import authApi from '../api/authApi'
+import addressApi from '../api/addressApi'
 
 /**
  * 用户状态管理
  */
 export const useUserStore = defineStore('user', {
   state: () => ({
-    userInfo: JSON.parse(localStorage.getItem('userInfo')) || null,
+    userInfo: (() => {
+      try {
+        const userInfoStr = localStorage.getItem('userInfo')
+        return userInfoStr && userInfoStr !== 'undefined' ? JSON.parse(userInfoStr) : null
+      } catch (error) {
+        console.error('解析用户信息失败:', error)
+        return null
+      }
+    })(),
     token: localStorage.getItem('token') || null,
     loading: false,
     error: null
@@ -48,14 +57,22 @@ export const useUserStore = defineStore('user', {
       
       try {
         const response = await authApi.login(credentials)
-        this.token = response.data.token
-        this.userInfo = response.data.user
-        
-        // 保存token和用户信息到本地存储
-        localStorage.setItem('token', this.token)
-        localStorage.setItem('userInfo', JSON.stringify(this.userInfo))
-        
-        return response
+        // 检查登录是否成功
+        if (response.success && response.data) {
+          this.token = response.data.token
+          this.userInfo = response.data.user
+          
+          // 保存token和用户信息到本地存储
+          localStorage.setItem('token', this.token)
+          localStorage.setItem('userInfo', JSON.stringify(this.userInfo))
+          
+          return response
+        } else {
+          // 登录失败，抛出错误
+          const errorMessage = response.message || '登录失败，请重试'
+          this.error = errorMessage
+          throw new Error(errorMessage)
+        }
       } catch (error) {
         this.error = error.message || '登录失败，请重试'
         throw error
@@ -75,9 +92,17 @@ export const useUserStore = defineStore('user', {
       
       try {
         const response = await authApi.register(userData)
-        return response
+        // 检查注册是否成功
+        if (response.success) {
+          return response
+        } else {
+          // 注册失败，抛出错误
+          const errorMessage = response.message || '注册失败，请重试'
+          this.error = errorMessage
+          throw new Error(errorMessage)
+        }
       } catch (error) {
-        this.error = error.response?.data?.message || '注册失败，请重试'
+        this.error = error.message || '注册失败，请重试'
         throw error
       } finally {
         this.loading = false
@@ -112,10 +137,22 @@ export const useUserStore = defineStore('user', {
       
       try {
         const response = await authApi.getCurrentUser()
-        this.userInfo = response.data
-        // 保存用户信息到本地存储
-        localStorage.setItem('userInfo', JSON.stringify(this.userInfo))
-        return response
+        // 检查获取用户信息是否成功
+        if (response.success && response.data) {
+          this.userInfo = response.data
+          // 保存用户信息到本地存储
+          localStorage.setItem('userInfo', JSON.stringify(this.userInfo))
+          return response
+        } else {
+          // 获取失败，清除token和用户信息
+          const errorMessage = response.message || '获取用户信息失败'
+          this.error = errorMessage
+          this.token = null
+          this.userInfo = null
+          localStorage.removeItem('token')
+          localStorage.removeItem('userInfo')
+          throw new Error(errorMessage)
+        }
       } catch (error) {
         this.error = error.message || '获取用户信息失败'
         // 如果获取失败，清除token和用户信息
@@ -134,6 +171,34 @@ export const useUserStore = defineStore('user', {
      */
     clearError() {
       this.error = null
+    },
+    
+    /**
+     * 获取用户收货地址列表
+     */
+    async fetchAddresses() {
+      this.loading = true
+      this.error = null
+      
+      try {
+        const response = await addressApi.getUserAddresses()
+        // 检查获取收货地址是否成功
+        if (response.success) {
+          return response
+        } else {
+          // 获取失败
+          const errorMessage = response.message || '获取收货地址失败'
+          this.error = errorMessage
+          console.error('获取收货地址失败:', errorMessage)
+          throw new Error(errorMessage)
+        }
+      } catch (error) {
+        this.error = error.message || '获取收货地址失败'
+        console.error('获取收货地址失败:', error)
+        throw error
+      } finally {
+        this.loading = false
+      }
     }
   }
 })

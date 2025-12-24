@@ -13,6 +13,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
@@ -34,15 +37,36 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .cors() // 使用CorsConfig中定义的CORS配置
-            .and()
-            .csrf().disable() // 前后端分离，禁用CSRF
-            .sessionManagement()
-            .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // 无状态会话
-            .and()
-            .authorizeHttpRequests()
-            .anyRequest().permitAll(); // 允许所有请求匿名访问
+            .cors(cors -> cors.configurationSource(corsConfigurationSource())) // 启用CORS，使用自定义配置
+            .csrf(csrf -> csrf.disable()) // 前后端分离，禁用CSRF
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // 无状态会话
+            )
+            .authorizeHttpRequests(authorize -> authorize
+                // 允许匿名访问的API - 使用相对路径，因为context-path已经在application.properties中配置
+                .requestMatchers("/auth/**", "/categories/**", "/products/**").permitAll()
+                // 地址相关API需要认证访问
+                .requestMatchers("/addresses/**").authenticated()
+                // 购物车相关API需要认证访问
+                .requestMatchers("/cart/**").authenticated()
+                // 其他API需要认证访问
+                .anyRequest().authenticated()
+            )
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+    
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.addAllowedOriginPattern("*");
+        configuration.addAllowedMethod("*");
+        configuration.addAllowedHeader("*");
+        configuration.setAllowCredentials(true);
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }

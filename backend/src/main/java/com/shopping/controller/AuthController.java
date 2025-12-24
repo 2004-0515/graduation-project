@@ -5,6 +5,7 @@ import com.shopping.entity.User;
 import com.shopping.repository.UserRepository;
 import com.shopping.service.AuthService;
 import com.shopping.utils.CaptchaUtil;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -37,7 +38,7 @@ public class AuthController {
     @GetMapping("/captcha")
     public Response<Map<String, String>> generateCaptcha() {
         Map<String, String> captcha = CaptchaUtil.generateCaptcha();
-        return Response.success("Captcha generated successfully", captcha);
+        return Response.success("验证码生成成功", captcha);
     }
 
     /**
@@ -46,9 +47,9 @@ public class AuthController {
      * @return 注册结果
      */
     @PostMapping("/register")
-    public Response<User> register(@RequestBody User user) {
+    public Response<User> register(@RequestBody @Valid User user) {
         User registeredUser = authService.register(user);
-        return Response.success("User registered successfully", registeredUser);
+        return Response.success("用户注册成功", registeredUser);
     }
 
     /**
@@ -67,7 +68,7 @@ public class AuthController {
         Map<String, Object> responseData = new HashMap<>();
         responseData.put("token", token);
         responseData.put("user", user);
-        return Response.success("Login successful", responseData);
+        return Response.success("登录成功", responseData);
     }
 
     /**
@@ -80,7 +81,7 @@ public class AuthController {
         String captchaCode = request.get("captchaCode");
         String correctCode = request.get("correctCode");
         boolean isValid = CaptchaUtil.validateCaptcha(captchaCode, correctCode);
-        return Response.success("Captcha validated successfully", isValid);
+        return Response.success("验证码验证成功", isValid);
     }
     
     /**
@@ -91,15 +92,15 @@ public class AuthController {
     public Response<User> getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            return Response.fail(401, "User not authenticated");
+            return Response.fail(401, "用户未认证");
         }
         // 获取用户名
         String username = authentication.getName();
         // 根据用户名获取用户信息
         User user = userRepository.findByUsername(username);
         if (user == null) {
-            return Response.fail(404, "User not found");
+            return Response.fail(404, "用户不存在");
         }
-        return Response.success("Current user fetched successfully", user);
+        return Response.success("获取当前用户成功", user);
     }
 }

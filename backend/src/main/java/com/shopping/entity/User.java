@@ -2,6 +2,8 @@ package com.shopping.entity;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -28,6 +30,9 @@ public class User {
     private String password;
     
     @Column(name = "email", nullable = false, unique = true, length = 100)
+    @NotBlank(message = "邮箱不能为空")
+    @Email(regexp = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.(com|cn|net|org|edu|gov|mil|biz|info|io|us)$", 
+           message = "邮箱格式无效，支持的顶级域名：.com、.cn、.net、.org、.edu、.gov、.mil、.biz、.info、.io、.us")
     private String email;
     
     @Column(name = "phone", length = 20)

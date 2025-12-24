@@ -76,7 +76,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { ShoppingCart, Bell, ArrowDown, Delete } from '@element-plus/icons-vue'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
@@ -146,7 +146,13 @@ const removeFromCart = async (cartItemId) => {
 
 // 清空购物车
 const clearCart = () => {
-  ElMessage.confirm('确定要清空购物车吗？', '提示', {
+  if (!userId.value) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  
+  ElMessageBox.confirm('确定要清空购物车吗？', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'

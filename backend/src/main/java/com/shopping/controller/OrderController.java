@@ -40,7 +40,7 @@ public class OrderController {
         if (order != null) {
             return Response.success(order);
         } else {
-            return Response.fail(404, "Order not found");
+            return Response.fail(404, "订单不存在");
         }
     }
     
@@ -55,7 +55,7 @@ public class OrderController {
         if (order != null) {
             return Response.success(order);
         } else {
-            return Response.fail(404, "Order not found");
+            return Response.fail(404, "订单不存在");
         }
     }
     
@@ -67,7 +67,7 @@ public class OrderController {
     @PostMapping
     public Response<Order> createOrder(@RequestBody Order order) {
         Order createdOrder = orderService.createOrder(order);
-        return Response.success("Order created successfully", createdOrder);
+        return Response.success("订单创建成功", createdOrder);
     }
     
     /**
@@ -82,9 +82,9 @@ public class OrderController {
             @RequestParam Integer status) {
         Order order = orderService.updateOrderStatus(id, status);
         if (order != null) {
-            return Response.success("Order status updated successfully", order);
+            return Response.success("订单状态更新成功", order);
         } else {
-            return Response.fail(404, "Order not found");
+            return Response.fail(404, "订单不存在");
         }
     }
     
@@ -96,6 +96,6 @@ public class OrderController {
     @DeleteMapping("/{id}")
     public Response<Void> deleteOrder(@PathVariable Long id) {
         orderService.deleteOrder(id);
-        return Response.success("Order deleted successfully");
+        return Response.success("订单删除成功");
     }
 }

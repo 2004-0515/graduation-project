@@ -87,6 +87,12 @@ const router = createRouter({
       name: 'notifications',
       component: () => import('./views/NotificationsView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/checkout',
+      name: 'checkout',
+      component: () => import('./views/CheckoutView.vue'),
+      meta: { requiresAuth: true }
     }
   ],
   // 配置滚动行为，确保页面跳转后滚动到顶部

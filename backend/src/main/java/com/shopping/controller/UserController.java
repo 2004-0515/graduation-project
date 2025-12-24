@@ -44,7 +44,7 @@ public class UserController {
         if (user != null) {
             return Response.success(user);
         } else {
-            return Response.fail(404, "User not found");
+            return Response.fail(404, "用户不存在");
         }
     }
     
@@ -59,7 +59,7 @@ public class UserController {
         if (user != null) {
             return Response.success(user);
         } else {
-            return Response.fail(404, "User not found");
+            return Response.fail(404, "用户不存在");
         }
     }
     
@@ -71,7 +71,7 @@ public class UserController {
     @PostMapping
     public Response<User> createUser(@RequestBody User user) {
         User createdUser = userService.saveUser(user);
-        return Response.success("User created successfully", createdUser);
+        return Response.success("用户创建成功", createdUser);
     }
     
     /**
@@ -84,6 +84,6 @@ public class UserController {
     public Response<User> updateUser(@PathVariable Long id, @RequestBody User user) {
         user.setId(id);
         User updatedUser = userService.saveUser(user);
-        return Response.success("User updated successfully", updatedUser);
+        return Response.success("用户更新成功", updatedUser);
     }
 }

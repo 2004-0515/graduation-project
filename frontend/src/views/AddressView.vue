@@ -121,7 +121,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Plus, Edit, Delete, Star } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import addressApi from '../api/addressApi'
 
 // 地址数据
 const addresses = ref([])
@@ -205,33 +206,75 @@ const saveAddress = async () => {
   
   try {
     await addressFormRef.value.validate()
-    // 实际项目中这里应该调用API保存地址
+    
+    // 转换字段名：前端area -> 后端district
+    const addressData = {
+      ...formData.value,
+      district: formData.value.area, // 字段名映射
+      area: undefined, // 删除不需要的字段
+      status: 1 // 添加默认状态
+    }
+    
     if (formData.value.id) {
       // 更新地址
-      const index = addresses.value.findIndex(item => item.id === formData.value.id)
-      if (index !== -1) {
-        addresses.value[index] = { ...formData.value }
+      const response = await addressApi.updateAddress(addressData.id, addressData)
+      if (response.success) {
+        await fetchAddresses() // 重新获取地址列表
+        ElMessage.success('地址更新成功')
+      } else {
+        ElMessage.error(response.message || '地址更新失败')
       }
-      ElMessage.success('地址更新成功')
     } else {
       // 新增地址
-      const newAddress = {
-        ...formData.value,
-        id: Date.now(),
-        createdTime: new Date().toISOString()
+      console.log('提交的地址数据:', addressData)
+      const response = await addressApi.addAddress(addressData)
+      console.log('API响应:', response)
+      if (response.success) {
+        await fetchAddresses() // 重新获取地址列表
+        ElMessage.success('地址添加成功')
+      } else {
+        ElMessage.error(response.message || '地址添加失败')
       }
-      // 如果设为默认地址，先取消其他地址的默认状态
-      if (newAddress.isDefault) {
-        addresses.value.forEach(item => {
-          item.isDefault = false
-        })
-      }
-      addresses.value.push(newAddress)
-      ElMessage.success('地址添加成功')
     }
     dialogVisible.value = false
   } catch (error) {
-    console.error('表单验证失败:', error)
+    // 显示完整的错误信息，帮助调试
+    console.error('保存地址失败:', JSON.stringify(error, null, 2))
+    
+    // 处理详细的错误信息
+    let errorMessage = '保存地址失败，请稍后重试'
+    
+    // 检查错误对象结构
+    if (error.success === false) {
+      // 后端返回的标准错误格式
+      errorMessage = error.message || errorMessage
+      // 如果有详细错误信息，添加到提示中
+      if (error.data && error.data.errors) {
+        const detailedErrors = Object.values(error.data.errors).join('; ')
+        errorMessage += `: ${detailedErrors}`
+      }
+    } else if (error.response) {
+      // axios响应错误
+      console.error('错误响应:', JSON.stringify(error.response, null, 2))
+      if (error.response.data) {
+        // 服务器返回了具体错误
+        if (error.response.data.message) {
+          errorMessage = error.response.data.message
+        } else if (error.response.data.error) {
+          errorMessage = error.response.data.error
+        } else if (typeof error.response.data === 'string') {
+          errorMessage = error.response.data
+        }
+      } else {
+        // 服务器没有返回具体错误
+        errorMessage = `请求失败: ${error.response.status} ${error.response.statusText}`
+      }
+    } else if (error.message) {
+      // 其他类型的错误
+      errorMessage = error.message
+    }
+    
+    ElMessage.error(errorMessage)
   }
 }
 
@@ -241,29 +284,64 @@ const deleteAddress = (id) => {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
-    // 实际项目中这里应该调用API删除地址
-    addresses.value = addresses.value.filter(item => item.id !== id)
-    ElMessage.success('地址删除成功')
+  }).then(async () => {
+    try {
+      const response = await addressApi.deleteAddress(id)
+      if (response.success) {
+        await fetchAddresses() // 重新获取地址列表
+        ElMessage.success('地址删除成功')
+      } else {
+        ElMessage.error(response.message || '地址删除失败')
+      }
+    } catch (error) {
+      console.error('删除地址失败:', error)
+      ElMessage.error('删除地址失败，请稍后重试')
+    }
   }).catch(() => {
     ElMessage.info('已取消删除')
   })
 }
 
 // 设置默认地址
-const setDefaultAddress = (id) => {
-  // 实际项目中这里应该调用API设置默认地址
-  addresses.value.forEach(item => {
-    item.isDefault = item.id === id
-  })
-  ElMessage.success('默认地址设置成功')
+const setDefaultAddress = async (id) => {
+  try {
+    const response = await addressApi.setDefaultAddress(id)
+    if (response.success) {
+      await fetchAddresses() // 重新获取地址列表
+      ElMessage.success('默认地址设置成功')
+    } else {
+      ElMessage.error(response.message || '默认地址设置失败')
+    }
+  } catch (error) {
+    console.error('设置默认地址失败:', error)
+    ElMessage.error('设置默认地址失败，请稍后重试')
+  }
+}
+
+// 获取地址列表
+const fetchAddresses = async () => {
+  try {
+    const response = await addressApi.getUserAddresses()
+    if (response.success && Array.isArray(response.data)) {
+      // 转换字段名：后端district -> 前端area
+      addresses.value = response.data.map(address => ({
+        ...address,
+        area: address.district, // 字段名映射
+        district: undefined // 删除不需要的字段
+      }))
+    } else {
+      addresses.value = []
+    }
+  } catch (error) {
+    console.error('获取地址列表失败:', error)
+    ElMessage.error('获取地址列表失败，请稍后重试')
+    addresses.value = []
+  }
 }
 
 // 组件挂载时初始化地址数据
 onMounted(() => {
-  // 实际项目中这里应该调用API获取地址数据
-  // 这里使用模拟数据
-  addresses.value = []
+  fetchAddresses()
 })
 </script>
 

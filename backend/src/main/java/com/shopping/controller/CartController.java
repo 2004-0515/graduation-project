@@ -2,11 +2,13 @@ package com.shopping.controller;
 
 import com.shopping.dto.Response;
 import com.shopping.entity.Cart;
+import com.shopping.repository.CartRepository;
 import com.shopping.service.CartService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 购物车控制器，处理购物车相关API请求
@@ -17,6 +19,9 @@ public class CartController {
     
     @Autowired
     private CartService cartService;
+    
+    @Autowired
+    private CartRepository cartRepository;
     
     /**
      * 获取用户购物车列表
@@ -38,9 +43,9 @@ public class CartController {
     public Response<Cart> addToCart(@RequestBody CartRequest cartRequest) {
         Cart cart = cartService.addToCart(cartRequest.getUserId(), cartRequest.getProductId(), cartRequest.getQuantity());
         if (cart != null) {
-            return Response.success("Added to cart successfully", cart);
+            return Response.success("添加到购物车成功", cart);
         } else {
-            return Response.fail(400, "Failed to add to cart");
+            return Response.fail(400, "添加到购物车失败");
         }
     }
     
@@ -88,11 +93,34 @@ public class CartController {
     public Response<Cart> updateCartQuantity(
             @PathVariable Long id,
             @RequestBody UpdateCartRequest updateCartRequest) {
-        Cart cart = cartService.updateCartQuantity(id, updateCartRequest.getQuantity());
+        // 获取请求的数量
+        Integer quantity = updateCartRequest.getQuantity();
+        
+        // 调用服务层更新数量
+        Cart cart = cartService.updateCartQuantity(id, quantity);
+        
         if (cart != null) {
-            return Response.success("Cart updated successfully", cart);
+            return Response.success("购物车更新成功", cart);
         } else {
-            return Response.fail(404, "Cart item not found");
+            // 检查数量是否为0或负数
+            if (quantity <= 0) {
+                return Response.success("购物车商品已删除", null);
+            }
+            
+            // 检查购物车项是否存在
+            Optional<Cart> existingCart = cartRepository.findById(id);
+            if (!existingCart.isPresent()) {
+                return Response.fail(404, "购物车项不存在");
+            }
+            
+            // 检查是否超过库存
+            Cart existingItem = existingCart.get();
+            if (existingItem.getProduct() != null && quantity > existingItem.getProduct().getStock()) {
+                return Response.fail(400, "数量超过库存限制");
+            }
+            
+            // 其他未知错误
+            return Response.fail(400, "更新购物车数量失败");
         }
     }
     
@@ -120,7 +148,7 @@ public class CartController {
     @DeleteMapping("/{id}")
     public Response<Void> deleteCartItem(@PathVariable Long id) {
         cartService.deleteCartItem(id);
-        return Response.success("Cart item deleted successfully");
+        return Response.success("购物车商品已删除");
     }
     
     /**
@@ -131,7 +159,7 @@ public class CartController {
     @DeleteMapping("/user/{userId}")
     public Response<Void> clearCart(@PathVariable Long userId) {
         cartService.clearCart(userId);
-        return Response.success("Cart cleared successfully");
+        return Response.success("购物车已清空");
     }
     
     /**

@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import cartApi from '../api/cartApi'
+import productApi from '../api/productApi'
+import orderApi from '../api/orderApi'
 import { ElMessage } from 'element-plus'
 import { logUtils } from '../utils/logUtils'
 
@@ -141,13 +143,19 @@ export const useCartStore = defineStore('cart', {
         // 1. 响应是购物车数据本身（axios拦截器直接返回了response.data）
         // 2. 响应是包含code、message、success和data字段的对象（后端标准Response格式）
         let updatedItem = response
+        let success = true
+        let message = '购物车商品数量已更新'
+        
         if (response.code !== undefined && response.data !== undefined) {
           // 情况2：响应是后端标准Response格式
-          if (response.success === true && response.data) {
+          success = response.success
+          message = response.message
+          
+          if (success) {
             updatedItem = response.data
           } else {
             // API调用失败
-            throw new Error(response.message || '更新购物车商品数量失败')
+            throw new Error(message || '更新购物车商品数量失败')
           }
         } else if (response.data) {
           // axios响应包含data字段
@@ -157,10 +165,17 @@ export const useCartStore = defineStore('cart', {
         // 更新本地购物车数据
         const index = this.cartItems.findIndex(item => item.id === id)
         if (index > -1) {
-          this.cartItems[index].quantity = quantity
+          if (updatedItem) {
+            // 正常更新数量
+            this.cartItems[index].quantity = quantity
+          } else {
+            // 数量为0，移除该商品
+            this.cartItems.splice(index, 1)
+            message = '购物车商品已移除'
+          }
         }
         
-        ElMessage.success('购物车商品数量已更新')
+        ElMessage.success(message)
         return updatedItem
       } catch (error) {
         this.error = error.message || '更新购物车商品数量失败'
@@ -229,6 +244,46 @@ export const useCartStore = defineStore('cart', {
      */
     clearError() {
       this.error = null
+    },
+    
+    /**
+     * 根据ID获取商品详情
+     * @param {number} productId - 商品ID
+     */
+    async fetchProductById(productId) {
+      this.loading = true
+      this.error = null
+      
+      try {
+        const response = await productApi.getProductById(productId)
+        return response
+      } catch (error) {
+        this.error = error.message || '获取商品详情失败'
+        console.error('获取商品详情失败:', error)
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+    
+    /**
+     * 创建订单
+     * @param {Object} orderData - 订单数据
+     */
+    async createOrder(orderData) {
+      this.loading = true
+      this.error = null
+      
+      try {
+        const response = await orderApi.createOrder(orderData)
+        return response
+      } catch (error) {
+        this.error = error.message || '创建订单失败'
+        console.error('创建订单失败:', error)
+        throw error
+      } finally {
+        this.loading = false
+      }
     }
   }
 })

@@ -44,7 +44,7 @@ public class ProductController {
         if (product != null) {
             return Response.success(product);
         } else {
-            return Response.fail(404, "Product not found");
+            return Response.fail(404, "商品不存在");
         }
     }
     
@@ -89,7 +89,7 @@ public class ProductController {
     @PostMapping
     public Response<Product> createProduct(@RequestBody Product product) {
         Product createdProduct = productService.saveProduct(product);
-        return Response.success("Product created successfully", createdProduct);
+        return Response.success("商品创建成功", createdProduct);
     }
     
     /**
@@ -102,7 +102,7 @@ public class ProductController {
     public Response<Product> updateProduct(@PathVariable Long id, @RequestBody Product product) {
         product.setId(id);
         Product updatedProduct = productService.saveProduct(product);
-        return Response.success("Product updated successfully", updatedProduct);
+        return Response.success("商品更新成功", updatedProduct);
     }
     
     /**
@@ -113,6 +113,6 @@ public class ProductController {
     @DeleteMapping("/{id}")
     public Response<Void> deleteProduct(@PathVariable Long id) {
         productService.deleteProduct(id);
-        return Response.success("Product deleted successfully");
+        return Response.success("商品删除成功");
     }
 }
