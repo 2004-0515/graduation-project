@@ -111,7 +111,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ShoppingCart, Bell, Timer } from '@element-plus/icons-vue'
@@ -561,6 +561,21 @@ const paginatedPromotions = computed(() => {
   const startIndex = (currentPage.value - 1) * pageSize.value
   const endIndex = startIndex + pageSize.value
   return promotions.slice(startIndex, endIndex)
+})
+
+// 监听分页状态变化，滚动到顶部
+watch([currentPage, pageSize], () => {
+  nextTick(() => {
+    // 兼容各种浏览器的滚动到顶部方法
+    if (window.scrollTo) {
+      // 现代浏览器支持的平滑滚动
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      // 兼容旧版浏览器
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+    }
+  })
 })
 
 // 标签页切换
