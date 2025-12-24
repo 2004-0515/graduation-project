@@ -1,5 +1,6 @@
 package com.shopping.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.persistence.Index;
 import lombok.Data;
@@ -33,6 +34,7 @@ public class Product {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
+    @JsonIgnore
     private Category category;
     
     @Column(name = "price", nullable = false, precision = 10, scale = 2)
@@ -57,10 +59,10 @@ public class Product {
     private String images;
     
     @Column(name = "created_time", nullable = false, updatable = false)
-    private LocalDateTime createdTime;
+    private LocalDateTime createdTime = LocalDateTime.now();
     
     @Column(name = "updated_time", nullable = false)
-    private LocalDateTime updatedTime;
+    private LocalDateTime updatedTime = LocalDateTime.now();
     
     @PrePersist
     protected void onCreate() {

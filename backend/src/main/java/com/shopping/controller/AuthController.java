@@ -17,7 +17,7 @@ import java.util.Map;
  * 认证控制器，处理登录注册请求
  */
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/auth")
 public class AuthController {
 
     @Autowired

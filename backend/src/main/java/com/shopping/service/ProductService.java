@@ -45,7 +45,7 @@ public class ProductService {
      * @return 商品列表
      */
     public List<Product> getProductsByCategoryId(Long categoryId) {
-        return productRepository.findByCategoryId(categoryId);
+        return productRepository.findByCategory_Id(categoryId);
     }
     
     /**

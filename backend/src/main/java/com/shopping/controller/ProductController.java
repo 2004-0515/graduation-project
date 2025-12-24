@@ -13,7 +13,7 @@ import java.util.List;
  * 商品控制器，处理商品相关API请求
  */
 @RestController
-@RequestMapping("/api/products")
+@RequestMapping("/products")
 public class ProductController {
     
     @Autowired

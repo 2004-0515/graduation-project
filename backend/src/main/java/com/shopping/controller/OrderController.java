@@ -12,7 +12,7 @@ import java.util.List;
  * 订单控制器，处理订单相关API请求
  */
 @RestController
-@RequestMapping("/api/orders")
+@RequestMapping("/orders")
 public class OrderController {
     
     @Autowired

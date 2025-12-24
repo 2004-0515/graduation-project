@@ -12,7 +12,7 @@ import java.util.List;
  * 商品分类控制器，处理商品分类相关API请求
  */
 @RestController
-@RequestMapping("/api/categories")
+@RequestMapping("/categories")
 public class CategoryController {
     
     @Autowired

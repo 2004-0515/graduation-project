@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
  * 用户控制器，处理用户相关API请求
  */
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/users")
 public class UserController {
     
     @Autowired

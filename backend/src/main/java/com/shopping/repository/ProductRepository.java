@@ -13,7 +13,7 @@ import java.util.List;
 public interface ProductRepository extends JpaRepository<Product, Long> {
     
     // 根据分类ID查询商品
-    List<Product> findByCategoryId(Long categoryId);
+    List<Product> findByCategory_Id(Long categoryId);
     
     // 根据状态查询商品
     List<Product> findByStatus(Integer status);

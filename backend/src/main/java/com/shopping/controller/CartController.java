@@ -12,7 +12,7 @@ import java.util.List;
  * 购物车控制器，处理购物车相关API请求
  */
 @RestController
-@RequestMapping("/api/cart")
+@RequestMapping("/cart")
 public class CartController {
     
     @Autowired
