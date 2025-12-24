@@ -52,8 +52,9 @@ instance.interceptors.response.use(
       switch (response.status) {
         case 401:
           errorMessage = '未授权，请重新登录'
-          // 未授权，清除token并跳转登录页
+          // 未授权，清除token和用户信息并跳转登录页
           localStorage.removeItem('token')
+          localStorage.removeItem('userInfo')
           window.location.href = '/login'
           break
         case 403:

@@ -10,6 +10,9 @@
         <el-form-item label="用户名" prop="username">
           <el-input v-model="registerForm.username" placeholder="请输入用户名" prefix-icon="User" autocomplete="username" />
         </el-form-item>
+        <el-form-item label="昵称" prop="nickname">
+          <el-input v-model="registerForm.nickname" placeholder="请输入昵称" prefix-icon="ChatDotRound" autocomplete="nickname" />
+        </el-form-item>
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="registerForm.email" placeholder="请输入邮箱" prefix-icon="Message" autocomplete="email" />
         </el-form-item>
@@ -65,6 +68,7 @@ const registerFormRef = ref(null)
 
 const registerForm = reactive({
   username: '',
+  nickname: '',
   password: '',
   confirmPassword: '',
   email: '',
@@ -76,6 +80,7 @@ onMounted(() => {
   // 使用setTimeout确保DOM渲染完成后再清空
   setTimeout(() => {
     registerForm.username = ''
+    registerForm.nickname = ''
     registerForm.password = ''
     registerForm.confirmPassword = ''
     registerForm.email = ''
@@ -141,6 +146,11 @@ const registerRules = {
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { min: 3, max: 20, message: '用户名长度必须在 3 到 20 个字符之间', trigger: 'blur' }
   ],
+  nickname: [
+    { required: true, message: '请输入昵称', trigger: 'blur' },
+    { min: 2, max: 20, message: '昵称长度必须在 2 到 20 个字符之间', trigger: 'blur' },
+    { pattern: /^[\u4e00-\u9fa5a-zA-Z0-9_]+$/, message: '昵称只能包含中文、英文、数字和下划线', trigger: 'blur' }
+  ],
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
     {
@@ -192,6 +202,7 @@ const handleRegister = async () => {
     // 准备注册数据，移除confirmPassword字段
     const registerData = {
       username: registerForm.username,
+      nickname: registerForm.nickname,
       email: registerForm.email,
       password: registerForm.password
     }

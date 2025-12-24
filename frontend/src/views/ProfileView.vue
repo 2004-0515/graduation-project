@@ -2,55 +2,97 @@
   <div class="profile-container">
     <!-- 用户信息头部卡片 -->
     <el-card class="profile-header-card">
+      <!-- 装饰性背景元素 -->
+      <div class="profile-header-decoration">
+        <div class="decoration-circle circle-1"></div>
+        <div class="decoration-circle circle-2"></div>
+        <div class="decoration-circle circle-3"></div>
+      </div>
+      
       <div class="profile-header-content">
+        <!-- 左侧头像区域 -->
         <div class="profile-header-avatar">
-          <el-avatar 
-            :size="120" 
-            :src="userInfo?.avatar || ''" 
-            :icon="User"
-            class="profile-avatar-img"
-          >
-            {{ userInfo?.username?.charAt(0)?.toUpperCase() || 'U' }}
-          </el-avatar>
+          <div class="avatar-wrapper">
+            <el-avatar 
+              :size="120" 
+              :src="userInfo?.avatar || ''" 
+              :icon="User"
+              class="profile-avatar-img"
+            >
+              {{ userInfo?.nickname?.charAt(0)?.toUpperCase() || userInfo?.username?.charAt(0)?.toUpperCase() || 'U' }}
+            </el-avatar>
+            <div class="avatar-badge">
+              <el-icon><Camera /></el-icon>
+            </div>
+          </div>
         </div>
         
+        <!-- 右侧信息区域 -->
         <div class="profile-header-info">
+          <!-- 用户名和等级标签 - 顶部 -->
           <div class="profile-header-main">
-            <h1 class="profile-username">{{ userInfo?.username || '用户' }}</h1>
+            <h1 class="profile-username">{{ userInfo?.nickname || userInfo?.username || '用户' }}</h1>
             <el-tag type="info" size="large" class="user-level-tag">
               <el-icon><StarFilled /></el-icon>
               {{ getUserLevel() }}
             </el-tag>
           </div>
           
-          <div class="profile-header-stats">
-            <div class="stat-item">
-              <div class="stat-value">{{ userInfo?.points || 0 }}</div>
-              <div class="stat-label">积分</div>
+          <!-- 用户状态信息 - 用户名下方 -->
+          <div class="profile-status">
+            <div class="status-item">
+              <el-icon class="status-icon"><Clock /></el-icon>
+              <span class="status-text">注册时间: {{ formatDate(userInfo?.createdTime) }}</span>
             </div>
-            <div class="stat-divider"></div>
-            <div class="stat-item">
-              <div class="stat-value">{{ userInfo?.growthValue || 0 }}</div>
-              <div class="stat-label">成长值</div>
+            <div class="status-item">
+              <el-icon class="status-icon"><Monitor /></el-icon>
+              <span class="status-text">最后登录: {{ formatDate(userInfo?.lastLoginTime) || '今天 ' + new Date().toLocaleTimeString() }}</span>
             </div>
-            <div class="stat-divider"></div>
-            <div class="stat-item">
-              <div class="stat-value">{{ userInfo?.memberDays || 0 }}</div>
-              <div class="stat-label">会员天数</div>
-            </div>
-          </div>
-          
-          <div class="profile-header-actions">
-            <el-button type="primary" size="large" @click="editProfile">
-              <el-icon><Edit /></el-icon>
-              编辑资料
-            </el-button>
-            <el-button size="large" @click="navigateTo('/settings')">
-              <el-icon><Setting /></el-icon>
-              账号设置
-            </el-button>
           </div>
         </div>
+      </div>
+      
+      <!-- 统计数据区域 - 单独一行 -->
+      <div class="profile-header-stats">
+        <div class="stat-item">
+          <div class="stat-icon-container">
+            <el-icon class="stat-icon"><Coin /></el-icon>
+          </div>
+          <div class="stat-value">{{ userInfo?.points || 0 }}</div>
+          <div class="stat-label">积分</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <div class="stat-icon-container">
+            <el-icon class="stat-icon"><TrendCharts /></el-icon>
+          </div>
+          <div class="stat-value">{{ userInfo?.growthValue || 0 }}</div>
+          <div class="stat-label">成长值</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <div class="stat-icon-container">
+            <el-icon class="stat-icon"><Calendar /></el-icon>
+          </div>
+          <div class="stat-value">{{ userInfo?.memberDays || 0 }}</div>
+          <div class="stat-label">会员天数</div>
+        </div>
+      </div>
+      
+      <!-- 操作按钮区域 - 统计数据下方 -->
+      <div class="profile-header-actions">
+        <el-button type="primary" size="large" @click="editProfile">
+          <el-icon><Edit /></el-icon>
+          编辑资料
+        </el-button>
+        <el-button size="large" @click="navigateTo('/settings')">
+          <el-icon><Setting /></el-icon>
+          账号设置
+        </el-button>
+        <el-button size="large" @click="navigateTo('/orders')">
+          <el-icon><Ticket /></el-icon>
+          我的订单
+        </el-button>
       </div>
     </el-card>
     
@@ -173,7 +215,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '../stores/userStore'
 import { useRouter } from 'vue-router'
-import { User, Ticket, Location, StarFilled, Edit, Setting } from '@element-plus/icons-vue'
+import { User, Ticket, Location, StarFilled, Edit, Setting, Camera, Clock, Monitor, Coin, TrendCharts, Calendar } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const userStore = useUserStore()
@@ -230,33 +272,180 @@ onMounted(() => {
 /* 头部卡片样式 */
 .profile-header-card {
   border-radius: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  background: 
+    linear-gradient(rgba(64, 158, 255, 0.8), rgba(40, 140, 255, 0.75)),
+    url('@/assets/images/profile-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-blend-mode: overlay;
   color: #fff;
   overflow: hidden;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+}
+
+/* 装饰性背景元素 */
+.profile-header-decoration {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.decoration-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  animation: float 6s ease-in-out infinite;
+}
+
+.circle-1 {
+  width: 200px;
+  height: 200px;
+  top: -50px;
+  right: -50px;
+  animation-delay: 0s;
+}
+
+.circle-2 {
+  width: 150px;
+  height: 150px;
+  bottom: -30px;
+  left: -30px;
+  animation-delay: 2s;
+}
+
+.circle-3 {
+  width: 100px;
+  height: 100px;
+  top: 50%;
+  right: 20%;
+  animation-delay: 4s;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-20px) scale(1.1);
+  }
 }
 
 .profile-header-content {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 40px;
-  padding: 32px;
+  padding: 32px 32px 0;
+  position: relative;
+  z-index: 1;
 }
 
 .profile-header-avatar {
   flex-shrink: 0;
 }
 
+/* 头像包装器 */
+.avatar-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
 .profile-avatar-img {
-  border: 6px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s ease;
+  border: 6px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-avatar-img::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
 }
 
 .profile-avatar-img:hover {
+  transform: scale(1.12) translateY(-2px);
+  box-shadow: 
+    0 16px 40px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.profile-avatar-img:hover::before {
+  transform: translateX(100%);
+}
+
+/* 头像编辑徽章 */
+.avatar-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #409eff;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+}
+
+.avatar-badge:hover {
   transform: scale(1.1);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  background: #fff;
+}
+
+.avatar-badge .el-icon {
+  font-size: 18px;
+}
+
+/* 用户状态信息 */
+.profile-status {
+  display: flex;
+  gap: 24px;
+  padding: 8px 0;
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.status-icon {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.status-text {
+  line-height: 1.5;
 }
 
 .profile-header-info {
@@ -264,6 +453,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  position: relative;
 }
 
 .profile-header-main {
@@ -271,6 +461,7 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+  position: relative;
 }
 
 .profile-username {
@@ -278,14 +469,34 @@ onMounted(() => {
   font-weight: 700;
   margin: 0;
   color: #fff;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+  letter-spacing: -0.5px;
+  transition: all 0.3s ease;
+}
+
+.profile-header-main:hover .profile-username {
+  text-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.25),
+    0 2px 4px rgba(0, 0, 0, 0.35);
 }
 
 .user-level-tag {
-  background-color: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background-color: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   color: #fff;
   font-weight: 600;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.user-level-tag:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 
 .user-level-tag .el-icon {
@@ -296,9 +507,14 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 32px;
-  padding: 16px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 24px 32px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  margin: 0 32px;
+  position: relative;
+  z-index: 1;
 }
 
 .stat-item {
@@ -306,6 +522,65 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 16px 24px;
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stat-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.08);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.3s ease;
+}
+
+.stat-item:hover {
+  transform: translateY(-6px);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.stat-item:hover::before {
+  transform: scaleY(1);
+}
+
+/* 统计图标容器 */
+.stat-icon-container {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.stat-item:hover .stat-icon-container {
+  transform: scale(1.1);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.stat-icon {
+  font-size: 24px;
+  color: #fff;
+  transition: all 0.3s ease;
 }
 
 .stat-value {
@@ -313,24 +588,69 @@ onMounted(() => {
   font-weight: bold;
   color: #fff;
   margin: 0;
+  text-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
+  letter-spacing: -0.5px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.95);
   margin: 0;
+  font-weight: 600;
+  position: relative;
+  z-index: 1;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .stat-divider {
   width: 1px;
-  height: 40px;
-  background-color: rgba(255, 255, 255, 0.2);
+  height: 80px;
+  background-color: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(5px);
+  margin: 0 8px;
 }
 
 .profile-header-actions {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
+  padding: 0 32px 32px;
+  position: relative;
+  z-index: 1;
+}
+
+.profile-header-actions .el-button {
+  flex: 1;
+  min-width: 160px;
+}
+
+.profile-header-actions .el-button {
+  border-radius: 12px;
+  font-weight: 600;
+  padding: 12px 24px;
+  font-size: 15px;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+}
+
+.profile-header-actions .el-button {
+  background: rgba(255, 255, 255, 0.95);
+  color: #409eff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border: 1px solid transparent;
+}
+
+.profile-header-actions .el-button:hover {
+  background: #fff;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  color: #3a8ee6;
+  border-color: transparent;
 }
 
 /* 内容区域样式 */
@@ -338,12 +658,18 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  margin-top: -12px;
+  position: relative;
+  z-index: 2;
 }
 
 .profile-card {
   border-radius: 16px;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .profile-card:hover {
@@ -421,19 +747,40 @@ onMounted(() => {
 .profile-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 24px;
+  gap: 20px;
 }
 
 .stat-card {
   border-radius: 16px;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
   overflow: hidden;
 }
 
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #409eff 0%, #3a8ee6 100%);
+  transform: scaleX(0);
+  transition: transform 0.35s ease;
+}
+
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16);
+  transform: translateY(-6px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.stat-card:hover::before {
+  transform: scaleX(1);
 }
 
 .stat-content {
@@ -441,15 +788,26 @@ onMounted(() => {
   align-items: center;
   gap: 20px;
   margin-bottom: 20px;
+  position: relative;
 }
 
 .stat-icon {
   font-size: 40px;
   color: #409eff;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.stat-card:hover .stat-icon {
+  transform: scale(1.1) rotate(5deg);
+  color: #3a8ee6;
 }
 
 .stat-info {
   flex: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .stat-value {
@@ -457,19 +815,27 @@ onMounted(() => {
   font-weight: bold;
   color: #333;
   margin-bottom: 8px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .stat-label {
   font-size: 16px;
   color: #666;
   margin: 0;
+  font-weight: 500;
 }
 
 .stat-link {
   width: 100%;
   text-align: right;
   color: #409eff;
-  font-weight: 500;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.stat-link:hover {
+  color: #3a8ee6;
+  transform: translateX(4px);
 }
 
 .empty-orders {

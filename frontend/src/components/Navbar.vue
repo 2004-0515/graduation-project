@@ -38,10 +38,10 @@
                   :icon="User"
                   class="user-avatar-img"
                 >
-                  {{ userStore.userInfo?.username?.charAt(0)?.toUpperCase() || 'U' }}
+                  {{ userStore.userInfo?.nickname?.charAt(0)?.toUpperCase() || userStore.userInfo?.username?.charAt(0)?.toUpperCase() || 'U' }}
                 </el-avatar>
               </div>
-              <span class="username">{{ userStore.userInfo?.username || '用户' }}</span>
+              <span class="username">{{ userStore.userInfo?.nickname || userStore.userInfo?.username || '用户' }}</span>
               <el-icon class="el-icon--right"><ArrowDown /></el-icon>
             </div>
             <template #dropdown>

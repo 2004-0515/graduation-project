@@ -405,6 +405,7 @@ import { ref, computed, onMounted } from 'vue'
 import { User, Lock, Document, Bell, Camera, Plus, Delete } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
+import authApi from '../api/authApi'
 
 const userStore = useUserStore()
 
@@ -622,17 +623,18 @@ const saveAccountSettings = async () => {
   
   try {
     await accountFormRef.value.validate()
-    // 实际项目中这里应该调用API保存账号信息
-    ElMessage.success('账号信息保存成功')
-    // 更新用户信息到store
-    if (userStore.userInfo) {
-      userStore.userInfo = {
-        ...userStore.userInfo,
-        ...accountForm.value
-      }
+    // 创建表单数据副本，移除avatar字段
+    // 头像通过专门的上传接口处理，不包含在账号设置保存中
+    const formData = {
+      ...accountForm.value
     }
+    delete formData.avatar
+    // 调用store方法保存账号信息
+    await userStore.updateUserInfo(formData)
+    ElMessage.success('账号信息保存成功')
   } catch (error) {
-    console.error('表单验证失败:', error)
+    console.error('保存账号信息失败:', error)
+    ElMessage.error(userStore.error || '保存失败，请稍后重试')
   }
 }
 

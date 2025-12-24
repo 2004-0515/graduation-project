@@ -155,19 +155,26 @@ const loginRules = {
 const handleLogin = async () => {
   if (!loginFormRef.value) return
   
-  try {
-    await loginFormRef.value.validate()
-    
-    // 调用登录API
-    await userStore.login(loginForm)
-    
-    ElMessage.success('登录成功')
-    // 登录成功后跳转到首页
-    router.push('/')
-  } catch (error) {
-    console.error('登录失败:', error)
-    ElMessage.error(userStore.error || '登录失败，请检查用户名、密码和验证码是否正确')
-  }
+  // 使用Element Plus表单验证的回调方式，更可靠地区分表单验证和API调用
+  loginFormRef.value.validate(async (valid, fields) => {
+    if (valid) {
+      // 表单验证通过，调用登录API
+      try {
+        await userStore.login(loginForm)
+        ElMessage.success('登录成功')
+        // 登录成功后跳转到首页
+        router.push('/')
+      } catch (error) {
+        console.error('登录失败:', error)
+        // 只有API调用失败时，才显示全局错误消息
+        ElMessage.error(userStore.error || '登录失败，请检查用户名和密码是否正确')
+      }
+    } else {
+      // 表单验证失败，不显示全局错误消息
+      // Element Plus会在字段下方显示具体的错误信息
+      console.log('表单验证失败:', fields)
+    }
+  })
 }
 </script>
 
