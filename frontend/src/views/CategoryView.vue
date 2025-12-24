@@ -110,6 +110,8 @@ import Footer from '../components/Footer.vue'
 
 const route = useRoute()
 const router = useRouter()
+const cartStore = useCartStore()
+const userStore = useUserStore()
 
 // 分类ID
 const categoryId = ref(parseInt(route.params.id))
@@ -320,9 +322,8 @@ const buyNow = (product) => {
     return
   }
   
-  ElMessage.info(`立即购买 ${product.name}`)
-  // 这里可以跳转到结算页面，带上商品信息
-  // router.push(`/checkout?productId=${product.id}&quantity=1`)
+  // 跳转到结算页面，带上商品信息
+  router.push(`/checkout?productId=${product.id}&quantity=1`)
 }
 
 // 分页大小变化

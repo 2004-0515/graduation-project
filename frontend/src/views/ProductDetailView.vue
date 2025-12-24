@@ -76,6 +76,8 @@ import Footer from '../components/Footer.vue'
 
 const route = useRoute()
 const router = useRouter()
+const cartStore = useCartStore()
+const userStore = useUserStore()
 
 // 商品数据
 // 初始化为默认值，确保页面渲染时有数据可用
@@ -218,7 +220,14 @@ const addToCart = async () => {
 
 // 立即购买
 const buyNow = () => {
-  ElMessage.info(`立即购买 ${product.name}`)
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  
+  // 跳转到结算页面，带上商品信息和数量
+  router.push(`/checkout?productId=${product.id}&quantity=${quantity.value}`)
 }
 
 // 页面加载时获取商品详情

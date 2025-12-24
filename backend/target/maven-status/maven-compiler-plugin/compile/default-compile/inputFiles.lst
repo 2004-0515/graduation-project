@@ -10,6 +10,7 @@ D:\graduation project\backend\src\main\java\com\shopping\entity\Cart.java
 D:\graduation project\backend\src\main\java\com\shopping\service\CartService.java
 D:\graduation project\backend\src\main\java\com\shopping\controller\UserController.java
 D:\graduation project\backend\src\main\java\com\shopping\entity\Product.java
+D:\graduation project\backend\src\main\java\com\shopping\config\JacksonConfig.java
 D:\graduation project\backend\src\main\java\com\shopping\controller\ProductController.java
 D:\graduation project\backend\src\main\java\com\shopping\repository\CategoryRepository.java
 D:\graduation project\backend\src\main\java\com\shopping\entity\Category.java

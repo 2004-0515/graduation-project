@@ -91,14 +91,14 @@ public class AuthController {
     public Response<User> getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            return Response.error(401, "User not authenticated");
+            return Response.fail(401, "User not authenticated");
         }
         // 获取用户名
         String username = authentication.getName();
         // 根据用户名获取用户信息
         User user = userRepository.findByUsername(username);
         if (user == null) {
-            return Response.error(404, "User not found");
+            return Response.fail(404, "User not found");
         }
         return Response.success("Current user fetched successfully", user);
     }

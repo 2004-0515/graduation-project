@@ -147,8 +147,35 @@ const filterSortAndPaginate = async () => {
     const pageNo = currentPage.value - 1
     const response = await productApi.getProducts(pageNo, pageSize.value)
     if (response && response.success) {
-      products.value = response.data.content || []
+      let productsData = response.data.content || []
       total.value = response.data.totalElements || 0
+      
+      // 根据排序方式对商品进行排序
+      switch (sortBy.value) {
+        case 'price-asc':
+          // 价格从低到高排序
+          productsData.sort((a, b) => parseFloat(a.price) - parseFloat(b.price))
+          break
+        case 'price-desc':
+          // 价格从高到低排序
+          productsData.sort((a, b) => parseFloat(b.price) - parseFloat(a.price))
+          break
+        case 'sales':
+          // 销量最高排序
+          productsData.sort((a, b) => b.sales - a.sales)
+          break
+        case 'rating':
+          // 评分最高排序
+          productsData.sort((a, b) => b.rating - a.rating)
+          break
+        case 'default':
+        default:
+          // 默认排序，按商品ID排序
+          productsData.sort((a, b) => a.id - b.id)
+          break
+      }
+      
+      products.value = productsData
     }
   } catch (error) {
     console.error('获取商品列表失败:', error)
@@ -170,15 +197,20 @@ const filterSortAndPaginate = async () => {
 }
 
 // 加入购物车
-const addToCart = (product) => {
+const addToCart = async (product) => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
     router.push('/login')
     return
   }
   
-  cartStore.addToCart(userId.value, product.id, 1)
-  ElMessage.success(`已将 ${product.name} 加入购物车`)
+  try {
+    await cartStore.addToCart(userId.value, product.id, 1)
+    ElMessage.success(`已将 ${product.name} 加入购物车`)
+  } catch (error) {
+    console.error('加入购物车失败:', error)
+    ElMessage.error('加入购物车失败，请重试')
+  }
 }
 
 // 立即购买
@@ -189,7 +221,8 @@ const buyNow = (product) => {
     return
   }
   
-  ElMessage.info(`立即购买 ${product.name}`)
+  // 跳转到结算页面，带上商品信息
+  router.push(`/checkout?productId=${product.id}&quantity=1`)
 }
 
 // 分页大小变化

@@ -49,12 +49,24 @@ export const useCartStore = defineStore('cart', {
         logUtils.cartLog('开始获取购物车列表', { userId })
         const response = await cartApi.getCartByUserId(userId)
         logUtils.cartLog('获取购物车列表响应', response)
-        // 处理响应数据，考虑axios拦截器返回的响应格式
+        // 处理响应数据，考虑两种情况：
+        // 1. 响应是购物车列表本身（axios拦截器直接返回了response.data）
+        // 2. 响应是包含code、message、success和data字段的对象（后端标准Response格式）
         let cartItems = []
-        if (response.success === true && response.data) {
-          // 后端Response类返回的格式：{ success: true, data: [购物车列表] }
-          if (Array.isArray(response.data)) {
-            cartItems = response.data
+        if (response.code !== undefined && response.data !== undefined) {
+          // 情况2：响应是后端标准Response格式
+          if (response.success === true && response.data) {
+            if (Array.isArray(response.data)) {
+              cartItems = response.data
+            }
+          } else {
+            // API调用失败
+            throw new Error(response.message || '获取购物车列表失败')
+          }
+        } else {
+          // 情况1：响应是购物车列表本身
+          if (Array.isArray(response)) {
+            cartItems = response
           }
         }
         
@@ -86,11 +98,18 @@ export const useCartStore = defineStore('cart', {
         const response = await cartApi.addToCart(userId, productId, quantity)
         logUtils.cartLog('添加商品到购物车响应', response)
         
-        // 处理响应数据，考虑axios拦截器返回的响应格式
-        let cartItem = null
-        if (response.success === true && response.data) {
-          // 后端Response类返回的格式：{ success: true, data: 购物车项 }
-          cartItem = response.data
+        // 处理响应数据，考虑两种情况：
+        // 1. 响应是购物车数据本身（axios拦截器直接返回了response.data）
+        // 2. 响应是包含code、message、success和data字段的对象（后端标准Response格式）
+        let cartItem = response
+        if (response.code !== undefined && response.data !== undefined) {
+          // 情况2：响应是后端标准Response格式
+          if (response.success === true && response.data) {
+            cartItem = response.data
+          } else {
+            // API调用失败
+            throw new Error(response.message || '添加商品到购物车失败')
+          }
         }
         
         if (cartItem) {
@@ -130,29 +149,33 @@ export const useCartStore = defineStore('cart', {
       try {
         const response = await cartApi.updateCartQuantity(id, quantity)
         
-        // 处理响应数据，考虑axios返回的响应格式和后端Response类的格式
-        let updatedItem = null
-        if (response.data) {
-          // axios响应包含data字段
-          if (response.data.data) {
-            // 后端Response类返回的格式：{ data: 购物车项 }
-            updatedItem = response.data.data
-          } else {
-            // 直接返回购物车项的情况
+        // 处理响应数据，考虑两种情况：
+        // 1. 响应是购物车数据本身（axios拦截器直接返回了response.data）
+        // 2. 响应是包含code、message、success和data字段的对象（后端标准Response格式）
+        let updatedItem = response
+        if (response.code !== undefined && response.data !== undefined) {
+          // 情况2：响应是后端标准Response格式
+          if (response.success === true && response.data) {
             updatedItem = response.data
+          } else {
+            // API调用失败
+            throw new Error(response.message || '更新购物车商品数量失败')
           }
+        } else if (response.data) {
+          // axios响应包含data字段
+          updatedItem = response.data
         }
         
         // 更新本地购物车数据
         const index = this.cartItems.findIndex(item => item.id === id)
-        if (index > -1 && updatedItem) {
-          this.cartItems[index] = updatedItem
+        if (index > -1) {
+          this.cartItems[index].quantity = quantity
         }
         
         ElMessage.success('购物车商品数量已更新')
         return updatedItem
       } catch (error) {
-        this.error = error.response?.data?.message || '更新购物车商品数量失败'
+        this.error = error.message || '更新购物车商品数量失败'
         ElMessage.error(this.error)
         console.error('更新购物车商品数量失败:', error)
         throw error

@@ -230,8 +230,10 @@ const addToCart = async (product) => {
   
   try {
     await cartStore.addToCart(userId.value, product.id, 1)
+    ElMessage.success(`已将 ${product.name} 加入购物车`)
   } catch (error) {
     console.error('加入购物车失败:', error)
+    ElMessage.error('加入购物车失败，请重试')
   }
 }
 
@@ -243,7 +245,8 @@ const buyNow = (product) => {
     return
   }
   
-  ElMessage.info(`立即购买 ${product.name}`)
+  // 跳转到结算页面，带上商品信息
+  router.push(`/checkout?productId=${product.id}&quantity=1`)
 }
 
 // 处理轮播图点击事件，跳转到对应促销活动详情页

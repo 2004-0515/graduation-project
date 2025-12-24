@@ -173,7 +173,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '../stores/userStore'
 import { useRouter } from 'vue-router'
-import { User, Ticket, Location, StarFilled, Gift, Edit, Setting } from '@element-plus/icons-vue'
+import { User, Ticket, Location, StarFilled, Edit, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const userStore = useUserStore()

@@ -402,7 +402,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { User, Lock, Shield, Document, Bell, Camera, Plus, Delete } from '@element-plus/icons-vue'
+import { User, Lock, Document, Bell, Camera, Plus, Delete } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 

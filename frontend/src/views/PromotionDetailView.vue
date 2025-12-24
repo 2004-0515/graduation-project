@@ -168,15 +168,20 @@ const fetchPromotionDetail = () => {
 }
 
 // 加入购物车
-const addToCart = (product) => {
+const addToCart = async (product) => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
     router.push('/login')
     return
   }
   
-  cartStore.addToCart(userId.value, product.id, 1)
-  ElMessage.success(`已将 ${product.name} 加入购物车`)
+  try {
+    await cartStore.addToCart(userId.value, product.id, 1)
+    ElMessage.success(`已将 ${product.name} 加入购物车`)
+  } catch (error) {
+    console.error('加入购物车失败:', error)
+    ElMessage.error('加入购物车失败，请重试')
+  }
 }
 
 // 立即购买
@@ -187,7 +192,8 @@ const buyNow = (product) => {
     return
   }
   
-  ElMessage.info(`立即购买 ${product.name}`)
+  // 跳转到结算页面，带上商品信息
+  router.push(`/checkout?productId=${product.id}&quantity=1`)
 }
 
 // 页面加载时获取促销活动详情
