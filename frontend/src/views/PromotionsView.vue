@@ -32,7 +32,7 @@
 
         <!-- 促销活动列表 -->
         <div class="promotions-list">
-          <div class="promotion-card" v-for="promotion in promotions" :key="promotion.id">
+          <div class="promotion-card" v-for="promotion in paginatedPromotions" :key="promotion.id">
             <el-card shadow="hover" class="promotion-item">
               <div class="promotion-content">
                 <div class="promotion-banner">
@@ -95,6 +95,7 @@
             layout="total, sizes, prev, pager, next, jumper"
             :total="total"
             :page-size="pageSize"
+            :page-sizes="[10, 20, 50, 100]"
             v-model:current-page="currentPage"
             @size-change="handleSizeChange"
             @current-change="handleCurrentChange"
@@ -126,7 +127,7 @@ const activeTab = ref('all')
 
 // 分页信息
 const currentPage = ref(1)
-const pageSize = ref(6)
+const pageSize = ref(10)
 
 // 促销活动列表
 const promotions = reactive([
@@ -232,6 +233,13 @@ const promotions = reactive([
 // 计算总活动数
 const total = computed(() => {
   return promotions.length
+})
+
+// 分页数据 - 根据当前页码和每页条数计算
+const paginatedPromotions = computed(() => {
+  const startIndex = (currentPage.value - 1) * pageSize.value
+  const endIndex = startIndex + pageSize.value
+  return promotions.slice(startIndex, endIndex)
 })
 
 // 标签页切换
