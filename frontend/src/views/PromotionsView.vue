@@ -227,6 +227,327 @@ const promotions = reactive([
       { id: 1, name: 'iPhone 15 Pro', price: '8999', originalPrice: '9999', mainImage: 'https://picsum.photos/300/300?random=11' },
       { id: 3, name: '小米 14 Ultra', price: '5999', originalPrice: '6499', mainImage: 'https://picsum.photos/300/300?random=13' }
     ]
+  },
+  // 新增20条促销活动
+  {
+    id: 7,
+    title: '黑色星期五',
+    description: '黑色星期五全场商品低至4折，限时抢购',
+    tag: '黑五',
+    tagType: 'danger',
+    startTime: '2025-11-28',
+    endTime: '2025-11-30',
+    status: '进行中',
+    bannerImage: 'https://picsum.photos/800/300?random=37',
+    relatedProducts: [
+      { id: 17, name: '魅族 21 Pro', price: '4599', originalPrice: '4999', mainImage: 'https://picsum.photos/300/300?random=27' },
+      { id: 18, name: '努比亚 Z60 Ultra', price: '4699', originalPrice: '5199', mainImage: 'https://picsum.photos/300/300?random=28' },
+      { id: 19, name: '坚果 R2', price: '3999', originalPrice: '4499', mainImage: 'https://picsum.photos/300/300?random=29' }
+    ]
+  },
+  {
+    id: 8,
+    title: '双12年终盛典',
+    description: '年终大促，全场商品满500减150，满1000减350',
+    tag: '双12',
+    tagType: 'primary',
+    startTime: '2025-12-01',
+    endTime: '2025-12-12',
+    status: '进行中',
+    bannerImage: 'https://picsum.photos/800/300?random=38',
+    relatedProducts: [
+      { id: 20, name: '摩托罗拉 edge 50 Pro', price: '3599', originalPrice: '3999', mainImage: 'https://picsum.photos/300/300?random=30' },
+      { id: 1, name: 'iPhone 15 Pro', price: '8999', originalPrice: '9999', mainImage: 'https://picsum.photos/300/300?random=11' },
+      { id: 2, name: '华为 Mate 60 Pro', price: '6999', originalPrice: '7999', mainImage: 'https://picsum.photos/300/300?random=12' }
+    ]
+  },
+  {
+    id: 9,
+    title: '圣诞特惠',
+    description: '圣诞快乐，全场商品满300减100，满600减250',
+    tag: '圣诞',
+    tagType: 'success',
+    startTime: '2025-12-20',
+    endTime: '2025-12-26',
+    status: '进行中',
+    bannerImage: 'https://picsum.photos/800/300?random=39',
+    relatedProducts: [
+      { id: 3, name: '小米 14 Ultra', price: '5999', originalPrice: '6499', mainImage: 'https://picsum.photos/300/300?random=13' },
+      { id: 4, name: '三星 Galaxy S24 Ultra', price: '7999', originalPrice: '8999', mainImage: 'https://picsum.photos/300/300?random=14' },
+      { id: 5, name: 'OPPO Find X7 Pro', price: '5499', originalPrice: '5999', mainImage: 'https://picsum.photos/300/300?random=15' }
+    ]
+  },
+  {
+    id: 10,
+    title: '元旦迎新活动',
+    description: '迎接新年，全场商品8折起，新用户注册送200元优惠券',
+    tag: '元旦',
+    tagType: 'warning',
+    startTime: '2025-12-30',
+    endTime: '2026-01-03',
+    status: '进行中',
+    bannerImage: 'https://picsum.photos/800/300?random=40',
+    relatedProducts: [
+      { id: 6, name: 'vivo X100 Pro', price: '5299', originalPrice: '5799', mainImage: 'https://picsum.photos/300/300?random=16' },
+      { id: 7, name: '荣耀 Magic6 Pro', price: '5699', originalPrice: '6199', mainImage: 'https://picsum.photos/300/300?random=17' },
+      { id: 8, name: '一加 12', price: '4999', originalPrice: '5499', mainImage: 'https://picsum.photos/300/300?random=18' }
+    ]
+  },
+  {
+    id: 11,
+    title: '春季焕新季',
+    description: '春季焕新，服饰类商品满200减80，满400减180',
+    tag: '春季',
+    tagType: 'success',
+    startTime: '2025-03-15',
+    endTime: '2025-03-31',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=41',
+    relatedProducts: [
+      { id: 9, name: '联想 ThinkPad X1 Carbon', price: '12999', originalPrice: '13999', mainImage: 'https://picsum.photos/300/300?random=19' },
+      { id: 10, name: '戴尔 XPS 13', price: '9999', originalPrice: '10999', mainImage: 'https://picsum.photos/300/300?random=20' },
+      { id: 11, name: 'MacBook Pro 14', price: '15999', originalPrice: '16999', mainImage: 'https://picsum.photos/300/300?random=21' }
+    ]
+  },
+  {
+    id: 12,
+    title: '家电节',
+    description: '家电节全场家电满3000减500，满5000减1000',
+    tag: '家电节',
+    tagType: 'info',
+    startTime: '2025-04-01',
+    endTime: '2025-04-15',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=42',
+    relatedProducts: [
+      { id: 13, name: '小米 电视 EA75', price: '3299', originalPrice: '3999', mainImage: 'https://picsum.photos/300/300?random=23' },
+      { id: 14, name: '海信 激光电视 80L5G', price: '19999', originalPrice: '24999', mainImage: 'https://picsum.photos/300/300?random=24' },
+      { id: 15, name: '创维 OLED电视 A5D', price: '8999', originalPrice: '10999', mainImage: 'https://picsum.photos/300/300?random=25' }
+    ]
+  },
+  {
+    id: 13,
+    title: '五一劳动节',
+    description: '五一劳动节全场商品满600减200，满1200减500',
+    tag: '五一',
+    tagType: 'primary',
+    startTime: '2025-04-28',
+    endTime: '2025-05-05',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=43',
+    relatedProducts: [
+      { id: 16, name: 'TCL Q10H  Mini LED', price: '7999', originalPrice: '9999', mainImage: 'https://picsum.photos/300/300?random=26' },
+      { id: 17, name: '魅族 21 Pro', price: '4599', originalPrice: '4999', mainImage: 'https://picsum.photos/300/300?random=27' },
+      { id: 18, name: '努比亚 Z60 Ultra', price: '4699', originalPrice: '5199', mainImage: 'https://picsum.photos/300/300?random=28' }
+    ]
+  },
+  {
+    id: 14,
+    title: '母亲节特惠',
+    description: '母亲节感恩回馈，全场美妆商品满300减120',
+    tag: '母亲节',
+    tagType: 'success',
+    startTime: '2025-05-08',
+    endTime: '2025-05-14',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=44',
+    relatedProducts: [
+      { id: 19, name: '坚果 R2', price: '3999', originalPrice: '4499', mainImage: 'https://picsum.photos/300/300?random=29' },
+      { id: 20, name: '摩托罗拉 edge 50 Pro', price: '3599', originalPrice: '3999', mainImage: 'https://picsum.photos/300/300?random=30' },
+      { id: 1, name: 'iPhone 15 Pro', price: '8999', originalPrice: '9999', mainImage: 'https://picsum.photos/300/300?random=11' }
+    ]
+  },
+  {
+    id: 15,
+    title: '618预售',
+    description: '618预售开启，预付定金立减50-500元',
+    tag: '预售',
+    tagType: 'primary',
+    startTime: '2025-05-25',
+    endTime: '2025-05-31',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=45',
+    relatedProducts: [
+      { id: 2, name: '华为 Mate 60 Pro', price: '6999', originalPrice: '7999', mainImage: 'https://picsum.photos/300/300?random=12' },
+      { id: 3, name: '小米 14 Ultra', price: '5999', originalPrice: '6499', mainImage: 'https://picsum.photos/300/300?random=13' },
+      { id: 4, name: '三星 Galaxy S24 Ultra', price: '7999', originalPrice: '8999', mainImage: 'https://picsum.photos/300/300?random=14' }
+    ]
+  },
+  {
+    id: 16,
+    title: '父亲节特惠',
+    description: '父亲节感恩季，男装、数码产品满500减150',
+    tag: '父亲节',
+    tagType: 'info',
+    startTime: '2025-06-10',
+    endTime: '2025-06-20',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=46',
+    relatedProducts: [
+      { id: 5, name: 'OPPO Find X7 Pro', price: '5499', originalPrice: '5999', mainImage: 'https://picsum.photos/300/300?random=15' },
+      { id: 6, name: 'vivo X100 Pro', price: '5299', originalPrice: '5799', mainImage: 'https://picsum.photos/300/300?random=16' },
+      { id: 7, name: '荣耀 Magic6 Pro', price: '5699', originalPrice: '6199', mainImage: 'https://picsum.photos/300/300?random=17' }
+    ]
+  },
+  {
+    id: 17,
+    title: '暑假狂欢',
+    description: '暑假来了，学生专享7折优惠，凭学生证购买',
+    tag: '暑假',
+    tagType: 'warning',
+    startTime: '2025-07-01',
+    endTime: '2025-08-31',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=47',
+    relatedProducts: [
+      { id: 8, name: '一加 12', price: '4999', originalPrice: '5499', mainImage: 'https://picsum.photos/300/300?random=18' },
+      { id: 9, name: '联想 ThinkPad X1 Carbon', price: '12999', originalPrice: '13999', mainImage: 'https://picsum.photos/300/300?random=19' },
+      { id: 10, name: '戴尔 XPS 13', price: '9999', originalPrice: '10999', mainImage: 'https://picsum.photos/300/300?random=20' }
+    ]
+  },
+  {
+    id: 18,
+    title: '开学季',
+    description: '开学季数码产品满3000减500，满5000减1000',
+    tag: '开学季',
+    tagType: 'primary',
+    startTime: '2025-08-15',
+    endTime: '2025-09-15',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=48',
+    relatedProducts: [
+      { id: 11, name: 'MacBook Pro 14', price: '15999', originalPrice: '16999', mainImage: 'https://picsum.photos/300/300?random=21' },
+      { id: 12, name: '惠普 Spectre x360', price: '11999', originalPrice: '12999', mainImage: 'https://picsum.photos/300/300?random=22' },
+      { id: 13, name: '小米 电视 EA75', price: '3299', originalPrice: '3999', mainImage: 'https://picsum.photos/300/300?random=23' }
+    ]
+  },
+  {
+    id: 19,
+    title: '中秋团圆节',
+    description: '中秋团圆节，全场商品满800减280，满1500减600',
+    tag: '中秋',
+    tagType: 'success',
+    startTime: '2025-09-15',
+    endTime: '2025-09-22',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=49',
+    relatedProducts: [
+      { id: 14, name: '海信 激光电视 80L5G', price: '19999', originalPrice: '24999', mainImage: 'https://picsum.photos/300/300?random=24' },
+      { id: 15, name: '创维 OLED电视 A5D', price: '8999', originalPrice: '10999', mainImage: 'https://picsum.photos/300/300?random=25' },
+      { id: 16, name: 'TCL Q10H  Mini LED', price: '7999', originalPrice: '9999', mainImage: 'https://picsum.photos/300/300?random=26' }
+    ]
+  },
+  {
+    id: 20,
+    title: '国庆黄金周',
+    description: '国庆黄金周全场商品满1000减300，满2000减700',
+    tag: '国庆',
+    tagType: 'primary',
+    startTime: '2025-09-28',
+    endTime: '2025-10-07',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=50',
+    relatedProducts: [
+      { id: 17, name: '魅族 21 Pro', price: '4599', originalPrice: '4999', mainImage: 'https://picsum.photos/300/300?random=27' },
+      { id: 18, name: '努比亚 Z60 Ultra', price: '4699', originalPrice: '5199', mainImage: 'https://picsum.photos/300/300?random=28' },
+      { id: 19, name: '坚果 R2', price: '3999', originalPrice: '4499', mainImage: 'https://picsum.photos/300/300?random=29' }
+    ]
+  },
+  {
+    id: 21,
+    title: '万圣节狂欢',
+    description: '万圣节狂欢夜，全场商品满300减100，满600减250',
+    tag: '万圣节',
+    tagType: 'warning',
+    startTime: '2025-10-28',
+    endTime: '2025-11-01',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=51',
+    relatedProducts: [
+      { id: 20, name: '摩托罗拉 edge 50 Pro', price: '3599', originalPrice: '3999', mainImage: 'https://picsum.photos/300/300?random=30' },
+      { id: 1, name: 'iPhone 15 Pro', price: '8999', originalPrice: '9999', mainImage: 'https://picsum.photos/300/300?random=11' },
+      { id: 2, name: '华为 Mate 60 Pro', price: '6999', originalPrice: '7999', mainImage: 'https://picsum.photos/300/300?random=12' }
+    ]
+  },
+  {
+    id: 22,
+    title: '双十一预售',
+    description: '双十一预售开启，预付定金翻倍抵扣',
+    tag: '预售',
+    tagType: 'danger',
+    startTime: '2025-10-20',
+    endTime: '2025-10-31',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=52',
+    relatedProducts: [
+      { id: 3, name: '小米 14 Ultra', price: '5999', originalPrice: '6499', mainImage: 'https://picsum.photos/300/300?random=13' },
+      { id: 4, name: '三星 Galaxy S24 Ultra', price: '7999', originalPrice: '8999', mainImage: 'https://picsum.photos/300/300?random=14' },
+      { id: 5, name: 'OPPO Find X7 Pro', price: '5499', originalPrice: '5999', mainImage: 'https://picsum.photos/300/300?random=15' }
+    ]
+  },
+  {
+    id: 23,
+    title: '感恩节特惠',
+    description: '感恩节全场商品8.5折，满1000减200',
+    tag: '感恩',
+    tagType: 'success',
+    startTime: '2025-11-20',
+    endTime: '2025-11-26',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=53',
+    relatedProducts: [
+      { id: 6, name: 'vivo X100 Pro', price: '5299', originalPrice: '5799', mainImage: 'https://picsum.photos/300/300?random=16' },
+      { id: 7, name: '荣耀 Magic6 Pro', price: '5699', originalPrice: '6199', mainImage: 'https://picsum.photos/300/300?random=17' },
+      { id: 8, name: '一加 12', price: '4999', originalPrice: '5499', mainImage: 'https://picsum.photos/300/300?random=18' }
+    ]
+  },
+  {
+    id: 24,
+    title: '冬季保暖节',
+    description: '冬季保暖节，保暖用品满300减120，满600减300',
+    tag: '冬季',
+    tagType: 'info',
+    startTime: '2025-12-01',
+    endTime: '2025-12-15',
+    status: '已结束',
+    bannerImage: 'https://picsum.photos/800/300?random=54',
+    relatedProducts: [
+      { id: 9, name: '联想 ThinkPad X1 Carbon', price: '12999', originalPrice: '13999', mainImage: 'https://picsum.photos/300/300?random=19' },
+      { id: 10, name: '戴尔 XPS 13', price: '9999', originalPrice: '10999', mainImage: 'https://picsum.photos/300/300?random=20' },
+      { id: 11, name: 'MacBook Pro 14', price: '15999', originalPrice: '16999', mainImage: 'https://picsum.photos/300/300?random=21' }
+    ]
+  },
+  {
+    id: 25,
+    title: '年终清仓',
+    description: '年终清仓大甩卖，全场商品低至3折，清完即止',
+    tag: '清仓',
+    tagType: 'warning',
+    startTime: '2025-12-20',
+    endTime: '2025-12-31',
+    status: '进行中',
+    bannerImage: 'https://picsum.photos/800/300?random=55',
+    relatedProducts: [
+      { id: 12, name: '惠普 Spectre x360', price: '11999', originalPrice: '12999', mainImage: 'https://picsum.photos/300/300?random=22' },
+      { id: 13, name: '小米 电视 EA75', price: '3299', originalPrice: '3999', mainImage: 'https://picsum.photos/300/300?random=23' },
+      { id: 14, name: '海信 激光电视 80L5G', price: '19999', originalPrice: '24999', mainImage: 'https://picsum.photos/300/300?random=24' }
+    ]
+  },
+  {
+    id: 26,
+    title: '新年焕新',
+    description: '新年焕新季，全场商品满500减150，满1000减350',
+    tag: '新年',
+    tagType: 'success',
+    startTime: '2026-01-01',
+    endTime: '2026-01-10',
+    status: '进行中',
+    bannerImage: 'https://picsum.photos/800/300?random=56',
+    relatedProducts: [
+      { id: 15, name: '创维 OLED电视 A5D', price: '8999', originalPrice: '10999', mainImage: 'https://picsum.photos/300/300?random=25' },
+      { id: 16, name: 'TCL Q10H  Mini LED', price: '7999', originalPrice: '9999', mainImage: 'https://picsum.photos/300/300?random=26' },
+      { id: 17, name: '魅族 21 Pro', price: '4599', originalPrice: '4999', mainImage: 'https://picsum.photos/300/300?random=27' }
+    ]
   }
 ])
 
