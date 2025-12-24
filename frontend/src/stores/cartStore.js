@@ -49,24 +49,12 @@ export const useCartStore = defineStore('cart', {
         logUtils.cartLog('开始获取购物车列表', { userId })
         const response = await cartApi.getCartByUserId(userId)
         logUtils.cartLog('获取购物车列表响应', response)
-        // 处理响应数据，考虑两种情况：
-        // 1. 响应是购物车列表本身（axios拦截器直接返回了response.data）
-        // 2. 响应是包含code、message、success和data字段的对象（后端标准Response格式）
+        // 处理响应数据，考虑axios拦截器返回的响应格式
         let cartItems = []
-        if (response.code !== undefined && response.data !== undefined) {
-          // 情况2：响应是后端标准Response格式
-          if (response.success === true && response.data) {
-            if (Array.isArray(response.data)) {
-              cartItems = response.data
-            }
-          } else {
-            // API调用失败
-            throw new Error(response.message || '获取购物车列表失败')
-          }
-        } else {
-          // 情况1：响应是购物车列表本身
-          if (Array.isArray(response)) {
-            cartItems = response
+        if (response.success === true && response.data) {
+          // 后端Response类返回的格式：{ success: true, data: [购物车列表] }
+          if (Array.isArray(response.data)) {
+            cartItems = response.data
           }
         }
         
