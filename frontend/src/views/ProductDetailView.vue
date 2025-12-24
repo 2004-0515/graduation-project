@@ -95,54 +95,77 @@ const product = reactive({
 const quantity = ref(1)
 
 // 获取商品详情
-const fetchProductDetail = async () => {
-  console.log('开始获取商品详情，当前路由ID:', route.params.id)
-  
-  // 重置商品数据为初始状态
-  Object.assign(product, {
-    id: 0,
-    name: '',
-    price: '',
-    originalPrice: '',
-    rating: 0,
-    sales: 0,
-    stock: 0,
-    description: '',
-    mainImage: ''
-  })
-  
-  try {
-    const id = parseInt(route.params.id)
-    console.log('解析后的商品ID:', id)
+  const fetchProductDetail = async () => {
+    console.log('开始获取商品详情，当前路由ID:', route.params.id)
     
-    if (isNaN(id)) {
-      console.error('无效的商品ID')
-      ElMessage.error('无效的商品ID')
-      // 即使ID无效，也显示默认数据
-      const mockProduct = {
-        id: 1,
-        name: '商品详情',
-        price: '0',
-        originalPrice: '',
-        rating: 0,
-        sales: 0,
-        stock: 0,
-        description: '暂无商品描述',
-        mainImage: 'https://picsum.photos/300/300?random=1'
+    // 重置商品数据为初始状态
+    Object.assign(product, {
+      id: 0,
+      name: '',
+      price: '',
+      originalPrice: '',
+      rating: 0,
+      sales: 0,
+      stock: 0,
+      description: '',
+      mainImage: ''
+    })
+    
+    try {
+      const id = parseInt(route.params.id)
+      console.log('解析后的商品ID:', id)
+      
+      if (isNaN(id)) {
+        console.error('无效的商品ID')
+        ElMessage.error('无效的商品ID')
+        // 即使ID无效，也显示默认数据
+        const mockProduct = {
+          id: 1,
+          name: '商品详情',
+          price: '0',
+          originalPrice: '',
+          rating: 0,
+          sales: 0,
+          stock: 0,
+          description: '暂无商品描述',
+          mainImage: 'https://picsum.photos/300/300?random=1'
+        }
+        Object.assign(product, mockProduct)
+        return
       }
-      Object.assign(product, mockProduct)
-      return
-    }
-    
-    // 尝试调用真实API
-    console.log('开始调用API获取商品详情')
-    const response = await productApi.getProductById(id)
-    console.log('API响应:', response)
-    
-    if (response.success && response.data) {
-      // 转换价格格式，确保前端显示正常
-      const apiProduct = response.data
-      console.log('API返回的商品数据:', apiProduct)
+      
+      // 尝试调用真实API
+      console.log('开始调用API获取商品详情')
+      const response = await productApi.getProductById(id)
+      console.log('API响应:', response)
+      
+      // 处理响应数据，考虑两种情况：
+      // 1. 响应是商品数据本身（axios拦截器直接返回了response.data）
+      // 2. 响应是包含code、message、success和data字段的对象（后端标准Response格式）
+      let apiProduct = response
+      if (response.code !== undefined && response.data !== undefined) {
+        // 情况2：响应是后端标准Response格式
+        if (response.success === true && response.data) {
+          apiProduct = response.data
+        } else {
+          // API调用失败，使用模拟数据
+          console.log('API调用失败或返回错误，使用默认模拟数据')
+          // 使用基于商品ID的不同模拟数据，确保点击不同商品显示不同信息
+          apiProduct = {
+            id: id,
+            name: `商品 ${id}`,
+            price: (Math.random() * 10000).toFixed(2),
+            originalPrice: (Math.random() * 20000).toFixed(2),
+            rating: Math.random() * 5 + 3.5,
+            sales: Math.floor(Math.random() * 10000),
+            stock: Math.floor(Math.random() * 1000),
+            description: `这是商品 ${id} 的详细描述，包含商品的各种特性和优势。`,
+            mainImage: `https://picsum.photos/300/300?random=${id}`
+          }
+        }
+      }
+      
+      // 更新商品数据
       Object.assign(product, {
         id: apiProduct.id || id,
         name: apiProduct.name || '未命名商品',
@@ -154,47 +177,43 @@ const fetchProductDetail = async () => {
         description: apiProduct.description || '暂无商品描述',
         mainImage: apiProduct.mainImage || 'https://picsum.photos/300/300?random=1'
       })
-    } else {
-      // API调用失败或返回错误，使用默认模拟数据
-      console.log('API调用失败或返回错误，使用默认模拟数据')
+    } catch (error) {
+      console.error('获取商品详情失败:', error)
+      ElMessage.error('获取商品详情失败，使用默认数据')
+      
+      // 显示默认模拟数据
       const mockProduct = {
-        id: id,
-        name: 'iPhone 15 Pro',
-        price: '8999',
-        originalPrice: '9999',
-        rating: 4.8,
-        sales: 1234,
-        stock: 500,
-        description: 'iPhone 15 Pro 采用了全新的钛金属设计，配备 A17 Pro 芯片，支持 USB-C 接口，拍照能力大幅提升。',
-        mainImage: 'https://picsum.photos/300/300?random=11'
+        id: parseInt(route.params.id) || 1,
+        name: '商品详情',
+        price: '0',
+        originalPrice: '',
+        rating: 0,
+        sales: 0,
+        stock: 0,
+        description: '暂无商品描述',
+        mainImage: 'https://picsum.photos/300/300?random=1'
       }
       Object.assign(product, mockProduct)
     }
-  } catch (error) {
-    console.error('获取商品详情失败:', error)
-    ElMessage.error('获取商品详情失败，使用默认数据')
     
-    // 显示默认模拟数据
-    const mockProduct = {
-      id: parseInt(route.params.id) || 1,
-      name: '商品详情',
-      price: '0',
-      originalPrice: '',
-      rating: 0,
-      sales: 0,
-      stock: 0,
-      description: '暂无商品描述',
-      mainImage: 'https://picsum.photos/300/300?random=1'
-    }
-    Object.assign(product, mockProduct)
+    console.log('商品数据获取完成，最终商品数据:', product)
   }
-  
-  console.log('商品数据获取完成，最终商品数据:', product)
-}
 
 // 加入购物车
-const addToCart = () => {
-  ElMessage.success(`已将 ${product.name} 加入购物车`)
+const addToCart = async () => {
+  try {
+    if (!userStore.isLoggedIn) {
+      ElMessage.warning('请先登录')
+      router.push('/login')
+      return
+    }
+    
+    await cartStore.addToCart(userStore.userInfo.id, product.id, quantity.value)
+    ElMessage.success(`已将 ${product.name} 加入购物车`)
+  } catch (error) {
+    console.error('添加商品到购物车失败:', error)
+    ElMessage.error('添加商品到购物车失败，请重试')
+  }
 }
 
 // 立即购买

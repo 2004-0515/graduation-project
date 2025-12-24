@@ -57,6 +57,36 @@ const router = createRouter({
       path: '/promotion/:id',
       name: 'promotionDetail',
       component: () => import('./views/PromotionDetailView.vue')
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('./views/ProfileView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/orders',
+      name: 'orders',
+      component: () => import('./views/OrdersView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/address',
+      name: 'address',
+      component: () => import('./views/AddressView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('./views/SettingsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/notifications',
+      name: 'notifications',
+      component: () => import('./views/NotificationsView.vue'),
+      meta: { requiresAuth: true }
     }
   ],
   // 配置滚动行为，确保页面跳转后滚动到顶部
@@ -77,8 +107,39 @@ app.use(ElementPlus, {
   locale: zhCn
 })
 
-// 初始化用户信息
+// 添加路由守卫
 import { useUserStore } from './stores/userStore'
+router.beforeEach(async (to, from, next) => {
+  const userStore = useUserStore()
+  
+  // 如果是受保护的路由，需要验证登录状态
+  if (to.meta.requiresAuth) {
+    // 如果没有token，跳转到登录页
+    if (!userStore.token) {
+      next({ name: 'login' })
+      return
+    }
+    
+    // 如果有token但没有用户信息，尝试获取用户信息
+    if (!userStore.userInfo) {
+      try {
+        await userStore.fetchCurrentUser()
+        next()
+      } catch (error) {
+        // 获取用户信息失败，跳转到登录页
+        next({ name: 'login' })
+      }
+    } else {
+      // 已有用户信息，直接通过
+      next()
+    }
+  } else {
+    // 非受保护路由，直接通过
+    next()
+  }
+})
+
+// 初始化用户信息
 const userStore = useUserStore()
 userStore.initUser()
 

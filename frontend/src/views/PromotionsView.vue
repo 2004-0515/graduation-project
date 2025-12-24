@@ -112,7 +112,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ShoppingCart, Bell, Timer } from '@element-plus/icons-vue'
 import { useCartStore } from '../stores/cartStore'
@@ -121,6 +121,7 @@ import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 // 活动分类标签
 const activeTab = ref('all')
@@ -128,6 +129,13 @@ const activeTab = ref('all')
 // 分页信息
 const currentPage = ref(1)
 const pageSize = ref(10)
+
+// 从路由查询参数初始化分页
+const getPaginationFromQuery = () => {
+  const page = parseInt(String(route.query.page)) || 1
+  const size = parseInt(String(route.query.size)) || 10
+  return { page, size }
+}
 
 // 促销活动列表
 const promotions = reactive([
@@ -584,17 +592,37 @@ const handleTabChange = (tab) => {
   // 实际项目中这里应该根据标签页类型重新调用API获取数据
 }
 
+// 页面加载时初始化数据
+onMounted(() => {
+  // 从路由查询参数初始化分页
+  const { page, size } = getPaginationFromQuery()
+  currentPage.value = page
+  pageSize.value = size
+})
+
+// 监听路由查询参数变化
+watch(() => route.query, () => {
+  const { page, size } = getPaginationFromQuery()
+  currentPage.value = page
+  pageSize.value = size
+}, { immediate: true, deep: true })
+
 // 分页大小变化
 const handleSizeChange = (size) => {
-  pageSize.value = size
-  currentPage.value = 1
-  // 实际项目中这里应该重新调用API获取数据
+  router.push({
+    path: '/promotions',
+    query: { page: 1, size: size, tab: activeTab.value },
+    target: '_blank'
+  })
 }
 
 // 当前页码变化
 const handleCurrentChange = (current) => {
-  currentPage.value = current
-  // 实际项目中这里应该重新调用API获取数据
+  router.push({
+    path: '/promotions',
+    query: { page: current, size: pageSize.value, tab: activeTab.value },
+    target: '_blank'
+  })
 }
 
 // 查看活动详情

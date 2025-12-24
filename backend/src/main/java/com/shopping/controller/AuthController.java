@@ -2,15 +2,19 @@ package com.shopping.controller;
 
 import com.shopping.dto.Response;
 import com.shopping.entity.User;
+import com.shopping.repository.UserRepository;
 import com.shopping.service.AuthService;
 import com.shopping.utils.CaptchaUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -22,6 +26,9 @@ public class AuthController {
 
     @Autowired
     private AuthService authService;
+    
+    @Autowired
+    private UserRepository userRepository;
 
     /**
      * 生成验证码
@@ -47,14 +54,20 @@ public class AuthController {
     /**
      * 用户登录
      * @param loginRequest 登录信息，包含username和password
-     * @return 登录结果，包含JWT令牌
+     * @return 登录结果，包含JWT令牌和用户信息
      */
     @PostMapping("/login")
-    public Response<Map<String, String>> login(@RequestBody Map<String, String> loginRequest) {
+    public Response<Map<String, Object>> login(@RequestBody Map<String, String> loginRequest) {
         String username = loginRequest.get("username");
         String password = loginRequest.get("password");
         String token = authService.login(username, password);
-        return Response.success("Login successful", Map.of("token", token));
+        // 获取用户信息
+        User user = userRepository.findByUsername(username);
+        // 构建响应，包含token和user信息
+        Map<String, Object> responseData = new HashMap<>();
+        responseData.put("token", token);
+        responseData.put("user", user);
+        return Response.success("Login successful", responseData);
     }
 
     /**
@@ -68,5 +81,25 @@ public class AuthController {
         String correctCode = request.get("correctCode");
         boolean isValid = CaptchaUtil.validateCaptcha(captchaCode, correctCode);
         return Response.success("Captcha validated successfully", isValid);
+    }
+    
+    /**
+     * 获取当前登录用户信息
+     * @return 当前登录用户信息
+     */
+    @GetMapping("/me")
+    public Response<User> getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Response.error(401, "User not authenticated");
+        }
+        // 获取用户名
+        String username = authentication.getName();
+        // 根据用户名获取用户信息
+        User user = userRepository.findByUsername(username);
+        if (user == null) {
+            return Response.error(404, "User not found");
+        }
+        return Response.success("Current user fetched successfully", user);
     }
 }

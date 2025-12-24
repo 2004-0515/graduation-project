@@ -1,5 +1,6 @@
 package com.shopping.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,6 +24,7 @@ public class User {
     private String username;
     
     @Column(name = "password", nullable = false, length = 100)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
     
     @Column(name = "email", nullable = false, unique = true, length = 100)
@@ -34,6 +36,21 @@ public class User {
     @Column(name = "avatar", length = 200)
     private String avatar;
     
+    @Column(name = "nickname", length = 50)
+    private String nickname;
+    
+    @Column(name = "bio", length = 200)
+    private String bio;
+    
+    @Column(name = "points", columnDefinition = "int default 0")
+    private Integer points;
+    
+    @Column(name = "growth_value", columnDefinition = "int default 0")
+    private Integer growthValue;
+    
+    @Column(name = "member_days", columnDefinition = "int default 0")
+    private Integer memberDays;
+    
     @Column(name = "status", nullable = false, columnDefinition = "tinyint default 1")
     private Integer status;
     
@@ -42,6 +59,12 @@ public class User {
     
     @Column(name = "updated_time", nullable = false)
     private LocalDateTime updatedTime;
+    
+    @Column(name = "last_login_time")
+    private LocalDateTime lastLoginTime;
+    
+    @Column(name = "last_login_ip", length = 50)
+    private String lastLoginIp;
     
     @PrePersist
     protected void onCreate() {

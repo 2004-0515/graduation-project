@@ -116,6 +116,7 @@ import { ShoppingCart, Bell, ArrowDown } from '@element-plus/icons-vue'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
 import productApi from '../api/productApi'
+import categoryApi from '../api/categoryApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -134,31 +135,83 @@ const cartItemCount = computed(() => {
 })
 
 // 商品分类数据
-const categories = reactive([
-  { id: 1, name: '手机数码', description: '各种品牌手机、电脑、数码产品', icon: 'https://picsum.photos/200/200?random=1' },
-  { id: 2, name: '家用电器', description: '冰箱、洗衣机、空调等家用电器', icon: 'https://picsum.photos/200/200?random=2' },
-  { id: 3, name: '服装鞋帽', description: '时尚服装、鞋帽配饰', icon: 'https://picsum.photos/200/200?random=3' },
-  { id: 4, name: '美妆护肤', description: '各种品牌化妆品、护肤品', icon: 'https://picsum.photos/200/200?random=4' },
-  { id: 5, name: '食品饮料', description: '零食、饮料、生鲜食品', icon: 'https://picsum.photos/200/200?random=5' },
-  { id: 6, name: '图书音像', description: '各种图书、音像制品', icon: 'https://picsum.photos/200/200?random=6' },
-])
+const categories = ref([])
 
 // 热销商品数据
-const hotProducts = reactive([
-  { id: 1, name: 'iPhone 15 Pro', price: '8999', originalPrice: '9999', discount: 9, sales: 1234, stock: 500, mainImage: 'https://picsum.photos/300/300?random=11' },
-  { id: 2, name: '华为 Mate 60 Pro', price: '6999', originalPrice: '7999', discount: 8.7, sales: 2345, stock: 300, mainImage: 'https://picsum.photos/300/300?random=12' },
-  { id: 3, name: '小米 14 Ultra', price: '5999', originalPrice: '6499', discount: 9.2, sales: 3456, stock: 400, mainImage: 'https://picsum.photos/300/300?random=13' },
-  { id: 4, name: '三星 Galaxy S24 Ultra', price: '7999', originalPrice: '8999', discount: 8.9, sales: 1876, stock: 200, mainImage: 'https://picsum.photos/300/300?random=14' },
-  { id: 5, name: 'OPPO Find X7 Pro', price: '5499', originalPrice: '5999', discount: 9.2, sales: 1567, stock: 350, mainImage: 'https://picsum.photos/300/300?random=15' },
-  { id: 6, name: 'vivo X100 Pro', price: '5299', originalPrice: '5799', discount: 9.1, sales: 1432, stock: 420, mainImage: 'https://picsum.photos/300/300?random=16' },
-])
+const hotProducts = ref([])
 
 // 促销活动数据
-const promotions = reactive([
-  { id: 1, title: '双11大促', description: '全场商品低至5折，满1000减200', date: '2025-11-11' },
-  { id: 2, title: '618年中庆', description: '全场满300减50，上不封顶', date: '2025-06-18' },
-  { id: 3, title: '新年特惠', description: '新年新气象，购物送好礼', date: '2025-01-01' },
-])
+const promotions = ref([])
+
+// 加载状态
+const loading = ref(false)
+
+// 获取商品分类数据
+const fetchCategories = async () => {
+  try {
+    const response = await categoryApi.getAllCategories()
+    if (response.success === true && response.data) {
+      categories.value = response.data
+    } else {
+      categories.value = response
+    }
+  } catch (error) {
+    console.error('获取商品分类失败:', error)
+    // 保留一些默认分类作为备用
+    categories.value = [
+      { id: 1, name: '手机数码', description: '各种品牌手机、电脑、数码产品', icon: 'https://picsum.photos/200/200?random=1' },
+      { id: 2, name: '家用电器', description: '冰箱、洗衣机、空调等家用电器', icon: 'https://picsum.photos/200/200?random=2' },
+      { id: 3, name: '服装鞋帽', description: '时尚服装、鞋帽配饰', icon: 'https://picsum.photos/200/200?random=3' },
+      { id: 4, name: '美妆护肤', description: '各种品牌化妆品、护肤品', icon: 'https://picsum.photos/200/200?random=4' },
+      { id: 5, name: '食品饮料', description: '零食、饮料、生鲜食品', icon: 'https://picsum.photos/200/200?random=5' },
+      { id: 6, name: '图书音像', description: '各种图书、音像制品', icon: 'https://picsum.photos/200/200?random=6' },
+    ]
+  }
+}
+
+// 获取热销商品数据
+const fetchHotProducts = async () => {
+  try {
+    // 这里假设后端有获取热销商品的API，暂时使用getProducts获取前6个商品作为热销商品
+    const response = await productApi.getProducts(0, 6)
+    if (response.success === true && response.data) {
+      // 处理分页响应
+      if (response.data.content) {
+        hotProducts.value = response.data.content
+      } else {
+        hotProducts.value = response.data
+      }
+    } else {
+      hotProducts.value = response
+    }
+  } catch (error) {
+    console.error('获取热销商品失败:', error)
+    // 保留一些默认商品作为备用
+    hotProducts.value = [
+      { id: 1, name: 'iPhone 15 Pro', price: '8999', originalPrice: '9999', discount: 9, sales: 1234, stock: 500, mainImage: 'https://picsum.photos/300/300?random=11' },
+      { id: 2, name: '华为 Mate 60 Pro', price: '6999', originalPrice: '7999', discount: 8.7, sales: 2345, stock: 300, mainImage: 'https://picsum.photos/300/300?random=12' },
+      { id: 3, name: '小米 14 Ultra', price: '5999', originalPrice: '6499', discount: 9.2, sales: 3456, stock: 400, mainImage: 'https://picsum.photos/300/300?random=13' },
+      { id: 4, name: '三星 Galaxy S24 Ultra', price: '7999', originalPrice: '8999', discount: 8.9, sales: 1876, stock: 200, mainImage: 'https://picsum.photos/300/300?random=14' },
+      { id: 5, name: 'OPPO Find X7 Pro', price: '5499', originalPrice: '5999', discount: 9.2, sales: 1567, stock: 350, mainImage: 'https://picsum.photos/300/300?random=15' },
+      { id: 6, name: 'vivo X100 Pro', price: '5299', originalPrice: '5799', discount: 9.1, sales: 1432, stock: 420, mainImage: 'https://picsum.photos/300/300?random=16' },
+    ]
+  }
+}
+
+// 获取促销活动数据
+const fetchPromotions = async () => {
+  try {
+    // 由于没有找到促销活动API，暂时使用模拟数据
+    promotions.value = [
+      { id: 1, title: '双11大促', description: '全场商品低至5折，满1000减200', date: '2025-11-11' },
+      { id: 2, title: '618年中庆', description: '全场满300减50，上不封顶', date: '2025-06-18' },
+      { id: 3, title: '新年特惠', description: '新年新气象，购物送好礼', date: '2025-01-01' },
+    ]
+  } catch (error) {
+    console.error('获取促销活动失败:', error)
+    promotions.value = []
+  }
+}
 
 // 获取购物车列表
 const fetchCartItems = async () => {
@@ -193,8 +246,6 @@ const buyNow = (product) => {
   ElMessage.info(`立即购买 ${product.name}`)
 }
 
-
-
 // 处理轮播图点击事件，跳转到对应促销活动详情页
 const handleBannerClick = (promotionId) => {
   ElMessage.info('进入促销活动详情')
@@ -202,9 +253,19 @@ const handleBannerClick = (promotionId) => {
   router.push(`/promotion/${promotionId}`)
 }
 
-// 页面加载时获取购物车列表
-onMounted(() => {
-  fetchCartItems()
+// 页面加载时获取数据
+onMounted(async () => {
+  loading.value = true
+  try {
+    await Promise.all([
+      fetchCategories(),
+      fetchHotProducts(),
+      fetchPromotions(),
+      fetchCartItems()
+    ])
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 

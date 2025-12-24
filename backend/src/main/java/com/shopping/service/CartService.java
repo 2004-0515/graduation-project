@@ -48,8 +48,11 @@ public class CartService {
         
         if (cart.getId() == null) {
             // 新购物车项
-            // 注意：这里应该通过setUser和setProduct方法设置关联对象，而不是直接设置ID
-            // 由于当前代码结构限制，我们暂时保留现有实现
+            // 创建User对象并设置ID
+            com.shopping.entity.User user = new com.shopping.entity.User();
+            user.setId(userId);
+            cart.setUser(user);
+            cart.setProduct(product);
             cart.setQuantity(quantity);
         } else {
             // 已有购物车项，增加数量

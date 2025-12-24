@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import cartApi from '../api/cartApi'
 import { ElMessage } from 'element-plus'
+import { logUtils } from '../utils/logUtils'
 
 /**
  * 购物车状态管理
@@ -45,12 +46,26 @@ export const useCartStore = defineStore('cart', {
       this.error = null
       
       try {
-        const cartItems = await cartApi.getCartByUserId(userId)
+        logUtils.cartLog('开始获取购物车列表', { userId })
+        const response = await cartApi.getCartByUserId(userId)
+        logUtils.cartLog('获取购物车列表响应', response)
+        // 处理响应数据，考虑axios拦截器返回的响应格式
+        let cartItems = []
+        if (response.success === true && response.data) {
+          // 后端Response类返回的格式：{ success: true, data: [购物车列表] }
+          if (Array.isArray(response.data)) {
+            cartItems = response.data
+          }
+        }
+        
+        logUtils.cartLog('处理后的购物车列表', cartItems)
         this.cartItems = cartItems
-        return cartItems
+        return this.cartItems
       } catch (error) {
-        this.error = error.response?.data?.message || '获取购物车列表失败'
+        this.error = error.message || '获取购物车列表失败'
+        logUtils.cartLog('获取购物车列表失败', error)
         console.error('获取购物车列表失败:', error)
+        this.cartItems = []
         return []
       } finally {
         this.loading = false
@@ -68,22 +83,33 @@ export const useCartStore = defineStore('cart', {
       this.error = null
       
       try {
-        const cartItem = await cartApi.addToCart(userId, productId, quantity)
+        const response = await cartApi.addToCart(userId, productId, quantity)
+        logUtils.cartLog('添加商品到购物车响应', response)
         
-        // 检查商品是否已在购物车中
-        const existingItemIndex = this.cartItems.findIndex(item => item.product.id === productId)
-        if (existingItemIndex > -1) {
-          // 更新现有商品数量
-          this.cartItems[existingItemIndex].quantity += quantity
-        } else {
-          // 添加新商品到购物车
-          this.cartItems.push(cartItem)
+        // 处理响应数据，考虑axios拦截器返回的响应格式
+        let cartItem = null
+        if (response.success === true && response.data) {
+          // 后端Response类返回的格式：{ success: true, data: 购物车项 }
+          cartItem = response.data
+        }
+        
+        if (cartItem) {
+          // 检查商品是否已在购物车中
+          const existingItemIndex = this.cartItems.findIndex(item => item.product.id === productId)
+          if (existingItemIndex > -1) {
+            // 更新现有商品数量
+            this.cartItems[existingItemIndex].quantity += quantity
+          } else {
+            // 添加新商品到购物车
+            this.cartItems.push(cartItem)
+          }
         }
         
         ElMessage.success('商品已添加到购物车')
         return cartItem
       } catch (error) {
-        this.error = error.response?.data?.message || '添加商品到购物车失败'
+        this.error = error.message || '添加商品到购物车失败'
+        logUtils.cartLog('添加商品到购物车失败', error)
         ElMessage.error(this.error)
         console.error('添加商品到购物车失败:', error)
         throw error
@@ -102,11 +128,24 @@ export const useCartStore = defineStore('cart', {
       this.error = null
       
       try {
-        const updatedItem = await cartApi.updateCartQuantity(id, quantity)
+        const response = await cartApi.updateCartQuantity(id, quantity)
+        
+        // 处理响应数据，考虑axios返回的响应格式和后端Response类的格式
+        let updatedItem = null
+        if (response.data) {
+          // axios响应包含data字段
+          if (response.data.data) {
+            // 后端Response类返回的格式：{ data: 购物车项 }
+            updatedItem = response.data.data
+          } else {
+            // 直接返回购物车项的情况
+            updatedItem = response.data
+          }
+        }
         
         // 更新本地购物车数据
         const index = this.cartItems.findIndex(item => item.id === id)
-        if (index > -1) {
+        if (index > -1 && updatedItem) {
           this.cartItems[index] = updatedItem
         }
         

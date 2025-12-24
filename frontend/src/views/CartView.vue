@@ -7,9 +7,9 @@
     <section class="cart-content">
       <div class="container">
         <h2 class="section-title">我的购物车</h2>
-        <el-card shadow="hover" v-if="cartItems.length > 0">
+        <el-card shadow="hover" v-if="cartStore.cartItems.length > 0">
           <div class="cart-table">
-            <el-table :data="cartItems" stripe style="width: 100%">
+            <el-table :data="cartStore.cartItems" stripe style="width: 100%">
               <el-table-column prop="product.name" label="商品名称" width="300">
                 <template #default="scope">
                   <div class="product-info">
@@ -80,6 +80,7 @@ import { ElMessage } from 'element-plus'
 import { ShoppingCart, Bell, ArrowDown, Delete } from '@element-plus/icons-vue'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
+import { logUtils } from '../utils/logUtils'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -110,9 +111,16 @@ const fetchCartItems = async () => {
     return
   }
   
+  logUtils.cartLog('开始获取购物车列表', { 
+    isLoggedIn: userStore.isLoggedIn, 
+    userId: userId.value, 
+    userInfo: userStore.userInfo 
+  })
+  
   try {
     await cartStore.fetchCartItems(userId.value)
   } catch (error) {
+    logUtils.cartLog('获取购物车列表失败', error)
     console.error('获取购物车列表失败:', error)
     ElMessage.error('获取购物车列表失败')
   }

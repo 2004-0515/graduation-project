@@ -6,7 +6,7 @@
           <h2>用户登录</h2>
         </div>
       </template>
-      <el-form :model="loginForm" :rules="loginRules" ref="loginFormRef" label-position="top" autocomplete="off">
+      <el-form :model="loginForm" :rules="loginRules" ref="loginFormRef" label-position="top" autocomplete="off" @keyup.enter="handleLogin">
         <el-form-item label="用户名" prop="username">
           <el-input v-model="loginForm.username" placeholder="请输入用户名" prefix-icon="User" autocomplete="username" />
         </el-form-item>

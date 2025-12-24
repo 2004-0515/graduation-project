@@ -139,116 +139,32 @@ const promotion = reactive({
   relatedProducts: []
 })
 
-// 模拟促销活动数据
-const mockPromotions = [
-  {
-    id: 1,
-    title: '双11全球狂欢节',
-    description: '全场商品低至5折，满1000减200，上不封顶。活动期间，每天10点、14点、20点准时发放大额优惠券，数量有限，先到先得。',
-    tag: '双11',
-    tagType: 'danger',
-    startTime: '2025-11-01',
-    endTime: '2025-11-11',
-    status: '进行中',
-    bannerImage: 'https://picsum.photos/800/300?random=31',
-    rules: [
-      '全场商品低至5折',
-      '满1000减200，上不封顶',
-      '每天10点、14点、20点发放优惠券',
-      '优惠券可与折扣叠加使用',
-      '活动最终解释权归本商城所有'
-    ],
-    relatedProducts: [
-      { id: 1, name: 'iPhone 15 Pro', price: '8999', originalPrice: '9999', mainImage: 'https://picsum.photos/300/300?random=11', discount: 9, sales: 1234, rating: 4.8 },
-      { id: 2, name: '华为 Mate 60 Pro', price: '6999', originalPrice: '7999', mainImage: 'https://picsum.photos/300/300?random=12', discount: 8.7, sales: 2345, rating: 4.9 },
-      { id: 3, name: '小米 14 Ultra', price: '5999', originalPrice: '6499', mainImage: 'https://picsum.photos/300/300?random=13', discount: 9.2, sales: 3456, rating: 4.7 }
-    ]
-  },
-  {
-    id: 2,
-    title: '618年中盛典',
-    description: '年中大促，全场商品8折起，满300减50。新品上市享额外优惠，会员购物双倍积分。',
-    tag: '618',
-    tagType: 'primary',
-    startTime: '2025-06-01',
-    endTime: '2025-06-18',
-    status: '进行中',
-    bannerImage: 'https://picsum.photos/800/300?random=32',
-    rules: [
-      '全场商品8折起',
-      '满300减50，上不封顶',
-      '新品上市享额外9折',
-      '会员购物双倍积分',
-      '活动最终解释权归本商城所有'
-    ],
-    relatedProducts: [
-      { id: 13, name: '小米 电视 EA75', price: '3299', originalPrice: '3999', mainImage: 'https://picsum.photos/300/300?random=23', discount: 8.2, sales: 4567, rating: 4.6 },
-      { id: 14, name: '海信 激光电视 80L5G', price: '19999', originalPrice: '24999', mainImage: 'https://picsum.photos/300/300?random=24', discount: 8.0, sales: 345, rating: 4.8 },
-      { id: 15, name: '创维 OLED电视 A5D', price: '8999', originalPrice: '10999', mainImage: 'https://picsum.photos/300/300?random=25', discount: 8.2, sales: 1234, rating: 4.7 }
-    ]
-  },
-  {
-    id: 3,
-    title: '夏日清凉特卖',
-    description: '夏日清凉商品大促销，空调、风扇、冰箱等家电类商品满2000减300。清凉饮品买二送一，防暑降温商品全场8折。',
-    tag: '夏日',
-    tagType: 'info',
-    startTime: '2025-07-01',
-    endTime: '2025-07-31',
-    status: '进行中',
-    bannerImage: 'https://picsum.photos/800/300?random=35',
-    rules: [
-      '家电类商品满2000减300',
-      '清凉饮品买二送一',
-      '防暑降温商品全场8折',
-      '活动最终解释权归本商城所有'
-    ],
-    relatedProducts: [
-      { id: 16, name: 'TCL Q10H  Mini LED', price: '7999', originalPrice: '9999', mainImage: 'https://picsum.photos/300/300?random=26', discount: 8.0, sales: 2345, rating: 4.6 },
-      { id: 7, name: '荣耀 Magic6 Pro', price: '5699', originalPrice: '6199', mainImage: 'https://picsum.photos/300/300?random=17', discount: 9.2, sales: 1789, rating: 4.7 },
-      { id: 8, name: '一加 12', price: '4999', originalPrice: '5499', mainImage: 'https://picsum.photos/300/300?random=18', discount: 9.1, sales: 1345, rating: 4.6 }
-    ]
-  },
-  {
-    id: 4,
-    title: '会员专享日',
-    description: '会员专享8折优惠，新用户注册即送100元优惠券。活动期间，会员购买指定商品可获得双倍积分，积分可兑换精美礼品。',
-    tag: '会员',
-    tagType: 'success',
-    startTime: '2025-05-15',
-    endTime: '2025-05-16',
-    status: '已结束',
-    bannerImage: 'https://picsum.photos/800/300?random=36',
-    rules: [
-      '会员专享8折优惠',
-      '新用户注册即送100元优惠券',
-      '会员购买指定商品双倍积分',
-      '积分可兑换精美礼品',
-      '活动最终解释权归本商城所有'
-    ],
-    relatedProducts: [
-      { id: 12, name: '惠普 Spectre x360', price: '11999', originalPrice: '12999', mainImage: 'https://picsum.photos/300/300?random=22', discount: 9.2, sales: 654, rating: 4.7 },
-      { id: 1, name: 'iPhone 15 Pro', price: '8999', originalPrice: '9999', mainImage: 'https://picsum.photos/300/300?random=11', discount: 9, sales: 1234, rating: 4.8 },
-      { id: 3, name: '小米 14 Ultra', price: '5999', originalPrice: '6499', mainImage: 'https://picsum.photos/300/300?random=13', discount: 9.2, sales: 3456, rating: 4.7 }
-    ]
-  }
-]
-
 // 获取促销活动详情
 const fetchPromotionDetail = () => {
   // 实际项目中这里应该调用API获取数据
-  // 模拟API调用，从mock数据中查找对应ID的活动
-  const foundPromotion = mockPromotions.find(p => p.id === promotionId.value)
+  // 由于后端暂时没有促销活动相关的API，这里使用默认数据
+  ElMessage.info('促销活动功能正在开发中')
   
-  if (foundPromotion) {
-    // 将找到的活动数据赋值给promotion对象
-    Object.assign(promotion, foundPromotion)
-  } else {
-    // 如果找不到对应的活动，显示错误提示
-    ElMessage.error('未找到该促销活动')
-    // 跳转到促销活动列表页面
-    router.push('/promotions')
+  // 使用默认促销活动数据
+  const defaultPromotion = {
+    id: promotionId.value,
+    title: '默认促销活动',
+    tag: '促销',
+    tagType: 'primary',
+    status: '进行中',
+    startTime: '2025-01-01',
+    endTime: '2025-12-31',
+    bannerImage: 'https://picsum.photos/800/300?random=31',
+    description: '这是一个默认的促销活动详情页面。',
+    rules: [
+      '全场商品8折起',
+      '满1000减200',
+      '活动最终解释权归本商城所有'
+    ],
+    relatedProducts: []
   }
+  
+  Object.assign(promotion, defaultPromotion)
 }
 
 // 加入购物车
@@ -259,6 +175,7 @@ const addToCart = (product) => {
     return
   }
   
+  cartStore.addToCart(userId.value, product.id, 1)
   ElMessage.success(`已将 ${product.name} 加入购物车`)
 }
 

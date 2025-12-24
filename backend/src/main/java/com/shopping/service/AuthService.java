@@ -38,6 +38,10 @@ public class AuthService {
         if (userRepository.findByEmail(user.getEmail()) != null) {
             throw new RuntimeException("Email already exists");
         }
+        // 设置默认状态为1（正常）
+        if (user.getStatus() == null) {
+            user.setStatus(1);
+        }
         // 密码加密
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         // 保存用户

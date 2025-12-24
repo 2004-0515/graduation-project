@@ -31,17 +31,12 @@ public class CartController {
     
     /**
      * 添加商品到购物车
-     * @param userId 用户ID
-     * @param productId 商品ID
-     * @param quantity 商品数量
+     * @param cartRequest 购物车请求对象
      * @return 更新后的购物车项
      */
     @PostMapping
-    public Response<Cart> addToCart(
-            @RequestParam Long userId,
-            @RequestParam Long productId,
-            @RequestParam Integer quantity) {
-        Cart cart = cartService.addToCart(userId, productId, quantity);
+    public Response<Cart> addToCart(@RequestBody CartRequest cartRequest) {
+        Cart cart = cartService.addToCart(cartRequest.getUserId(), cartRequest.getProductId(), cartRequest.getQuantity());
         if (cart != null) {
             return Response.success("Added to cart successfully", cart);
         } else {
@@ -50,20 +45,70 @@ public class CartController {
     }
     
     /**
+     * 内部类，用于接收添加到购物车的请求参数
+     */
+    static class CartRequest {
+        private Long userId;
+        private Long productId;
+        private Integer quantity;
+        
+        // Getters and Setters
+        public Long getUserId() {
+            return userId;
+        }
+        
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
+        
+        public Long getProductId() {
+            return productId;
+        }
+        
+        public void setProductId(Long productId) {
+            this.productId = productId;
+        }
+        
+        public Integer getQuantity() {
+            return quantity;
+        }
+        
+        public void setQuantity(Integer quantity) {
+            this.quantity = quantity;
+        }
+    }
+    
+    /**
      * 更新购物车项数量
      * @param id 购物车项ID
-     * @param quantity 新的数量
+     * @param updateCartRequest 购物车更新请求对象
      * @return 更新后的购物车项
      */
     @PutMapping("/{id}")
     public Response<Cart> updateCartQuantity(
             @PathVariable Long id,
-            @RequestParam Integer quantity) {
-        Cart cart = cartService.updateCartQuantity(id, quantity);
+            @RequestBody UpdateCartRequest updateCartRequest) {
+        Cart cart = cartService.updateCartQuantity(id, updateCartRequest.getQuantity());
         if (cart != null) {
             return Response.success("Cart updated successfully", cart);
         } else {
             return Response.fail(404, "Cart item not found");
+        }
+    }
+    
+    /**
+     * 内部类，用于接收更新购物车数量的请求参数
+     */
+    static class UpdateCartRequest {
+        private Integer quantity;
+        
+        // Getters and Setters
+        public Integer getQuantity() {
+            return quantity;
+        }
+        
+        public void setQuantity(Integer quantity) {
+            this.quantity = quantity;
         }
     }
     

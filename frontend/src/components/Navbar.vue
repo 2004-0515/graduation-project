@@ -30,24 +30,51 @@
         <!-- 已登录状态显示用户信息和退出登录按钮 -->
         <template v-else>
           <el-dropdown>
-            <el-button type="info">
-              {{ userStore.userInfo?.username || '用户' }}
+            <div class="user-info-dropdown">
+              <div class="user-avatar" @click="navigateTo('/profile')">
+                <el-avatar 
+                  :size="36" 
+                  :src="userStore.userInfo?.avatar || 'https://picsum.photos/200/200?random=' + userStore.userInfo?.id || 'default'"
+                  :icon="User"
+                  class="user-avatar-img"
+                >
+                  {{ userStore.userInfo?.username?.charAt(0)?.toUpperCase() || 'U' }}
+                </el-avatar>
+              </div>
+              <span class="username">{{ userStore.userInfo?.username || '用户' }}</span>
               <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-            </el-button>
+            </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item>个人中心</el-dropdown-item>
-                <el-dropdown-item>我的订单</el-dropdown-item>
-                <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
+                <el-dropdown-item @click="navigateTo('/profile')">
+                  <el-icon class="menu-icon"><User /></el-icon>
+                  个人中心
+                </el-dropdown-item>
+                <el-dropdown-item @click="navigateTo('/orders')">
+                  <el-icon class="menu-icon"><Ticket /></el-icon>
+                  我的订单
+                </el-dropdown-item>
+                <el-dropdown-item @click="navigateTo('/address')">
+                  <el-icon class="menu-icon"><Location /></el-icon>
+                  收货地址
+                </el-dropdown-item>
+                <el-dropdown-item @click="navigateTo('/settings')">
+                  <el-icon class="menu-icon"><Setting /></el-icon>
+                  账号设置
+                </el-dropdown-item>
+                <el-dropdown-item divided @click="handleLogout">
+                  <el-icon class="menu-icon"><SwitchButton /></el-icon>
+                  退出登录
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
         </template>
         
-        <el-badge :value="cartItemCount" class="nav-badge" @click="navigateTo('/cart')">
+        <el-badge :value="cartItemCount" :hidden="cartItemCount === 0" class="nav-badge" @click="navigateTo('/cart')">
           <el-icon class="icon-nav"><ShoppingCart /></el-icon>
         </el-badge>
-        <el-badge :value="0" class="nav-badge" @click="navigateTo('/notifications')">
+        <el-badge :value="notificationCount" :hidden="notificationCount === 0" class="nav-badge" @click="navigateTo('/notifications')">
           <el-icon class="icon-nav"><Bell /></el-icon>
         </el-badge>
       </div>
@@ -59,7 +86,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ShoppingCart, Bell, ArrowDown } from '@element-plus/icons-vue'
+import { ShoppingCart, Bell, ArrowDown, User, Ticket, Location, Setting, SwitchButton } from '@element-plus/icons-vue'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
 
@@ -75,6 +102,12 @@ const userId = computed(() => {
 // 获取购物车商品数量
 const cartItemCount = computed(() => {
   return cartStore.totalItems
+})
+
+// 通知数量（可以从后端API获取，这里暂时设为0）
+const notificationCount = computed(() => {
+  // 实际项目中这里应该从后端API获取通知数量
+  return 0
 })
 
 // 导航方法
@@ -177,7 +210,7 @@ const handleLogout = async () => {
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 20px;
   pointer-events: auto;
   z-index: 1001;
 }
@@ -208,6 +241,116 @@ const handleLogout = async () => {
   cursor: pointer;
   pointer-events: auto;
   z-index: 1001;
+  /* 调整徽章容器大小 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* 优化徽章样式 */
+:deep(.el-badge__content) {
+  /* 调整徽章大小 */
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 18px;
+  /* 调整徽章位置 */
+  top: 4px;
+  right: 4px;
+  /* 优化徽章颜色 */
+  background-color: #f56c6c;
+  color: #fff;
+  /* 优化边框 */
+  border: 2px solid #fff;
+  /* 优化圆角 */
+  border-radius: 9px;
+}
+
+/* 优化徽章显示效果 */
+:deep(.el-badge__content.is-fixed) {
+  transform: none;
+}
+
+/* 用户信息下拉菜单样式 */
+.user-info-dropdown {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: rgba(64, 158, 255, 0.08);
+  border: 1px solid rgba(64, 158, 255, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.user-info-dropdown:hover {
+  background-color: rgba(64, 158, 255, 0.15);
+  box-shadow: 0 4px 16px rgba(64, 158, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.user-avatar {
+  cursor: pointer;
+}
+
+.user-avatar-img {
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.user-avatar-img:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+}
+
+.username {
+  font-size: 14px;
+  color: #333;
+  font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+.user-info-dropdown:hover .username {
+  color: #409eff;
+}
+
+.menu-icon {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.el-dropdown-menu {
+  min-width: 190px;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(64, 158, 255, 0.1);
+  padding: 8px 0;
+}
+
+.el-dropdown-item {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  padding: 12px 20px;
+  border-radius: 0;
+  transition: all 0.3s ease;
+}
+
+.el-dropdown-item:hover {
+  background-color: rgba(64, 158, 255, 0.1);
+  color: #409eff;
+}
+
+.el-dropdown-item.divided {
+  border-top: 1px solid #f0f0f0;
+  margin-top: 8px;
+  padding-top: 12px;
+  margin-bottom: -8px;
 }
 
 /* 响应式设计 */
