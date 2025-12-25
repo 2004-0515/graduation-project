@@ -27,7 +27,7 @@ instance.interceptors.request.use(
 // 响应拦截器
 instance.interceptors.response.use(
   response => {
-    // 直接返回完整的响应，包括状态码和数据
+    // 直接返回响应数据，保持与现有代码兼容
     return response.data
   },
   error => {

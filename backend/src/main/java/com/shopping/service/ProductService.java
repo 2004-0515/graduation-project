@@ -3,6 +3,9 @@ package com.shopping.service;
 import com.shopping.entity.Product;
 import com.shopping.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -35,6 +38,7 @@ public class ProductService {
      * @param id 商品ID
      * @return 商品信息
      */
+    @Cacheable(value = "products", key = "#id")
     public Product getProductById(Long id) {
         return productRepository.findById(id).orElse(null);
     }
@@ -44,6 +48,7 @@ public class ProductService {
      * @param categoryId 分类ID
      * @return 商品列表
      */
+    @Cacheable(value = "products", key = "#categoryId + '_category'")
     public List<Product> getProductsByCategoryId(Long categoryId) {
         return productRepository.findByCategory_Id(categoryId);
     }
@@ -53,6 +58,7 @@ public class ProductService {
      * @param status 商品状态
      * @return 商品列表
      */
+    @Cacheable(value = "products", key = "#status + '_status'")
     public List<Product> getProductsByStatus(Integer status) {
         return productRepository.findByStatus(status);
     }
@@ -71,6 +77,8 @@ public class ProductService {
      * @param product 商品信息
      * @return 保存后的商品信息
      */
+    @CachePut(value = "products", key = "#product.id")
+    @CacheEvict(value = "products", allEntries = true)
     public Product saveProduct(Product product) {
         return productRepository.save(product);
     }
@@ -79,6 +87,7 @@ public class ProductService {
      * 删除商品
      * @param id 商品ID
      */
+    @CacheEvict(value = "products", key = "#id", allEntries = true)
     public void deleteProduct(Long id) {
         productRepository.deleteById(id);
     }
@@ -89,6 +98,7 @@ public class ProductService {
      * @param quantity 要更新的数量（正数增加，负数减少）
      * @return 是否更新成功
      */
+    @CacheEvict(value = "products", key = "#productId", allEntries = true)
     public boolean updateProductStock(Long productId, Integer quantity) {
         Product product = getProductById(productId);
         if (product == null) {

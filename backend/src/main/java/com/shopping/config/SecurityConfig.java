@@ -1,6 +1,7 @@
 package com.shopping.config;
 
 import com.shopping.filter.JwtAuthenticationFilter;
+import com.shopping.filter.RateLimiterFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,6 +24,9 @@ public class SecurityConfig {
 
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+    
+    @Autowired
+    private RateLimiterFilter rateLimiterFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -44,7 +48,9 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(authorize -> authorize
                 // 允许匿名访问的API - 使用相对路径，因为context-path已经在application.properties中配置
-                .requestMatchers("/auth/**", "/categories/**", "/products/**").permitAll()
+                .requestMatchers("/auth/login", "/auth/register", "/auth/captcha", "/auth/validate-captcha", "/auth/test-password-match", "/categories/**", "/products/**").permitAll()
+                // 密码修改API需要认证访问
+                .requestMatchers("/auth/change-password").authenticated()
                 // 地址相关API需要认证访问
                 .requestMatchers("/addresses/**").authenticated()
                 // 购物车相关API需要认证访问
@@ -52,6 +58,7 @@ public class SecurityConfig {
                 // 其他API需要认证访问
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(rateLimiterFilter, UsernamePasswordAuthenticationFilter.class) // 添加速率限制过滤器
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -60,7 +67,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.addAllowedOriginPattern("*");
+        // 允许的来源，根据实际部署环境配置
+        configuration.addAllowedOriginPattern("http://localhost:5174");
+        configuration.addAllowedOriginPattern("http://127.0.0.1:5174");
+        configuration.addAllowedOriginPattern("https://*.example.com"); // 替换为实际的生产域名
         configuration.addAllowedMethod("*");
         configuration.addAllowedHeader("*");
         configuration.setAllowCredentials(true);

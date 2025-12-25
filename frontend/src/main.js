@@ -122,7 +122,7 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresAuth) {
     // 如果没有token，跳转到登录页
     if (!userStore.token) {
-      next({ name: 'login' })
+      next({ name: 'login', query: { redirect: to.fullPath } })
       return
     }
     
@@ -132,8 +132,8 @@ router.beforeEach(async (to, from, next) => {
         await userStore.fetchCurrentUser()
         next()
       } catch (error) {
-        // 获取用户信息失败，跳转到登录页
-        next({ name: 'login' })
+        // 获取用户信息失败，跳转到登录页，并携带重定向信息
+        next({ name: 'login', query: { redirect: to.fullPath } })
       }
     } else {
       // 已有用户信息，直接通过
@@ -151,3 +151,17 @@ userStore.initUser()
 
 // 挂载应用
 app.mount('#app')
+
+// 处理热重载时的用户状态恢复
+if (import.meta.hot) {
+  import.meta.hot.accept()
+  import.meta.hot.on('vite:beforeUpdate', () => {
+    // 热重载前，保存用户状态到localStorage
+    if (userStore.token) {
+      localStorage.setItem('token', userStore.token)
+    }
+    if (userStore.userInfo) {
+      localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo))
+    }
+  })
+}

@@ -22,7 +22,7 @@
               <span>密码修改</span>
             </el-menu-item>
             <el-menu-item index="security">
-              <el-icon><Shield /></el-icon>
+              <el-icon><Lock /></el-icon>
               <span>安全设置</span>
             </el-menu-item>
             <el-menu-item index="privacy">
@@ -53,13 +53,13 @@
             :model="accountForm"
             :rules="accountRules"
             label-width="120px"
+            @submit.prevent="saveAccountSettings"
           >
             <el-form-item label="头像">
               <div class="avatar-upload-section">
                 <el-avatar 
                   :size="100" 
                   :src="accountForm.avatar || ''" 
-                  :icon="User"
                   class="avatar-preview"
                 >
                   {{ accountForm.username?.charAt(0)?.toUpperCase() || 'U' }}
@@ -103,8 +103,9 @@
             </el-form-item>
             
             <el-form-item>
-              <el-button type="primary" @click="saveAccountSettings">保存修改</el-button>
-              <el-button @click="resetAccountForm">取消</el-button>
+              <el-button type="primary" native-type="submit">保存修改</el-button>
+              <el-button @click="resetAccountForm">重置</el-button>
+              <el-button @click="goToProfile">返回</el-button>
             </el-form-item>
           </el-form>
           
@@ -213,6 +214,7 @@
             :model="passwordForm"
             :rules="passwordRules"
             label-width="120px"
+            @submit.prevent="changePassword"
           >
             <el-form-item label="当前密码" prop="currentPassword">
               <el-input v-model="passwordForm.currentPassword" type="password" placeholder="请输入当前密码" show-password />
@@ -228,8 +230,9 @@
             </el-form-item>
             
             <el-form-item>
-              <el-button type="primary" @click="changePassword">确认修改</el-button>
-              <el-button @click="resetPasswordForm">取消</el-button>
+              <el-button type="primary" native-type="submit">确认修改</el-button>
+              <el-button @click="resetPasswordForm">重置</el-button>
+              <el-button @click="goToProfile">返回</el-button>
             </el-form-item>
           </el-form>
         </el-card>
@@ -239,6 +242,58 @@
           <template #header>
             <h2 class="card-title">安全设置</h2>
           </template>
+          
+          <el-form
+            ref="securityFormRef"
+            :model="securityForm"
+            label-width="160px"
+            :loading="loading.security"
+          >
+            <el-form-item label="密码有效期">
+              <el-select v-model="securityForm.passwordExpireDays" placeholder="请选择密码有效期">
+                <el-option label="30天" value="30" />
+                <el-option label="60天" value="60" />
+                <el-option label="90天" value="90" />
+                <el-option label="180天" value="180" />
+                <el-option label="365天" value="365" />
+                <el-option label="永不过期" value="0" />
+              </el-select>
+              <div class="form-hint">设置密码的有效期限，到期前会收到更换提醒</div>
+            </el-form-item>
+            
+            <el-form-item label="双因素认证">
+              <el-switch v-model="securityForm.twoFactorEnabled" />
+              <div class="form-hint">开启后登录时需要额外验证，提高账号安全性</div>
+            </el-form-item>
+            
+            <el-form-item label="会话超时时间">
+              <el-input-number
+                v-model="securityForm.sessionTimeout"
+                :min="5"
+                :max="120"
+                :step="5"
+                placeholder="请输入会话超时时间"
+                style="width: 200px"
+              />
+              <span class="unit">分钟</span>
+              <div class="form-hint">设置登录后无操作自动退出的时间</div>
+            </el-form-item>
+            
+            <el-form-item label="登录异常检测">
+              <el-switch v-model="securityForm.enableLoginDetection" />
+              <div class="form-hint">开启后会检测异常登录行为并发送提醒</div>
+            </el-form-item>
+            
+            <el-form-item label="敏感操作二次验证">
+              <el-switch v-model="securityForm.enableSensitiveVerify" />
+              <div class="form-hint">开启后敏感操作需要再次验证密码</div>
+            </el-form-item>
+            
+            <el-form-item>
+              <el-button type="primary" @click="saveSecuritySettings">保存设置</el-button>
+              <el-button @click="resetSecurityForm">重置</el-button>
+            </el-form-item>
+          </el-form>
           
           <div class="security-items">
             <div class="security-item">
@@ -294,45 +349,62 @@
             <h2 class="card-title">隐私设置</h2>
           </template>
           
-          <div class="privacy-settings">
-            <div class="privacy-item">
-              <div class="privacy-info">
-                <div class="privacy-title">个人信息可见性</div>
-                <div class="privacy-desc">控制您的个人信息对其他用户的可见范围</div>
-              </div>
-              <div class="privacy-action">
-                <el-select v-model="privacyForm.profileVisibility" placeholder="请选择" size="small">
-                  <el-option label="公开" value="public" />
-                  <el-option label="仅好友可见" value="friends" />
-                  <el-option label="私密" value="private" />
-                </el-select>
-              </div>
-            </div>
-            
-            <div class="privacy-item">
-              <div class="privacy-info">
-                <div class="privacy-title">允许陌生人消息</div>
-                <div class="privacy-desc">是否接收来自陌生人的消息</div>
-              </div>
-              <div class="privacy-action">
-                <el-switch v-model="privacyForm.allowStrangerMessages" size="small" />
-              </div>
-            </div>
-            
-            <div class="privacy-item">
-              <div class="privacy-info">
-                <div class="privacy-title">允许推荐给朋友</div>
-                <div class="privacy-desc">是否允许系统将您推荐给可能认识的人</div>
-              </div>
-              <div class="privacy-action">
-                <el-switch v-model="privacyForm.allowRecommend" size="small" />
-              </div>
-            </div>
-            
-            <el-form-item class="privacy-save-btn">
-              <el-button type="primary" @click="savePrivacySettings">保存设置</el-button>
+          <el-form
+            ref="privacyFormRef"
+            :model="privacyForm"
+            label-width="160px"
+            :loading="loading.privacy"
+          >
+            <el-form-item label="个人信息可见性">
+              <el-select v-model="privacyForm.profileVisibility" placeholder="请选择">
+                <el-option label="公开" value="public" />
+                <el-option label="仅好友可见" value="friends" />
+                <el-option label="私密" value="private" />
+              </el-select>
+              <div class="form-hint">控制您的个人信息对其他用户的可见范围</div>
             </el-form-item>
-          </div>
+            
+            <el-form-item label="允许陌生人消息">
+              <el-switch v-model="privacyForm.allowStrangerMessages" />
+              <div class="form-hint">是否接收来自陌生人的消息</div>
+            </el-form-item>
+            
+            <el-form-item label="允许推荐给朋友">
+              <el-switch v-model="privacyForm.allowRecommend" />
+              <div class="form-hint">是否允许系统将您推荐给可能认识的人</div>
+            </el-form-item>
+            
+            <el-form-item label="允许数据收集">
+              <el-switch v-model="privacyForm.allowDataCollection" />
+              <div class="form-hint">是否允许系统收集您的使用数据以改进服务</div>
+            </el-form-item>
+            
+            <el-form-item label="允许第三方共享">
+              <el-switch v-model="privacyForm.allowThirdPartyShare" />
+              <div class="form-hint">是否允许系统与第三方共享您的数据</div>
+            </el-form-item>
+            
+            <el-form-item label="接收隐私更新通知">
+              <el-switch v-model="privacyForm.receivePrivacyUpdates" />
+              <div class="form-hint">是否接收隐私政策和设置变更的通知</div>
+            </el-form-item>
+            
+            <el-form-item label="数据保留期限">
+              <el-select v-model="privacyForm.dataRetentionDays" placeholder="请选择数据保留期限">
+                <el-option label="30天" value="30" />
+                <el-option label="90天" value="90" />
+                <el-option label="180天" value="180" />
+                <el-option label="365天" value="365" />
+                <el-option label="永久保留" value="0" />
+              </el-select>
+              <div class="form-hint">设置系统保留您数据的期限，到期后自动删除</div>
+            </el-form-item>
+            
+            <el-form-item>
+              <el-button type="primary" @click="savePrivacySettings">保存设置</el-button>
+              <el-button @click="resetPrivacyForm">重置</el-button>
+            </el-form-item>
+          </el-form>
         </el-card>
         
         <!-- 通知设置 -->
@@ -341,59 +413,94 @@
             <h2 class="card-title">通知设置</h2>
           </template>
           
-          <div class="notification-settings">
-            <div class="notification-section">
-              <h3 class="section-title">订单通知</h3>
-              
-              <div class="notification-item">
-                <div class="notification-info">
-                  <div class="notification-title">订单状态更新</div>
-                  <div class="notification-desc">订单状态发生变化时通知我</div>
-                </div>
-                <div class="notification-action">
-                  <el-switch v-model="notificationForm.orderStatus" size="small" />
-                </div>
-              </div>
-              
-              <div class="notification-item">
-                <div class="notification-info">
-                  <div class="notification-title">发货通知</div>
-                  <div class="notification-desc">商品发货时通知我</div>
-                </div>
-                <div class="notification-action">
-                  <el-switch v-model="notificationForm.delivery" size="small" />
-                </div>
-              </div>
-            </div>
+          <el-form
+            ref="notificationFormRef"
+            :model="notificationForm"
+            label-width="160px"
+            :loading="loading.notification"
+          >
+            <el-divider content-position="left">通知类型</el-divider>
             
-            <div class="notification-section">
-              <h3 class="section-title">营销通知</h3>
-              
-              <div class="notification-item">
-                <div class="notification-info">
-                  <div class="notification-title">促销活动</div>
-                  <div class="notification-desc">接收最新的促销活动信息</div>
-                </div>
-                <div class="notification-action">
-                  <el-switch v-model="notificationForm.promotions" size="small" />
-                </div>
-              </div>
-              
-              <div class="notification-item">
-                <div class="notification-info">
-                  <div class="notification-title">新品推荐</div>
-                  <div class="notification-desc">接收新品上架通知</div>
-                </div>
-                <div class="notification-action">
-                  <el-switch v-model="notificationForm.newProducts" size="small" />
-                </div>
-              </div>
-            </div>
-            
-            <el-form-item class="notification-save-btn">
-              <el-button type="primary" @click="saveNotificationSettings">保存设置</el-button>
+            <el-form-item label="订单状态更新">
+              <el-switch v-model="notificationForm.orderStatusEnabled" />
+              <div class="form-hint">订单状态发生变化时通知我</div>
             </el-form-item>
-          </div>
+            
+            <el-form-item label="发货通知">
+              <el-switch v-model="notificationForm.deliveryEnabled" />
+              <div class="form-hint">商品发货时通知我</div>
+            </el-form-item>
+            
+            <el-form-item label="促销活动">
+              <el-switch v-model="notificationForm.promotionsEnabled" />
+              <div class="form-hint">接收最新的促销活动信息</div>
+            </el-form-item>
+            
+            <el-form-item label="新品推荐">
+              <el-switch v-model="notificationForm.newProductsEnabled" />
+              <div class="form-hint">接收新品上架通知</div>
+            </el-form-item>
+            
+            <el-form-item label="系统通知">
+              <el-switch v-model="notificationForm.systemEnabled" />
+              <div class="form-hint">接收系统重要通知</div>
+            </el-form-item>
+            
+            <el-divider content-position="left">通知渠道</el-divider>
+            
+            <el-form-item label="应用内通知">
+              <el-switch v-model="notificationForm.inAppEnabled" />
+              <div class="form-hint">在应用内接收通知</div>
+            </el-form-item>
+            
+            <el-form-item label="邮件通知">
+              <el-switch v-model="notificationForm.emailEnabled" />
+              <div class="form-hint">通过邮件接收通知</div>
+            </el-form-item>
+            
+            <el-form-item label="短信通知">
+              <el-switch v-model="notificationForm.smsEnabled" />
+              <div class="form-hint">通过短信接收通知</div>
+            </el-form-item>
+            
+            <el-divider content-position="left">通知频率</el-divider>
+            
+            <el-form-item label="通知频率">
+              <el-select v-model="notificationForm.notificationFrequency" placeholder="请选择通知频率">
+                <el-option label="立即" value="immediate" />
+                <el-option label="每日" value="daily" />
+                <el-option label="每周" value="weekly" />
+              </el-select>
+              <div class="form-hint">设置通知的发送频率</div>
+            </el-form-item>
+            
+            <el-form-item label="通知时间段">
+              <div class="time-range">
+                <el-input-number
+                  v-model="notificationForm.notifyStartTime"
+                  :min="0"
+                  :max="23"
+                  placeholder="开始时间"
+                  style="width: 150px"
+                />
+                <span class="time-separator">-</span>
+                <el-input-number
+                  v-model="notificationForm.notifyEndTime"
+                  :min="0"
+                  :max="23"
+                  placeholder="结束时间"
+                  style="width: 150px"
+                />
+                <span class="unit">小时</span>
+              </div>
+              <div class="form-hint">设置接收通知的时间段，超出时间段的通知将延迟发送</div>
+            </el-form-item>
+            
+            <el-form-item>
+              <el-button type="primary" @click="saveNotificationSettings">保存设置</el-button>
+              <el-button @click="resetNotificationForm">重置</el-button>
+            </el-form-item>
+          </el-form>
         </el-card>
       </div>
     </div>
@@ -401,13 +508,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
+import { useRouter } from 'vue-router'
 import { User, Lock, Document, Bell, Camera, Plus, Delete } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import authApi from '../api/authApi'
+import settingsApi from '../api/settingsApi'
 
 const userStore = useUserStore()
+const router = useRouter()
 
 // 当前激活的标签
 const activeTab = ref('account')
@@ -458,40 +568,97 @@ const passwordForm = ref({
 // 密码修改验证规则
 const passwordRules = {
   currentPassword: [
-    { required: true, message: '请输入当前密码', trigger: 'blur' }
+    { required: true, message: '旧密码不能为空', trigger: ['blur', 'submit'] },
+    { min: 6, max: 20, message: '旧密码长度必须在 6 到 20 个字符之间', trigger: ['blur', 'submit'] }
   ],
   newPassword: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度在 6 到 20 个字符', trigger: 'blur' }
-  ],
-  confirmPassword: [
-    { required: true, message: '请确认新密码', trigger: 'blur' },
+    { required: true, message: '新密码不能为空', trigger: ['blur', 'submit'] },
+    { min: 6, max: 20, message: '新密码长度必须在 6 到 20 个字符之间', trigger: ['blur', 'submit'] },
     {
       validator: (rule, value, callback) => {
-        if (value !== passwordForm.value.newPassword) {
-          callback(new Error('两次输入密码不一致'))
+        if (!/\d/.test(value)) {
+          callback(new Error('新密码必须包含至少一个数字'))
         } else {
           callback()
         }
       },
-      trigger: 'blur'
+      trigger: ['blur', 'submit']
+    },
+    {
+      validator: (rule, value, callback) => {
+        if (value === passwordForm.value.currentPassword) {
+          callback(new Error('新密码不能与旧密码相同'))
+        } else {
+          callback()
+        }
+      },
+      trigger: ['blur', 'submit']
+    }
+  ],
+  confirmPassword: [
+    { required: true, message: '确认新密码不能为空', trigger: ['blur', 'submit'] },
+    {
+      validator: (rule, value, callback) => {
+        if (value !== passwordForm.value.newPassword) {
+          callback(new Error('两次输入的新密码不一致'))
+        } else {
+          callback()
+        }
+      },
+      trigger: ['blur', 'submit', 'change']
     }
   ]
 }
+
+// 隐私设置表单引用
+const privacyFormRef = ref(null)
 
 // 隐私设置
 const privacyForm = ref({
   profileVisibility: 'public',
   allowStrangerMessages: true,
-  allowRecommend: true
+  allowRecommend: true,
+  allowDataCollection: true,
+  allowThirdPartyShare: false,
+  receivePrivacyUpdates: true,
+  dataRetentionDays: 365
 })
+
+// 通知设置表单引用
+const notificationFormRef = ref(null)
 
 // 通知设置
 const notificationForm = ref({
-  orderStatus: true,
-  delivery: true,
-  promotions: true,
-  newProducts: true
+  orderStatusEnabled: true,
+  deliveryEnabled: true,
+  promotionsEnabled: true,
+  newProductsEnabled: true,
+  systemEnabled: true,
+  inAppEnabled: true,
+  emailEnabled: true,
+  smsEnabled: false,
+  notificationFrequency: 'immediate',
+  notifyStartTime: 8,
+  notifyEndTime: 22
+})
+
+// 安全设置表单引用
+const securityFormRef = ref(null)
+
+// 安全设置
+const securityForm = ref({
+  passwordExpireDays: 90,
+  twoFactorEnabled: false,
+  sessionTimeout: 30,
+  enableLoginDetection: true,
+  enableSensitiveVerify: true
+})
+
+// 加载状态
+const loading = reactive({
+  security: false,
+  privacy: false,
+  notification: false
 })
 
 // 处理标签切换
@@ -514,15 +681,26 @@ const confirmDeleteAccount = async () => {
   deleteAccountLoading.value = true
   
   try {
-    // 调用API注销账号
-    await userStore.logout()
-    ElMessage.success('账号注销成功')
+    // 先关闭对话框，让用户感觉操作已经开始
     deleteAccountDialogVisible.value = false
-    // 跳转到登录页
-    window.location.href = '/login'
+    
+    // 调用API删除账号
+    await authApi.deleteAccount()
+    
+    // 清除本地存储的token和用户信息
+    localStorage.removeItem('token')
+    localStorage.removeItem('userInfo')
+    // 清除store中的用户信息
+    userStore.clearUserInfo()
+    
+    // 显示成功消息
+    ElMessage.success('账号注销成功')
+    
+    // 快速跳转到登录页，使用window.location.replace避免返回历史记录
+    window.location.replace('/login')
   } catch (error) {
     console.error('账号注销失败:', error)
-    ElMessage.error('账号注销失败，请稍后重试')
+    ElMessage.error('账号注销失败')
   } finally {
     deleteAccountLoading.value = false
   }
@@ -542,18 +720,44 @@ const changePassword = async () => {
   
   try {
     await passwordFormRef.value.validate()
-    // 实际项目中这里应该调用API修改密码
-    ElMessage.success('密码修改成功')
-    passwordForm.value = {
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-    }
-    if (passwordFormRef.value) {
-      passwordFormRef.value.resetFields()
-    }
+    
+    // 调用API修改密码
+    await authApi.changePassword({
+      currentPassword: passwordForm.value.currentPassword,
+      newPassword: passwordForm.value.newPassword,
+      confirmPassword: passwordForm.value.confirmPassword
+    })
+    
+    ElMessage.success('密码修改成功，请使用新密码重新登录')
+    
+    // 清除本地存储的token
+    localStorage.removeItem('token')
+    // 清除store中的用户信息
+    userStore.clearUserInfo()
+    
+    // 跳转到登录页
+    router.push('/login')
   } catch (error) {
-    console.error('表单验证失败:', error)
+    console.error('修改密码失败:', error)
+    // 根据不同的错误类型，显示更友好的提示信息
+    let errorMessage = '密码修改失败'
+    
+    if (error.message) {
+      // 处理已知错误类型
+      if (error.message.includes('旧密码')) {
+        errorMessage = error.message
+      } else if (error.message.includes('新密码')) {
+        errorMessage = error.message
+      } else if (error.message.includes('用户不存在')) {
+        errorMessage = '用户不存在，请重新登录后再试'
+      } else if (error.message.includes('服务器无响应')) {
+        errorMessage = '服务器暂时无响应，请检查网络连接后重试'
+      } else {
+        errorMessage = error.message
+      }
+    }
+    
+    ElMessage.error(errorMessage)
   }
 }
 
@@ -569,16 +773,140 @@ const resetPasswordForm = () => {
   }
 }
 
+
+
+// 保存安全设置
+const saveSecuritySettings = async () => {
+  loading.security = true
+  try {
+    await settingsApi.updateSecuritySettings(securityForm.value)
+    ElMessage.success('安全设置保存成功')
+  } catch (error) {
+    console.error('保存安全设置失败:', error)
+    ElMessage.error('保存安全设置失败')
+  } finally {
+    loading.security = false
+  }
+}
+
+// 重置安全设置表单
+const resetSecurityForm = () => {
+  if (securityFormRef.value) {
+    securityFormRef.value.resetFields()
+  }
+  // 重新加载初始值
+  fetchSecuritySettings()
+}
+
+// 重置隐私设置表单
+const resetPrivacyForm = () => {
+  if (privacyFormRef.value) {
+    privacyFormRef.value.resetFields()
+  }
+  // 重新加载初始值
+  fetchPrivacySettings()
+}
+
+// 重置通知设置表单
+const resetNotificationForm = () => {
+  if (notificationFormRef.value) {
+    notificationFormRef.value.resetFields()
+  }
+  // 重新加载初始值
+  fetchNotificationSettings()
+}
+
 // 保存隐私设置
-const savePrivacySettings = () => {
-  // 实际项目中这里应该调用API保存隐私设置
-  ElMessage.success('隐私设置保存成功')
+const savePrivacySettings = async () => {
+  loading.privacy = true
+  try {
+    await settingsApi.updatePrivacySettings(privacyForm.value)
+    ElMessage.success('隐私设置保存成功')
+  } catch (error) {
+    console.error('保存隐私设置失败:', error)
+    ElMessage.error('保存隐私设置失败')
+  } finally {
+    loading.privacy = false
+  }
 }
 
 // 保存通知设置
-const saveNotificationSettings = () => {
-  // 实际项目中这里应该调用API保存通知设置
-  ElMessage.success('通知设置保存成功')
+const saveNotificationSettings = async () => {
+  loading.notification = true
+  try {
+    await settingsApi.updateNotificationSettings(notificationForm.value)
+    ElMessage.success('通知设置保存成功')
+  } catch (error) {
+    console.error('保存通知设置失败:', error)
+    ElMessage.error('保存通知设置失败')
+  } finally {
+    loading.notification = false
+  }
+}
+
+// 获取安全设置
+const fetchSecuritySettings = async () => {
+  loading.security = true
+  try {
+    const data = await settingsApi.getSecuritySettings()
+    securityForm.value = {
+      passwordExpireDays: data.passwordExpireDays,
+      twoFactorEnabled: data.twoFactorEnabled,
+      sessionTimeout: data.sessionTimeout,
+      enableLoginDetection: data.enableLoginDetection,
+      enableSensitiveVerify: data.enableSensitiveVerify
+    }
+  } catch (error) {
+    console.error('获取安全设置失败:', error)
+  } finally {
+    loading.security = false
+  }
+}
+
+// 获取隐私设置
+const fetchPrivacySettings = async () => {
+  loading.privacy = true
+  try {
+    const data = await settingsApi.getPrivacySettings()
+    privacyForm.value = {
+      profileVisibility: data.profileVisibility,
+      allowStrangerMessages: data.allowStrangerMessages,
+      allowRecommend: data.allowRecommend,
+      allowDataCollection: data.allowDataCollection,
+      allowThirdPartyShare: data.allowThirdPartyShare,
+      receivePrivacyUpdates: data.receivePrivacyUpdates,
+      dataRetentionDays: data.dataRetentionDays
+    }
+  } catch (error) {
+    console.error('获取隐私设置失败:', error)
+  } finally {
+    loading.privacy = false
+  }
+}
+
+// 获取通知设置
+const fetchNotificationSettings = async () => {
+  loading.notification = true
+  try {
+    const data = await settingsApi.getNotificationSettings()
+    notificationForm.value = {
+      orderStatusEnabled: data.orderStatusEnabled,
+      deliveryEnabled: data.deliveryEnabled,
+      promotionsEnabled: data.promotionsEnabled,
+      newProductsEnabled: data.newProductsEnabled,
+      systemEnabled: data.systemEnabled,
+      inAppEnabled: data.inAppEnabled,
+      emailEnabled: data.emailEnabled,
+      smsEnabled: data.smsEnabled,
+      notificationFrequency: data.notificationFrequency,
+      notifyStartTime: data.notifyStartTime,
+      notifyEndTime: data.notifyEndTime
+    }
+  } catch (error) {
+    console.error('获取通知设置失败:', error)
+  } finally {
+    loading.notification = false
+  }
 }
 
 // 头像上传前验证
@@ -632,9 +960,11 @@ const saveAccountSettings = async () => {
     // 调用store方法保存账号信息
     await userStore.updateUserInfo(formData)
     ElMessage.success('账号信息保存成功')
+    // 跳转到个人中心页面
+    router.push('/profile')
   } catch (error) {
     console.error('保存账号信息失败:', error)
-    ElMessage.error(userStore.error || '保存失败，请稍后重试')
+    ElMessage.error(userStore.error || '保存失败')
   }
 }
 
@@ -655,8 +985,32 @@ const resetAccountForm = () => {
   }
 }
 
+// 返回个人中心页面
+const goToProfile = () => {
+  router.push('/profile')
+}
+
 // 组件挂载时初始化数据
-onMounted(() => {
+onMounted(async () => {
+  // 检查用户是否已登录
+  if (!userStore.token) {
+    // 如果没有token，跳转到登录页
+    router.push('/login')
+    return
+  }
+  
+  // 如果有token但没有用户信息，尝试获取用户信息
+  if (!userStore.userInfo) {
+    try {
+      await userStore.fetchCurrentUser()
+    } catch (error) {
+      console.error('获取用户信息失败:', error)
+      // 获取失败，跳转到登录页
+      router.push('/login')
+      return
+    }
+  }
+  
   // 初始化账号表单数据
   if (userStore.userInfo) {
     accountForm.value = {
@@ -667,6 +1021,17 @@ onMounted(() => {
       bio: userStore.userInfo.bio || '',
       avatar: userStore.userInfo.avatar || ''
     }
+  }
+  
+  // 获取设置数据
+  try {
+    await Promise.all([
+      fetchSecuritySettings(),
+      fetchPrivacySettings(),
+      fetchNotificationSettings()
+    ])
+  } catch (error) {
+    console.error('获取设置数据失败:', error)
   }
 })
 </script>

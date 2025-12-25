@@ -103,4 +103,12 @@ public class UserService {
         userRepository.save(user);
         return true;
     }
+    
+    /**
+     * 删除用户账号
+     * @param user 用户对象
+     */
+    public void deleteAccount(User user) {
+        userRepository.delete(user);
+    }
 }

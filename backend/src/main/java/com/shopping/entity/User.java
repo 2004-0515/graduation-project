@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -36,12 +38,14 @@ public class User {
     private String email;
     
     @Column(name = "phone", length = 20)
+    @Pattern(regexp = "^1[3-9]\\d{9}$", message = "手机号格式无效，应为11位数字，以1开头")
     private String phone;
     
     @Column(name = "avatar", length = 200)
     private String avatar;
     
     @Column(name = "nickname", length = 50)
+    @Size(min = 2, max = 20, message = "昵称长度无效，应为2-20个字符")
     private String nickname;
     
     @Column(name = "bio", length = 200)
@@ -81,4 +85,25 @@ public class User {
     protected void onUpdate() {
         this.updatedTime = LocalDateTime.now();
     }
+    
+    /**
+     * 安全设置关联
+     */
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private SecuritySettings securitySettings;
+    
+    /**
+     * 隐私设置关联
+     */
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private PrivacySettings privacySettings;
+    
+    /**
+     * 通知设置关联
+     */
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private NotificationSettings notificationSettings;
 }

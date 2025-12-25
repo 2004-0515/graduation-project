@@ -48,6 +48,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 从令牌中获取用户名
         username = jwtUtil.getUsernameFromToken(jwt);
 
+        // 清除之前可能存在的认证信息
+        SecurityContextHolder.clearContext();
+
         // 如果用户名存在且当前上下文没有认证信息
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
@@ -63,10 +66,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     // 将认证信息设置到上下文
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                } else {
+                    // 令牌无效，返回401错误
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"code\": 401, \"message\": \"Invalid JWT token\", \"success\": false}");
+                    return;
                 }
             } catch (Exception e) {
-                // 处理异常，不设置认证信息
+                // 处理异常，返回401错误
                 System.err.println("JWT认证失败: " + e.getMessage());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"code\": 401, \"message\": \"JWT authentication failed\", \"success\": false}");
+                return;
             }
         }
         // 继续过滤链

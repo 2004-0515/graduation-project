@@ -162,8 +162,13 @@ const handleLogin = async () => {
       try {
         await userStore.login(loginForm)
         ElMessage.success('登录成功')
-        // 登录成功后跳转到首页
-        router.push('/')
+        // 登录成功后，检查是否有重定向参数，如果有则跳转到指定页面，否则跳转到首页
+        const redirect = router.currentRoute.value.query.redirect
+        if (redirect) {
+          router.push(redirect)
+        } else {
+          router.push('/')
+        }
       } catch (error) {
         console.error('登录失败:', error)
         // 只有API调用失败时，才显示全局错误消息

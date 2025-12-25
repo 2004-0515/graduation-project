@@ -71,11 +71,11 @@
           </el-dropdown>
         </template>
         
-        <el-badge :value="cartItemCount" :hidden="cartItemCount === 0" class="nav-badge" @click="navigateTo('/cart')">
-          <el-icon class="icon-nav"><ShoppingCart /></el-icon>
+        <el-badge :value="cartItemCount" :hidden="cartItemCount === 0" class="nav-badge">
+          <el-icon class="icon-nav" @click="navigateTo('/cart')"><ShoppingCart /></el-icon>
         </el-badge>
-        <el-badge :value="notificationCount" :hidden="notificationCount === 0" class="nav-badge" @click="navigateTo('/notifications')">
-          <el-icon class="icon-nav"><Bell /></el-icon>
+        <el-badge :value="notificationCount" :hidden="notificationCount === 0" class="nav-badge">
+          <el-icon class="icon-nav" @click="navigateTo('/notifications')"><Bell /></el-icon>
         </el-badge>
       </div>
     </div>

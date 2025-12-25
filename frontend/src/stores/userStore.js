@@ -38,11 +38,42 @@ export const useUserStore = defineStore('user', {
      * 初始化用户信息
      */
     async initUser() {
+      // 检查是否已有用户信息，避免重复获取
       if (this.token && !this.userInfo) {
         try {
           await this.fetchCurrentUser()
         } catch (error) {
           console.error('初始化用户信息失败:', error)
+        }
+      }
+      
+      // 确保只添加一次storage事件监听器
+      if (!this._storageListenerAdded) {
+        window.addEventListener('storage', this.handleStorageChange)
+        this._storageListenerAdded = true
+      }
+    },
+    
+    /**
+     * 处理本地存储变化，实现多页面数据同步
+     */
+    handleStorageChange(event) {
+      if (event.key === 'userInfo') {
+        try {
+          const newUserInfo = JSON.parse(event.newValue)
+          if (newUserInfo) {
+            this.userInfo = newUserInfo
+          }
+        } catch (error) {
+          console.error('解析用户信息失败:', error)
+        }
+      } else if (event.key === 'token') {
+        const newToken = event.newValue
+        if (newToken) {
+          this.token = newToken
+        } else {
+          this.token = null
+          this.userInfo = null
         }
       }
     },
@@ -166,16 +197,21 @@ export const useUserStore = defineStore('user', {
      * 用户退出登录
      */
     async logout() {
+      // 1. 先清除本地状态和存储，减少用户感知的延迟
+      this.token = null
+      this.userInfo = null
+      localStorage.removeItem('token')
+      localStorage.removeItem('userInfo')
+      
+      // 移除storage事件监听器
+      window.removeEventListener('storage', this.handleStorageChange)
+      
+      // 2. 异步调用后端logout API，不阻塞主线程
       try {
         await authApi.logout()
       } catch (error) {
-        console.error('退出登录失败:', error)
-      } finally {
-        // 清除状态和本地存储
-        this.token = null
-        this.userInfo = null
-        localStorage.removeItem('token')
-        localStorage.removeItem('userInfo')
+        console.error('退出登录API调用失败:', error)
+        // 后端API调用失败不影响前端注销效果
       }
     },
     
@@ -197,26 +233,19 @@ export const useUserStore = defineStore('user', {
         // 由于axios响应拦截器直接返回response.data，需要调整验证逻辑
         if (userData && typeof userData === 'object') {
           this.userInfo = userData
-          // 保存用户信息到本地存储
+          // 保存用户信息到本地存储，触发storage事件
           localStorage.setItem('userInfo', JSON.stringify(this.userInfo))
           return userData
         } else {
-          // 获取失败，清除token和用户信息
+          // 获取失败，但不清除token，允许用户重试
           const errorMessage = '获取用户信息失败'
           this.error = errorMessage
-          this.token = null
-          this.userInfo = null
-          localStorage.removeItem('token')
-          localStorage.removeItem('userInfo')
           throw new Error(errorMessage)
         }
       } catch (error) {
         this.error = error.message || '获取用户信息失败'
-        // 如果获取失败，清除token和用户信息
-        this.token = null
-        this.userInfo = null
-        localStorage.removeItem('token')
-        localStorage.removeItem('userInfo')
+        // 修复：获取用户信息失败时，不要清除token和用户信息
+        // 这样用户可以重试或继续使用应用
         throw error
       } finally {
         this.loading = false
@@ -228,6 +257,17 @@ export const useUserStore = defineStore('user', {
      */
     clearError() {
       this.error = null
+    },
+    
+    /**
+     * 清除用户信息
+     * 用于密码修改等场景，清除本地状态但不调用logout API
+     */
+    clearUserInfo() {
+      this.token = null
+      this.userInfo = null
+      localStorage.removeItem('token')
+      localStorage.removeItem('userInfo')
     },
     
     /**

@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -85,5 +87,24 @@ public class UserController {
         user.setId(id);
         User updatedUser = userService.saveUser(user);
         return Response.success("用户更新成功", updatedUser);
+    }
+    
+    /**
+     * 删除当前登录用户的账号
+     * @return 删除结果
+     */
+    @DeleteMapping("/me")
+    public Response<String> deleteCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        // 获取用户名，而不是直接转换为User对象
+        String username = authentication.getName();
+        // 通过用户名查询实际的用户对象
+        User user = userService.findByUsername(username);
+        if (user != null) {
+            userService.deleteAccount(user);
+            return Response.success("账号删除成功");
+        } else {
+            return Response.fail(404, "用户不存在");
+        }
     }
 }
