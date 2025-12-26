@@ -1,0 +1,28 @@
+package com.shopping.repository;
+
+import com.shopping.entity.PrivacySettings;
+import com.shopping.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+/**
+ * 隐私设置数据访问接口
+ */
+@Repository
+public interface PrivacySettingsRepository extends JpaRepository<PrivacySettings, Long> {
+    /**
+     * 根据用户实体查找隐私设置
+     * @param user 用户实体
+     * @return 隐私设置
+     */
+    Optional<PrivacySettings> findByUser(User user);
+
+    /**
+     * 根据用户ID查找隐私设置
+     * @param userId 用户ID
+     * @return 隐私设置
+     */
+    Optional<PrivacySettings> findByUserId(Long userId);
+}
