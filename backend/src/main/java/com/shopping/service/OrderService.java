@@ -285,7 +285,7 @@ public class OrderService {
             throw new ValidationException("订单状态不允许发货");
         }
 
-        order.setOrderStatus(OrderConstants.OrderStatus.SHIPPED);
+        order.setOrderStatus(OrderConstants.OrderStatus.PENDING_RECEIPT);
         order.setShippingTime(LocalDateTime.now());
         orderRepository.save(order);
     }
