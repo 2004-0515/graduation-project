@@ -26,9 +26,9 @@
         <div class="link-col">
           <h4>客户服务</h4>
           <div class="link-list">
-            <a href="#">帮助中心</a>
-            <a href="#">联系客服</a>
-            <a href="#">服务条款</a>
+            <router-link to="/help">帮助中心</router-link>
+            <router-link to="/contact">联系客服</router-link>
+            <router-link to="/terms">服务条款</router-link>
           </div>
         </div>
       </div>

@@ -90,6 +90,21 @@ const router = createRouter({
       name: 'checkout',
       component: () => import('@/views/CheckoutView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/help',
+      name: 'help',
+      component: () => import('@/views/HelpCenterView.vue')
+    },
+    {
+      path: '/contact',
+      name: 'contact',
+      component: () => import('@/views/ContactView.vue')
+    },
+    {
+      path: '/terms',
+      name: 'terms',
+      component: () => import('@/views/TermsView.vue')
     }
   ],
   scrollBehavior() {
