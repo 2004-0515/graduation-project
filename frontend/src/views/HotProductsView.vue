@@ -87,10 +87,12 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import productApi from '../api/productApi'
 import { useCartStore } from '../stores/cartStore'
+import { useUserStore } from '../stores/userStore'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
 const cartStore = useCartStore()
+const userStore = useUserStore()
 const products = ref<any[]>([])
 
 const totalSales = computed(() => {
@@ -112,7 +114,15 @@ const formatSales = (sales: number) => {
 const imgErr = (e: Event) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/200x200/f8f8fc/ccc?text=商品' }
 
 const addToCart = async (p: any) => {
-  try { await cartStore.addItem(p.id, 1); ElMessage.success('已加入购物车') } catch { ElMessage.error('添加失败') }
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    return
+  }
+  try { 
+    await cartStore.addToCart(userStore.userInfo?.id, p.id, 1)
+  } catch { 
+    ElMessage.error('添加失败') 
+  }
 }
 
 onMounted(async () => {

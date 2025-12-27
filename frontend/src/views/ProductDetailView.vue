@@ -10,7 +10,7 @@
     <main class="main">
       <div class="container">
         <div class="product-layout">
-          <!-- 图片�?-->
+          <!-- 图片区 -->
           <div class="gallery glass-card">
             <div class="main-img">
               <img :src="currentImage" :alt="product.name" @error="imgErr" />
@@ -22,7 +22,7 @@
             </div>
           </div>
 
-          <!-- 信息�?-->
+          <!-- 信息区 -->
           <div class="info-panel">
             <h1 class="text-title">{{ product.name }}</h1>
             <p class="desc">{{ product.description }}</p>
@@ -35,7 +35,7 @@
 
             <div class="info-row">
               <span class="label">库存</span>
-              <span class="value">{{ product.stock }} �?/span>
+              <span class="value">{{ product.stock }} 件</span>
             </div>
 
             <div class="info-row">
@@ -48,14 +48,14 @@
             </div>
 
             <div class="action-row">
-              <button class="btn btn-glass" @click="addToCart">加入购物�?/button>
+              <button class="btn btn-glass" @click="addToCart">加入购物车</button>
               <button class="btn btn-primary" @click="buyNow">立即购买</button>
             </div>
 
             <div class="service-row">
-              <span>�?正品保障</span>
-              <span>�?7天无理由</span>
-              <span>�?极速发�?/span>
+              <span>正品保障</span>
+              <span>7天无理由</span>
+              <span>极速发货</span>
             </div>
           </div>
         </div>
@@ -70,13 +70,13 @@
           <div class="tab-content">
             <div v-if="tab === 'detail'" class="detail-content">
               <h3>{{ product.name }}</h3>
-              <p>{{ product.description || '优质商品，品质保�? }}</p>
+              <p>{{ product.description || '优质商品，品质保证' }}</p>
             </div>
             <div v-else-if="tab === 'spec'" class="spec-content">
               <table>
                 <tr><td>商品名称</td><td>{{ product.name }}</td></tr>
                 <tr><td>商品编号</td><td>{{ product.id }}</td></tr>
-                <tr><td>库存</td><td>{{ product.stock }} �?/td></tr>
+                <tr><td>库存</td><td>{{ product.stock }} 件</td></tr>
               </table>
             </div>
             <div v-else class="review-content">
@@ -134,7 +134,7 @@ const fetchProduct = async () => {
 
 const addToCart = async () => {
   if (!userStore.isLoggedIn) { ElMessage.warning('请先登录'); router.push('/login'); return }
-  try { await cartStore.addToCart(userId.value, product.value.id, quantity.value); ElMessage.success('已加入购物车') } catch { ElMessage.error('加入购物车失�?) }
+  try { await cartStore.addToCart(userId.value, product.value.id, quantity.value) } catch { ElMessage.error('加入购物车失败') }
 }
 
 const buyNow = () => {

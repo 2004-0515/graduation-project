@@ -62,6 +62,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/order/:id',
+      name: 'orderDetail',
+      component: () => import('@/views/OrderDetailView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/address',
       name: 'address',
       component: () => import('@/views/AddressView.vue'),
@@ -86,14 +92,14 @@ const router = createRouter({
       meta: { requiresAuth: true }
     }
   ],
-  scrollBehavior(to, from, savedPosition) {
+  scrollBehavior() {
     return { top: 0 }
   }
 })
 
 // 路由守卫
 import { useUserStore } from '@/stores/userStore'
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore()
 
   if (to.meta.requiresAuth) {

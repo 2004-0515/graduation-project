@@ -31,7 +31,7 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M6 6h15l-1.5 9h-12z M9 20a1 1 0 100-2 1 1 0 000 2z M18 20a1 1 0 100-2 1 1 0 000 2z"/>
           </svg>
-          <span v-if="cartStore.itemCount" class="badge">{{ cartStore.itemCount }}</span>
+          <span v-if="cartStore.totalItems" class="badge">{{ cartStore.totalItems }}</span>
         </router-link>
         
         <!-- 用户头像下拉菜单 -->

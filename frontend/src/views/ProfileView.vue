@@ -171,6 +171,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import { useCartStore } from '../stores/cartStore'
+import orderApi from '../api/orderApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -246,13 +247,27 @@ const changePassword = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (userInfo.value) {
     profileForm.username = userInfo.value.username || ''
     profileForm.email = userInfo.value.email || ''
     profileForm.phone = userInfo.value.phone || ''
     profileForm.nickname = userInfo.value.nickname || ''
     profileForm.bio = userInfo.value.bio || ''
+  }
+  
+  // 获取订单统计
+  try {
+    const res: any = await orderApi.getOrders(1, 100)
+    if (res?.code === 200) {
+      const orders = res.data?.content || res.data?.records || res.data || []
+      orderCount.value = orders.length
+      pendingPayment.value = orders.filter((o: any) => o.orderStatus === 0).length
+      pendingShipment.value = orders.filter((o: any) => o.orderStatus === 1).length
+      pendingReceive.value = orders.filter((o: any) => o.orderStatus === 2).length
+    }
+  } catch (e) {
+    console.error('获取订单统计失败:', e)
   }
 })
 </script>
