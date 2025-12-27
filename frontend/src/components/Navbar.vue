@@ -62,6 +62,10 @@
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                   收货地址
                 </router-link>
+                <router-link v-if="isAdmin" to="/admin" class="dropdown-item">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                  管理后台
+                </router-link>
                 <div class="dropdown-divider"></div>
                 <button class="dropdown-item logout" @click="handleLogout">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -100,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/userStore'
@@ -114,6 +118,9 @@ const query = ref('')
 const showDropdown = ref(false)
 const notificationCount = ref(3) // 模拟消息数量
 const avatar = 'https://api.dicebear.com/7.x/notionists/svg?seed=default'
+
+// 判断是否为管理员（用户名为 admin）
+const isAdmin = computed(() => userStore.userInfo?.username === 'admin')
 
 const search = () => { if (query.value.trim()) router.push(`/category?q=${query.value}`) }
 

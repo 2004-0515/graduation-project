@@ -26,4 +26,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     
     // 根据状态查询订单
     List<Order> findByOrderStatus(Integer orderStatus);
+    
+    // 【管理员】查询所有订单，按创建时间倒序
+    List<Order> findAllByOrderByCreatedTimeDesc();
+    
+    // 【管理员】根据状态查询所有订单，按创建时间倒序
+    List<Order> findByOrderStatusOrderByCreatedTimeDesc(Integer orderStatus);
 }

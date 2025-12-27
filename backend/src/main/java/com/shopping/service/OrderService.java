@@ -246,6 +246,64 @@ public class OrderService {
     }
 
     /**
+     * 【管理员】获取所有订单列表
+     * @param status 订单状态过滤（可选）
+     * @param page 页码
+     * @param size 每页大小
+     * @return 订单DTO列表
+     */
+    public List<OrderDto> getAllOrders(Integer status, int page, int size) {
+        List<Order> orders;
+        if (status != null) {
+            orders = orderRepository.findByOrderStatusOrderByCreatedTimeDesc(status);
+        } else {
+            orders = orderRepository.findAllByOrderByCreatedTimeDesc();
+        }
+
+        int start = page * size;
+        int end = Math.min(start + size, orders.size());
+        if (start >= orders.size()) {
+            return List.of();
+        }
+
+        return orders.subList(start, end).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 【管理员】发货
+     * @param orderId 订单ID
+     */
+    @Transactional
+    public void shipOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId).orElseThrow(
+            () -> new ResourceNotFoundException("订单", orderId));
+
+        // 只能对待发货的订单进行发货
+        if (order.getOrderStatus() != OrderConstants.OrderStatus.PENDING_SHIPMENT) {
+            throw new ValidationException("订单状态不允许发货");
+        }
+
+        order.setOrderStatus(OrderConstants.OrderStatus.SHIPPED);
+        order.setShippingTime(LocalDateTime.now());
+        orderRepository.save(order);
+    }
+
+    /**
+     * 【管理员】更新订单状态
+     * @param orderId 订单ID
+     * @param status 新状态
+     */
+    @Transactional
+    public void updateOrderStatus(Long orderId, Integer status) {
+        Order order = orderRepository.findById(orderId).orElseThrow(
+            () -> new ResourceNotFoundException("订单", orderId));
+        order.setOrderStatus(status);
+        orderRepository.save(order);
+    }
+
+    /**
      * 获取订单实体并验证权限
      * @param orderId 订单ID
      * @param username 用户名

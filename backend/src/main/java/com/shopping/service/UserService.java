@@ -125,4 +125,27 @@ public class UserService {
     public void deleteAccount(User user) {
         userRepository.delete(user);
     }
+    
+    /**
+     * 【管理员】更新用户状态
+     * @param userId 用户ID
+     * @param status 新状态
+     */
+    public void updateUserStatus(Long userId, Integer status) {
+        User user = userRepository.findById(userId).orElseThrow(
+            () -> new com.shopping.exception.ResourceNotFoundException("用户", userId));
+        user.setStatus(status);
+        userRepository.save(user);
+    }
+    
+    /**
+     * 【管理员】根据ID删除用户
+     * @param userId 用户ID
+     */
+    public void deleteUserById(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new com.shopping.exception.ResourceNotFoundException("用户", userId);
+        }
+        userRepository.deleteById(userId);
+    }
 }

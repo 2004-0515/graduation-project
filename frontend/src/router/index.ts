@@ -105,6 +105,37 @@ const router = createRouter({
       path: '/terms',
       name: 'terms',
       component: () => import('@/views/TermsView.vue')
+    },
+    // 管理员后台路由
+    {
+      path: '/admin',
+      name: 'adminDashboard',
+      component: () => import('@/views/admin/DashboardView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/products',
+      name: 'adminProducts',
+      component: () => import('@/views/admin/ProductsView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/categories',
+      name: 'adminCategories',
+      component: () => import('@/views/admin/CategoriesView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/orders',
+      name: 'adminOrders',
+      component: () => import('@/views/admin/OrdersManageView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/users',
+      name: 'adminUsers',
+      component: () => import('@/views/admin/UsersView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
     }
   ],
   scrollBehavior() {

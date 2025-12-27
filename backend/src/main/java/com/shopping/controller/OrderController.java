@@ -132,6 +132,50 @@ public class OrderController {
     }
 
     /**
+     * 【管理员】获取所有订单列表
+     * @param status 订单状态过滤（可选）
+     * @param page 页码（从0开始）
+     * @param size 每页大小
+     * @return 所有订单列表
+     */
+    @GetMapping("/admin")
+    public Response<List<OrderDto>> getAllOrders(
+            @RequestParam(required = false) Integer status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        logger.debug("Admin fetching all orders, status: {}, page: {}, size: {}", status, page, size);
+        List<OrderDto> orders = orderService.getAllOrders(status, page, size);
+        return Response.success("获取订单列表成功", orders);
+    }
+
+    /**
+     * 【管理员】发货
+     * @param id 订单ID
+     * @return 操作结果
+     */
+    @PutMapping("/{id}/ship")
+    public Response<String> shipOrder(@PathVariable Long id) {
+        logger.info("Admin shipping order {}", id);
+        orderService.shipOrder(id);
+        logger.info("Order {} shipped successfully", id);
+        return Response.success("发货成功");
+    }
+
+    /**
+     * 【管理员】更新订单状态
+     * @param id 订单ID
+     * @param status 新状态
+     * @return 操作结果
+     */
+    @PutMapping("/{id}/status")
+    public Response<String> updateOrderStatus(@PathVariable Long id, @RequestBody java.util.Map<String, Integer> body) {
+        Integer status = body.get("status");
+        logger.info("Admin updating order {} status to {}", id, status);
+        orderService.updateOrderStatus(id, status);
+        return Response.success("订单状态更新成功");
+    }
+
+    /**
      * 获取当前登录用户名
      * @return 当前用户名
      */

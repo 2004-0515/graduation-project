@@ -90,6 +90,30 @@ public class UserController {
     }
     
     /**
+     * 【管理员】更新用户状态
+     * @param id 用户ID
+     * @param body 包含status字段的请求体
+     * @return 操作结果
+     */
+    @PutMapping("/{id}/status")
+    public Response<String> updateUserStatus(@PathVariable Long id, @RequestBody java.util.Map<String, Integer> body) {
+        Integer status = body.get("status");
+        userService.updateUserStatus(id, status);
+        return Response.success("用户状态更新成功");
+    }
+    
+    /**
+     * 【管理员】删除用户
+     * @param id 用户ID
+     * @return 删除结果
+     */
+    @DeleteMapping("/{id}")
+    public Response<String> deleteUser(@PathVariable Long id) {
+        userService.deleteUserById(id);
+        return Response.success("用户删除成功");
+    }
+    
+    /**
      * 删除当前登录用户的账号
      * @return 删除结果
      */
