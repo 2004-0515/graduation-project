@@ -167,20 +167,21 @@ const submitOrder = async () => {
   
   try {
     const orderData = {
-      userId: userStore.userInfo?.id,
       addressId: selectedAddress.value,
+      paymentMethod: 1, // 默认微信支付
       items: orderItems.value.map(item => ({
         productId: item.id,
-        quantity: item.quantity,
-        price: item.price
-      })),
-      totalAmount: total.value,
-      remark: remark.value
+        quantity: item.quantity
+      }))
     }
     
     const res: any = await orderApi.createOrder(orderData)
     if (res?.code === 200) {
       ElMessage.success('订单创建成功')
+      // 清空购物车中已下单的商品
+      if (!route.query.productId) {
+        cartStore.clearCart()
+      }
       router.push('/orders')
     } else {
       ElMessage.error(res?.message || '创建订单失败')
