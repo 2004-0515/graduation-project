@@ -14,8 +14,14 @@ export interface Address {
 }
 
 const addressApi = {
-  getUserAddresses(userId: number): Promise<ApiResponse<Address[]>> {
-    return axios.get(`/addresses/user/${userId}`)
+  // 获取当前用户地址列表（通过认证）
+  getUserAddresses(_userId?: number): Promise<ApiResponse<Address[]>> {
+    return axios.get('/addresses')
+  },
+  
+  // 获取默认地址
+  getDefaultAddress(): Promise<ApiResponse<Address>> {
+    return axios.get('/addresses/default')
   },
   
   addAddress(data: Partial<Address>): Promise<ApiResponse<Address>> {

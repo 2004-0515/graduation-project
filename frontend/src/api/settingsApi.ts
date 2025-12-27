@@ -42,8 +42,9 @@ export interface SecuritySettings {
  * 修改密码请求
  */
 export interface ChangePasswordRequest {
-  oldPassword: string
+  currentPassword: string
   newPassword: string
+  confirmPassword: string
 }
 
 /**
@@ -89,7 +90,7 @@ const settingsApi = {
    * 修改密码
    */
   changePassword(data: ChangePasswordRequest): Promise<ApiResponse<void>> {
-    return axios.put('/users/password', data)
+    return axios.post('/auth/change-password', data)
   }
 }
 

@@ -29,10 +29,10 @@ const orderApi = {
   },
   
   /**
-   * 获取用户订单列表
+   * 获取用户订单列表（通过认证获取当前用户订单）
    */
-  getUserOrders(userId: number): Promise<ApiResponse<Order[]>> {
-    return axios.get(`${API_PATHS.ORDERS.BASE}/user/${userId}`)
+  getUserOrders(_userId?: number): Promise<ApiResponse<Order[]>> {
+    return axios.get(API_PATHS.ORDERS.BASE)
   },
   
   /**
@@ -60,7 +60,7 @@ const orderApi = {
    * 确认收货
    */
   confirmReceive(id: number): Promise<ApiResponse<void>> {
-    return axios.put(`${API_PATHS.ORDERS.BASE}/${id}/receive`)
+    return axios.put(`${API_PATHS.ORDERS.BASE}/${id}/confirm`)
   }
 }
 
