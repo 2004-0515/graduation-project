@@ -183,8 +183,7 @@ export interface Address {
   district: string
   detail: string
   isDefault: boolean
-  createdTime: string
-  updatedTime: string
+  status?: number
 }
 
 export interface AddressFormData {

@@ -23,11 +23,11 @@
                   @click="selectedAddress = addr.id"
                 >
                   <div class="addr-info">
-                    <span class="name">{{ addr.receiverName }}</span>
-                    <span class="phone">{{ addr.receiverPhone }}</span>
+                    <span class="name">{{ addr.name }}</span>
+                    <span class="phone">{{ addr.phone }}</span>
                     <span class="default-tag" v-if="addr.isDefault">默认</span>
                   </div>
-                  <p class="addr-detail">{{ addr.province }}{{ addr.city }}{{ addr.district }}{{ addr.detailAddress }}</p>
+                  <p class="addr-detail">{{ addr.province }}{{ addr.city }}{{ addr.district }}{{ addr.detail }}</p>
                 </div>
               </div>
               <div v-else class="empty-tip">

@@ -93,6 +93,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
+import productApi from '../api/productApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -107,7 +108,7 @@ const promotion = reactive({
   id: 0,
   title: '限时优惠活动',
   status: '进行中',
-  startTime: '2025-12-01',
+  startTime: '2025-01-01',
   endTime: '2025-12-31',
   bannerImage: 'https://picsum.photos/1200/400?random=1',
   description: '精选商品限时特惠，品质好物低价入手。活动期间全场商品享受折扣优惠，更有满减活动等你参与！',
@@ -117,13 +118,35 @@ const promotion = reactive({
     '每位用户限购5件活动商品',
     '优惠不可与其他活动叠加使用'
   ],
-  relatedProducts: [
-    { id: 1, name: '精选商品一', mainImage: 'https://picsum.photos/300/300?random=1', price: 59.9, originalPrice: 99.9, discount: 6 },
-    { id: 2, name: '精选商品二', mainImage: 'https://picsum.photos/300/300?random=2', price: 39.9, originalPrice: 79.9, discount: 5 },
-    { id: 3, name: '精选商品三', mainImage: 'https://picsum.photos/300/300?random=3', price: 89.9, originalPrice: 159.9, discount: 5.6 },
-    { id: 4, name: '精选商品四', mainImage: 'https://picsum.photos/300/300?random=4', price: 49.9, originalPrice: 89.9, discount: 5.5 },
-  ] as any[]
+  relatedProducts: [] as any[]
 })
+
+// 从真实API获取活动商品
+const fetchRelatedProducts = async () => {
+  try {
+    const res: any = await productApi.getProducts({ page: 1, size: 8 })
+    if (res?.code === 200) {
+      const list = res.data?.content || res.data?.records || res.data || []
+      promotion.relatedProducts = list.slice(0, 4).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        mainImage: p.mainImage || `https://picsum.photos/300/300?random=${p.id}`,
+        price: Math.floor(p.price * 0.8), // 模拟8折活动价
+        originalPrice: p.price,
+        discount: 8
+      }))
+    }
+  } catch (e) {
+    console.error('获取活动商品失败', e)
+    // 使用默认数据
+    promotion.relatedProducts = [
+      { id: 1, name: '精选商品一', mainImage: 'https://picsum.photos/300/300?random=1', price: 59.9, originalPrice: 99.9, discount: 6 },
+      { id: 2, name: '精选商品二', mainImage: 'https://picsum.photos/300/300?random=2', price: 39.9, originalPrice: 79.9, discount: 5 },
+      { id: 3, name: '精选商品三', mainImage: 'https://picsum.photos/300/300?random=3', price: 89.9, originalPrice: 159.9, discount: 5.6 },
+      { id: 4, name: '精选商品四', mainImage: 'https://picsum.photos/300/300?random=4', price: 49.9, originalPrice: 89.9, discount: 5.5 },
+    ]
+  }
+}
 
 const addToCart = async (product: any) => {
   if (!userStore.isLoggedIn) {
@@ -150,6 +173,7 @@ const buyNow = (product: any) => {
 
 onMounted(() => {
   promotion.id = parseInt(route.params.id as string) || 1
+  fetchRelatedProducts()
 })
 </script>
 

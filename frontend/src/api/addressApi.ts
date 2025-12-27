@@ -4,12 +4,12 @@ import type { ApiResponse } from '@/types'
 export interface Address {
   id: number
   userId: number
-  receiverName: string
-  receiverPhone: string
+  name: string
+  phone: string
   province: string
   city: string
   district: string
-  detailAddress: string
+  detail: string
   isDefault: boolean
 }
 

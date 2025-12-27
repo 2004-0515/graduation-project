@@ -110,6 +110,7 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import productApi from '../api/productApi'
 
 const countdown = reactive({ days: 5, hours: 12, minutes: 30, seconds: 0 })
 const flashCountdown = ref('01:58:32')
@@ -117,30 +118,53 @@ const flashCountdown = ref('01:58:32')
 const imgErr = (e: Event) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x200/f8f8fc/ccc?text=活动' }
 
 const coupons = ref([
-  { id: 1, name: '新人专享券', value: 20, minAmount: 100, validTime: '2025.01.01-2025.01.31', claimed: false },
-  { id: 2, name: '满减优惠券', value: 50, minAmount: 300, validTime: '2025.01.01-2025.01.31', claimed: false },
-  { id: 3, name: '品类专属券', value: 30, minAmount: 200, validTime: '2025.01.01-2025.01.31', claimed: true },
-  { id: 4, name: '会员专享券', value: 100, minAmount: 500, validTime: '2025.01.01-2025.01.31', claimed: false },
+  { id: 1, name: '新人专享券', value: 20, minAmount: 100, validTime: '2025.01.01-2025.12.31', claimed: false },
+  { id: 2, name: '满减优惠券', value: 50, minAmount: 300, validTime: '2025.01.01-2025.12.31', claimed: false },
+  { id: 3, name: '品类专属券', value: 30, minAmount: 200, validTime: '2025.01.01-2025.12.31', claimed: true },
+  { id: 4, name: '会员专享券', value: 100, minAmount: 500, validTime: '2025.01.01-2025.12.31', claimed: false },
 ])
 
 const promotions = ref([
-  { id: 1, title: '新年特惠季', description: '全场商品低至5折起', image: 'https://picsum.photos/600/300?random=10', status: '进行中', statusClass: 'active', discount: '5折起', startTime: '01.01', endTime: '01.31', joinCount: 12580 },
-  { id: 2, title: '会员专享日', description: '会员专属折扣，积分翻倍', image: 'https://picsum.photos/600/300?random=11', status: '进行中', statusClass: 'active', discount: '8折', startTime: '01.15', endTime: '01.20', joinCount: 8920 },
-  { id: 3, title: '品牌特卖', description: '精选品牌限时特惠', image: 'https://picsum.photos/600/300?random=12', status: '即将开始', statusClass: 'upcoming', discount: '3折起', startTime: '01.25', endTime: '01.28', joinCount: 0 },
-  { id: 4, title: '清仓大促', description: '库存清仓，超低价格', image: 'https://picsum.photos/600/300?random=13', status: '进行中', statusClass: 'active', discount: '2折起', startTime: '01.01', endTime: '02.28', joinCount: 25600 },
+  { id: 1, title: '新年特惠季', description: '全场商品低至5折起', image: 'https://picsum.photos/600/300?random=10', status: '进行中', statusClass: 'active', discount: '5折起', startTime: '01.01', endTime: '12.31', joinCount: 12580 },
+  { id: 2, title: '会员专享日', description: '会员专属折扣，积分翻倍', image: 'https://picsum.photos/600/300?random=11', status: '进行中', statusClass: 'active', discount: '8折', startTime: '01.15', endTime: '12.31', joinCount: 8920 },
+  { id: 3, title: '品牌特卖', description: '精选品牌限时特惠', image: 'https://picsum.photos/600/300?random=12', status: '进行中', statusClass: 'active', discount: '3折起', startTime: '01.25', endTime: '12.31', joinCount: 3560 },
+  { id: 4, title: '清仓大促', description: '库存清仓，超低价格', image: 'https://picsum.photos/600/300?random=13', status: '进行中', statusClass: 'active', discount: '2折起', startTime: '01.01', endTime: '12.31', joinCount: 25600 },
 ])
 
-const flashItems = ref([
-  { id: 1, name: '无线蓝牙耳机', image: 'https://picsum.photos/200/200?random=20', flashPrice: 89, originalPrice: 299, progress: 78 },
-  { id: 2, name: '智能手表', image: 'https://picsum.photos/200/200?random=21', flashPrice: 199, originalPrice: 599, progress: 45 },
-  { id: 3, name: '便携充电宝', image: 'https://picsum.photos/200/200?random=22', flashPrice: 49, originalPrice: 129, progress: 92 },
-  { id: 4, name: '机械键盘', image: 'https://picsum.photos/200/200?random=23', flashPrice: 159, originalPrice: 399, progress: 33 },
-])
+const flashItems = ref<any[]>([])
 
 const claimCoupon = (c: any) => { if (c.claimed) return; c.claimed = true; ElMessage.success('领取成功') }
 
+// 从真实API获取秒杀商品
+const fetchFlashItems = async () => {
+  try {
+    const res: any = await productApi.getProducts({ page: 1, size: 4 })
+    if (res?.code === 200) {
+      const list = res.data?.content || res.data?.records || res.data || []
+      flashItems.value = list.map((p: any, index: number) => ({
+        id: p.id,
+        name: p.name,
+        image: p.mainImage || `https://picsum.photos/200/200?random=${20 + index}`,
+        flashPrice: Math.floor(p.price * 0.5), // 模拟秒杀价5折
+        originalPrice: p.price,
+        progress: Math.floor(Math.random() * 60) + 30 // 随机进度30-90%
+      }))
+    }
+  } catch (e) {
+    console.error('获取秒杀商品失败', e)
+    // 使用默认数据
+    flashItems.value = [
+      { id: 1, name: '无线蓝牙耳机', image: 'https://picsum.photos/200/200?random=20', flashPrice: 89, originalPrice: 299, progress: 78 },
+      { id: 2, name: '智能手表', image: 'https://picsum.photos/200/200?random=21', flashPrice: 199, originalPrice: 599, progress: 45 },
+      { id: 3, name: '便携充电宝', image: 'https://picsum.photos/200/200?random=22', flashPrice: 49, originalPrice: 129, progress: 92 },
+      { id: 4, name: '机械键盘', image: 'https://picsum.photos/200/200?random=23', flashPrice: 159, originalPrice: 399, progress: 33 },
+    ]
+  }
+}
+
 let timer: number
 onMounted(() => {
+  fetchFlashItems()
   timer = window.setInterval(() => {
     if (countdown.seconds > 0) countdown.seconds--
     else if (countdown.minutes > 0) { countdown.minutes--; countdown.seconds = 59 }

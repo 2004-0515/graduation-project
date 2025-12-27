@@ -12,11 +12,11 @@
           <div v-for="addr in addresses" :key="addr.id" class="address-card">
             <div class="card-main">
               <div class="addr-header">
-                <span class="name">{{ addr.receiverName }}</span>
-                <span class="phone">{{ addr.receiverPhone }}</span>
+                <span class="name">{{ addr.name }}</span>
+                <span class="phone">{{ addr.phone }}</span>
                 <span class="default-tag" v-if="addr.isDefault">默认</span>
               </div>
-              <p class="addr-detail">{{ addr.province }}{{ addr.city }}{{ addr.district }}{{ addr.detailAddress }}</p>
+              <p class="addr-detail">{{ addr.province }}{{ addr.city }}{{ addr.district }}{{ addr.detail }}</p>
             </div>
             <div class="card-actions">
               <button v-if="!addr.isDefault" @click="setDefault(addr)">设为默认</button>
@@ -39,10 +39,10 @@
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑地址' : '添加地址'" width="480px">
       <el-form :model="addressForm" label-position="top">
         <el-form-item label="收货人">
-          <el-input v-model="addressForm.receiverName" placeholder="请输入收货人姓名" />
+          <el-input v-model="addressForm.name" placeholder="请输入收货人姓名" />
         </el-form-item>
         <el-form-item label="手机号">
-          <el-input v-model="addressForm.receiverPhone" placeholder="请输入手机号" />
+          <el-input v-model="addressForm.phone" placeholder="请输入手机号" />
         </el-form-item>
         <el-form-item label="所在地区">
           <div class="region-row">
@@ -52,7 +52,7 @@
           </div>
         </el-form-item>
         <el-form-item label="详细地址">
-          <el-input v-model="addressForm.detailAddress" type="textarea" :rows="2" placeholder="请输入详细地址" />
+          <el-input v-model="addressForm.detail" type="textarea" :rows="2" placeholder="请输入详细地址" />
         </el-form-item>
         <el-form-item>
           <el-checkbox v-model="addressForm.isDefault">设为默认地址</el-checkbox>
@@ -83,22 +83,22 @@ const isEdit = ref(false)
 const editId = ref<number | null>(null)
 
 const addressForm = reactive({
-  receiverName: '',
-  receiverPhone: '',
+  name: '',
+  phone: '',
   province: '',
   city: '',
   district: '',
-  detailAddress: '',
+  detail: '',
   isDefault: false
 })
 
 const resetForm = () => {
-  addressForm.receiverName = ''
-  addressForm.receiverPhone = ''
+  addressForm.name = ''
+  addressForm.phone = ''
   addressForm.province = ''
   addressForm.city = ''
   addressForm.district = ''
-  addressForm.detailAddress = ''
+  addressForm.detail = ''
   addressForm.isDefault = false
 }
 

@@ -104,7 +104,9 @@ const fetchProducts = async () => {
     if (selectedCategory.value) params.categoryId = selectedCategory.value
     if (minPrice.value) params.minPrice = minPrice.value
     if (maxPrice.value) params.maxPrice = maxPrice.value
-    if (route.query.keyword) params.keyword = route.query.keyword
+    // 支持 q 和 keyword 两种搜索参数
+    const searchKeyword = route.query.q || route.query.keyword
+    if (searchKeyword) params.keyword = searchKeyword
     
     const res: any = await productApi.getProducts(params)
     if (res?.code === 200) {
@@ -123,6 +125,8 @@ const fetchCategories = async () => {
 }
 
 watch([selectedCategory, sortBy], () => { currentPage.value = 1; fetchProducts() })
+// 监听路由查询参数变化，支持搜索
+watch(() => route.query, () => { currentPage.value = 1; fetchProducts() }, { deep: true })
 onMounted(() => {
   if (route.query.id) selectedCategory.value = Number(route.query.id)
   fetchCategories()
