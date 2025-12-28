@@ -68,6 +68,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/payment/:id',
+      name: 'payment',
+      component: () => import('@/views/PaymentView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/address',
       name: 'address',
       component: () => import('@/views/AddressView.vue'),
@@ -106,6 +112,12 @@ const router = createRouter({
       name: 'terms',
       component: () => import('@/views/TermsView.vue')
     },
+    {
+      path: '/my-products',
+      name: 'myProducts',
+      component: () => import('@/views/MyProductsView.vue'),
+      meta: { requiresAuth: true }
+    },
     // 管理员后台路由
     {
       path: '/admin',
@@ -135,6 +147,24 @@ const router = createRouter({
       path: '/admin/users',
       name: 'adminUsers',
       component: () => import('@/views/admin/UsersView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/files',
+      name: 'adminFiles',
+      component: () => import('@/views/admin/FileReviewView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/notifications',
+      name: 'adminNotifications',
+      component: () => import('@/views/admin/NotificationsManageView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/coupons',
+      name: 'adminCoupons',
+      component: () => import('@/views/admin/CouponsManageView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
     }
   ],

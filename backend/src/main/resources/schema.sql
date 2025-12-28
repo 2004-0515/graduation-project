@@ -71,11 +71,18 @@ CREATE TABLE tb_product (
     status TINYINT DEFAULT 1 NOT NULL COMMENT '状态：1-上架，0-下架',
     main_image VARCHAR(200) DEFAULT NULL COMMENT '主图URL',
     images TEXT DEFAULT NULL COMMENT '商品图片列表（JSON格式）',
+    seller_id BIGINT DEFAULT NULL COMMENT '卖家用户ID',
+    seller_name VARCHAR(50) DEFAULT NULL COMMENT '卖家用户名',
+    audit_status TINYINT DEFAULT 1 NOT NULL COMMENT '审核状态：0-待审核，1-已通过，2-已拒绝',
+    audit_remark VARCHAR(200) DEFAULT NULL COMMENT '审核备注',
+    audit_time DATETIME DEFAULT NULL COMMENT '审核时间',
     created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     INDEX idx_product_category (category_id),
     INDEX idx_product_status (status),
     INDEX idx_product_name (name),
+    INDEX idx_product_audit (audit_status),
+    INDEX idx_product_seller (seller_id),
     CONSTRAINT fk_product_category FOREIGN KEY (category_id) REFERENCES tb_category(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='商品表';
 
@@ -213,3 +220,79 @@ CREATE TABLE notification_settings (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知设置表';
+
+-- =====================================================
+-- 11. 消息通知表 (notifications)
+-- =====================================================
+DROP TABLE IF EXISTS notifications;
+CREATE TABLE notifications (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '通知ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    type VARCHAR(20) NOT NULL COMMENT '通知类型：system-系统，order-订单，promotion-促销',
+    title VARCHAR(100) NOT NULL COMMENT '通知标题',
+    message VARCHAR(500) NOT NULL COMMENT '通知内容',
+    is_read BOOLEAN DEFAULT FALSE NOT NULL COMMENT '是否已读',
+    related_id BIGINT DEFAULT NULL COMMENT '关联ID（如订单ID）',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_notification_user (user_id),
+    INDEX idx_notification_read (is_read),
+    INDEX idx_notification_type (type),
+    CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息通知表';
+
+
+-- =====================================================
+-- 12. 优惠券表 (tb_coupon)
+-- =====================================================
+DROP TABLE IF EXISTS tb_coupon;
+CREATE TABLE tb_coupon (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '优惠券ID',
+    name VARCHAR(100) NOT NULL COMMENT '优惠券名称',
+    description VARCHAR(500) DEFAULT NULL COMMENT '优惠券描述',
+    type TINYINT NOT NULL COMMENT '类型：1-满减券，2-折扣券，3-无门槛券',
+    discount_amount DECIMAL(10, 2) DEFAULT NULL COMMENT '优惠金额',
+    discount_rate DECIMAL(3, 2) DEFAULT NULL COMMENT '折扣比例（如0.8表示8折）',
+    min_amount DECIMAL(10, 2) DEFAULT NULL COMMENT '最低消费金额',
+    max_discount DECIMAL(10, 2) DEFAULT NULL COMMENT '最大优惠金额',
+    total_count INT NOT NULL COMMENT '发放总量',
+    claimed_count INT DEFAULT 0 NOT NULL COMMENT '已领取数量',
+    limit_per_user INT DEFAULT 1 NOT NULL COMMENT '每人限领数量',
+    start_time DATETIME NOT NULL COMMENT '生效时间',
+    end_time DATETIME NOT NULL COMMENT '失效时间',
+    status TINYINT DEFAULT 1 NOT NULL COMMENT '状态：1-启用，0-禁用',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_coupon_status (status),
+    INDEX idx_coupon_time (start_time, end_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='优惠券表';
+
+-- =====================================================
+-- 13. 用户优惠券表 (tb_user_coupon)
+-- =====================================================
+DROP TABLE IF EXISTS tb_user_coupon;
+CREATE TABLE tb_user_coupon (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT 'ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    coupon_id BIGINT NOT NULL COMMENT '优惠券ID',
+    status TINYINT DEFAULT 0 NOT NULL COMMENT '状态：0-未使用，1-已使用，2-已过期',
+    order_id BIGINT DEFAULT NULL COMMENT '使用的订单ID',
+    used_time DATETIME DEFAULT NULL COMMENT '使用时间',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '领取时间',
+    INDEX idx_user_coupon_user (user_id),
+    INDEX idx_user_coupon_coupon (coupon_id),
+    INDEX idx_user_coupon_status (status),
+    CONSTRAINT fk_user_coupon_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_user_coupon_coupon FOREIGN KEY (coupon_id) REFERENCES tb_coupon(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户优惠券表';
+
+-- 添加订单表的优惠券字段
+ALTER TABLE tb_order ADD COLUMN coupon_id BIGINT DEFAULT NULL COMMENT '使用的优惠券ID' AFTER remark;
+ALTER TABLE tb_order ADD COLUMN coupon_discount DECIMAL(10, 2) DEFAULT NULL COMMENT '优惠券抵扣金额' AFTER coupon_id;
+
+-- 插入示例优惠券数据
+INSERT INTO tb_coupon (name, description, type, discount_amount, min_amount, total_count, limit_per_user, start_time, end_time, status) VALUES
+('新人专享券', '新用户首单立减20元', 1, 20.00, 100.00, 1000, 1, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1),
+('满300减50', '满300元立减50元', 1, 50.00, 300.00, 500, 2, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1),
+('满500减100', '满500元立减100元', 1, 100.00, 500.00, 200, 1, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1),
+('8折优惠券', '全场商品8折优惠', 2, NULL, 200.00, 300, 1, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1),
+('无门槛10元券', '无门槛立减10元', 3, 10.00, 0.00, 2000, 3, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1);

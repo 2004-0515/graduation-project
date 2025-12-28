@@ -86,3 +86,14 @@ INSERT INTO notification_settings (user_id, order_status_enabled, delivery_enabl
 (1, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, 'immediate', 8, 22),
 (2, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, 'immediate', 9, 21),
 (3, TRUE, TRUE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE, 'daily', 10, 20);
+
+
+-- =====================================================
+-- 插入优惠券数据
+-- =====================================================
+INSERT INTO tb_coupon (name, description, type, discount_amount, discount_rate, min_amount, max_discount, total_count, claimed_count, limit_per_user, start_time, end_time, status, created_time, updated_time) VALUES
+('新人专享券', '新用户首单立减20元', 1, 20.00, NULL, 100.00, NULL, 1000, 0, 1, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1, NOW(), NOW()),
+('满300减50', '满300元立减50元', 1, 50.00, NULL, 300.00, NULL, 500, 0, 2, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1, NOW(), NOW()),
+('满500减100', '满500元立减100元', 1, 100.00, NULL, 500.00, NULL, 200, 0, 1, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1, NOW(), NOW()),
+('8折优惠券', '全场商品8折优惠，最高优惠200元', 2, NULL, 0.80, 200.00, 200.00, 300, 0, 1, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1, NOW(), NOW()),
+('无门槛10元券', '无门槛立减10元', 3, 10.00, NULL, 0.00, NULL, 2000, 0, 3, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1, NOW(), NOW());

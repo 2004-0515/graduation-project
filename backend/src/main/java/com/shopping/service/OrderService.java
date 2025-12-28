@@ -7,10 +7,12 @@ import com.shopping.entity.*;
 import com.shopping.exception.ResourceNotFoundException;
 import com.shopping.exception.ValidationException;
 import com.shopping.repository.*;
+import com.shopping.entity.UserCoupon;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,10 @@ public class OrderService {
 
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
     
+    @Autowired
+    @Lazy
+    private NotificationService notificationService;
+
     @Autowired
     private OrderRepository orderRepository;
 
@@ -48,6 +54,12 @@ public class OrderService {
     @Autowired
     private ObjectMapper objectMapper;
     
+    @Autowired
+    private CouponService couponService;
+    
+    @Autowired
+    private UserCouponRepository userCouponRepository;
+    
     /**
      * 获取用户订单列表
      * @param username 用户名
@@ -66,6 +78,15 @@ public class OrderService {
         } else {
             orders = orderRepository.findByUserIdOrderByCreatedTimeDesc(user.getId());
         }
+        
+        // 在内存中按创建时间倒序排序
+        orders.sort((o1, o2) -> {
+            if (o1.getCreatedTime() == null) return 1;
+            if (o2.getCreatedTime() == null) return -1;
+            return o2.getCreatedTime().compareTo(o1.getCreatedTime());
+        });
+
+        logger.info("Found {} orders for user {}", orders.size(), username);
 
         // 简单的分页实现
         int start = page * size;
@@ -87,8 +108,11 @@ public class OrderService {
      */
     public OrderDto getOrderByIdAndUser(Long id, String username) {
         User user = userService.getUserByUsername(username);
-        Order order = orderRepository.findById(id).orElseThrow(
-            () -> new ResourceNotFoundException("订单", id));
+        Order order = orderRepository.findByIdWithDetails(id);
+        
+        if (order == null) {
+            throw new ResourceNotFoundException("订单", id);
+        }
 
         // 验证订单属于当前用户
         if (!order.getUser().getId().equals(user.getId())) {
@@ -147,6 +171,7 @@ public class OrderService {
         order.setPaymentStatus(OrderConstants.PaymentStatus.UNPAID);
         order.setOrderStatus(OrderConstants.OrderStatus.PENDING_PAYMENT);
         order.setShippingAddress(convertAddressToJson(address));
+        order.setRemark(request.getRemark());
 
         // 计算总金额并创建订单项
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -161,6 +186,9 @@ public class OrderService {
                 throw new ValidationException("商品[" + product.getName() + "]库存不足");
             }
 
+            // 计算订单项小计
+            BigDecimal itemTotalPrice = product.getPrice().multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
+
             // 创建订单项
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
@@ -169,25 +197,108 @@ public class OrderService {
             orderItem.setProductImage(product.getMainImage());
             orderItem.setPrice(product.getPrice());
             orderItem.setQuantity(itemRequest.getQuantity());
+            orderItem.setTotalPrice(itemTotalPrice);
 
             order.getItems().add(orderItem);
-            totalAmount = totalAmount.add(orderItem.getPrice().multiply(BigDecimal.valueOf(itemRequest.getQuantity())));
+            totalAmount = totalAmount.add(itemTotalPrice);
         }
 
         order.setTotalAmount(totalAmount);
+        
+        // 处理优惠券
+        BigDecimal couponDiscount = BigDecimal.ZERO;
+        if (request.getUserCouponId() != null) {
+            UserCoupon userCoupon = userCouponRepository.findById(request.getUserCouponId())
+                .orElseThrow(() -> new ValidationException("优惠券不存在"));
+            
+            // 验证优惠券属于当前用户
+            if (!userCoupon.getUserId().equals(user.getId())) {
+                throw new ValidationException("优惠券无效");
+            }
+            
+            // 验证优惠券状态
+            if (userCoupon.getStatus() != 0) {
+                throw new ValidationException("优惠券已使用或已过期");
+            }
+            
+            // 计算优惠金额
+            couponDiscount = couponService.calculateDiscount(userCoupon, totalAmount);
+            
+            if (couponDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                order.setCouponId(userCoupon.getId());
+                order.setCouponDiscount(couponDiscount);
+            }
+        }
+        
+        // 设置实付金额
+        BigDecimal payAmount = totalAmount.subtract(couponDiscount);
+        if (payAmount.compareTo(BigDecimal.ZERO) < 0) {
+            payAmount = BigDecimal.ZERO;
+        }
+        order.setPayAmount(payAmount);
+        
         Order savedOrder = orderRepository.save(order);
+        
+        // 注意：优惠券在支付成功后才标记为已使用，这里只记录优惠券ID
 
         // 扣减库存
         for (OrderItem item : savedOrder.getItems()) {
             productService.reduceStock(item.getProduct().getId(), item.getQuantity());
         }
 
+        // 发送订单创建通知
+        notificationService.sendOrderNotification(user.getId(), savedOrder.getId(), 
+                savedOrder.getOrderNo(), "已创建，请尽快支付");
+
         logger.info("Order created successfully: {}", savedOrder.getOrderNo());
         return convertToDto(savedOrder);
     }
     
     /**
-     * 取消订单
+     * 支付订单
+     * @param orderId 订单ID
+     * @param username 用户名
+     * @param paymentMethod 支付方式
+     * @return 支付后的订单DTO
+     */
+    @Transactional
+    public OrderDto payOrder(Long orderId, String username, Integer paymentMethod) {
+        Order order = getOrderEntityByIdAndUser(orderId, username);
+
+        // 只能支付待付款的订单
+        if (order.getOrderStatus() != OrderConstants.OrderStatus.PENDING_PAYMENT) {
+            throw new ValidationException("订单状态不允许支付");
+        }
+
+        // 更新订单状态
+        order.setPaymentMethod(paymentMethod);
+        order.setPaymentStatus(OrderConstants.PaymentStatus.PAID);
+        order.setOrderStatus(OrderConstants.OrderStatus.PENDING_SHIPMENT);
+        order.setPaymentTime(LocalDateTime.now());
+        
+        Order savedOrder = orderRepository.save(order);
+        
+        // 支付成功后标记优惠券为已使用
+        if (order.getCouponId() != null) {
+            couponService.markCouponUsed(order.getCouponId(), savedOrder.getId());
+        }
+        
+        // 更新商品销量
+        for (OrderItem item : order.getItems()) {
+            productService.increaseSales(item.getProduct().getId(), item.getQuantity());
+        }
+        
+        // 发送支付成功通知
+        notificationService.sendOrderNotification(order.getUser().getId(), savedOrder.getId(),
+                savedOrder.getOrderNo(), "支付成功，等待发货");
+        
+        logger.info("Order {} paid successfully", orderId);
+        
+        return convertToDto(savedOrder);
+    }
+    
+    /**
+     * 取消订单（仅限待支付订单直接取消）
      * @param orderId 订单ID
      * @param username 用户名
      */
@@ -195,9 +306,9 @@ public class OrderService {
     public void cancelOrder(Long orderId, String username) {
         Order order = getOrderEntityByIdAndUser(orderId, username);
 
-        // 只能取消待支付和待发货的订单
+        // 只能直接取消待支付的订单
         if (!OrderConstants.OrderStatus.canCancel(order.getOrderStatus())) {
-            throw new ValidationException("订单无法取消");
+            throw new ValidationException("该订单无法直接取消，请申请取消");
         }
 
         order.setOrderStatus(OrderConstants.OrderStatus.CANCELLED);
@@ -206,6 +317,70 @@ public class OrderService {
         // 恢复库存
         for (OrderItem item : order.getItems()) {
             productService.increaseStock(item.getProduct().getId(), item.getQuantity());
+        }
+    }
+    
+    /**
+     * 申请取消订单（待发货订单需要申请）
+     * @param orderId 订单ID
+     * @param username 用户名
+     */
+    @Transactional
+    public void requestCancelOrder(Long orderId, String username) {
+        Order order = getOrderEntityByIdAndUser(orderId, username);
+
+        // 只有待发货的订单才能申请取消
+        if (!OrderConstants.OrderStatus.canRequestCancel(order.getOrderStatus())) {
+            throw new ValidationException("该订单状态不支持申请取消");
+        }
+
+        order.setOrderStatus(OrderConstants.OrderStatus.CANCEL_REQUESTED);
+        orderRepository.save(order);
+        
+        // 发送通知
+        notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
+                order.getOrderNo(), "取消申请已提交，等待管理员审核");
+    }
+    
+    /**
+     * 【管理员】审核取消申请
+     * @param orderId 订单ID
+     * @param approved 是否同意
+     */
+    @Transactional
+    public void reviewCancelRequest(Long orderId, boolean approved) {
+        Order order = orderRepository.findById(orderId).orElseThrow(
+            () -> new ResourceNotFoundException("订单", orderId));
+        
+        if (order.getOrderStatus() != OrderConstants.OrderStatus.CANCEL_REQUESTED) {
+            throw new ValidationException("该订单没有待审核的取消申请");
+        }
+        
+        if (approved) {
+            order.setOrderStatus(OrderConstants.OrderStatus.CANCELLED);
+            orderRepository.save(order);
+            
+            // 恢复库存
+            for (OrderItem item : order.getItems()) {
+                productService.increaseStock(item.getProduct().getId(), item.getQuantity());
+            }
+            
+            // 归还优惠券
+            if (order.getCouponId() != null) {
+                couponService.returnCoupon(order.getCouponId());
+            }
+            
+            // 发送通知
+            notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
+                    order.getOrderNo(), "取消申请已通过，订单已取消");
+        } else {
+            // 拒绝取消，恢复为待发货状态
+            order.setOrderStatus(OrderConstants.OrderStatus.PENDING_SHIPMENT);
+            orderRepository.save(order);
+            
+            // 发送通知
+            notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
+                    order.getOrderNo(), "取消申请被拒绝，订单将继续处理");
         }
     }
 
@@ -256,8 +431,15 @@ public class OrderService {
         List<Order> orders;
         if (status != null) {
             orders = orderRepository.findByOrderStatusOrderByCreatedTimeDesc(status);
+            logger.info("Admin: Fetching orders with status {}, found {} orders", status, orders.size());
         } else {
             orders = orderRepository.findAllByOrderByCreatedTimeDesc();
+            logger.info("Admin: Fetching ALL orders, found {} orders", orders.size());
+        }
+        
+        // 打印每个订单的状态
+        for (Order o : orders) {
+            logger.info("Order {} status: {}", o.getOrderNo(), o.getOrderStatus());
         }
 
         int start = page * size;
@@ -288,6 +470,10 @@ public class OrderService {
         order.setOrderStatus(OrderConstants.OrderStatus.PENDING_RECEIPT);
         order.setShippingTime(LocalDateTime.now());
         orderRepository.save(order);
+        
+        // 发送发货通知
+        notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
+                order.getOrderNo(), "已发货，请注意查收");
     }
 
     /**
@@ -301,6 +487,11 @@ public class OrderService {
             () -> new ResourceNotFoundException("订单", orderId));
         order.setOrderStatus(status);
         orderRepository.save(order);
+        
+        // 发送状态变更通知
+        String statusName = OrderConstants.OrderStatus.getName(status);
+        notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
+                order.getOrderNo(), statusName);
     }
 
     /**
@@ -385,6 +576,10 @@ public class OrderService {
         dto.setEndTime(order.getEndTime());
         dto.setCreatedTime(order.getCreatedTime());
         dto.setUpdatedTime(order.getUpdatedTime());
+        dto.setRemark(order.getRemark());
+        dto.setCouponId(order.getCouponId());
+        dto.setCouponDiscount(order.getCouponDiscount());
+        dto.setPayAmount(order.getPayAmount());
 
         // 转换订单项
         if (order.getItems() != null) {

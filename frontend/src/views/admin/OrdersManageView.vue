@@ -3,18 +3,19 @@
     <div class="orders-manage">
       <div class="toolbar">
         <div class="toolbar-left">
-          <el-input v-model="searchKeyword" placeholder="搜索订单号" style="width: 200px" @keyup.enter="fetchOrders">
+          <el-input v-model="searchKeyword" placeholder="搜索订单号" style="width: 200px" @keyup.enter="handleSearch">
             <template #append>
-              <el-button @click="fetchOrders">搜索</el-button>
+              <el-button @click="handleSearch">搜索</el-button>
             </template>
           </el-input>
-          <el-select v-model="filterStatus" placeholder="订单状态" style="width: 120px" @change="fetchOrders">
-            <el-option label="全部" :value="null" />
+          <el-select v-model="filterStatus" placeholder="订单状态" style="width: 140px" @change="handleFilterChange">
+            <el-option label="全部" value="" />
             <el-option label="待付款" :value="0" />
             <el-option label="待发货" :value="1" />
             <el-option label="待收货" :value="2" />
             <el-option label="已完成" :value="3" />
             <el-option label="已取消" :value="4" />
+            <el-option label="申请取消中" :value="6" />
           </el-select>
         </div>
         <div class="toolbar-right">
@@ -47,17 +48,21 @@
           <el-table-column prop="createdTime" label="下单时间" width="160">
             <template #default="{ row }">{{ formatDate(row.createdTime) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="180" fixed="right">
+          <el-table-column label="操作" width="220" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="viewDetail(row)">详情</el-button>
               <el-button v-if="row.orderStatus === 1" type="success" link @click="shipOrder(row)">发货</el-button>
               <el-button v-if="row.orderStatus === 0" type="warning" link @click="cancelOrder(row)">取消</el-button>
+              <template v-if="row.orderStatus === 6">
+                <el-button type="success" link @click="reviewCancel(row, true)">同意取消</el-button>
+                <el-button type="danger" link @click="reviewCancel(row, false)">拒绝</el-button>
+              </template>
             </template>
           </el-table-column>
         </el-table>
 
         <div class="pagination">
-          <el-pagination v-model:current-page="currentPage" :page-size="pageSize" :total="total" layout="total, prev, pager, next" @current-change="fetchOrders" />
+          <el-pagination v-model:current-page="currentPage" :page-size="pageSize" :total="total" layout="total, prev, pager, next" @current-change="handlePageChange" />
         </div>
       </div>
 
@@ -111,19 +116,20 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
 
-const orders = ref<any[]>([])
+const allOrders = ref<any[]>([]) // 所有订单数据
+const orders = ref<any[]>([]) // 当前页显示的订单
 const loading = ref(false)
 const detailVisible = ref(false)
 const currentOrder = ref<any>(null)
 
 const searchKeyword = ref('')
-const filterStatus = ref<number | null>(null)
+const filterStatus = ref<number | string>('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
-const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消' }[status] || '未知')
-const getStatusType = (status: number) => ({ 0: 'warning', 1: 'primary', 2: 'info', 3: 'success', 4: 'danger' }[status] || 'info') as any
+const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 6: '申请取消中' }[status] || '未知')
+const getStatusType = (status: number) => ({ 0: 'warning', 1: 'primary', 2: 'info', 3: 'success', 4: 'danger', 6: 'warning' }[status] || 'info') as any
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '-'
@@ -141,20 +147,52 @@ const parseAddress = (addr: any) => {
 const fetchOrders = async () => {
   loading.value = true
   try {
-    const params: any = { page: currentPage.value - 1, size: pageSize.value }
-    if (filterStatus.value !== null) params.status = filterStatus.value
+    const params: any = { page: 0, size: 1000 } // 获取所有订单
+    // 只有当 filterStatus 是数字时才传 status 参数
+    if (filterStatus.value !== '' && typeof filterStatus.value === 'number') {
+      params.status = filterStatus.value
+    }
     
+    console.log('请求参数:', params)
     const res: any = await adminApi.getAllOrders(params)
+    console.log('响应数据:', res)
     if (res?.code === 200) {
       let list = res.data || []
       if (searchKeyword.value) {
         list = list.filter((o: any) => o.orderNo?.includes(searchKeyword.value))
       }
-      orders.value = list
+      allOrders.value = list
       total.value = list.length
+      // 计算当前页数据
+      updatePageData()
     }
   } catch (e) { console.error(e) }
   finally { loading.value = false }
+}
+
+// 更新当前页数据
+const updatePageData = () => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  orders.value = allOrders.value.slice(start, end)
+}
+
+// 页码变化
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+  updatePageData()
+}
+
+// 筛选状态变化
+const handleFilterChange = () => {
+  currentPage.value = 1
+  fetchOrders()
+}
+
+// 搜索
+const handleSearch = () => {
+  currentPage.value = 1
+  fetchOrders()
 }
 
 const viewDetail = (order: any) => {
@@ -177,6 +215,16 @@ const cancelOrder = async (order: any) => {
     await adminApi.updateOrderStatus(order.id, 4)
     order.orderStatus = 4
     ElMessage.success('订单已取消')
+  } catch {}
+}
+
+const reviewCancel = async (order: any, approved: boolean) => {
+  try {
+    const msg = approved ? '确定同意取消该订单吗？' : '确定拒绝取消申请吗？'
+    await ElMessageBox.confirm(msg, '审核取消申请', { type: 'warning' })
+    await adminApi.reviewCancelRequest(order.id, approved)
+    order.orderStatus = approved ? 4 : 1
+    ElMessage.success(approved ? '已同意取消' : '已拒绝取消申请')
   } catch {}
 }
 

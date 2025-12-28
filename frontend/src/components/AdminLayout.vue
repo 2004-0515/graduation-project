@@ -14,6 +14,7 @@
         <router-link to="/admin/products" class="nav-item" :class="{ active: $route.path.startsWith('/admin/products') }">
           <span class="nav-icon">商品</span>
           <span class="nav-text">商品管理</span>
+          <span v-if="pendingProductCount > 0" class="pending-badge">{{ pendingProductCount }}</span>
         </router-link>
         <router-link to="/admin/categories" class="nav-item" :class="{ active: $route.path.startsWith('/admin/categories') }">
           <span class="nav-icon">分类</span>
@@ -26,6 +27,19 @@
         <router-link to="/admin/users" class="nav-item" :class="{ active: $route.path.startsWith('/admin/users') }">
           <span class="nav-icon">用户</span>
           <span class="nav-text">用户管理</span>
+        </router-link>
+        <router-link to="/admin/files" class="nav-item" :class="{ active: $route.path.startsWith('/admin/files') }">
+          <span class="nav-icon">审核</span>
+          <span class="nav-text">文件审核</span>
+          <span v-if="pendingCount > 0" class="pending-badge">{{ pendingCount }}</span>
+        </router-link>
+        <router-link to="/admin/notifications" class="nav-item" :class="{ active: $route.path.startsWith('/admin/notifications') }">
+          <span class="nav-icon">消息</span>
+          <span class="nav-text">消息管理</span>
+        </router-link>
+        <router-link to="/admin/coupons" class="nav-item" :class="{ active: $route.path.startsWith('/admin/coupons') }">
+          <span class="nav-icon">券</span>
+          <span class="nav-text">促销管理</span>
         </router-link>
       </nav>
       
@@ -53,14 +67,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/userStore'
+import axios from '@/utils/axios'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const pendingCount = ref(0)
+const pendingProductCount = ref(0)
 
 const pageTitle = computed(() => {
   const titles: Record<string, string> = {
@@ -68,20 +85,50 @@ const pageTitle = computed(() => {
     '/admin/products': '商品管理',
     '/admin/categories': '分类管理',
     '/admin/orders': '订单管理',
-    '/admin/users': '用户管理'
+    '/admin/users': '用户管理',
+    '/admin/files': '文件审核',
+    '/admin/notifications': '消息管理',
+    '/admin/coupons': '促销管理'
   }
   return titles[route.path] || '管理后台'
 })
+
+const fetchPendingCount = async () => {
+  try {
+    const res: any = await axios.get('/files/pending/count')
+    if (res?.code === 200) {
+      pendingCount.value = res.data || 0
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const fetchPendingProductCount = async () => {
+  try {
+    const res: any = await axios.get('/products/pending/count')
+    if (res?.code === 200) {
+      pendingProductCount.value = res.data || 0
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
 
 const handleLogout = async () => {
   await userStore.logout()
   ElMessage.success('已退出登录')
   router.push('/login')
 }
+
+onMounted(() => {
+  fetchPendingCount()
+  fetchPendingProductCount()
+})
 </script>
 
 <style scoped>
-.admin-layout { display: flex; min-height: 100vh; background: #f5f7fa; }
+.admin-layout { display: flex; min-height: 100vh; background: #f5f7fa; overflow-x: hidden; }
 
 .admin-sidebar {
   width: 240px;
@@ -156,6 +203,21 @@ const handleLogout = async () => {
   font-weight: 500;
 }
 
+.pending-badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: #e74c3c;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .sidebar-footer {
   padding: 16px;
   border-top: 1px solid rgba(255,255,255,0.1);
@@ -199,6 +261,9 @@ const handleLogout = async () => {
   margin-left: 240px;
   display: flex;
   flex-direction: column;
+  width: calc(100vw - 240px);
+  max-width: calc(100vw - 240px);
+  overflow-x: hidden;
 }
 
 .admin-header {
@@ -229,7 +294,9 @@ const handleLogout = async () => {
 .admin-content {
   flex: 1;
   padding: 24px;
-  overflow-y: auto;
+  overflow: hidden;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 @media (max-width: 768px) {

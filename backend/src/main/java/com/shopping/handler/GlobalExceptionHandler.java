@@ -86,13 +86,20 @@ public class GlobalExceptionHandler {
     public Response<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException e) {
         logger.warn("Validation failed for request parameters");
         Map<String, String> errors = new HashMap<>();
+        StringBuilder errorMsg = new StringBuilder();
         e.getBindingResult().getAllErrors().forEach((error) -> {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();
             errors.put(fieldName, errorMessage);
+            if (errorMsg.length() > 0) {
+                errorMsg.append("; ");
+            }
+            errorMsg.append(errorMessage);
         });
 
-        return Response.fail(HttpStatus.BAD_REQUEST.value(), "请求参数验证失败", errors);
+        // 返回第一个具体的错误信息，而不是通用的"请求参数验证失败"
+        String message = errorMsg.length() > 0 ? errorMsg.toString() : "请求参数验证失败";
+        return Response.fail(HttpStatus.BAD_REQUEST.value(), message, errors);
     }
 
     /**

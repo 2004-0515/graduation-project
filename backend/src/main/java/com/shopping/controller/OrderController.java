@@ -28,19 +28,25 @@ public class OrderController {
      * 获取当前用户的订单列表
      * @param status 订单状态过滤（可选）
      * @param page 页码（从0开始）
-     * @param size 每页大小
+     * @param size 每页大小（默认1000，返回所有订单）
      * @return 订单列表
      */
     @GetMapping
     public Response<List<OrderDto>> getCurrentUserOrders(
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        String username = getCurrentUsername();
-        logger.debug("Fetching orders for user: {}, status: {}, page: {}, size: {}", username, status, page, size);
+            @RequestParam(defaultValue = "1000") int size) {
+        try {
+            String username = getCurrentUsername();
+            logger.info("Fetching orders for user: {}, status: {}, page: {}, size: {}", username, status, page, size);
 
-        List<OrderDto> orders = orderService.getUserOrders(username, status, page, size);
-        return Response.success("获取订单列表成功", orders);
+            List<OrderDto> orders = orderService.getUserOrders(username, status, page, size);
+            logger.info("Found {} orders for user {}", orders.size(), username);
+            return Response.success("获取订单列表成功", orders);
+        } catch (Exception e) {
+            logger.error("获取订单列表失败", e);
+            throw e;
+        }
     }
 
     /**
@@ -100,6 +106,38 @@ public class OrderController {
         logger.info("Order {} cancelled successfully", id);
         return Response.success("订单取消成功");
     }
+    
+    /**
+     * 申请取消订单（待发货订单）
+     * @param id 订单ID
+     * @return 操作结果
+     */
+    @PutMapping("/{id}/request-cancel")
+    public Response<String> requestCancelOrder(@PathVariable Long id) {
+        String username = getCurrentUsername();
+        logger.info("Requesting cancel for order {} by user: {}", id, username);
+
+        orderService.requestCancelOrder(id, username);
+        logger.info("Cancel request for order {} submitted successfully", id);
+        return Response.success("取消申请已提交，等待管理员审核");
+    }
+
+    /**
+     * 支付订单
+     * @param id 订单ID
+     * @param body 包含支付方式的请求体
+     * @return 支付后的订单
+     */
+    @PutMapping("/{id}/pay")
+    public Response<OrderDto> payOrder(@PathVariable Long id, @RequestBody java.util.Map<String, Integer> body) {
+        String username = getCurrentUsername();
+        Integer paymentMethod = body.get("paymentMethod");
+        logger.info("Paying order {} for user: {}, paymentMethod: {}", id, username, paymentMethod);
+
+        OrderDto order = orderService.payOrder(id, username, paymentMethod);
+        logger.info("Order {} paid successfully", id);
+        return Response.success("支付成功", order);
+    }
 
     /**
      * 确认收货
@@ -143,8 +181,9 @@ public class OrderController {
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        logger.debug("Admin fetching all orders, status: {}, page: {}, size: {}", status, page, size);
+        logger.info("Admin fetching all orders, status: {}, page: {}, size: {}", status, page, size);
         List<OrderDto> orders = orderService.getAllOrders(status, page, size);
+        logger.info("Admin found {} orders", orders.size());
         return Response.success("获取订单列表成功", orders);
     }
 
@@ -173,6 +212,20 @@ public class OrderController {
         logger.info("Admin updating order {} status to {}", id, status);
         orderService.updateOrderStatus(id, status);
         return Response.success("订单状态更新成功");
+    }
+    
+    /**
+     * 【管理员】审核取消申请
+     * @param id 订单ID
+     * @param body 包含approved字段
+     * @return 操作结果
+     */
+    @PutMapping("/{id}/review-cancel")
+    public Response<String> reviewCancelRequest(@PathVariable Long id, @RequestBody java.util.Map<String, Boolean> body) {
+        Boolean approved = body.get("approved");
+        logger.info("Admin reviewing cancel request for order {}, approved: {}", id, approved);
+        orderService.reviewCancelRequest(id, approved != null && approved);
+        return Response.success(approved != null && approved ? "已同意取消申请" : "已拒绝取消申请");
     }
 
     /**

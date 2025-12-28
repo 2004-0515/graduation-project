@@ -83,7 +83,10 @@ const route = useRoute()
 const router = useRouter()
 const order = ref<any>(null)
 
-const imgErr = (e: Event) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/80x80/f8f8fc/ccc?text=商品' }
+const imgErr = (e: Event) => { 
+  const img = e.target as HTMLImageElement
+  img.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect fill="#f8f8fc" width="80" height="80"/><text fill="#ccc" font-family="Arial" font-size="12" x="50%" y="50%" text-anchor="middle" dy=".3em">商品</text></svg>')
+}
 
 const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 5: '已退款' }[status] || '未知')
 const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled' }[status] || '')

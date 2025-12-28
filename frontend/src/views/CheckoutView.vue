@@ -43,13 +43,47 @@
               </div>
               <div class="product-list">
                 <div v-for="item in orderItems" :key="item.id" class="product-item">
-                  <el-image :src="item.mainImage" fit="cover" class="item-image" />
+                  <el-image :src="getImageUrl(item.mainImage)" fit="cover" class="item-image" />
                   <div class="item-info">
                     <h4>{{ item.name }}</h4>
                     <p>¥{{ item.price }} × {{ item.quantity }}</p>
                   </div>
                   <div class="item-subtotal">¥{{ (item.price * item.quantity).toFixed(2) }}</div>
                 </div>
+              </div>
+            </div>
+
+            <!-- 优惠券 -->
+            <div class="section-card">
+              <div class="section-header">
+                <h3>优惠券</h3>
+                <span class="coupon-count" v-if="availableCoupons.length > 0">{{ availableCoupons.length }}张可用</span>
+              </div>
+              <div class="coupon-selector">
+                <div v-if="availableCoupons.length > 0" class="coupon-list">
+                  <div 
+                    v-for="c in availableCoupons" 
+                    :key="c.id"
+                    :class="['coupon-option', { selected: selectedCoupon === c.id }]"
+                    @click="selectCoupon(c)"
+                  >
+                    <div class="coupon-badge" :class="getCouponTypeClass(c.type)">
+                      <template v-if="c.type === 2">{{ (c.discountRate * 10).toFixed(0) }}折</template>
+                      <template v-else>¥{{ c.discountAmount }}</template>
+                    </div>
+                    <div class="coupon-info">
+                      <span class="coupon-name">{{ c.name }}</span>
+                      <span class="coupon-cond" v-if="c.minAmount > 0">满{{ c.minAmount }}可用</span>
+                    </div>
+                    <div class="coupon-discount">-¥{{ c.discount?.toFixed(2) }}</div>
+                    <div class="check-icon" v-if="selectedCoupon === c.id">✓</div>
+                  </div>
+                </div>
+                <div v-else class="no-coupon">
+                  <p>暂无可用优惠券</p>
+                  <router-link to="/promotions">去领券</router-link>
+                </div>
+                <div v-if="selectedCoupon" class="clear-coupon" @click="clearCoupon">不使用优惠券</div>
               </div>
             </div>
 
@@ -74,12 +108,16 @@
                 <span>运费</span>
                 <span>¥{{ shipping.toFixed(2) }}</span>
               </div>
+              <div class="summary-row discount" v-if="couponDiscount > 0">
+                <span>优惠券</span>
+                <span>-¥{{ couponDiscount.toFixed(2) }}</span>
+              </div>
               <div class="summary-total">
                 <span>应付金额</span>
                 <em>¥{{ total.toFixed(2) }}</em>
               </div>
-              <button class="submit-btn" @click="submitOrder" :disabled="!selectedAddress || orderItems.length === 0">
-                提交订单
+              <button class="submit-btn" @click="submitOrder" :disabled="!selectedAddress || orderItems.length === 0 || submitting">
+                {{ submitting ? '提交中...' : '提交订单' }}
               </button>
             </div>
           </div>
@@ -91,7 +129,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useCartStore } from '../stores/cartStore'
@@ -99,6 +137,8 @@ import { useUserStore } from '../stores/userStore'
 import addressApi from '../api/addressApi'
 import orderApi from '../api/orderApi'
 import productApi from '../api/productApi'
+import couponApi from '../api/couponApi'
+import fileApi from '../api/fileApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -107,14 +147,28 @@ const router = useRouter()
 const cartStore = useCartStore()
 const userStore = useUserStore()
 
+const CHECKOUT_ITEMS_KEY = 'checkout_order_items'
+
 const addresses = ref<any[]>([])
 const selectedAddress = ref<number | null>(null)
 const orderItems = ref<any[]>([])
 const remark = ref('')
 const shipping = ref(0)
+const submitting = ref(false)
+
+const availableCoupons = ref<any[]>([])
+const selectedCoupon = ref<number | null>(null)
+const couponDiscount = ref(0)
 
 const subtotal = computed(() => orderItems.value.reduce((sum, item) => sum + item.price * item.quantity, 0))
-const total = computed(() => subtotal.value + shipping.value)
+const total = computed(() => Math.max(0, subtotal.value + shipping.value - couponDiscount.value))
+
+const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+
+const getCouponTypeClass = (type: number) => {
+  const classes: Record<number, string> = { 1: 'type-reduce', 2: 'type-discount', 3: 'type-free' }
+  return classes[type] || 'type-reduce'
+}
 
 const fetchAddresses = async () => {
   if (!userStore.userInfo?.id) return
@@ -131,6 +185,32 @@ const fetchAddresses = async () => {
   }
 }
 
+const fetchAvailableCoupons = async () => {
+  if (!userStore.isLoggedIn || subtotal.value <= 0) return
+  try {
+    const res: any = await couponApi.getAvailableForOrder(subtotal.value)
+    if (res?.code === 200) {
+      availableCoupons.value = res.data || []
+    }
+  } catch (error) {
+    console.error('获取优惠券失败:', error)
+  }
+}
+
+const selectCoupon = (coupon: any) => {
+  if (selectedCoupon.value === coupon.id) {
+    clearCoupon()
+  } else {
+    selectedCoupon.value = coupon.id
+    couponDiscount.value = coupon.discount || 0
+  }
+}
+
+const clearCoupon = () => {
+  selectedCoupon.value = null
+  couponDiscount.value = 0
+}
+
 const loadOrderItems = async () => {
   const productId = route.query.productId
   const quantity = Number(route.query.quantity) || 1
@@ -141,12 +221,12 @@ const loadOrderItems = async () => {
       if (res?.code === 200) {
         const product = res.data
         orderItems.value = [{ ...product, quantity }]
+        sessionStorage.setItem(CHECKOUT_ITEMS_KEY, JSON.stringify(orderItems.value))
       }
     } catch (error) {
       console.error('获取商品失败:', error)
     }
-  } else {
-    // 从购物车获取选中的商品
+  } else if (cartStore.items.length > 0) {
     orderItems.value = cartStore.items
       .filter(item => item.selected !== false)
       .map(item => ({
@@ -156,6 +236,21 @@ const loadOrderItems = async () => {
         price: item.price,
         quantity: item.quantity
       }))
+    sessionStorage.setItem(CHECKOUT_ITEMS_KEY, JSON.stringify(orderItems.value))
+  } else {
+    const savedItems = sessionStorage.getItem(CHECKOUT_ITEMS_KEY)
+    if (savedItems) {
+      try {
+        orderItems.value = JSON.parse(savedItems)
+      } catch (e) {
+        console.error('解析订单数据失败:', e)
+        orderItems.value = []
+      }
+    }
+  }
+  
+  if (orderItems.value.length === 0) {
+    ElMessage.warning('没有待结算的商品，请先添加商品')
   }
 }
 
@@ -165,31 +260,47 @@ const submitOrder = async () => {
     return
   }
   
+  submitting.value = true
   try {
-    const orderData = {
+    const orderData: any = {
       addressId: selectedAddress.value,
-      paymentMethod: 1, // 默认微信支付
+      paymentMethod: 1,
+      remark: remark.value || null,
       items: orderItems.value.map(item => ({
         productId: item.id,
         quantity: item.quantity
       }))
     }
     
+    if (selectedCoupon.value) {
+      orderData.userCouponId = selectedCoupon.value
+    }
+    
     const res: any = await orderApi.createOrder(orderData)
     if (res?.code === 200) {
       ElMessage.success('订单创建成功')
-      // 清空购物车中已下单的商品
+      sessionStorage.removeItem(CHECKOUT_ITEMS_KEY)
       if (!route.query.productId) {
         cartStore.clearCart()
       }
-      router.push('/orders')
+      // 跳转到支付页面
+      router.push(`/payment/${res.data.id}`)
     } else {
       ElMessage.error(res?.message || '创建订单失败')
     }
   } catch (error) {
     ElMessage.error('创建订单失败')
+  } finally {
+    submitting.value = false
   }
 }
+
+// 监听商品金额变化，重新获取可用优惠券
+watch(subtotal, () => {
+  if (subtotal.value > 0) {
+    fetchAvailableCoupons()
+  }
+})
 
 onMounted(() => {
   fetchAddresses()
@@ -213,7 +324,6 @@ onMounted(() => {
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
-  animation: floatAnim 20s ease-in-out infinite;
 }
 
 .checkout-page::after {
@@ -229,13 +339,6 @@ onMounted(() => {
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
-  animation: floatAnim 20s ease-in-out infinite reverse;
-}
-
-@keyframes floatAnim {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -30px) scale(1.05); }
-  66% { transform: translate(-20px, 20px) scale(0.95); }
 }
 
 .main-content { position: relative; z-index: 1; padding: 100px 0 80px; }
@@ -254,6 +357,7 @@ onMounted(() => {
 .section-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid rgba(200, 220, 255, 0.3); }
 .section-header h3 { margin: 0; font-size: 18px; font-weight: 600; color: var(--text-title); }
 .link-btn { background: none; border: none; color: var(--sakura); font-size: 14px; cursor: pointer; font-weight: 500; }
+.coupon-count { font-size: 14px; color: var(--sakura); font-weight: 500; }
 
 .address-list { padding: 16px; }
 .address-item { padding: 20px; border: 2px solid rgba(200, 220, 255, 0.4); border-radius: var(--radius-md); margin-bottom: 12px; cursor: pointer; transition: all 0.3s; }
@@ -277,6 +381,29 @@ onMounted(() => {
 .item-info p { margin: 0; font-size: 14px; color: var(--text-muted); }
 .item-subtotal { font-size: 17px; font-weight: 600; color: #5A8FD4; }
 
+/* 优惠券选择器 */
+.coupon-selector { padding: 16px; }
+.coupon-list { display: flex; flex-direction: column; gap: 12px; }
+.coupon-option { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px solid rgba(200, 220, 255, 0.4); border-radius: var(--radius-md); cursor: pointer; transition: all 0.3s; position: relative; }
+.coupon-option:hover { border-color: rgba(90, 143, 212, 0.6); }
+.coupon-option.selected { border-color: var(--sakura); background: rgba(230, 242, 255, 0.3); }
+
+.coupon-badge { padding: 8px 12px; border-radius: 6px; color: #fff; font-size: 14px; font-weight: 600; min-width: 60px; text-align: center; }
+.coupon-badge.type-reduce { background: linear-gradient(135deg, #5A8FD4, #7BA8E8); }
+.coupon-badge.type-discount { background: linear-gradient(135deg, #f5a623, #f7b84b); }
+.coupon-badge.type-free { background: linear-gradient(135deg, #52c41a, #73d13d); }
+
+.coupon-info { flex: 1; }
+.coupon-name { display: block; font-size: 14px; font-weight: 500; color: var(--text-title); }
+.coupon-cond { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.coupon-discount { font-size: 16px; font-weight: 600; color: #e74c3c; }
+.check-icon { width: 22px; height: 22px; background: var(--sakura); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+
+.no-coupon { text-align: center; padding: 20px; color: var(--text-muted); }
+.no-coupon a { color: var(--sakura); font-weight: 500; margin-left: 8px; }
+.clear-coupon { text-align: center; padding: 12px; color: var(--text-muted); font-size: 14px; cursor: pointer; margin-top: 8px; }
+.clear-coupon:hover { color: var(--sakura); }
+
 .section-card :deep(.el-textarea__inner) { border-radius: var(--radius-md); background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(200, 220, 255, 0.4); }
 .section-card :deep(.el-textarea__inner:focus) { border-color: var(--sakura); }
 .section-card > .el-input { padding: 16px; }
@@ -293,6 +420,7 @@ onMounted(() => {
 }
 .summary-card h3 { margin: 0 0 24px; font-size: 18px; font-weight: 600; color: var(--text-title); }
 .summary-row { display: flex; justify-content: space-between; padding: 12px 0; font-size: 15px; color: var(--text-body); }
+.summary-row.discount { color: #e74c3c; }
 .summary-total { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; margin-top: 12px; border-top: 1px solid rgba(200, 220, 255, 0.3); font-size: 15px; color: var(--text-title); }
 .summary-total em { font-style: normal; font-size: 26px; font-weight: 600; color: #5A8FD4; }
 .submit-btn { width: 100%; padding: 16px; margin-top: 20px; background: linear-gradient(135deg, var(--sakura), #5A8FD4); color: #fff; border: none; border-radius: var(--radius-xl); font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }

@@ -1,0 +1,432 @@
+<template>
+  <div class="my-products-page">
+    <Navbar />
+    <div class="container">
+      <div class="page-header">
+        <h1>我的商品</h1>
+        <el-button type="primary" @click="openDialog()">发布商品</el-button>
+      </div>
+
+      <!-- 商品列表 -->
+      <div class="products-list" v-loading="loading">
+        <div v-if="products.length === 0" class="empty-state">
+          <el-empty description="暂无商品，点击上方按钮发布您的第一个商品" />
+        </div>
+        
+        <div v-else class="product-cards">
+          <div v-for="product in products" :key="product.id" class="product-card">
+            <div class="product-image">
+              <el-image :src="getImageUrl(product.mainImage)" fit="cover">
+                <template #error><div class="img-placeholder">暂无图片</div></template>
+              </el-image>
+              <div class="audit-badge" :class="getAuditClass(product.auditStatus)">
+                {{ getAuditText(product.auditStatus) }}
+              </div>
+            </div>
+            <div class="product-info">
+              <h3>{{ product.name }}</h3>
+              <p class="price">¥{{ product.price }}</p>
+              <p class="stock">库存: {{ product.stock }} | 销量: {{ product.sales }}</p>
+              <p v-if="product.auditStatus === 2" class="reject-reason">
+                拒绝原因: {{ product.auditRemark || '无' }}
+              </p>
+            </div>
+            <div class="product-actions">
+              <el-button size="small" @click="openDialog(product)" :disabled="product.auditStatus === 0">编辑</el-button>
+              <el-button size="small" type="danger" @click="handleDelete(product)">删除</el-button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 发布/编辑弹窗 -->
+      <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑商品' : '发布商品'" width="600px">
+        <el-form :model="form" label-width="100px">
+          <el-form-item label="商品名称" required>
+            <el-input v-model="form.name" placeholder="请输入商品名称" maxlength="100" />
+          </el-form-item>
+          <el-form-item label="商品分类" required>
+            <el-select v-model="form.categoryId" placeholder="请选择分类" style="width: 100%">
+              <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="商品价格" required>
+            <el-input-number v-model="form.price" :min="0" :precision="2" placeholder="请输入价格" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="原价">
+            <el-input-number v-model="form.originalPrice" :min="0" :precision="2" placeholder="可选" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="库存数量" required>
+            <el-input-number v-model="form.stock" :min="1" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="商品图片">
+            <div class="image-upload-area">
+              <el-upload
+                class="avatar-uploader"
+                :action="uploadUrl"
+                :headers="uploadHeaders"
+                :show-file-list="false"
+                :on-success="handleUploadSuccess"
+                :before-upload="beforeUpload"
+                accept="image/*"
+              >
+                <el-image v-if="form.mainImage" :src="getImageUrl(form.mainImage)" class="preview-image" fit="cover" />
+                <div v-else class="upload-placeholder">
+                  <el-icon><Plus /></el-icon>
+                  <span>上传图片</span>
+                </div>
+              </el-upload>
+            </div>
+          </el-form-item>
+          <el-form-item label="商品描述">
+            <el-input v-model="form.description" type="textarea" :rows="4" placeholder="请输入商品描述" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitProduct" :loading="saving">
+            {{ isEdit ? '保存' : '提交审核' }}
+          </el-button>
+        </template>
+      </el-dialog>
+    </div>
+    <Footer />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, onMounted, computed } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
+import Navbar from '@/components/Navbar.vue'
+import Footer from '@/components/Footer.vue'
+import axios from '@/utils/axios'
+import fileApi from '@/api/fileApi'
+import { useUserStore } from '@/stores/userStore'
+
+const userStore = useUserStore()
+const products = ref<any[]>([])
+const categories = ref<any[]>([])
+const loading = ref(false)
+const saving = ref(false)
+const dialogVisible = ref(false)
+const isEdit = ref(false)
+const editId = ref<number | null>(null)
+
+const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+
+const uploadUrl = computed(() => `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/files/product`)
+const uploadHeaders = computed(() => ({
+  Authorization: `Bearer ${userStore.token}`
+}))
+
+const form = reactive({
+  name: '',
+  categoryId: null as number | null,
+  price: null as number | null,
+  originalPrice: null as number | null,
+  stock: 1,
+  mainImage: '',
+  description: ''
+})
+
+const resetForm = () => {
+  form.name = ''
+  form.categoryId = null
+  form.price = null
+  form.originalPrice = null
+  form.stock = 1
+  form.mainImage = ''
+  form.description = ''
+}
+
+const getAuditClass = (status: number) => {
+  const map: Record<number, string> = { 0: 'pending', 1: 'approved', 2: 'rejected' }
+  return map[status] || 'pending'
+}
+
+const getAuditText = (status: number) => {
+  const map: Record<number, string> = { 0: '待审核', 1: '已通过', 2: '已拒绝' }
+  return map[status] || '未知'
+}
+
+const openDialog = (product?: any) => {
+  if (product) {
+    isEdit.value = true
+    editId.value = product.id
+    Object.assign(form, {
+      name: product.name,
+      categoryId: product.categoryId,
+      price: product.price,
+      originalPrice: product.originalPrice || 0,
+      stock: product.stock,
+      mainImage: product.mainImage,
+      description: product.description
+    })
+  } else {
+    isEdit.value = false
+    editId.value = null
+    resetForm()
+  }
+  dialogVisible.value = true
+}
+
+const fetchCategories = async () => {
+  try {
+    const res: any = await axios.get('/categories')
+    if (res?.code === 200) categories.value = res.data || []
+  } catch (e) { console.error(e) }
+}
+
+const fetchProducts = async () => {
+  loading.value = true
+  try {
+    const res: any = await axios.get('/products/my')
+    if (res?.code === 200) products.value = res.data || []
+  } catch (e) { console.error(e) }
+  finally { loading.value = false }
+}
+
+const beforeUpload = (file: File) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件')
+    return false
+  }
+  if (!isLt5M) {
+    ElMessage.error('图片大小不能超过5MB')
+    return false
+  }
+  return true
+}
+
+const handleUploadSuccess = (response: any) => {
+  if (response.code === 200) {
+    // 后端直接返回URL字符串
+    form.mainImage = response.data
+    ElMessage.success('图片上传成功')
+  } else {
+    ElMessage.error(response.message || '上传失败')
+  }
+}
+
+const submitProduct = async () => {
+  if (!form.name || !form.categoryId || !form.price || form.price <= 0 || form.stock < 1) {
+    ElMessage.warning('请填写完整信息')
+    return
+  }
+  
+  saving.value = true
+  try {
+    if (isEdit.value && editId.value) {
+      await axios.put(`/products/${editId.value}`, form)
+      ElMessage.success('商品更新成功')
+    } else {
+      await axios.post('/products/submit', form)
+      ElMessage.success('商品提交成功，等待管理员审核')
+    }
+    dialogVisible.value = false
+    fetchProducts()
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || '操作失败')
+  } finally { saving.value = false }
+}
+
+const handleDelete = async (product: any) => {
+  try {
+    await ElMessageBox.confirm(`确定要删除商品"${product.name}"吗？`, '提示', { type: 'warning' })
+    await axios.delete(`/products/${product.id}`)
+    ElMessage.success('删除成功')
+    fetchProducts()
+  } catch {}
+}
+
+onMounted(() => {
+  fetchCategories()
+  fetchProducts()
+})
+</script>
+
+<style scoped>
+.my-products-page {
+  min-height: 100vh;
+  background: #f5f7fa;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 100px 20px 60px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+}
+
+.products-list {
+  min-height: 400px;
+}
+
+.empty-state {
+  background: #fff;
+  border-radius: 12px;
+  padding: 60px 20px;
+}
+
+.product-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.product-card {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.product-image {
+  position: relative;
+  height: 200px;
+}
+
+.product-image .el-image {
+  width: 100%;
+  height: 100%;
+}
+
+.img-placeholder {
+  width: 100%;
+  height: 200px;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+}
+
+.audit-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.audit-badge.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.audit-badge.approved {
+  background: #d4edda;
+  color: #155724;
+}
+
+.audit-badge.rejected {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.product-info {
+  padding: 16px;
+}
+
+.product-info h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-info .price {
+  font-size: 18px;
+  font-weight: 600;
+  color: #e74c3c;
+  margin-bottom: 8px;
+}
+
+.product-info .stock {
+  font-size: 13px;
+  color: #666;
+}
+
+.product-info .reject-reason {
+  font-size: 12px;
+  color: #e74c3c;
+  margin-top: 8px;
+  padding: 8px;
+  background: #fff5f5;
+  border-radius: 6px;
+}
+
+.product-actions {
+  padding: 12px 16px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  gap: 8px;
+}
+
+.image-upload-area {
+  width: 100%;
+}
+
+.avatar-uploader {
+  width: 200px;
+  height: 200px;
+  border: 1px dashed #d9d9d9;
+  border-radius: 8px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.avatar-uploader:hover {
+  border-color: #409eff;
+}
+
+.preview-image {
+  width: 200px;
+  height: 200px;
+}
+
+.upload-placeholder {
+  width: 200px;
+  height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+}
+
+.upload-placeholder .el-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+:deep(.el-dialog) { border-radius: 12px; }
+:deep(.el-dialog__header) { border-bottom: 1px solid #f0f0f0; padding: 20px 24px; }
+:deep(.el-dialog__body) { padding: 24px; }
+</style>

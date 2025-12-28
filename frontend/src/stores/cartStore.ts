@@ -21,9 +21,14 @@ export const useCartStore = defineStore('cart', {
 
   getters: {
     /**
-     * 获取购物车商品总数
+     * 获取购物车商品种类数（不同商品的数量）
      */
-    totalItems: (state): number => 
+    totalItems: (state): number => state.items.length,
+
+    /**
+     * 获取购物车商品总数量（所有商品数量之和）
+     */
+    totalQuantity: (state): number => 
       state.items.reduce((total, item) => total + item.quantity, 0),
 
     /**
@@ -71,7 +76,8 @@ export const useCartStore = defineStore('cart', {
 
       try {
         const response = await cartApi.getCart() as ApiResponse<CartItem[]>
-        if (response.success) {
+        console.log('Cart API response:', response)
+        if (response.success || response.code === 200) {
           this.items = response.data || []
         }
         return this.items
@@ -95,7 +101,8 @@ export const useCartStore = defineStore('cart', {
 
       try {
         const response = await cartApi.addToCart({ productId, quantity }) as ApiResponse<CartItem>
-        if (response.success) {
+        console.log('Add to cart response:', response)
+        if (response.success || response.code === 200) {
           const cartItem = response.data
 
           // 检查商品是否已在购物车中
@@ -133,7 +140,7 @@ export const useCartStore = defineStore('cart', {
 
       try {
         const response = await cartApi.updateCartItem(id, updates) as ApiResponse<CartItem>
-        if (response.success) {
+        if (response.success || response.code === 200) {
           const updatedItem = response.data
 
           if (updatedItem) {

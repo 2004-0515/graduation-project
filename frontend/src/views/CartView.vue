@@ -33,7 +33,7 @@
                 <input type="checkbox" v-model="item.selected" />
               </label>
               <div class="item-info">
-                <img :src="item.productImage" class="item-img" @error="imgErr" />
+                <img :src="getImageUrl(item.productImage)" class="item-img" @error="imgErr" />
                 <div class="item-detail">
                   <h4 @click="$router.push(`/product/${item.productId}`)">{{ item.productName }}</h4>
                   <p>商品编号: {{ item.productId }}</p>
@@ -79,6 +79,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
+import fileApi from '../api/fileApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -92,7 +93,11 @@ const selectAll = ref(true)
 const selectedCount = computed(() => cartItems.value.filter(i => i.selected).length)
 const totalPrice = computed(() => cartItems.value.filter(i => i.selected).reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0))
 
-const imgErr = (e: Event) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/80x80/f8f8fc/ccc?text=商品' }
+const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const imgErr = (e: Event) => { 
+  const img = e.target as HTMLImageElement
+  img.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect fill="#f8f8fc" width="80" height="80"/><text fill="#ccc" font-family="Arial" font-size="12" x="50%" y="50%" text-anchor="middle" dy=".3em">商品</text></svg>')
+}
 const toggleSelectAll = () => { cartStore.items.forEach(item => item.selected = selectAll.value) }
 
 const updateQty = async (item: any, delta: number) => {

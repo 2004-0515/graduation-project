@@ -50,10 +50,17 @@ const orderApi = {
   },
   
   /**
+   * 申请取消订单（待发货订单）
+   */
+  requestCancelOrder(id: number): Promise<ApiResponse<void>> {
+    return axios.put(`${API_PATHS.ORDERS.BASE}/${id}/request-cancel`)
+  },
+  
+  /**
    * 支付订单
    */
   payOrder(id: number, paymentMethod: number): Promise<ApiResponse<Order>> {
-    return axios.post(API_PATHS.ORDERS.PAY(id), { paymentMethod })
+    return axios.put(API_PATHS.ORDERS.PAY(id), { paymentMethod })
   },
   
   /**

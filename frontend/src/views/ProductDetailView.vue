@@ -74,9 +74,11 @@
             </div>
             <div v-else-if="tab === 'spec'" class="spec-content">
               <table>
-                <tr><td>商品名称</td><td>{{ product.name }}</td></tr>
-                <tr><td>商品编号</td><td>{{ product.id }}</td></tr>
-                <tr><td>库存</td><td>{{ product.stock }} 件</td></tr>
+                <tbody>
+                  <tr><td>商品名称</td><td>{{ product.name }}</td></tr>
+                  <tr><td>商品编号</td><td>{{ product.id }}</td></tr>
+                  <tr><td>库存</td><td>{{ product.stock }} 件</td></tr>
+                </tbody>
               </table>
             </div>
             <div v-else class="review-content">
@@ -102,6 +104,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import productApi from '../api/productApi'
+import fileApi from '../api/fileApi'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
 import Navbar from '../components/Navbar.vue'
@@ -119,15 +122,26 @@ const currentImage = ref('')
 
 const userId = computed(() => userStore.userInfo?.id)
 
-const imgErr = (e: Event) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x400/f8f8fc/ccc?text=商品' }
+const imgErr = (e: Event) => { 
+  const img = e.target as HTMLImageElement
+  // 使用 data URI 作为占位图，避免外部服务不可用
+  img.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect fill="#f8f8fc" width="400" height="400"/><text fill="#ccc" font-family="Arial" font-size="24" x="50%" y="50%" text-anchor="middle" dy=".3em">商品图片</text></svg>')
+}
+
+const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
 const fetchProduct = async () => {
   try {
     const res: any = await productApi.getProductById(Number(route.params.id))
     if (res?.code === 200) {
       product.value = res.data
-      currentImage.value = product.value.mainImage
+      currentImage.value = getImageUrl(product.value.mainImage)
       if (!product.value.images) product.value.images = [product.value.mainImage]
+      else if (typeof product.value.images === 'string') {
+        product.value.images = product.value.images.split(',').filter(Boolean)
+      }
+      // 转换所有图片URL
+      product.value.images = product.value.images.map((img: string) => getImageUrl(img))
     }
   } catch { ElMessage.error('获取商品信息失败') }
 }
@@ -148,8 +162,8 @@ onMounted(() => fetchProduct())
 <style scoped>
 .detail-page { min-height: 100vh; background: var(--white); position: relative; }
 
-.deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-.shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; }
+.deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; will-change: transform; }
+.shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; will-change: transform; }
 .s1 { width: 600px; height: 600px; top: 5%; right: -10%; background: linear-gradient(135deg, #D4E8FF, #B7D4FF); opacity: 0.15; }
 .s2 { width: 500px; height: 500px; bottom: 5%; left: -10%; background: linear-gradient(135deg, #E0F0FF, #C5D8FF); opacity: 0.12; animation-delay: -10s; }
 
@@ -161,11 +175,11 @@ onMounted(() => fetchProduct())
 
 .main { position: relative; z-index: 1; padding: 100px 0 60px; }
 
-.product-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-bottom: 48px; }
+.product-layout { display: grid; grid-template-columns: minmax(300px, 480px) 1fr; gap: 48px; margin-bottom: 48px; align-items: start; }
 
 /* Gallery */
-.gallery { padding: 24px; }
-.main-img { aspect-ratio: 1; border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; background: rgba(255,255,255,0.5); }
+.gallery { padding: 24px; max-width: 480px; overflow: hidden; }
+.main-img { width: 100%; max-width: 432px; max-height: 432px; aspect-ratio: 1; border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; background: rgba(255,255,255,0.5); }
 .main-img img { width: 100%; height: 100%; object-fit: contain; }
 .thumb-list { display: flex; gap: 12px; }
 .thumb { width: 72px; height: 72px; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: all 0.3s; }
@@ -190,7 +204,7 @@ onMounted(() => fetchProduct())
 .qty-control button:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
 .qty-control button:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 .qty-control button:hover { border-color: var(--sakura); color: var(--sakura); }
-.qty-control input { width: 60px; height: 32px; border: 1px solid rgba(200,200,220,0.3); border-left: none; border-right: none; text-align: center; font-size: 14px; background: rgba(255,255,255,0.6); }
+.qty-control input { width: 80px; height: 32px; border: 1px solid rgba(200,200,220,0.3); border-left: none; border-right: none; text-align: center; font-size: 14px; background: rgba(255,255,255,0.6); }
 
 .action-row { display: flex; gap: 16px; margin-top: 32px; }
 .action-row .btn { flex: 1; padding: 14px 0; }
@@ -214,8 +228,13 @@ onMounted(() => fetchProduct())
 .review-head { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: var(--text-muted); }
 .review-item p { margin: 0; font-size: 14px; color: var(--text-body); }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .product-layout { grid-template-columns: 1fr; gap: 24px; }
+  .gallery { max-width: 100%; padding: 16px; }
+  .main-img { max-width: 100%; max-height: 400px; aspect-ratio: 1; }
+  .main-img img { width: 100%; height: 100%; object-fit: contain; }
   .action-row { flex-direction: column; }
+  .info-panel h1 { font-size: 1.5rem; }
+  .price { font-size: 24px; }
 }
 </style>

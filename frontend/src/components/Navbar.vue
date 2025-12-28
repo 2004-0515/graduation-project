@@ -23,7 +23,7 @@
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
-          <span v-if="notificationCount" class="badge">{{ notificationCount }}</span>
+          <span v-if="notificationStore.unreadCount" class="badge">{{ notificationStore.unreadCount }}</span>
         </router-link>
         
         <!-- 购物车 -->
@@ -38,15 +38,15 @@
         <template v-if="userStore.isLoggedIn">
           <div class="user-dropdown" @mouseenter="showDropdown = true" @mouseleave="showDropdown = false">
             <div class="user-link" @click="$router.push('/profile')">
-              <img :src="userStore.user?.avatar || avatar" class="avatar" />
+              <img :src="userAvatar" class="avatar" />
             </div>
             <transition name="fade">
               <div v-if="showDropdown" class="dropdown-menu">
                 <div class="dropdown-header">
-                  <img :src="userStore.user?.avatar || avatar" class="dropdown-avatar" />
+                  <img :src="userAvatar" class="dropdown-avatar" />
                   <div class="dropdown-info">
-                    <span class="dropdown-name">{{ userStore.user?.username || '用户' }}</span>
-                    <span class="dropdown-email">{{ userStore.user?.email || '' }}</span>
+                    <span class="dropdown-name">{{ userStore.userInfo?.nickname || userStore.userInfo?.username || '用户' }}</span>
+                    <span class="dropdown-email">{{ userStore.userInfo?.email || '' }}</span>
                   </div>
                 </div>
                 <div class="dropdown-divider"></div>
@@ -57,6 +57,10 @@
                 <router-link to="/orders" class="dropdown-item">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                   我的订单
+                </router-link>
+                <router-link to="/my-products" class="dropdown-item">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                  我的商品
                 </router-link>
                 <router-link to="/address" class="dropdown-item">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -96,6 +100,7 @@
         <template v-else>
           <router-link to="/profile" @click="open = false">个人中心</router-link>
           <router-link to="/orders" @click="open = false">我的订单</router-link>
+          <router-link to="/my-products" @click="open = false">我的商品</router-link>
           <a @click="handleLogout; open = false" class="logout-link">退出登录</a>
         </template>
       </div>
@@ -104,20 +109,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/userStore'
 import { useCartStore } from '@/stores/cartStore'
+import { useNotificationStore } from '@/stores/notificationStore'
+import fileApi from '@/api/fileApi'
 
 const router = useRouter()
 const userStore = useUserStore()
 const cartStore = useCartStore()
+const notificationStore = useNotificationStore()
 const open = ref(false)
 const query = ref('')
 const showDropdown = ref(false)
-const notificationCount = ref(3) // 模拟消息数量
-const avatar = 'https://api.dicebear.com/7.x/notionists/svg?seed=default'
+const defaultAvatar = 'https://api.dicebear.com/7.x/notionists/svg?seed=default'
+
+// 计算属性：用户头像
+const userAvatar = computed(() => {
+  const avatar = userStore.userInfo?.avatar
+  if (!avatar) return defaultAvatar
+  return fileApi.getImageUrl(avatar)
+})
 
 // 判断是否为管理员（用户名为 admin）
 const isAdmin = computed(() => userStore.userInfo?.username === 'admin')
@@ -130,7 +144,21 @@ const handleLogout = async () => {
   router.push('/')
 }
 
-onMounted(() => cartStore.fetchCart())
+// 监听登录状态变化
+watch(() => userStore.isLoggedIn, (loggedIn) => {
+  if (loggedIn) {
+    notificationStore.fetchUnreadCount()
+  } else {
+    notificationStore.clearCount()
+  }
+})
+
+onMounted(() => {
+  cartStore.fetchCart()
+  notificationStore.fetchUnreadCount()
+  // 每60秒刷新一次未读数量
+  setInterval(() => notificationStore.fetchUnreadCount(), 60000)
+})
 </script>
 
 <style scoped>

@@ -10,31 +10,31 @@
       <div class="card-header">
         <span class="logo text-title">雅集商城</span>
         <h2>欢迎回来</h2>
-        <p>登录账号，继续购�?/p>
+        <p>登录账号，继续购物</p>
       </div>
 
       <div class="card-body">
         <el-form :model="loginForm" :rules="loginRules" ref="loginFormRef" label-position="top" @keyup.enter="handleLogin">
-          <el-form-item label="用户�? prop="username">
+          <el-form-item label="用户名" prop="username">
             <el-input v-model="loginForm.username" placeholder="请输入用户名" prefix-icon="User" />
           </el-form-item>
 
           <el-form-item label="密码" prop="password">
-            <el-input v-model="loginForm.password" type="password" placeholder="请输入密�? prefix-icon="Lock" show-password />
+            <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" prefix-icon="Lock" show-password />
           </el-form-item>
 
-          <el-form-item label="验证�? prop="captcha">
+          <el-form-item label="验证码" prop="captcha">
             <div class="captcha-row">
               <el-input v-model="loginForm.captcha" placeholder="请输入验证码" />
               <div class="captcha-box" @click="refreshCaptcha">
-                <img :src="captchaUrl" alt="验证�? />
+                <img :src="captchaUrl" alt="验证码" />
               </div>
             </div>
           </el-form-item>
 
           <el-form-item>
             <button type="button" class="btn btn-primary btn-full" @click="handleLogin" :disabled="loading">
-              {{ loading ? '登录�?..' : '登录' }}
+              {{ loading ? '登录中...' : '登录' }}
             </button>
           </el-form-item>
         </el-form>
@@ -88,12 +88,12 @@ const captchaUrl = computed(() => captchaData.value.url)
 const refreshCaptcha = () => { captchaData.value = generateCaptcha(); loginForm.captcha = '' }
 
 const loginRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }, { min: 3, max: 20, message: '用户名长�?3-20 个字�?, trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密�?, trigger: 'blur' }, { min: 6, max: 20, message: '密码长度 6-20 个字�?, trigger: 'blur' }],
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }, { min: 3, max: 20, message: '用户名长度 3-20 个字符', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }, { min: 6, max: 20, message: '密码长度 6-20 个字符', trigger: 'blur' }],
   captcha: [{ required: true, message: '请输入验证码', trigger: 'blur' }, {
     validator: (_rule: any, value: string, callback: Function) => {
       if (!value) callback(new Error('请输入验证码'))
-      else if (value.toLowerCase() !== captchaData.value.code.toLowerCase()) callback(new Error('验证码错�?))
+      else if (value.toLowerCase() !== captchaData.value.code.toLowerCase()) callback(new Error('验证码错误'))
       else callback()
     }, trigger: 'blur'
   }]

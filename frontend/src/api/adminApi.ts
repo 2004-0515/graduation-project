@@ -31,10 +31,10 @@ const adminApi = {
   // ==================== 商品管理 ====================
 
   /**
-   * 获取商品列表
+   * 获取商品列表（管理后台）
    */
   getProducts(params?: { page?: number; size?: number; keyword?: string; categoryId?: number; status?: number }): Promise<ApiResponse<PageResponse<Product>>> {
-    return axios.get('/products', { params: { pageNo: params?.page || 0, pageSize: params?.size || 10, ...params } })
+    return axios.get('/products', { params: { pageNo: params?.page || 0, pageSize: params?.size || 10, admin: true, ...params } })
   },
 
   /**
@@ -101,7 +101,13 @@ const adminApi = {
    * 获取所有订单
    */
   getAllOrders(params?: { page?: number; size?: number; status?: number; keyword?: string }): Promise<ApiResponse<PageResponse<Order>>> {
-    return axios.get('/orders/admin', { params: { pageNo: params?.page || 0, pageSize: params?.size || 10, ...params } })
+    const queryParams: any = { page: params?.page || 0, size: params?.size || 10 }
+    // 只有当 status 是数字类型时才添加到参数中（排除 undefined 和非数字）
+    if (typeof params?.status === 'number') {
+      queryParams.status = params.status
+    }
+    console.log('adminApi.getAllOrders 请求参数:', queryParams)
+    return axios.get('/orders/admin', { params: queryParams })
   },
 
   /**
@@ -116,6 +122,13 @@ const adminApi = {
    */
   shipOrder(orderId: number): Promise<ApiResponse<void>> {
     return axios.put(`/orders/${orderId}/ship`)
+  },
+  
+  /**
+   * 审核取消申请
+   */
+  reviewCancelRequest(orderId: number, approved: boolean): Promise<ApiResponse<void>> {
+    return axios.put(`/orders/${orderId}/review-cancel`, { approved })
   },
 
   // ==================== 统计数据 ====================
@@ -134,6 +147,29 @@ const adminApi = {
     lowStockProducts: number
   }>> {
     return axios.get('/admin/stats')
+  },
+
+  // ==================== 消息通知 ====================
+
+  /**
+   * 发送通知给指定用户
+   */
+  sendNotification(data: { userId: number; type: string; title: string; message: string }): Promise<ApiResponse<void>> {
+    return axios.post('/notifications/admin/send', data)
+  },
+
+  /**
+   * 发送通知给多个用户
+   */
+  broadcastNotification(data: { userIds: number[]; type: string; title: string; message: string }): Promise<ApiResponse<void>> {
+    return axios.post('/notifications/admin/broadcast', data)
+  },
+  
+  /**
+   * 重置用户的优惠券领取记录
+   */
+  resetUserCoupons(userId: number, couponId?: number): Promise<ApiResponse<number>> {
+    return axios.post('/coupons/admin/reset-user-coupon', { userId, couponId })
   }
 }
 

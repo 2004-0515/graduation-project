@@ -140,7 +140,7 @@ public class AuthService {
 
         // 2. 验证当前密码
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
-            throw new ValidationException("当前密码错误");
+            throw new ValidationException("旧密码输入错误");
         }
 
         // 3. 验证新密码与确认新密码是否一致

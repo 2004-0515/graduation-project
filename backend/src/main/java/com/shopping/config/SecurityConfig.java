@@ -49,8 +49,12 @@ public class SecurityConfig {
             .authorizeHttpRequests(authorize -> authorize
                 // 允许匿名访问的API - 使用相对路径，因为context-path已经在application.properties中配置
                 .requestMatchers("/auth/login", "/auth/register", "/auth/captcha", "/auth/validate-captcha", "/auth/test-password-match", "/categories/**", "/products/**").permitAll()
+                // 允许访问上传的文件
+                .requestMatchers("/uploads/**").permitAll()
                 // 用户信息API需要认证访问
                 .requestMatchers("/auth/me", "/auth/change-password").authenticated()
+                // 文件上传需要认证
+                .requestMatchers("/files/**").authenticated()
                 // 地址相关API需要认证访问
                 .requestMatchers("/addresses/**").authenticated()
                 // 购物车相关API需要认证访问

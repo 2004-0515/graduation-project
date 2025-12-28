@@ -286,3 +286,12 @@ input::placeholder {
 @media (max-width: 768px) {
   .container { padding: 0 20px; }
 }
+
+/* Element Plus 数字输入框最小宽度 */
+.el-input-number {
+  min-width: 140px;
+}
+
+.el-input-number .el-input__inner {
+  text-align: center;
+}

@@ -19,7 +19,9 @@ import java.time.LocalDateTime;
 @Table(name = "tb_product", indexes = {
     @Index(name = "idx_product_category", columnList = "category_id"),
     @Index(name = "idx_product_status", columnList = "status"),
-    @Index(name = "idx_product_name", columnList = "name")
+    @Index(name = "idx_product_name", columnList = "name"),
+    @Index(name = "idx_product_audit", columnList = "audit_status"),
+    @Index(name = "idx_product_seller", columnList = "seller_id")
 })
 public class Product {
     @Id
@@ -32,10 +34,21 @@ public class Product {
     @Column(name = "description", columnDefinition = "text")
     private String description;
     
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id", nullable = false)
     @JsonIgnore
     private Category category;
+    
+    // 用于JSON序列化返回分类ID和名称
+    @Transient
+    public Long getCategoryId() {
+        return category != null ? category.getId() : null;
+    }
+    
+    @Transient
+    public String getCategoryName() {
+        return category != null ? category.getName() : null;
+    }
     
     @Column(name = "price", nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
@@ -57,6 +70,23 @@ public class Product {
     
     @Column(name = "images", columnDefinition = "text")
     private String images;
+    
+    // 卖家信息
+    @Column(name = "seller_id")
+    private Long sellerId;
+    
+    @Column(name = "seller_name", length = 50)
+    private String sellerName;
+    
+    // 审核状态: 0=待审核, 1=已通过, 2=已拒绝
+    @Column(name = "audit_status", nullable = false, columnDefinition = "tinyint default 1")
+    private Integer auditStatus = 1;
+    
+    @Column(name = "audit_remark", length = 200)
+    private String auditRemark;
+    
+    @Column(name = "audit_time")
+    private LocalDateTime auditTime;
     
     @Column(name = "created_time", nullable = false, updatable = false)
     private LocalDateTime createdTime = LocalDateTime.now();

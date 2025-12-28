@@ -8,7 +8,19 @@
           <!-- 侧边栏 -->
           <aside class="sidebar">
             <div class="user-card">
-              <div class="avatar">{{ userInitial }}</div>
+              <div class="avatar-wrapper">
+                <div class="avatar">
+                  <img v-if="userInfo?.avatar" :src="getAvatarUrl(userInfo.avatar)" alt="头像" />
+                  <span v-else>{{ userInitial }}</span>
+                </div>
+                <label class="avatar-upload" title="更换头像">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                  <input type="file" accept="image/*" @change="handleAvatarChange" />
+                </label>
+              </div>
               <h3>{{ userInfo?.nickname || userInfo?.username }}</h3>
               <p class="user-level">
                 <span class="level-badge">{{ memberLevel }}</span>
@@ -172,6 +184,7 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import { useCartStore } from '../stores/cartStore'
 import orderApi from '../api/orderApi'
+import fileApi from '../api/fileApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -179,6 +192,45 @@ const userStore = useUserStore()
 const cartStore = useCartStore()
 const userInfo = computed(() => userStore.userInfo)
 const userInitial = computed(() => userInfo.value?.nickname?.charAt(0) || userInfo.value?.username?.charAt(0).toUpperCase() || 'U')
+
+const getAvatarUrl = (avatar: string) => fileApi.getImageUrl(avatar)
+
+const handleAvatarChange = async (e: Event) => {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  // 验证文件类型
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning('请选择图片文件')
+    return
+  }
+
+  // 验证文件大小 (2MB)
+  if (file.size > 2 * 1024 * 1024) {
+    ElMessage.warning('图片大小不能超过2MB')
+    return
+  }
+
+  try {
+    const res: any = await fileApi.uploadAvatar(file)
+    if (res?.code === 200) {
+      await userStore.fetchUserInfo()
+      // 检查是否需要审核
+      if (res.message?.includes('审核')) {
+        ElMessage.success('头像上传成功，等待管理员审核后生效')
+      } else {
+        ElMessage.success('头像上传成功')
+      }
+    } else {
+      ElMessage.error(res?.message || '上传失败')
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '上传失败')
+  }
+
+  input.value = ''
+}
 
 const memberLevel = computed(() => {
   const points = userInfo.value?.points || 0
@@ -330,7 +382,12 @@ onMounted(async () => {
 }
 
 .user-card { padding: 32px 24px 24px; text-align: center; background: linear-gradient(180deg, rgba(230, 242, 255, 0.5) 0%, transparent 100%); }
-.avatar { width: 80px; height: 80px; margin: 0 auto 16px; background: linear-gradient(135deg, var(--sakura), #5A8FD4); color: #fff; font-size: 32px; font-weight: 600; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(90, 143, 212, 0.4); }
+.avatar-wrapper { position: relative; width: 80px; height: 80px; margin: 0 auto 16px; }
+.avatar { width: 80px; height: 80px; background: linear-gradient(135deg, var(--sakura), #5A8FD4); color: #fff; font-size: 32px; font-weight: 600; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(90, 143, 212, 0.4); overflow: hidden; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-upload { position: absolute; bottom: 0; right: 0; width: 28px; height: 28px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15); transition: all 0.3s; }
+.avatar-upload:hover { background: var(--sakura); color: #fff; transform: scale(1.1); }
+.avatar-upload input { display: none; }
 .user-card h3 { margin: 0 0 8px; font-size: 20px; font-weight: 600; color: var(--text-title); }
 .user-level { margin: 0; font-size: 14px; color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; align-items: center; }
 .level-badge { display: inline-block; padding: 4px 14px; background: linear-gradient(135deg, var(--sakura), #5A8FD4); color: #fff; border-radius: 12px; font-size: 12px; font-weight: 500; }

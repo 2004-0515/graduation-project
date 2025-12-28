@@ -20,35 +20,36 @@
       </div>
 
       <div class="table-card">
-        <el-table :data="users" v-loading="loading" stripe>
-          <el-table-column prop="id" label="ID" width="70" />
-          <el-table-column label="头像" width="80">
+        <el-table :data="users" v-loading="loading" stripe style="width: 100%">
+          <el-table-column prop="id" label="ID" width="60" />
+          <el-table-column label="头像" width="60">
             <template #default="{ row }">
-              <el-avatar :size="40" :src="row.avatar || defaultAvatar">{{ row.username?.charAt(0).toUpperCase() }}</el-avatar>
+              <el-avatar :size="36" :src="row.avatar || defaultAvatar">{{ row.username?.charAt(0).toUpperCase() }}</el-avatar>
             </template>
           </el-table-column>
-          <el-table-column prop="username" label="用户名" width="120" />
-          <el-table-column prop="nickname" label="昵称" width="120">
+          <el-table-column prop="username" label="用户名" width="100" />
+          <el-table-column prop="nickname" label="昵称" width="100" show-overflow-tooltip>
             <template #default="{ row }">{{ row.nickname || '-' }}</template>
           </el-table-column>
-          <el-table-column prop="email" label="邮箱" min-width="180" />
-          <el-table-column prop="phone" label="手机号" width="130">
+          <el-table-column prop="email" label="邮箱" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="phone" label="手机号" width="120">
             <template #default="{ row }">{{ row.phone || '-' }}</template>
           </el-table-column>
-          <el-table-column prop="points" label="积分" width="80" />
-          <el-table-column prop="status" label="状态" width="90">
+          <el-table-column prop="points" label="积分" width="70" />
+          <el-table-column prop="status" label="状态" width="70">
             <template #default="{ row }">
-              <el-tag :type="row.status === 1 ? 'success' : 'danger'">{{ row.status === 1 ? '正常' : '禁用' }}</el-tag>
+              <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">{{ row.status === 1 ? '正常' : '禁用' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="createdTime" label="注册时间" width="160">
+          <el-table-column prop="createdTime" label="注册时间" width="140">
             <template #default="{ row }">{{ formatDate(row.createdTime) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="150" fixed="right">
+          <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link @click="viewDetail(row)">详情</el-button>
-              <el-button v-if="row.status === 1" type="warning" link @click="toggleStatus(row, 0)">禁用</el-button>
-              <el-button v-else type="success" link @click="toggleStatus(row, 1)">启用</el-button>
+              <el-button type="primary" link size="small" @click="viewDetail(row)">详情</el-button>
+              <el-button type="info" link size="small" @click="resetCoupons(row)">重置券</el-button>
+              <el-button v-if="row.status === 1" type="warning" link size="small" @click="toggleStatus(row, 0)">禁用</el-button>
+              <el-button v-else type="success" link size="small" @click="toggleStatus(row, 1)">启用</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -170,11 +171,26 @@ const toggleStatus = async (user: any, status: number) => {
   } catch {}
 }
 
+const resetCoupons = async (user: any) => {
+  try {
+    await ElMessageBox.confirm(`确定要重置用户"${user.username}"的所有未使用优惠券吗？\n重置后该用户可以重新领取优惠券。`, '重置领券', { type: 'warning' })
+    const res: any = await adminApi.resetUserCoupons(user.id)
+    if (res?.code === 200) {
+      ElMessage.success(res.message || '重置成功')
+    } else {
+      ElMessage.error(res?.message || '重置失败')
+    }
+  } catch {}
+}
+
 onMounted(() => fetchUsers())
 </script>
 
 <style scoped>
-.users-manage { max-width: 1400px; }
+.users-manage { 
+  width: 100%;
+  overflow-x: hidden;
+}
 
 .toolbar {
   display: flex;
@@ -193,7 +209,11 @@ onMounted(() => fetchUsers())
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  overflow: hidden;
 }
+
+:deep(.el-table) { width: 100% !important; }
+:deep(.el-table__body-wrapper) { overflow-x: hidden !important; }
 
 .pagination { margin-top: 20px; display: flex; justify-content: flex-end; }
 

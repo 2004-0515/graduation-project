@@ -26,6 +26,10 @@ public class OrderDto {
     private LocalDateTime createdTime;
     private LocalDateTime updatedTime;
     private List<OrderItemDto> items;
+    private String remark;
+    private Long couponId;
+    private BigDecimal couponDiscount;
+    private BigDecimal payAmount;
 
     public OrderDto() {}
 
@@ -172,5 +176,37 @@ public class OrderDto {
 
     public void setItems(List<OrderItemDto> items) {
         this.items = items;
+    }
+
+    public String getRemark() {
+        return remark;
+    }
+
+    public void setRemark(String remark) {
+        this.remark = remark;
+    }
+    
+    public Long getCouponId() {
+        return couponId;
+    }
+    
+    public void setCouponId(Long couponId) {
+        this.couponId = couponId;
+    }
+    
+    public BigDecimal getCouponDiscount() {
+        return couponDiscount;
+    }
+    
+    public void setCouponDiscount(BigDecimal couponDiscount) {
+        this.couponDiscount = couponDiscount;
+    }
+    
+    public BigDecimal getPayAmount() {
+        return payAmount;
+    }
+    
+    public void setPayAmount(BigDecimal payAmount) {
+        this.payAmount = payAmount;
     }
 }

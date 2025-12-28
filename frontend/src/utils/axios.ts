@@ -32,20 +32,31 @@ instance.interceptors.request.use(
 // 响应拦截器
 instance.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
-    // 直接返回响应数据
-    return response.data as unknown as AxiosResponse
+    // 直接返回响应数据，添加 success 字段
+    const data = response.data as ApiResponse
+    return {
+      ...data,
+      success: data.code === 200
+    } as unknown as AxiosResponse
   },
   (error) => {
     // 处理错误响应
     const { response } = error
     
     if (response) {
-      // 服务器返回了响应
+      // 服务器返回了响应，优先使用服务器返回的错误信息
       if (response.data && typeof response.data === 'object') {
-        return Promise.reject({
+        const errorData = {
           ...response.data,
-          success: false
-        })
+          success: false,
+          message: response.data.message || handleHttpError(response.status).message
+        }
+        // 创建一个带有 response 属性的错误对象，方便前端获取
+        const err = new Error(errorData.message) as any
+        err.response = { data: errorData }
+        err.code = response.data.code || response.status
+        err.message = errorData.message
+        return Promise.reject(err)
       }
       
       // 根据状态码处理错误
@@ -61,15 +72,16 @@ instance.interceptors.response.use(
         }
       }
       
-      return Promise.reject(errorResponse)
+      const err = new Error(errorResponse.message) as any
+      err.response = { data: errorResponse }
+      err.code = errorResponse.code
+      return Promise.reject(err)
     }
     
     // 网络错误
-    return Promise.reject({
-      code: 0,
-      message: '网络错误，请检查网络连接',
-      success: false
-    })
+    const networkError = new Error('网络错误，请检查网络连接') as any
+    networkError.response = { data: { code: 0, message: '网络错误，请检查网络连接', success: false } }
+    return Promise.reject(networkError)
   }
 )
 

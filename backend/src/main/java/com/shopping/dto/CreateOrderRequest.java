@@ -18,6 +18,10 @@ public class CreateOrderRequest {
     @NotEmpty(message = "商品列表不能为空")
     private java.util.List<OrderItemRequest> items;
 
+    private String remark;
+    
+    private Long userCouponId;
+
     public CreateOrderRequest() {}
 
     // Getters and Setters
@@ -43,6 +47,22 @@ public class CreateOrderRequest {
 
     public void setItems(java.util.List<OrderItemRequest> items) {
         this.items = items;
+    }
+
+    public String getRemark() {
+        return remark;
+    }
+
+    public void setRemark(String remark) {
+        this.remark = remark;
+    }
+    
+    public Long getUserCouponId() {
+        return userCouponId;
+    }
+    
+    public void setUserCouponId(Long userCouponId) {
+        this.userCouponId = userCouponId;
     }
 
     /**

@@ -57,6 +57,12 @@ public class Order {
     @Column(name = "remark", length = 200)
     private String remark;
     
+    @Column(name = "coupon_id")
+    private Long couponId;
+    
+    @Column(name = "coupon_discount", precision = 10, scale = 2)
+    private BigDecimal couponDiscount;
+    
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private java.util.List<OrderItem> items = new java.util.ArrayList<>();
     

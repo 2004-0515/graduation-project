@@ -10,7 +10,8 @@ export const ORDER_STATUS = {
   PENDING_SHIPMENT: 1,
   PENDING_RECEIPT: 2,
   COMPLETED: 3,
-  CANCELLED: 4
+  CANCELLED: 4,
+  CANCEL_REQUESTED: 6
 } as const
 
 export const ORDER_STATUS_MAP: Record<number, string> = {
@@ -18,7 +19,8 @@ export const ORDER_STATUS_MAP: Record<number, string> = {
   [ORDER_STATUS.PENDING_SHIPMENT]: '待发货',
   [ORDER_STATUS.PENDING_RECEIPT]: '待收货',
   [ORDER_STATUS.COMPLETED]: '已完成',
-  [ORDER_STATUS.CANCELLED]: '已取消'
+  [ORDER_STATUS.CANCELLED]: '已取消',
+  [ORDER_STATUS.CANCEL_REQUESTED]: '申请取消中'
 }
 
 export const ORDER_STATUS_OPTIONS = [
@@ -26,7 +28,8 @@ export const ORDER_STATUS_OPTIONS = [
   { label: '待发货', value: ORDER_STATUS.PENDING_SHIPMENT },
   { label: '待收货', value: ORDER_STATUS.PENDING_RECEIPT },
   { label: '已完成', value: ORDER_STATUS.COMPLETED },
-  { label: '已取消', value: ORDER_STATUS.CANCELLED }
+  { label: '已取消', value: ORDER_STATUS.CANCELLED },
+  { label: '申请取消中', value: ORDER_STATUS.CANCEL_REQUESTED }
 ]
 
 // ==================== 支付状态 ====================

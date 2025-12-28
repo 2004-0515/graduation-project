@@ -140,7 +140,12 @@ onMounted(() => fetchCategories())
 </script>
 
 <style scoped>
-.categories-manage { max-width: 1000px; }
+.categories-manage { 
+  width: 100%;
+  max-width: 100%;
+  min-height: calc(100vh - 120px);
+  box-sizing: border-box;
+}
 
 .toolbar {
   display: flex;
@@ -159,6 +164,7 @@ onMounted(() => fetchCategories())
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  min-height: calc(100vh - 250px);
 }
 
 :deep(.el-dialog) { border-radius: 12px; }

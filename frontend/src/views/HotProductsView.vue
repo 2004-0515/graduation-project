@@ -31,21 +31,24 @@
         <div class="top3" v-if="products.length >= 3">
           <div class="top-card glass-card second" @click="$router.push(`/product/${products[1]?.id}`)">
             <span class="medal silver">2</span>
-            <div class="top-img"><img :src="products[1]?.mainImage" @error="imgErr" /></div>
+            <div class="top-img"><img :src="getImageUrl(products[1]?.mainImage)" @error="imgErr" /></div>
             <h4>{{ products[1]?.name }}</h4>
+            <p class="top-sales">已售{{ formatSales(products[1]?.sales) }}件</p>
             <span class="top-price">¥{{ products[1]?.price }}</span>
           </div>
           <div class="top-card glass-card first" @click="$router.push(`/product/${products[0]?.id}`)">
             <span class="crown-badge">TOP</span>
             <span class="medal gold">1</span>
-            <div class="top-img"><img :src="products[0]?.mainImage" @error="imgErr" /></div>
+            <div class="top-img"><img :src="getImageUrl(products[0]?.mainImage)" @error="imgErr" /></div>
             <h4>{{ products[0]?.name }}</h4>
+            <p class="top-sales">已售{{ formatSales(products[0]?.sales) }}件</p>
             <span class="top-price">¥{{ products[0]?.price }}</span>
           </div>
           <div class="top-card glass-card third" @click="$router.push(`/product/${products[2]?.id}`)">
             <span class="medal bronze">3</span>
-            <div class="top-img"><img :src="products[2]?.mainImage" @error="imgErr" /></div>
+            <div class="top-img"><img :src="getImageUrl(products[2]?.mainImage)" @error="imgErr" /></div>
             <h4>{{ products[2]?.name }}</h4>
+            <p class="top-sales">已售{{ formatSales(products[2]?.sales) }}件</p>
             <span class="top-price">¥{{ products[2]?.price }}</span>
           </div>
         </div>
@@ -60,13 +63,13 @@
           <div class="rank-list" v-if="products.length">
             <div v-for="(p, i) in products" :key="p.id" class="rank-item" @click="$router.push(`/product/${p.id}`)">
               <span :class="['rank-num', { top: i < 3 }]">{{ i + 1 }}</span>
-              <img :src="p.mainImage" class="rank-img" @error="imgErr" />
+              <img :src="getImageUrl(p.mainImage)" class="rank-img" @error="imgErr" />
               <div class="rank-info">
                 <h4>{{ p.name }}</h4>
                 <p>{{ p.description?.slice(0, 40) || '品质好物' }}</p>
               </div>
               <div class="rank-stats">
-                <span>销量 {{ formatSales(p.sales) }}</span>
+                <span>已售 {{ formatSales(p.sales) }}件</span>
               </div>
               <span class="rank-price">¥{{ p.price }}</span>
               <button class="btn btn-glass btn-sm" @click.stop="addToCart(p)">加购</button>
@@ -86,6 +89,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import productApi from '../api/productApi'
+import fileApi from '../api/fileApi'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
 import Navbar from '../components/Navbar.vue'
@@ -111,7 +115,12 @@ const formatSales = (sales: number) => {
   return sales
 }
 
-const imgErr = (e: Event) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/200x200/f8f8fc/ccc?text=商品' }
+const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+
+const imgErr = (e: Event) => { 
+  const img = e.target as HTMLImageElement
+  img.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect fill="#f8f8fc" width="200" height="200"/><text fill="#ccc" font-family="Arial" font-size="16" x="50%" y="50%" text-anchor="middle" dy=".3em">商品图片</text></svg>')
+}
 
 const addToCart = async (p: any) => {
   if (!userStore.isLoggedIn) {
@@ -127,8 +136,12 @@ const addToCart = async (p: any) => {
 
 onMounted(async () => {
   try {
-    const res: any = await productApi.getProducts({ page: 1, size: 12, sort: 'sales' })
-    if (res?.code === 200) products.value = res.data?.records || res.data?.content || res.data || []
+    const res: any = await productApi.getProducts({ pageNo: 0, pageSize: 20, sort: 'sales' })
+    if (res?.code === 200) {
+      const list = res.data?.content || res.data?.records || res.data || []
+      // 按销量降序排序
+      products.value = list.sort((a: any, b: any) => (b.sales || 0) - (a.sales || 0))
+    }
   } catch (e) { console.error(e) }
 })
 </script>
@@ -193,7 +206,8 @@ onMounted(async () => {
 .top-img { width: 140px; height: 140px; margin: 0 auto 16px; border-radius: var(--radius-lg); overflow: hidden; background: rgba(255,255,255,0.5); }
 .top-card.first .top-img { width: 180px; height: 180px; }
 .top-img img { width: 100%; height: 100%; object-fit: cover; }
-.top-card h4 { font-size: 15px; font-weight: 600; color: var(--text-title); margin: 0 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-card h4 { font-size: 15px; font-weight: 600; color: var(--text-title); margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-sales { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
 .top-price { font-size: 22px; font-weight: 600; color: #5A8FD4; }
 
 /* 榜单 */

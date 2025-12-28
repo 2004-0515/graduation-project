@@ -1,5 +1,6 @@
 package com.shopping.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -23,18 +24,31 @@ public class Address implements Serializable {
     // 用户ID，与User实体关联
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
     private User user;
+    
+    // 获取用户ID（用于JSON序列化）
+    public Long getUserId() {
+        return user != null ? user.getId() : null;
+    }
+    
+    // 忽略前端传来的userId字段（用户由后端从认证信息获取）
+    public void setUserId(Long userId) {
+        // 忽略，不做任何处理
+    }
     
     // 收货人姓名
     @NotBlank(message = "收货人姓名不能为空")
     @Column(name = "name", nullable = false)
     private String name;
     
-    // 兼容方法，用于DTO转换
+    // 兼容方法，用于DTO转换（不序列化到JSON，避免字段重复）
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public String getReceiver() {
         return name;
     }
     
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public void setReceiver(String receiver) {
         this.name = receiver;
     }

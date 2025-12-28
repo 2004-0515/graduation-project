@@ -179,10 +179,16 @@ public class AddressController {
             return Response.fail(403, "无权限操作此地址");
         }
         
-        // 设置地址ID和所属用户
-        address.setId(id);
-        address.setUser(user);
-        Address updatedAddress = addressService.updateAddress(address);
+        // 更新字段，保留原有的id、user和status
+        existingAddress.setName(address.getName());
+        existingAddress.setPhone(address.getPhone());
+        existingAddress.setProvince(address.getProvince());
+        existingAddress.setCity(address.getCity());
+        existingAddress.setDistrict(address.getDistrict());
+        existingAddress.setDetail(address.getDetail());
+        existingAddress.setIsDefault(address.getIsDefault());
+        
+        Address updatedAddress = addressService.updateAddress(existingAddress);
         return Response.success("地址更新成功", updatedAddress);
     }
     

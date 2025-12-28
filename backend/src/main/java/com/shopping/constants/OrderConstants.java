@@ -18,6 +18,7 @@ public final class OrderConstants {
         public static final int PENDING_RECEIPT = 2;  // 待收货
         public static final int COMPLETED = 3;        // 已完成
         public static final int CANCELLED = 4;        // 已取消
+        public static final int CANCEL_REQUESTED = 6; // 申请取消中
         
         private OrderStatus() {}
         
@@ -28,12 +29,17 @@ public final class OrderConstants {
                 case PENDING_RECEIPT -> "待收货";
                 case COMPLETED -> "已完成";
                 case CANCELLED -> "已取消";
+                case CANCEL_REQUESTED -> "申请取消中";
                 default -> "未知";
             };
         }
         
         public static boolean canCancel(int status) {
-            return status == PENDING_PAYMENT || status == PENDING_SHIPMENT;
+            return status == PENDING_PAYMENT;
+        }
+        
+        public static boolean canRequestCancel(int status) {
+            return status == PENDING_SHIPMENT;
         }
         
         public static boolean canConfirm(int status) {
