@@ -13,6 +13,7 @@ public class OrderItemDto {
     private String productImage;
     private BigDecimal price;
     private Integer quantity;
+    private Boolean reviewed;
 
     public OrderItemDto() {}
 
@@ -71,5 +72,13 @@ public class OrderItemDto {
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+    }
+    
+    public Boolean getReviewed() {
+        return reviewed;
+    }
+    
+    public void setReviewed(Boolean reviewed) {
+        this.reviewed = reviewed;
     }
 }

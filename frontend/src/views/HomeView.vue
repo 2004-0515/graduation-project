@@ -331,16 +331,25 @@ onMounted(async () => {
   // 获取优惠券
   fetchCoupons()
   
-  // 获取商品
+  // 获取热销商品（按销量排序）
   try {
-    const res: any = await productApi.getProducts({ page: 1, size: 16, sort: 'sales' })
-    if (res?.code === 200) {
-      const list = res.data?.content || res.data?.records || res.data || []
-      hotGames.value = list.slice(0, 8)
-      newGames.value = list.slice(0, 10)
+    const hotRes: any = await productApi.getProducts({ page: 0, size: 8, sort: 'sales' })
+    if (hotRes?.code === 200) {
+      const list = hotRes.data?.content || hotRes.data?.records || hotRes.data || []
+      hotGames.value = list
     }
-  } catch (e) { console.error(e) }
-  finally { loading.value = false }
+  } catch (e) { console.error('获取热销商品失败:', e) }
+  
+  // 获取新品上架（按最新排序）
+  try {
+    const newRes: any = await productApi.getProducts({ page: 0, size: 10, sort: 'newest' })
+    if (newRes?.code === 200) {
+      const list = newRes.data?.content || newRes.data?.records || newRes.data || []
+      newGames.value = list
+    }
+  } catch (e) { console.error('获取新品失败:', e) }
+  
+  loading.value = false
 })
 
 onUnmounted(() => { 

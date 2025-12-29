@@ -93,7 +93,8 @@ public class NotificationController {
         String type = (String) body.get("type");
         String title = (String) body.get("title");
         String message = (String) body.get("message");
-        notificationService.sendToUser(userId, type, title, message);
+        Long relatedId = body.get("relatedId") != null ? ((Number) body.get("relatedId")).longValue() : null;
+        notificationService.sendToUser(userId, type, title, message, relatedId);
         return Response.success("发送成功");
     }
 
@@ -105,10 +106,11 @@ public class NotificationController {
         String type = (String) body.get("type");
         String title = (String) body.get("title");
         String message = (String) body.get("message");
+        Long relatedId = body.get("relatedId") != null ? ((Number) body.get("relatedId")).longValue() : null;
         @SuppressWarnings("unchecked")
         List<Number> userIdNumbers = (List<Number>) body.get("userIds");
         List<Long> userIds = userIdNumbers.stream().map(Number::longValue).toList();
-        notificationService.sendToAllUsers(type, title, message, userIds);
+        notificationService.sendToAllUsers(type, title, message, userIds, relatedId);
         return Response.success("发送成功");
     }
 

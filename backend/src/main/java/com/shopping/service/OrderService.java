@@ -60,6 +60,9 @@ public class OrderService {
     @Autowired
     private UserCouponRepository userCouponRepository;
     
+    @Autowired
+    private ReviewRepository reviewRepository;
+    
     /**
      * 获取用户订单列表
      * @param username 用户名
@@ -401,6 +404,10 @@ public class OrderService {
         order.setOrderStatus(OrderConstants.OrderStatus.COMPLETED);
         order.setEndTime(LocalDateTime.now());
         orderRepository.save(order);
+        
+        // 发送确认收货通知
+        notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
+                order.getOrderNo(), "已确认收货，订单完成");
     }
     
     /**
@@ -605,6 +612,8 @@ public class OrderService {
         dto.setProductImage(item.getProductImage());
         dto.setPrice(item.getPrice());
         dto.setQuantity(item.getQuantity());
+        // 检查该订单项是否已评价
+        dto.setReviewed(reviewRepository.existsByOrderItemId(item.getId()));
         return dto;
     }
 

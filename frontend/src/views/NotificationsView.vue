@@ -45,7 +45,7 @@
               <div 
                 v-for="item in filteredNotifications" 
                 :key="item.id"
-                :class="['notification-item', { unread: !item.read }]"
+                :class="['notification-item', item.type, { unread: !item.read }]"
                 @click="openDetail(item)"
               >
                 <div class="item-icon" :class="item.type">
@@ -56,16 +56,20 @@
                     <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
                   </svg>
                   <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                    <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 2v4M16 2v4M2 10h20"/>
                   </svg>
                 </div>
                 <div class="item-content">
                   <div class="item-header">
-                    <h4>{{ item.title }}</h4>
+                    <div class="item-title-row">
+                      <span class="type-tag" :class="item.type">{{ getTypeName(item.type) }}</span>
+                      <h4>{{ item.title }}</h4>
+                    </div>
                     <span class="item-time">{{ item.timeAgo }}</span>
                   </div>
                   <p class="item-preview">{{ item.message }}</p>
                 </div>
+                <div class="type-indicator" :class="item.type"></div>
                 <span v-if="!item.read" class="unread-dot"></span>
                 <button class="delete-btn" @click.stop="deleteItem(item)" title="删除">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -103,9 +107,13 @@
       </div>
       <template #footer>
         <div class="dialog-footer">
-          <el-button v-if="currentNotification?.type === 'order' && currentNotification?.relatedId" 
+          <el-button v-if="currentNotification?.type === 'order'" 
                      type="primary" @click="goToOrder">
             查看订单
+          </el-button>
+          <el-button v-if="currentNotification?.type === 'promotion'" 
+                     type="primary" @click="goToCoupon">
+            {{ currentNotification?.relatedId ? '查看优惠券' : '领取优惠券' }}
           </el-button>
           <el-button @click="detailVisible = false">关闭</el-button>
         </div>
@@ -209,6 +217,15 @@ const goToOrder = () => {
     }
   }
   router.push('/orders')
+}
+
+const goToCoupon = () => {
+  detailVisible.value = false
+  if (currentNotification.value?.relatedId) {
+    router.push(`/coupon/${currentNotification.value.relatedId}`)
+  } else {
+    router.push('/promotions')
+  }
 }
 
 const markAllRead = async () => {
@@ -435,18 +452,64 @@ onMounted(() => {
   align-items: flex-start;
   gap: 16px;
   padding: 20px;
+  padding-left: 24px;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.3s;
   position: relative;
+  border-left: 5px solid transparent;
+  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.6);
 }
 
-.notification-item:hover {
-  background: rgba(230, 242, 255, 0.3);
+/* 系统通知 - 深蓝色 */
+.notification-item.system {
+  border-left-color: #4A7FC4;
+  background: linear-gradient(135deg, rgba(74, 127, 196, 0.08) 0%, rgba(90, 143, 212, 0.04) 100%);
 }
 
+.notification-item.system:hover {
+  background: linear-gradient(135deg, rgba(74, 127, 196, 0.15) 0%, rgba(90, 143, 212, 0.08) 100%);
+  box-shadow: 0 4px 20px rgba(74, 127, 196, 0.15);
+}
+
+/* 订单消息 - 青蓝色 */
+.notification-item.order {
+  border-left-color: #5DADE2;
+  background: linear-gradient(135deg, rgba(93, 173, 226, 0.08) 0%, rgba(133, 193, 233, 0.04) 100%);
+}
+
+.notification-item.order:hover {
+  background: linear-gradient(135deg, rgba(93, 173, 226, 0.15) 0%, rgba(133, 193, 233, 0.08) 100%);
+  box-shadow: 0 4px 20px rgba(93, 173, 226, 0.15);
+}
+
+/* 促销活动 - 紫蓝色 */
+.notification-item.promotion {
+  border-left-color: #8E7CC3;
+  background: linear-gradient(135deg, rgba(142, 124, 195, 0.08) 0%, rgba(165, 148, 210, 0.04) 100%);
+}
+
+.notification-item.promotion:hover {
+  background: linear-gradient(135deg, rgba(142, 124, 195, 0.15) 0%, rgba(165, 148, 210, 0.08) 100%);
+  box-shadow: 0 4px 20px rgba(142, 124, 195, 0.15);
+}
+
+/* 未读状态 - 加深背景和左边框 */
 .notification-item.unread {
-  background: rgba(230, 242, 255, 0.2);
+  border-left-width: 6px;
+}
+
+.notification-item.unread.system {
+  background: linear-gradient(135deg, rgba(74, 127, 196, 0.15) 0%, rgba(90, 143, 212, 0.08) 100%);
+}
+
+.notification-item.unread.order {
+  background: linear-gradient(135deg, rgba(93, 173, 226, 0.15) 0%, rgba(133, 193, 233, 0.08) 100%);
+}
+
+.notification-item.unread.promotion {
+  background: linear-gradient(135deg, rgba(142, 124, 195, 0.15) 0%, rgba(165, 148, 210, 0.08) 100%);
 }
 
 .item-icon {
@@ -461,9 +524,60 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.item-icon.system { color: var(--sakura); background: rgba(90, 143, 212, 0.1); }
-.item-icon.order { color: #27ae60; background: rgba(39, 174, 96, 0.1); }
-.item-icon.promotion { color: #e67e22; background: rgba(230, 126, 34, 0.1); }
+.item-icon.system { color: #4A7FC4; background: rgba(74, 127, 196, 0.15); }
+.item-icon.order { color: #5DADE2; background: rgba(93, 173, 226, 0.15); }
+.item-icon.promotion { color: #8E7CC3; background: rgba(142, 124, 195, 0.15); }
+
+/* 类型标签样式 */
+.type-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 10px;
+  letter-spacing: 0.5px;
+}
+
+.type-tag.system {
+  background: linear-gradient(135deg, #4A7FC4, #5A8FD4);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(74, 127, 196, 0.3);
+}
+
+.type-tag.order {
+  background: linear-gradient(135deg, #5DADE2, #85C1E9);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(93, 173, 226, 0.3);
+}
+
+.type-tag.promotion {
+  background: linear-gradient(135deg, #8E7CC3, #A594D2);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(142, 124, 195, 0.3);
+}
+
+/* 右侧类型指示器 */
+.type-indicator {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.type-indicator.system {
+  background: linear-gradient(180deg, #4A7FC4, #5A8FD4);
+}
+
+.type-indicator.order {
+  background: linear-gradient(180deg, #5DADE2, #85C1E9);
+}
+
+.type-indicator.promotion {
+  background: linear-gradient(180deg, #8E7CC3, #A594D2);
+}
 
 .item-content {
   flex: 1;
@@ -475,6 +589,11 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 6px;
+}
+
+.item-title-row {
+  display: flex;
+  align-items: center;
 }
 
 .item-header h4 {
@@ -507,7 +626,7 @@ onMounted(() => {
 
 .delete-btn {
   position: absolute;
-  right: 16px;
+  right: 20px;
   top: 50%;
   transform: translateY(-50%);
   padding: 8px;
@@ -518,6 +637,7 @@ onMounted(() => {
   opacity: 0;
   transition: all 0.3s;
   border-radius: 50%;
+  z-index: 2;
 }
 
 .notification-item:hover .delete-btn {
@@ -599,18 +719,18 @@ onMounted(() => {
 }
 
 .detail-type.system {
-  background: rgba(90, 143, 212, 0.1);
-  color: #5A8FD4;
+  background: linear-gradient(135deg, #4A7FC4, #5A8FD4);
+  color: #fff;
 }
 
 .detail-type.order {
-  background: rgba(39, 174, 96, 0.1);
-  color: #27ae60;
+  background: linear-gradient(135deg, #5DADE2, #85C1E9);
+  color: #fff;
 }
 
 .detail-type.promotion {
-  background: rgba(230, 126, 34, 0.1);
-  color: #e67e22;
+  background: linear-gradient(135deg, #8E7CC3, #A594D2);
+  color: #fff;
 }
 
 .detail-time {

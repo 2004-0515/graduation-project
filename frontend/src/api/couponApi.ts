@@ -6,6 +6,11 @@ export default {
     return axios.get('/coupons')
   },
   
+  // 获取单个优惠券详情
+  getCouponById(id: number) {
+    return axios.get(`/coupons/${id}`)
+  },
+  
   // 领取优惠券
   claimCoupon(couponId: number) {
     return axios.post(`/coupons/${couponId}/claim`)

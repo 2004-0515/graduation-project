@@ -127,6 +127,17 @@ public class ProductController {
             allProducts.sort((a, b) -> a.getPrice().compareTo(b.getPrice()));
         } else if ("price_desc".equals(sort)) {
             allProducts.sort((a, b) -> b.getPrice().compareTo(a.getPrice()));
+        } else if ("newest".equals(sort) || "new".equals(sort)) {
+            // 按创建时间倒序（最新的在前）
+            allProducts.sort((a, b) -> {
+                if (b.getCreatedTime() == null && a.getCreatedTime() == null) return 0;
+                if (b.getCreatedTime() == null) return -1;
+                if (a.getCreatedTime() == null) return 1;
+                return b.getCreatedTime().compareTo(a.getCreatedTime());
+            });
+        } else {
+            // 默认按ID倒序（最新添加的在前）
+            allProducts.sort((a, b) -> b.getId().compareTo(a.getId()));
         }
         
         // 分页

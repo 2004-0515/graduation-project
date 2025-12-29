@@ -108,17 +108,17 @@ public class NotificationService {
      * 【管理员】发送通知给指定用户
      */
     @Transactional
-    public void sendToUser(Long userId, String type, String title, String message) {
-        createNotification(userId, type, title, message, null);
+    public void sendToUser(Long userId, String type, String title, String message, Long relatedId) {
+        createNotification(userId, type, title, message, relatedId);
     }
 
     /**
      * 【管理员】发送通知给所有用户
      */
     @Transactional
-    public void sendToAllUsers(String type, String title, String message, List<Long> userIds) {
+    public void sendToAllUsers(String type, String title, String message, List<Long> userIds, Long relatedId) {
         for (Long userId : userIds) {
-            createNotification(userId, type, title, message, null);
+            createNotification(userId, type, title, message, relatedId);
         }
     }
 

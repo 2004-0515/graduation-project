@@ -31,6 +31,13 @@ public class CouponService {
     }
     
     /**
+     * 根据ID获取优惠券
+     */
+    public Coupon getCouponById(Long id) {
+        return couponRepository.findById(id).orElse(null);
+    }
+    
+    /**
      * 获取所有优惠券（管理员）
      */
     public List<Coupon> getAllCoupons() {
@@ -235,6 +242,13 @@ public class CouponService {
      */
     public boolean hasUserClaimed(Long userId, Long couponId) {
         return userCouponRepository.existsByUserIdAndCouponId(userId, couponId);
+    }
+    
+    /**
+     * 获取用户已领取某优惠券的数量
+     */
+    public int getUserClaimedCount(Long userId, Long couponId) {
+        return (int) userCouponRepository.countByUserIdAndCouponId(userId, couponId);
     }
     
     /**

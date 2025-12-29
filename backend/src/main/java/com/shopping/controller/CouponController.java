@@ -55,17 +55,84 @@ public class CouponController {
             map.put("totalCount", c.getTotalCount());
             map.put("claimedCount", c.getClaimedCount());
             map.put("remaining", c.getTotalCount() - c.getClaimedCount());
+            map.put("limitPerUser", c.getLimitPerUser());
             map.put("startTime", c.getStartTime());
             map.put("endTime", c.getEndTime());
             
-            // 检查是否已领取
-            boolean claimed = currentUserId != null && couponService.hasUserClaimed(currentUserId, c.getId());
-            map.put("claimed", claimed);
+            // 检查用户已领取数量
+            int userClaimedCount = 0;
+            if (currentUserId != null) {
+                userClaimedCount = couponService.getUserClaimedCount(currentUserId, c.getId());
+            }
+            map.put("userClaimedCount", userClaimedCount);
+            map.put("claimed", userClaimedCount >= c.getLimitPerUser());
             
             return map;
         }).toList();
         
         return Response.success(result);
+    }
+    
+    /**
+     * 获取单个优惠券详情
+     */
+    @GetMapping("/{id}")
+    public Response<Map<String, Object>> getCouponById(@PathVariable Long id) {
+        Coupon c = couponService.getCouponById(id);
+        if (c == null) {
+            return Response.fail(404, "优惠券不存在");
+        }
+        
+        // 检查当前用户是否已领取
+        Long userId = null;
+        try {
+            String username = SecurityUtils.getCurrentUsername();
+            User user = userService.findByUsername(username);
+            if (user != null) userId = user.getId();
+        } catch (Exception e) {}
+        
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", c.getId());
+        map.put("name", c.getName());
+        map.put("description", c.getDescription());
+        map.put("type", c.getType());
+        map.put("discountAmount", c.getDiscountAmount());
+        map.put("discountRate", c.getDiscountRate());
+        map.put("minAmount", c.getMinAmount());
+        map.put("maxDiscount", c.getMaxDiscount());
+        map.put("totalCount", c.getTotalCount());
+        map.put("claimedCount", c.getClaimedCount());
+        map.put("remaining", c.getTotalCount() - c.getClaimedCount());
+        map.put("limitPerUser", c.getLimitPerUser());
+        map.put("startTime", c.getStartTime());
+        map.put("endTime", c.getEndTime());
+        map.put("status", c.getStatus());
+        
+        // 检查用户已领取数量
+        int userClaimedCount = 0;
+        if (userId != null) {
+            userClaimedCount = couponService.getUserClaimedCount(userId, c.getId());
+        }
+        map.put("userClaimedCount", userClaimedCount);
+        map.put("claimed", userClaimedCount >= c.getLimitPerUser());
+        
+        // 检查状态
+        LocalDateTime now = LocalDateTime.now();
+        String statusText;
+        if (c.getStatus() != 1) {
+            statusText = "已停用";
+        } else if (now.isBefore(c.getStartTime())) {
+            statusText = "未开始";
+        } else if (now.isAfter(c.getEndTime())) {
+            statusText = "已结束";
+        } else if (c.getClaimedCount() >= c.getTotalCount()) {
+            statusText = "已领完";
+        } else {
+            statusText = "进行中";
+        }
+        map.put("statusText", statusText);
+        
+        return Response.success(map);
     }
     
     /**

@@ -69,6 +69,16 @@
                   <p class="item-price">¥{{ item.price }} x {{ item.quantity }}</p>
                 </div>
                 <div class="item-subtotal">¥{{ (item.price * item.quantity).toFixed(2) }}</div>
+                <!-- 评价按钮 -->
+                <button 
+                  v-if="order.orderStatus === 3" 
+                  class="btn-review"
+                  :class="{ reviewed: item.reviewed }"
+                  @click="openReviewDialog(order, item)"
+                  :disabled="item.reviewed"
+                >
+                  {{ item.reviewed ? '已评价' : '评价' }}
+                </button>
               </div>
             </div>
             <div class="order-footer">
@@ -117,6 +127,46 @@
             @current-change="handlePageChange"
           />
         </div>
+
+        <!-- 评价弹窗 -->
+        <el-dialog v-model="reviewDialogVisible" title="发表评价" width="500px" class="review-dialog">
+          <div class="review-form" v-if="currentReviewItem">
+            <div class="review-product">
+              <img :src="getImageUrl(currentReviewItem.productImage)" class="product-thumb" />
+              <span>{{ currentReviewItem.productName }}</span>
+            </div>
+            <div class="form-item">
+              <label>评分</label>
+              <div class="rating-select">
+                <span 
+                  v-for="i in 5" 
+                  :key="i" 
+                  :class="['star', { filled: i <= reviewForm.rating }]"
+                  @click="reviewForm.rating = i"
+                >★</span>
+                <span class="rating-text">{{ ratingTexts[reviewForm.rating - 1] }}</span>
+              </div>
+            </div>
+            <div class="form-item">
+              <label>评价内容</label>
+              <el-input
+                v-model="reviewForm.content"
+                type="textarea"
+                :rows="4"
+                placeholder="分享您的使用体验，帮助其他买家做出选择"
+                maxlength="500"
+                show-word-limit
+              />
+            </div>
+            <div class="form-item">
+              <el-checkbox v-model="reviewForm.anonymous">匿名评价</el-checkbox>
+            </div>
+          </div>
+          <template #footer>
+            <el-button @click="reviewDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="submitReview" :loading="submittingReview">提交评价</el-button>
+          </template>
+        </el-dialog>
       </div>
     </main>
     <Footer />
@@ -124,11 +174,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import orderApi from '../api/orderApi'
+import reviewApi from '../api/reviewApi'
 import fileApi from '../api/fileApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
@@ -156,6 +207,18 @@ const loading = ref(true)
 const errorMsg = ref('')
 const currentPage = ref(1)
 const pageSize = ref(5)
+
+// 评价相关
+const reviewDialogVisible = ref(false)
+const currentReviewOrder = ref<any>(null)
+const currentReviewItem = ref<any>(null)
+const submittingReview = ref(false)
+const ratingTexts = ['非常差', '差', '一般', '好', '非常好']
+const reviewForm = reactive({
+  rating: 5,
+  content: '',
+  anonymous: false
+})
 
 const pendingCount = computed(() => orders.value.filter(o => o.orderStatus === 0 || o.orderStatus === 1 || o.orderStatus === 2).length)
 
@@ -230,6 +293,48 @@ const confirmReceive = async (order: any) => {
   } catch { 
     ElMessage.error('操作失败') 
   } 
+}
+
+// 评价相关方法
+const openReviewDialog = (order: any, item: any) => {
+  if (item.reviewed) return
+  currentReviewOrder.value = order
+  currentReviewItem.value = item
+  reviewForm.rating = 5
+  reviewForm.content = ''
+  reviewForm.anonymous = false
+  reviewDialogVisible.value = true
+}
+
+const submitReview = async () => {
+  if (reviewForm.rating < 1) {
+    ElMessage.warning('请选择评分')
+    return
+  }
+  
+  submittingReview.value = true
+  try {
+    const res: any = await reviewApi.createReview({
+      productId: currentReviewItem.value.productId,
+      orderId: currentReviewOrder.value.id,
+      orderItemId: currentReviewItem.value.id,
+      rating: reviewForm.rating,
+      content: reviewForm.content,
+      anonymous: reviewForm.anonymous
+    })
+    
+    if (res?.code === 200) {
+      ElMessage.success('评价成功')
+      currentReviewItem.value.reviewed = true
+      reviewDialogVisible.value = false
+    } else {
+      ElMessage.error(res?.message || '评价失败')
+    }
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '评价失败')
+  } finally {
+    submittingReview.value = false
+  }
 }
 
 const fetchOrders = async () => {
@@ -384,4 +489,19 @@ watch(() => route.query.search, (newSearch) => {
 .pagination-wrapper { display: flex; justify-content: center; margin-top: 32px; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
 :deep(.el-pagination) { --el-pagination-button-bg-color: #fff; }
 :deep(.el-pagination .el-pager li.is-active) { background: #5A8FD4; }
+
+/* 评价按钮 */
+.btn-review { padding: 6px 16px; border-radius: 16px; font-size: 13px; cursor: pointer; transition: all 0.3s; background: #5A8FD4; color: #fff; border: none; }
+.btn-review:hover:not(:disabled) { background: #4a7fc4; }
+.btn-review.reviewed { background: #e0e0e0; color: #999; cursor: default; }
+
+/* 评价弹窗 */
+.review-dialog .review-product { display: flex; align-items: center; gap: 12px; padding: 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px; }
+.review-dialog .product-thumb { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
+.review-dialog .form-item { margin-bottom: 20px; }
+.review-dialog .form-item label { display: block; margin-bottom: 8px; font-weight: 500; color: #333; }
+.review-dialog .rating-select { display: flex; align-items: center; gap: 8px; }
+.review-dialog .rating-select .star { font-size: 28px; color: #ddd; cursor: pointer; transition: all 0.2s; }
+.review-dialog .rating-select .star:hover, .review-dialog .rating-select .star.filled { color: #ffc107; }
+.review-dialog .rating-text { margin-left: 12px; color: #666; font-size: 14px; }
 </style>

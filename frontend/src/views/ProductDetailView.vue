@@ -82,12 +82,46 @@
               </table>
             </div>
             <div v-else class="review-content">
-              <div class="review-item" v-for="i in 3" :key="i">
-                <div class="review-head">
-                  <span>用户***{{ i }}</span>
-                  <span>2025-01-{{ 10 + i }}</span>
+              <!-- 评价统计 -->
+              <div class="review-stats" v-if="reviewStats.total > 0">
+                <div class="stats-left">
+                  <span class="avg-rating">{{ reviewStats.avgRating }}</span>
+                  <div class="rating-stars">
+                    <span v-for="i in 5" :key="i" :class="['star', { filled: i <= Math.round(reviewStats.avgRating) }]">★</span>
+                  </div>
+                  <span class="total-count">{{ reviewStats.total }} 条评价</span>
                 </div>
-                <p>商品质量很好，物流也很快，非常满意！</p>
+                <div class="stats-right">
+                  <span class="good-rate">{{ reviewStats.goodRate }}% 好评率</span>
+                </div>
+              </div>
+              
+              <!-- 评价列表 -->
+              <div v-if="reviews.length > 0">
+                <div class="review-item" v-for="r in reviews" :key="r.id">
+                  <div class="review-head">
+                    <div class="user-info">
+                      <img v-if="r.avatar" :src="getImageUrl(r.avatar)" class="user-avatar" @error="imgErr" />
+                      <span class="user-avatar-placeholder" v-else>{{ (r.username || '匿名')[0] }}</span>
+                      <span class="username">{{ r.username || '匿名用户' }}</span>
+                    </div>
+                    <span class="review-time">{{ formatTime(r.createdTime) }}</span>
+                  </div>
+                  <div class="review-rating">
+                    <span v-for="i in 5" :key="i" :class="['star', { filled: i <= r.rating }]">★</span>
+                  </div>
+                  <p class="review-text">{{ r.content || '用户未填写评价内容' }}</p>
+                  <div class="review-images" v-if="r.images">
+                    <img v-for="(img, idx) in parseImages(r.images)" :key="idx" :src="getImageUrl(img)" @error="imgErr" />
+                  </div>
+                  <div class="review-reply" v-if="r.reply">
+                    <span class="reply-label">商家回复：</span>
+                    <span>{{ r.reply }}</span>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="empty-review">
+                <p>暂无评价，快来购买并留下您的评价吧</p>
               </div>
             </div>
           </div>
@@ -104,6 +138,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import productApi from '../api/productApi'
+import reviewApi from '../api/reviewApi'
 import fileApi from '../api/fileApi'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
@@ -119,6 +154,8 @@ const product = ref<any>({})
 const quantity = ref(1)
 const tab = ref('detail')
 const currentImage = ref('')
+const reviews = ref<any[]>([])
+const reviewStats = ref<any>({ total: 0, avgRating: 0, goodRate: 100, ratingCounts: {} })
 
 const userId = computed(() => userStore.userInfo?.id)
 
@@ -129,6 +166,20 @@ const imgErr = (e: Event) => {
 }
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+
+const formatTime = (time: string) => {
+  if (!time) return ''
+  return time.substring(0, 10)
+}
+
+const parseImages = (images: string) => {
+  if (!images) return []
+  try {
+    return JSON.parse(images)
+  } catch {
+    return images.split(',').filter(Boolean)
+  }
+}
 
 const fetchProduct = async () => {
   try {
@@ -146,6 +197,24 @@ const fetchProduct = async () => {
   } catch { ElMessage.error('获取商品信息失败') }
 }
 
+const fetchReviews = async () => {
+  const productId = Number(route.params.id)
+  try {
+    const [reviewsRes, statsRes]: any[] = await Promise.all([
+      reviewApi.getAllProductReviews(productId),
+      reviewApi.getProductReviewStats(productId)
+    ])
+    if (reviewsRes?.code === 200) {
+      reviews.value = reviewsRes.data || []
+    }
+    if (statsRes?.code === 200) {
+      reviewStats.value = statsRes.data || { total: 0, avgRating: 0, goodRate: 100 }
+    }
+  } catch (e) {
+    console.error('获取评价失败', e)
+  }
+}
+
 const addToCart = async () => {
   if (!userStore.isLoggedIn) { ElMessage.warning('请先登录'); router.push('/login'); return }
   try { await cartStore.addToCart(userId.value, product.value.id, quantity.value) } catch { ElMessage.error('加入购物车失败') }
@@ -156,7 +225,10 @@ const buyNow = () => {
   router.push(`/checkout?productId=${product.value.id}&quantity=${quantity.value}`)
 }
 
-onMounted(() => fetchProduct())
+onMounted(() => {
+  fetchProduct()
+  fetchReviews()
+})
 </script>
 
 <style scoped>
@@ -225,8 +297,30 @@ onMounted(() => fetchProduct())
 .spec-content td { padding: 12px 16px; font-size: 14px; }
 .spec-content td:first-child { width: 120px; color: var(--text-muted); background: rgba(255,255,255,0.3); }
 .review-item { padding: 16px 0; border-bottom: 1px solid rgba(200,200,220,0.15); }
-.review-head { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: var(--text-muted); }
-.review-item p { margin: 0; font-size: 14px; color: var(--text-body); }
+.review-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.user-info { display: flex; align-items: center; gap: 10px; }
+.user-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.user-avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: var(--sakura); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.username { font-size: 14px; color: var(--text-title); }
+.review-time { font-size: 13px; color: var(--text-muted); }
+.review-rating { margin-bottom: 8px; }
+.review-rating .star { font-size: 14px; color: #ddd; }
+.review-rating .star.filled { color: #ffc107; }
+.review-text { margin: 0 0 10px; font-size: 14px; color: var(--text-body); line-height: 1.7; }
+.review-images { display: flex; gap: 8px; margin-bottom: 10px; }
+.review-images img { width: 80px; height: 80px; border-radius: var(--radius-sm); object-fit: cover; cursor: pointer; }
+.review-reply { padding: 12px; background: rgba(245, 250, 255, 0.5); border-radius: var(--radius-sm); font-size: 13px; color: var(--text-body); }
+.reply-label { color: var(--sakura-deep); font-weight: 500; }
+
+/* 评价统计 */
+.review-stats { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: rgba(245, 250, 255, 0.5); border-radius: var(--radius-md); margin-bottom: 20px; }
+.stats-left { display: flex; align-items: center; gap: 16px; }
+.avg-rating { font-size: 36px; font-weight: 600; color: var(--sakura-deep); }
+.rating-stars .star { font-size: 18px; color: #ddd; }
+.rating-stars .star.filled { color: #ffc107; }
+.total-count { font-size: 14px; color: var(--text-muted); }
+.good-rate { font-size: 16px; font-weight: 500; color: var(--sakura-deep); }
+.empty-review { text-align: center; padding: 40px; color: var(--text-muted); }
 
 @media (max-width: 900px) {
   .product-layout { grid-template-columns: 1fr; gap: 24px; }

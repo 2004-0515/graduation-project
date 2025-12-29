@@ -42,6 +42,24 @@
             </el-select>
           </el-form-item>
 
+          <!-- 促销类型时可以关联优惠券 -->
+          <el-form-item v-if="form.type === 'promotion'" label="关联优惠券">
+            <el-select
+              v-model="form.relatedId"
+              placeholder="选择要关联的优惠券（可选）"
+              style="width: 100%"
+              clearable
+            >
+              <el-option
+                v-for="coupon in coupons"
+                :key="coupon.id"
+                :label="`${coupon.name} - ${getCouponDesc(coupon)}`"
+                :value="coupon.id"
+              />
+            </el-select>
+            <div class="form-tip">关联优惠券后，用户可以从通知直接跳转到优惠券详情页领取</div>
+          </el-form-item>
+
           <el-form-item label="消息标题">
             <el-input v-model="form.title" placeholder="请输入消息标题" maxlength="50" show-word-limit />
           </el-form-item>
@@ -106,13 +124,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Promotion } from '@element-plus/icons-vue'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
+import couponApi from '@/api/couponApi'
 
 const users = ref<any[]>([])
+const coupons = ref<any[]>([])
 const sending = ref(false)
 
 const form = reactive({
@@ -120,7 +140,8 @@ const form = reactive({
   selectedUsers: [] as number[],
   type: 'system',
   title: '',
-  message: ''
+  message: '',
+  relatedId: null as number | null
 })
 
 const templates = {
@@ -146,6 +167,13 @@ const templates = {
   }
 }
 
+const getCouponDesc = (coupon: any) => {
+  if (coupon.type === 2) {
+    return `${Math.round((1 - coupon.discountRate) * 10)}折券`
+  }
+  return `满${coupon.minAmount || 0}减${coupon.discountAmount}`
+}
+
 const fetchUsers = async () => {
   try {
     const res: any = await adminApi.getUsers({ page: 0, size: 1000 })
@@ -154,6 +182,17 @@ const fetchUsers = async () => {
     }
   } catch (e) {
     console.error('获取用户列表失败', e)
+  }
+}
+
+const fetchCoupons = async () => {
+  try {
+    const res: any = await couponApi.getAllCoupons()
+    if (res?.code === 200) {
+      coupons.value = res.data || []
+    }
+  } catch (e) {
+    console.error('获取优惠券列表失败', e)
   }
 }
 
@@ -170,7 +209,15 @@ const resetForm = () => {
   form.type = 'system'
   form.title = ''
   form.message = ''
+  form.relatedId = null
 }
+
+// 当类型改变时，清空关联ID
+watch(() => form.type, () => {
+  if (form.type !== 'promotion') {
+    form.relatedId = null
+  }
+})
 
 const sendMessage = async () => {
   if (!form.title.trim()) {
@@ -196,7 +243,8 @@ const sendMessage = async () => {
       userIds,
       type: form.type,
       title: form.title,
-      message: form.message
+      message: form.message,
+      relatedId: form.relatedId
     })
     
     ElMessage.success(`消息已发送给 ${userIds.length} 位用户`)
@@ -210,6 +258,7 @@ const sendMessage = async () => {
 
 onMounted(() => {
   fetchUsers()
+  fetchCoupons()
 })
 </script>
 
@@ -320,5 +369,11 @@ onMounted(() => {
 :deep(.el-radio-group) {
   display: flex;
   gap: 20px;
+}
+
+.form-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #999;
 }
 </style>

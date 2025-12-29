@@ -27,7 +27,7 @@
           <div v-if="loading" class="loading-state">加载中...</div>
           
           <div class="coupon-grid" v-else-if="coupons.length > 0">
-            <div v-for="c in coupons" :key="c.id" class="coupon-card glass-card" :class="{ claimed: c.claimed }">
+            <div v-for="c in coupons" :key="c.id" class="coupon-card glass-card" :class="{ claimed: c.claimed }" @click="goToCouponDetail(c.id)">
               <div class="coupon-left" :class="getCouponTypeClass(c.type)">
                 <span class="coupon-value">
                   <template v-if="c.type === 2">{{ (c.discountRate * 10).toFixed(0) }}折</template>
@@ -43,9 +43,12 @@
                 <p class="coupon-desc">{{ c.description || getCouponTypeText(c.type) }}</p>
                 <p class="coupon-time">{{ formatDate(c.startTime) }} - {{ formatDate(c.endTime) }}</p>
                 <div class="coupon-footer">
-                  <span class="remaining">剩余 {{ c.remaining }} 张</span>
-                  <button class="btn btn-primary btn-sm" @click="claimCoupon(c)" :disabled="c.claimed || c.remaining <= 0">
-                    {{ c.claimed ? '已领取' : c.remaining <= 0 ? '已领完' : '立即领取' }}
+                  <span class="remaining">
+                    剩余 {{ c.remaining }} 张
+                    <template v-if="c.limitPerUser > 1">（限领{{ c.limitPerUser }}张，已领{{ c.userClaimedCount || 0 }}张）</template>
+                  </span>
+                  <button class="btn btn-primary btn-sm" @click.stop="claimCoupon(c)" :disabled="c.claimed || c.remaining <= 0">
+                    {{ c.claimed ? '已领完' : c.remaining <= 0 ? '已领完' : '立即领取' }}
                   </button>
                 </div>
               </div>
@@ -208,8 +211,13 @@ const claimCoupon = async (coupon: any) => {
     const res: any = await couponApi.claimCoupon(coupon.id)
     if (res?.code === 200) {
       ElMessage.success('领取成功')
-      coupon.claimed = true
+      // 更新已领取数量
+      coupon.userClaimedCount = (coupon.userClaimedCount || 0) + 1
       coupon.remaining--
+      // 检查是否达到限领上限
+      if (coupon.userClaimedCount >= coupon.limitPerUser) {
+        coupon.claimed = true
+      }
       fetchMyCoupons()
     } else {
       ElMessage.error(res?.message || '领取失败')
@@ -217,6 +225,10 @@ const claimCoupon = async (coupon: any) => {
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || '领取失败')
   }
+}
+
+const goToCouponDetail = (id: number) => {
+  router.push(`/coupon/${id}`)
 }
 
 onMounted(() => {
@@ -251,7 +263,7 @@ onMounted(() => {
 .loading-state, .empty-state { text-align: center; padding: 60px; color: var(--text-muted); }
 
 .coupon-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-.coupon-card { display: flex; overflow: hidden; transition: all 0.3s; }
+.coupon-card { display: flex; overflow: hidden; transition: all 0.3s; cursor: pointer; }
 .coupon-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(90, 143, 212, 0.15); }
 .coupon-card.claimed { opacity: 0.6; }
 

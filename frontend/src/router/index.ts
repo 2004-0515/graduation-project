@@ -50,6 +50,11 @@ const router = createRouter({
       component: () => import('@/views/PromotionDetailView.vue')
     },
     {
+      path: '/coupon/:id',
+      name: 'couponDetail',
+      component: () => import('@/views/CouponDetailView.vue')
+    },
+    {
       path: '/profile',
       name: 'profile',
       component: () => import('@/views/ProfileView.vue'),
