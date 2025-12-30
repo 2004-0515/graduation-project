@@ -48,7 +48,7 @@
           <el-table-column prop="createdTime" label="下单时间" width="160">
             <template #default="{ row }">{{ formatDate(row.createdTime) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="220" fixed="right">
+          <el-table-column label="操作" width="260" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="viewDetail(row)">详情</el-button>
               <el-button v-if="row.orderStatus === 1" type="success" link @click="shipOrder(row)">发货</el-button>
@@ -57,6 +57,7 @@
                 <el-button type="success" link @click="reviewCancel(row, true)">同意取消</el-button>
                 <el-button type="danger" link @click="reviewCancel(row, false)">拒绝</el-button>
               </template>
+              <el-button v-if="row.orderStatus === 3 || row.orderStatus === 4" type="danger" link @click="deleteOrder(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -111,16 +112,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, inject } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
 import fileApi from '@/api/fileApi'
+import { useAdminStore } from '@/stores/adminStore'
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
-// 注入刷新待发货数量的方法
-const refreshPendingOrderCount = inject<() => void>('refreshPendingOrderCount', () => {})
+// 使用 admin store 来刷新侧边栏数量
+const adminStore = useAdminStore()
 
 const allOrders = ref<any[]>([]) // 所有订单数据
 const orders = ref<any[]>([]) // 当前页显示的订单
@@ -210,10 +212,11 @@ const shipOrder = async (order: any) => {
   try {
     await ElMessageBox.confirm('确定要发货吗？', '提示')
     await adminApi.shipOrder(order.id)
-    order.orderStatus = 2
     ElMessage.success('发货成功')
     // 刷新侧边栏待发货数量
-    refreshPendingOrderCount()
+    adminStore.fetchPendingOrderCount()
+    // 重新获取订单列表，确保数据同步
+    await fetchOrders()
   } catch {}
 }
 
@@ -221,8 +224,9 @@ const cancelOrder = async (order: any) => {
   try {
     await ElMessageBox.confirm('确定要取消该订单吗？', '提示', { type: 'warning' })
     await adminApi.updateOrderStatus(order.id, 4)
-    order.orderStatus = 4
     ElMessage.success('订单已取消')
+    // 重新获取订单列表，确保数据同步
+    await fetchOrders()
   } catch {}
 }
 
@@ -231,10 +235,24 @@ const reviewCancel = async (order: any, approved: boolean) => {
     const msg = approved ? '确定同意取消该订单吗？' : '确定拒绝取消申请吗？'
     await ElMessageBox.confirm(msg, '审核取消申请', { type: 'warning' })
     await adminApi.reviewCancelRequest(order.id, approved)
-    order.orderStatus = approved ? 4 : 1
     ElMessage.success(approved ? '已同意取消' : '已拒绝取消申请')
-    // 刷新侧边栏待发货数量（拒绝取消会恢复为待发货状态）
-    refreshPendingOrderCount()
+    // 刷新侧边栏待发货数量
+    adminStore.fetchPendingOrderCount()
+    // 重新获取订单列表，确保数据同步
+    await fetchOrders()
+  } catch {}
+}
+
+const deleteOrder = async (order: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除订单"${order.orderNo}"吗？此操作不可恢复。`, 
+      '删除订单', 
+      { type: 'warning', confirmButtonText: '确定删除', cancelButtonText: '取消' }
+    )
+    await adminApi.deleteOrder(order.id)
+    ElMessage.success('订单已删除')
+    fetchOrders()
   } catch {}
 }
 

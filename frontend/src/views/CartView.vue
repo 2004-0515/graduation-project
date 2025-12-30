@@ -30,7 +30,7 @@
 
             <div v-for="item in cartItems" :key="item.id" class="cart-item">
               <label class="checkbox-wrap">
-                <input type="checkbox" v-model="item.selected" />
+                <input type="checkbox" :checked="item.selected !== false" @change="item.selected = ($event.target as HTMLInputElement).checked" />
               </label>
               <div class="item-info">
                 <img :src="getImageUrl(item.productImage)" class="item-img" @error="imgErr" />
@@ -87,18 +87,21 @@ const router = useRouter()
 const cartStore = useCartStore()
 const userStore = useUserStore()
 
-const cartItems = computed(() => cartStore.items.map(item => ({ ...item, selected: item.selected ?? true })))
+// 直接使用 cartStore.items，不再创建新对象
+const cartItems = computed(() => cartStore.items)
 const selectAll = ref(true)
 
-const selectedCount = computed(() => cartItems.value.filter(i => i.selected).length)
-const totalPrice = computed(() => cartItems.value.filter(i => i.selected).reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0))
+const selectedCount = computed(() => cartItems.value.filter(i => i.selected !== false).length)
+const totalPrice = computed(() => cartItems.value.filter(i => i.selected !== false).reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0))
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 const imgErr = (e: Event) => { 
   const img = e.target as HTMLImageElement
   img.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect fill="#f8f8fc" width="80" height="80"/><text fill="#ccc" font-family="Arial" font-size="12" x="50%" y="50%" text-anchor="middle" dy=".3em">商品</text></svg>')
 }
-const toggleSelectAll = () => { cartStore.items.forEach(item => item.selected = selectAll.value) }
+const toggleSelectAll = () => { 
+  cartStore.items.forEach(item => item.selected = selectAll.value) 
+}
 
 const updateQty = async (item: any, delta: number) => {
   const newQty = item.quantity + delta
@@ -125,11 +128,8 @@ const clearSelected = async () => {
 }
 
 const goCheckout = () => {
-  if (selectedCount.value === 0) { ElMessage.warning('请选择商品'); return }
-  // 同步选中状态到 cartStore
-  cartStore.items.forEach((item, index) => {
-    item.selected = cartItems.value[index]?.selected ?? true
-  })
+  const selectedItems = cartItems.value.filter(i => i.selected !== false)
+  if (selectedItems.length === 0) { ElMessage.warning('请选择商品'); return }
   router.push('/checkout')
 }
 

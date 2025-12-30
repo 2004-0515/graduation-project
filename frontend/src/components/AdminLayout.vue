@@ -42,6 +42,10 @@
           <span class="nav-icon">券</span>
           <span class="nav-text">促销管理</span>
         </router-link>
+        <router-link to="/admin/music" class="nav-item" :class="{ active: $route.path.startsWith('/admin/music') }">
+          <span class="nav-icon">乐</span>
+          <span class="nav-text">音乐管理</span>
+        </router-link>
       </nav>
       
       <div class="sidebar-footer">
@@ -68,18 +72,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, provide } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/userStore'
-import axios from '@/utils/axios'
+import { useAdminStore } from '@/stores/adminStore'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
-const pendingCount = ref(0)
-const pendingProductCount = ref(0)
-const pendingOrderCount = ref(0)
+const adminStore = useAdminStore()
+
+// 从 store 获取待处理数量
+const pendingCount = computed(() => adminStore.pendingFileCount)
+const pendingProductCount = computed(() => adminStore.pendingProductCount)
+const pendingOrderCount = computed(() => adminStore.pendingOrderCount)
 
 const pageTitle = computed(() => {
   const titles: Record<string, string> = {
@@ -90,57 +97,11 @@ const pageTitle = computed(() => {
     '/admin/users': '用户管理',
     '/admin/files': '文件审核',
     '/admin/notifications': '消息管理',
-    '/admin/coupons': '促销管理'
+    '/admin/coupons': '促销管理',
+    '/admin/music': '音乐管理'
   }
   return titles[route.path] || '管理后台'
 })
-
-const fetchPendingCount = async () => {
-  try {
-    const res: any = await axios.get('/files/pending/count')
-    if (res?.code === 200) {
-      pendingCount.value = res.data || 0
-    }
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-const fetchPendingProductCount = async () => {
-  try {
-    const res: any = await axios.get('/products/pending/count')
-    if (res?.code === 200) {
-      pendingProductCount.value = res.data || 0
-    }
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-const fetchPendingOrderCount = async () => {
-  try {
-    // 获取待发货订单数量（状态1=已支付待发货）
-    const res: any = await axios.get('/orders/pending/count')
-    if (res?.code === 200) {
-      pendingOrderCount.value = res.data || 0
-    }
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-// 刷新所有待处理数量
-const refreshPendingCounts = () => {
-  fetchPendingCount()
-  fetchPendingProductCount()
-  fetchPendingOrderCount()
-}
-
-// 提供给子组件调用的刷新方法
-provide('refreshPendingCounts', refreshPendingCounts)
-provide('refreshPendingOrderCount', fetchPendingOrderCount)
-provide('refreshPendingProductCount', fetchPendingProductCount)
-provide('refreshPendingFileCount', fetchPendingCount)
 
 const handleLogout = async () => {
   await userStore.logout()
@@ -149,9 +110,7 @@ const handleLogout = async () => {
 }
 
 onMounted(() => {
-  fetchPendingCount()
-  fetchPendingProductCount()
-  fetchPendingOrderCount()
+  adminStore.refreshAllCounts()
 })
 </script>
 

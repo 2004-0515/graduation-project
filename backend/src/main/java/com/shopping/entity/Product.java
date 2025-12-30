@@ -88,6 +88,16 @@ public class Product {
     @Column(name = "audit_time")
     private LocalDateTime auditTime;
     
+    // 广告视频相关字段
+    @Column(name = "ad_video", length = 500)
+    private String adVideo;  // 广告视频URL
+    
+    @Column(name = "ad_video_duration")
+    private Integer adVideoDuration;  // 广告时长(秒)，由管理员设置
+    
+    @Column(name = "ad_video_enabled", columnDefinition = "tinyint default 0")
+    private Integer adVideoEnabled = 0;  // 是否启用广告: 0=禁用, 1=启用
+    
     @Column(name = "created_time", nullable = false, updatable = false)
     private LocalDateTime createdTime = LocalDateTime.now();
     

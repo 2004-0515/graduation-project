@@ -131,6 +131,13 @@ const adminApi = {
     return axios.put(`/orders/${orderId}/review-cancel`, { approved })
   },
 
+  /**
+   * 删除订单（仅限已完成或已取消的订单）
+   */
+  deleteOrder(orderId: number): Promise<ApiResponse<void>> {
+    return axios.delete(`/orders/${orderId}`)
+  },
+
   // ==================== 统计数据 ====================
 
   /**

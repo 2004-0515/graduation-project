@@ -78,6 +78,17 @@ const fileApi = {
   },
 
   /**
+   * 上传广告视频 (最大50MB)
+   */
+  uploadAdVideo(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return axios.post('/files/ad-video', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+
+  /**
    * 获取完整的图片URL
    */
   getImageUrl(path: string | undefined | null): string {

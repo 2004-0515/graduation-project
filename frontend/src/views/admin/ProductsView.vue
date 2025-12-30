@@ -103,6 +103,17 @@
               </el-tag>
             </template>
           </el-table-column>
+          <el-table-column v-if="activeTab === 'pending'" label="广告视频" width="90">
+            <template #default="{ row }">
+              <div v-if="row.adVideo" class="video-cell" @click="openVideoPreview(row)">
+                <video :src="getVideoUrl(row.adVideo)" class="video-thumb" muted></video>
+                <div class="video-play-icon">
+                  <el-icon><VideoPlay /></el-icon>
+                </div>
+              </div>
+              <span v-else class="no-video">无</span>
+            </template>
+          </el-table-column>
           <el-table-column label="操作" :width="activeTab === 'pending' ? 150 : 120" fixed="right">
             <template #default="{ row }">
               <template v-if="activeTab === 'pending'">
@@ -176,6 +187,41 @@
           <el-form-item label="上架状态">
             <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
           </el-form-item>
+          
+          <!-- 广告视频设置 -->
+          <el-divider content-position="left">广告视频设置</el-divider>
+          <el-form-item label="广告视频">
+            <div class="video-upload-area">
+              <el-upload
+                class="video-uploader"
+                :show-file-list="false"
+                :before-upload="beforeVideoUpload"
+                :http-request="handleVideoUpload"
+                accept="video/*"
+              >
+                <div v-if="form.adVideo" class="video-preview">
+                  <video :src="getVideoUrl(form.adVideo)" class="preview-video"></video>
+                  <div class="video-actions">
+                    <span @click.stop="previewVideo">预览</span>
+                    <span @click.stop="form.adVideo = ''">删除</span>
+                  </div>
+                </div>
+                <div v-else class="upload-placeholder">
+                  <el-icon><Plus /></el-icon>
+                  <span>点击上传视频</span>
+                </div>
+              </el-upload>
+              <div class="upload-tip">支持 mp4、webm 格式，最大 50MB</div>
+            </div>
+          </el-form-item>
+          <el-form-item label="广告时长">
+            <el-input-number v-model="form.adVideoDuration" :min="3" :max="30" :step="1" />
+            <span class="form-tip">秒（用户需观看此时长后才能关闭）</span>
+          </el-form-item>
+          <el-form-item label="启用广告">
+            <el-switch v-model="form.adVideoEnabled" :active-value="1" :inactive-value="0" />
+            <span class="form-tip">启用后将在商品详情页显示广告视频</span>
+          </el-form-item>
         </el-form>
         <template #footer>
           <el-button @click="dialogVisible = false">取消</el-button>
@@ -191,21 +237,71 @@
           <el-button type="danger" @click="confirmReject" :loading="auditing">确认拒绝</el-button>
         </template>
       </el-dialog>
+
+      <!-- 视频预览弹窗 -->
+      <el-dialog v-model="videoPreviewVisible" title="广告视频预览" width="700px" destroy-on-close>
+        <div class="video-preview-container">
+          <div class="video-info" v-if="previewProduct">
+            <span class="product-name">{{ previewProduct.name }}</span>
+            <span class="seller-name">卖家: {{ previewProduct.sellerName || '平台' }}</span>
+          </div>
+          <video 
+            v-if="previewVideoUrl" 
+            :src="previewVideoUrl" 
+            controls 
+            autoplay 
+            class="preview-player"
+          ></video>
+        </div>
+        <template #footer>
+          <el-button @click="videoPreviewVisible = false">关闭</el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 审核通过弹窗（有广告视频时） -->
+      <el-dialog v-model="approveDialogVisible" title="审核通过" width="500px">
+        <div class="approve-content">
+          <p class="approve-tip">确定要通过商品「{{ approveProduct?.name }}」的审核吗？</p>
+          
+          <div v-if="approveProduct?.adVideo" class="ad-settings">
+            <el-divider content-position="left">广告视频设置</el-divider>
+            <div class="ad-preview-small">
+              <video :src="getVideoUrl(approveProduct.adVideo)" class="ad-thumb" muted></video>
+              <span class="ad-label">该商品包含广告视频</span>
+            </div>
+            <el-form label-width="100px">
+              <el-form-item label="启用广告">
+                <el-switch v-model="approveAdEnabled" :active-value="1" :inactive-value="0" />
+                <span class="form-tip">启用后将在商品详情页显示广告</span>
+              </el-form-item>
+              <el-form-item v-if="approveAdEnabled === 1" label="广告时长">
+                <el-input-number v-model="approveAdDuration" :min="3" :max="30" :step="1" />
+                <span class="form-tip">秒（用户需观看此时长后才能关闭）</span>
+              </el-form-item>
+            </el-form>
+          </div>
+        </div>
+        <template #footer>
+          <el-button @click="approveDialogVisible = false">取消</el-button>
+          <el-button type="success" @click="confirmApprove" :loading="auditing">确认通过</el-button>
+        </template>
+      </el-dialog>
     </div>
   </AdminLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, inject } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, VideoPlay } from '@element-plus/icons-vue'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
 import fileApi from '@/api/fileApi'
 import axios from '@/utils/axios'
+import { useAdminStore } from '@/stores/adminStore'
 
-// 注入刷新侧边栏待审核数量的方法
-const refreshPendingProductCount = inject<() => void>('refreshPendingProductCount', () => {})
+// 使用 admin store 来刷新侧边栏数量
+const adminStore = useAdminStore()
 
 const products = ref<any[]>([])
 const categories = ref<any[]>([])
@@ -220,6 +316,17 @@ const activeTab = ref('all')
 const pendingCount = ref(0)
 const rejectRemark = ref('')
 const rejectProductId = ref<number | null>(null)
+
+// 视频预览相关
+const videoPreviewVisible = ref(false)
+const previewVideoUrl = ref('')
+const previewProduct = ref<any>(null)
+
+// 审核通过弹窗相关
+const approveDialogVisible = ref(false)
+const approveProduct = ref<any>(null)
+const approveAdEnabled = ref(0)
+const approveAdDuration = ref(5)
 
 const searchKeyword = ref('')
 const filterStatus = ref<string>('')
@@ -237,7 +344,10 @@ const form = reactive({
   stock: 0,
   mainImage: '',
   description: '',
-  status: 1
+  status: 1,
+  adVideo: '',
+  adVideoDuration: 5,
+  adVideoEnabled: 0
 })
 
 const resetForm = () => {
@@ -249,6 +359,9 @@ const resetForm = () => {
   form.mainImage = ''
   form.description = ''
   form.status = 1
+  form.adVideo = ''
+  form.adVideoDuration = 5
+  form.adVideoEnabled = 0
 }
 
 const getAuditTagType = (status: number) => {
@@ -274,6 +387,10 @@ const openDialog = (product?: any) => {
     form.mainImage = product.mainImage || ''
     form.description = product.description || ''
     form.status = product.status ?? 1
+    // 广告视频字段
+    form.adVideo = product.adVideo || ''
+    form.adVideoDuration = product.adVideoDuration || 5
+    form.adVideoEnabled = product.adVideoEnabled ?? 0
   } else {
     isEdit.value = false
     editId.value = null
@@ -285,6 +402,13 @@ const openDialog = (product?: any) => {
 const getCategoryName = (id: number) => categories.value.find(c => c.id === id)?.name || '-'
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+
+const getVideoUrl = (path: string) => {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `http://localhost:8080/api${normalizedPath}`
+}
 
 const beforeImageUpload = (file: File) => {
   const isImage = file.type.startsWith('image/')
@@ -317,6 +441,51 @@ const handleImageUpload = async (options: any) => {
     }
   } catch (e) {
     ElMessage.error('图片上传失败')
+  }
+}
+
+const beforeVideoUpload = (file: File) => {
+  const isVideo = file.type.startsWith('video/')
+  const isLt50M = file.size / 1024 / 1024 < 50
+  if (!isVideo) {
+    ElMessage.error('只能上传视频文件')
+    return false
+  }
+  if (!isLt50M) {
+    ElMessage.error('视频大小不能超过 50MB')
+    return false
+  }
+  return true
+}
+
+const handleVideoUpload = async (options: any) => {
+  try {
+    const res: any = await fileApi.uploadAdVideo(options.file)
+    if (res?.code === 200 && res.data) {
+      form.adVideo = res.data
+      ElMessage.success('视频上传成功')
+    } else {
+      ElMessage.error(res?.message || '上传失败')
+    }
+  } catch (e) {
+    ElMessage.error('视频上传失败')
+  }
+}
+
+const previewVideo = () => {
+  if (form.adVideo) {
+    previewProduct.value = null // 编辑弹窗中的预览不需要显示商品信息
+    previewVideoUrl.value = getVideoUrl(form.adVideo)
+    videoPreviewVisible.value = true
+  }
+}
+
+// 打开视频预览弹窗（用于待审核列表）
+const openVideoPreview = (product: any) => {
+  if (product.adVideo) {
+    previewProduct.value = product
+    previewVideoUrl.value = getVideoUrl(product.adVideo)
+    videoPreviewVisible.value = true
   }
 }
 
@@ -388,7 +557,10 @@ const saveProduct = async () => {
       stock: form.stock,
       mainImage: form.mainImage,
       description: form.description,
-      status: form.status
+      status: form.status,
+      adVideo: form.adVideo,
+      adVideoDuration: form.adVideoDuration,
+      adVideoEnabled: form.adVideoEnabled
     }
     
     if (isEdit.value && editId.value) {
@@ -461,22 +633,53 @@ const toggleStatus = async (product: any) => {
 
 const handleAudit = async (product: any, auditStatus: number) => {
   if (auditStatus === 1) {
-    // 通过
-    try {
-      await ElMessageBox.confirm(`确定要通过商品"${product.name}"的审核吗？`, '提示', { type: 'success' })
-      auditing.value = true
-      await axios.post(`/products/${product.id}/audit`, { auditStatus: 1 })
-      ElMessage.success('审核通过')
-      fetchProducts()
-      fetchPendingCount()
-      refreshPendingProductCount() // 刷新侧边栏数量
-    } catch {} finally { auditing.value = false }
+    // 通过 - 如果有广告视频，打开设置弹窗
+    if (product.adVideo) {
+      approveProduct.value = product
+      approveAdEnabled.value = 0
+      approveAdDuration.value = 5
+      approveDialogVisible.value = true
+    } else {
+      // 没有广告视频，直接确认
+      try {
+        await ElMessageBox.confirm(`确定要通过商品"${product.name}"的审核吗？`, '提示', { type: 'success' })
+        auditing.value = true
+        await axios.post(`/products/${product.id}/audit`, { auditStatus: 1 })
+        ElMessage.success('审核通过')
+        fetchProducts()
+        fetchPendingCount()
+        adminStore.fetchPendingProductCount()
+      } catch {} finally { auditing.value = false }
+    }
   } else {
     // 拒绝 - 打开弹窗
     rejectProductId.value = product.id
     rejectRemark.value = ''
     rejectDialogVisible.value = true
   }
+}
+
+const confirmApprove = async () => {
+  if (!approveProduct.value) return
+  auditing.value = true
+  try {
+    const data: any = { auditStatus: 1 }
+    // 如果有广告视频，传递广告设置
+    if (approveProduct.value.adVideo) {
+      data.adVideoEnabled = approveAdEnabled.value
+      if (approveAdEnabled.value === 1) {
+        data.adVideoDuration = approveAdDuration.value
+      }
+    }
+    await axios.post(`/products/${approveProduct.value.id}/audit`, data)
+    ElMessage.success(approveAdEnabled.value === 1 ? '审核通过，广告已启用' : '审核通过')
+    approveDialogVisible.value = false
+    fetchProducts()
+    fetchPendingCount()
+    adminStore.fetchPendingProductCount()
+  } catch (e) {
+    ElMessage.error('操作失败')
+  } finally { auditing.value = false }
 }
 
 const confirmReject = async () => {
@@ -491,7 +694,7 @@ const confirmReject = async () => {
     rejectDialogVisible.value = false
     fetchProducts()
     fetchPendingCount()
-    refreshPendingProductCount() // 刷新侧边栏数量
+    adminStore.fetchPendingProductCount()
   } catch (e) {
     ElMessage.error('操作失败')
   } finally { auditing.value = false }
@@ -507,6 +710,13 @@ const handleDelete = async (product: any) => {
 }
 
 onMounted(() => {
+  // 检查 URL 参数，支持从通知跳转时自动切换到待审核 tab
+  const urlParams = new URLSearchParams(window.location.search)
+  const tab = urlParams.get('tab')
+  if (tab === 'pending') {
+    activeTab.value = 'pending'
+  }
+  
   fetchCategories()
   fetchProducts()
   fetchPendingCount()
@@ -722,5 +932,186 @@ onMounted(() => {
   margin-top: 8px;
   font-size: 12px;
   color: #999;
+}
+
+.form-tip {
+  margin-left: 12px;
+  font-size: 12px;
+  color: #909399;
+}
+
+/* 视频上传样式 */
+.video-upload-area {
+  width: 100%;
+}
+
+.video-uploader {
+  width: 200px;
+  height: 120px;
+}
+
+.video-uploader :deep(.el-upload) {
+  width: 200px;
+  height: 120px;
+  border: 1px dashed #d9d9d9;
+  border-radius: 8px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+
+.video-uploader :deep(.el-upload:hover) {
+  border-color: var(--el-color-primary);
+}
+
+.video-preview {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.preview-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+.video-actions {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.video-preview:hover .video-actions {
+  opacity: 1;
+}
+
+.video-actions span {
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.video-actions span:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 表格中的视频缩略图 */
+.video-cell {
+  position: relative;
+  width: 50px;
+  height: 35px;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #000;
+}
+
+.video-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-play-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font-size: 18px;
+  transition: background 0.2s;
+}
+
+.video-cell:hover .video-play-icon {
+  background: rgba(90, 143, 212, 0.6);
+}
+
+.no-video {
+  color: #999;
+  font-size: 12px;
+}
+
+/* 视频预览弹窗 */
+.video-preview-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.video-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-radius: 6px;
+}
+
+.product-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.seller-name {
+  font-size: 13px;
+  color: #666;
+}
+
+.preview-player {
+  width: 100%;
+  max-height: 400px;
+  background: #000;
+  border-radius: 8px;
+}
+
+/* 审核通过弹窗 */
+.approve-content {
+  padding: 0 10px;
+}
+
+.approve-tip {
+  font-size: 15px;
+  color: #333;
+  margin-bottom: 16px;
+}
+
+.ad-settings {
+  margin-top: 10px;
+}
+
+.ad-preview-small {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.ad-thumb {
+  width: 80px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #000;
+}
+
+.ad-label {
+  font-size: 13px;
+  color: #666;
 }
 </style>

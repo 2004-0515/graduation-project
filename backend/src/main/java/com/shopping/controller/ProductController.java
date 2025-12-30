@@ -6,6 +6,7 @@ import com.shopping.entity.Category;
 import com.shopping.entity.User;
 import com.shopping.service.ProductService;
 import com.shopping.service.UserService;
+import com.shopping.service.NotificationService;
 import com.shopping.repository.CategoryRepository;
 import com.shopping.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,9 @@ public class ProductController {
     
     @Autowired
     private UserService userService;
+    
+    @Autowired
+    private NotificationService notificationService;
     
     /**
      * 获取商品列表，支持分页和筛选
@@ -279,6 +283,23 @@ public class ProductController {
             return Response.fail(404, "商品不存在");
         }
         
+        // 获取当前用户
+        String username = null;
+        try {
+            username = SecurityUtils.getCurrentUsername();
+        } catch (Exception e) {
+            return Response.fail(401, "用户未登录");
+        }
+        boolean isAdmin = "admin".equals(username);
+        
+        // 检查是否是商品所有者或管理员
+        if (!isAdmin && product.getSellerId() != null) {
+            User user = userService.findByUsername(username);
+            if (user == null || !product.getSellerId().equals(user.getId())) {
+                return Response.fail(403, "无权修改此商品");
+            }
+        }
+        
         if (data.get("name") != null) {
             product.setName((String) data.get("name"));
         }
@@ -309,8 +330,42 @@ public class ProductController {
             product.setCategory(category);
         }
         
+        // 广告视频相关字段（只有管理员可以设置时长和启用状态）
+        if (data.get("adVideo") != null) {
+            product.setAdVideo((String) data.get("adVideo"));
+        }
+        if (isAdmin) {
+            if (data.get("adVideoDuration") != null) {
+                product.setAdVideoDuration(Integer.parseInt(data.get("adVideoDuration").toString()));
+            }
+            if (data.get("adVideoEnabled") != null) {
+                product.setAdVideoEnabled(Integer.parseInt(data.get("adVideoEnabled").toString()));
+            }
+        }
+        
+        // 普通用户编辑商品需要重新审核
+        if (!isAdmin && product.getSellerId() != null) {
+            product.setAuditStatus(0); // 重置为待审核
+            product.setAuditRemark(null);
+            product.setAuditTime(null);
+            
+            // 通知管理员有商品需要审核
+            try {
+                User admin = userService.findByUsername("admin");
+                if (admin != null) {
+                    String title = "商品修改待审核";
+                    String message = "用户 " + username + " 修改了商品「" + product.getName() + "」，请及时审核。";
+                    notificationService.createNotification(admin.getId(), "product_review", title, message, null);
+                }
+            } catch (Exception e) {
+                System.err.println("发送审核通知给管理员失败: " + e.getMessage());
+            }
+        }
+        
         Product updatedProduct = productService.saveProduct(product);
-        return Response.success("商品更新成功", updatedProduct);
+        
+        String msg = isAdmin ? "商品更新成功" : "商品修改成功，等待管理员审核";
+        return Response.success(msg, updatedProduct);
     }
     
     /**
@@ -341,8 +396,12 @@ public class ProductController {
         product.setName((String) data.get("name"));
         product.setDescription((String) data.get("description"));
         product.setPrice(new java.math.BigDecimal(data.get("price").toString()));
-        if (data.get("originalPrice") != null) {
-            product.setOriginalPrice(new java.math.BigDecimal(data.get("originalPrice").toString()));
+        if (data.get("originalPrice") != null && !data.get("originalPrice").toString().isEmpty()) {
+            try {
+                product.setOriginalPrice(new java.math.BigDecimal(data.get("originalPrice").toString()));
+            } catch (Exception e) {
+                // 忽略无效的原价
+            }
         }
         product.setStock(Integer.parseInt(data.get("stock").toString()));
         product.setMainImage((String) data.get("mainImage"));
@@ -364,6 +423,24 @@ public class ProductController {
             product.setAuditTime(java.time.LocalDateTime.now());
         } else {
             product.setAuditStatus(0); // 待审核
+            
+            // 通知管理员有新商品待审核
+            try {
+                User admin = userService.findByUsername("admin");
+                if (admin != null) {
+                    String title = "新商品待审核";
+                    String message = "用户 " + username + " 提交了新商品「" + product.getName() + "」，请及时审核。";
+                    notificationService.createNotification(admin.getId(), "product_review", title, message, null);
+                }
+            } catch (Exception e) {
+                System.err.println("发送审核通知给管理员失败: " + e.getMessage());
+            }
+        }
+        
+        // 广告视频（用户上传，默认禁用，需管理员启用）
+        if (data.get("adVideo") != null && !data.get("adVideo").toString().isEmpty()) {
+            product.setAdVideo((String) data.get("adVideo"));
+            product.setAdVideoEnabled(0); // 用户上传默认禁用
         }
         
         Product saved = productService.saveProduct(product);
@@ -413,6 +490,18 @@ public class ProductController {
         String remark = (String) data.getOrDefault("remark", "");
         
         Product product = productService.auditProduct(id, auditStatus, remark);
+        
+        // 审核通过时，可以同时设置广告视频启用状态和时长
+        if (auditStatus == 1 && product.getAdVideo() != null && !product.getAdVideo().isEmpty()) {
+            if (data.get("adVideoEnabled") != null) {
+                product.setAdVideoEnabled(Integer.parseInt(data.get("adVideoEnabled").toString()));
+            }
+            if (data.get("adVideoDuration") != null) {
+                product.setAdVideoDuration(Integer.parseInt(data.get("adVideoDuration").toString()));
+            }
+            productService.saveProduct(product);
+        }
+        
         String msg = auditStatus == 1 ? "商品审核通过" : "商品审核已拒绝";
         return Response.success(msg, product);
     }

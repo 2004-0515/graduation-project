@@ -79,6 +79,29 @@
           <el-form-item label="商品描述">
             <el-input v-model="form.description" type="textarea" :rows="4" placeholder="请输入商品描述" />
           </el-form-item>
+          <el-form-item label="广告视频">
+            <div class="video-upload-area">
+              <el-upload
+                class="video-uploader"
+                :show-file-list="false"
+                :before-upload="beforeVideoUpload"
+                :http-request="handleVideoUpload"
+                accept="video/*"
+              >
+                <div v-if="form.adVideo" class="video-preview">
+                  <video :src="getVideoUrl(form.adVideo)" class="preview-video"></video>
+                  <div class="video-actions">
+                    <span @click.stop="form.adVideo = ''">删除</span>
+                  </div>
+                </div>
+                <div v-else class="upload-placeholder video-placeholder">
+                  <el-icon><Plus /></el-icon>
+                  <span>上传广告视频</span>
+                </div>
+              </el-upload>
+              <div class="upload-tip">支持 mp4、webm 格式，最大 50MB（需管理员审核后启用）</div>
+            </div>
+          </el-form-item>
         </el-form>
         <template #footer>
           <el-button @click="dialogVisible = false">取消</el-button>
@@ -118,7 +141,8 @@ const form = reactive({
   originalPrice: null as number | null,
   stock: 1,
   mainImage: '',
-  description: ''
+  description: '',
+  adVideo: ''
 })
 
 const resetForm = () => {
@@ -129,6 +153,7 @@ const resetForm = () => {
   form.stock = 1
   form.mainImage = ''
   form.description = ''
+  form.adVideo = ''
 }
 
 const getAuditClass = (status: number) => {
@@ -152,7 +177,8 @@ const openDialog = (product?: any) => {
       originalPrice: product.originalPrice || 0,
       stock: product.stock,
       mainImage: product.mainImage,
-      description: product.description
+      description: product.description,
+      adVideo: product.adVideo || ''
     })
   } else {
     isEdit.value = false
@@ -212,6 +238,41 @@ const handleImageUpload = async (options: any) => {
   }
 }
 
+const beforeVideoUpload = (file: File) => {
+  const isVideo = file.type.startsWith('video/')
+  const isLt50M = file.size / 1024 / 1024 < 50
+  if (!isVideo) {
+    ElMessage.error('只能上传视频文件')
+    return false
+  }
+  if (!isLt50M) {
+    ElMessage.error('视频大小不能超过50MB')
+    return false
+  }
+  return true
+}
+
+const handleVideoUpload = async (options: any) => {
+  try {
+    const res: any = await fileApi.uploadAdVideo(options.file)
+    if (res?.code === 200 && res.data) {
+      form.adVideo = res.data
+      ElMessage.success('视频上传成功')
+    } else {
+      ElMessage.error(res?.message || '上传失败')
+    }
+  } catch (e) {
+    ElMessage.error('视频上传失败')
+  }
+}
+
+const getVideoUrl = (path: string) => {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `http://localhost:8080/api${normalizedPath}`
+}
+
 const submitProduct = async () => {
   if (!form.name || !form.categoryId || !form.price || form.price <= 0 || form.stock < 1) {
     ElMessage.warning('请填写完整信息')
@@ -220,11 +281,16 @@ const submitProduct = async () => {
   
   saving.value = true
   try {
+    const productData = {
+      ...form,
+      adVideo: form.adVideo || null
+    }
+    
     if (isEdit.value && editId.value) {
-      await axios.put(`/products/${editId.value}`, form)
-      ElMessage.success('商品更新成功')
+      const res: any = await axios.put(`/products/${editId.value}`, productData)
+      ElMessage.success(res?.message || '商品修改成功，等待管理员审核')
     } else {
-      await axios.post('/products/submit', form)
+      await axios.post('/products/submit', productData)
       ElMessage.success('商品提交成功，等待管理员审核')
     }
     dialogVisible.value = false
@@ -430,4 +496,70 @@ onMounted(() => {
 :deep(.el-dialog) { border-radius: 12px; }
 :deep(.el-dialog__header) { border-bottom: 1px solid #f0f0f0; padding: 20px 24px; }
 :deep(.el-dialog__body) { padding: 24px; }
+
+/* 视频上传样式 */
+.video-upload-area {
+  width: 100%;
+}
+
+.video-uploader {
+  width: 200px;
+  height: 120px;
+  border: 1px dashed #d9d9d9;
+  border-radius: 8px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.video-uploader:hover {
+  border-color: #409eff;
+}
+
+.video-preview {
+  width: 200px;
+  height: 120px;
+  position: relative;
+}
+
+.preview-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+.video-actions {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.video-preview:hover .video-actions {
+  opacity: 1;
+}
+
+.video-actions span {
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.video-placeholder {
+  width: 200px;
+  height: 120px;
+}
+
+.upload-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #999;
+}
 </style>

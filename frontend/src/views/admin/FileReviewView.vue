@@ -14,7 +14,6 @@
         </el-select>
         <el-select v-model="filters.fileType" placeholder="文件类型" clearable @change="fetchFiles">
           <el-option label="用户头像" value="AVATAR" />
-          <el-option label="商品图片" value="PRODUCT" />
           <el-option label="评价图片" value="REVIEW" />
         </el-select>
         <el-button @click="fetchFiles">刷新</el-button>
@@ -82,14 +81,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, inject } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
 import axios from '@/utils/axios'
 import fileApi from '@/api/fileApi'
+import { useAdminStore } from '@/stores/adminStore'
 
-// 注入刷新侧边栏待审核数量的方法
-const refreshPendingFileCount = inject<() => void>('refreshPendingFileCount', () => {})
+// 使用 admin store 来刷新侧边栏数量
+const adminStore = useAdminStore()
 
 const files = ref<any[]>([])
 const pageNo = ref(1)
@@ -112,7 +112,6 @@ const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 const getFileTypeLabel = (type: string) => {
   const map: Record<string, string> = {
     AVATAR: '用户头像',
-    PRODUCT: '商品图片',
     CATEGORY: '分类图片',
     PROMOTION: '促销图片',
     REVIEW: '评价图片'
@@ -167,7 +166,7 @@ const handleReview = async (file: any, status: number) => {
     if (res?.code === 200) {
       ElMessage.success('审核通过')
       fetchFiles()
-      refreshPendingFileCount() // 刷新侧边栏数量
+      adminStore.fetchPendingFileCount()
     } else {
       ElMessage.error(res?.message || '操作失败')
     }
@@ -188,7 +187,7 @@ const confirmReject = async () => {
       ElMessage.success('已拒绝')
       rejectVisible.value = false
       fetchFiles()
-      refreshPendingFileCount() // 刷新侧边栏数量
+      adminStore.fetchPendingFileCount()
     } else {
       ElMessage.error(res?.message || '操作失败')
     }

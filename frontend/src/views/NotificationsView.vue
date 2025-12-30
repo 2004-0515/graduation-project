@@ -45,15 +45,21 @@
               <div 
                 v-for="item in filteredNotifications" 
                 :key="item.id"
-                :class="['notification-item', item.type, { unread: !item.read }]"
+                :class="['notification-item', getActualType(item), { unread: !item.read }]"
                 @click="openDetail(item)"
               >
-                <div class="item-icon" :class="item.type">
-                  <svg v-if="item.type === 'system'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <div class="item-icon" :class="getActualType(item)">
+                  <svg v-if="getActualType(item) === 'system'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
                   </svg>
-                  <svg v-else-if="item.type === 'promotion'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <svg v-else-if="getActualType(item) === 'promotion'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
+                  </svg>
+                  <svg v-else-if="getActualType(item) === 'file_review'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+                  </svg>
+                  <svg v-else-if="getActualType(item) === 'product_review'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
                   </svg>
                   <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 2v4M16 2v4M2 10h20"/>
@@ -62,14 +68,14 @@
                 <div class="item-content">
                   <div class="item-header">
                     <div class="item-title-row">
-                      <span class="type-tag" :class="item.type">{{ getTypeName(item.type) }}</span>
+                      <span class="type-tag" :class="getActualType(item)">{{ getTypeName(getActualType(item)) }}</span>
                       <h4>{{ item.title }}</h4>
                     </div>
                     <span class="item-time">{{ item.timeAgo }}</span>
                   </div>
                   <p class="item-preview">{{ item.message }}</p>
                 </div>
-                <div class="type-indicator" :class="item.type"></div>
+                <div class="type-indicator" :class="getActualType(item)"></div>
                 <span v-if="!item.read" class="unread-dot"></span>
                 <button class="delete-btn" @click.stop="deleteItem(item)" title="删除">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -93,8 +99,8 @@
     <el-dialog v-model="detailVisible" :title="currentNotification?.title" width="500px" class="notification-dialog">
       <div class="detail-content" v-if="currentNotification">
         <div class="detail-meta">
-          <span class="detail-type" :class="currentNotification.type">
-            {{ getTypeName(currentNotification.type) }}
+          <span class="detail-type" :class="getActualType(currentNotification)">
+            {{ getTypeName(getActualType(currentNotification)) }}
           </span>
           <span class="detail-time">{{ currentNotification.timeAgo }}</span>
         </div>
@@ -107,13 +113,21 @@
       </div>
       <template #footer>
         <div class="dialog-footer">
-          <el-button v-if="currentNotification?.type === 'order'" 
+          <el-button v-if="getActualType(currentNotification) === 'order'" 
                      type="primary" @click="goToOrder">
             查看订单
           </el-button>
-          <el-button v-if="currentNotification?.type === 'promotion'" 
+          <el-button v-if="getActualType(currentNotification) === 'promotion'" 
                      type="primary" @click="goToCoupon">
             {{ currentNotification?.relatedId ? '查看优惠券' : '领取优惠券' }}
+          </el-button>
+          <el-button v-if="isAdmin && getActualType(currentNotification) === 'file_review'" 
+                     type="primary" @click="goToFileReview">
+            去审核
+          </el-button>
+          <el-button v-if="isAdmin && getActualType(currentNotification) === 'product_review'" 
+                     type="primary" @click="goToProductReview">
+            去审核
           </el-button>
           <el-button @click="detailVisible = false">关闭</el-button>
         </div>
@@ -139,13 +153,18 @@ const router = useRouter()
 const notificationStore = useNotificationStore()
 const userStore = useUserStore()
 
+// 判断是否是管理员
+const isAdmin = computed(() => userStore.userInfo?.username === 'admin')
+
 const tabs = [
   { name: 'all', label: '全部' },
   { name: 'unread', label: '未读' },
   { name: 'read', label: '已读' },
   { name: 'system', label: '系统' },
   { name: 'order', label: '订单' },
-  { name: 'promotion', label: '促销' }
+  { name: 'promotion', label: '促销' },
+  { name: 'file_review', label: '文件审核' },
+  { name: 'product_review', label: '商品审核' }
 ]
 
 const activeTab = ref('all')
@@ -161,18 +180,54 @@ const filteredNotifications = computed(() => {
   switch (activeTab.value) {
     case 'unread': return notifications.value.filter(n => !n.read)
     case 'read': return notifications.value.filter(n => n.read)
-    case 'system': return notifications.value.filter(n => n.type === 'system')
+    case 'system': return notifications.value.filter(n => n.type === 'system' && !isFileReviewNotification(n) && !isProductReviewNotification(n))
     case 'order': return notifications.value.filter(n => n.type === 'order')
     case 'promotion': return notifications.value.filter(n => n.type === 'promotion')
+    case 'file_review': return notifications.value.filter(n => n.type === 'file_review' || isFileReviewNotification(n))
+    case 'product_review': return notifications.value.filter(n => n.type === 'product_review' || isProductReviewNotification(n))
     default: return notifications.value
   }
 })
+
+// 判断是否是文件审核相关通知（兼容旧的system类型）- 只包含头像审核
+const isFileReviewNotification = (n: Notification) => {
+  if (n.type === 'file_review') return true
+  if (n.type === 'system') {
+    const title = n.title || ''
+    const message = n.message || ''
+    // 只匹配头像审核，不包含商品图片
+    return title.includes('头像') || message.includes('上传了新的头像')
+  }
+  return false
+}
+
+// 判断是否是商品审核相关通知（兼容旧的system类型）
+const isProductReviewNotification = (n: Notification) => {
+  if (n.type === 'product_review') return true
+  if (n.type === 'system') {
+    const title = n.title || ''
+    const message = n.message || ''
+    return (title.includes('商品') && (title.includes('待审核') || title.includes('审核'))) ||
+           message.includes('提交了新商品') || message.includes('修改了商品') ||
+           title.includes('商品图片') || message.includes('上传了新的商品图片')
+  }
+  return false
+}
+
+// 获取通知的实际类型（用于显示样式）
+const getActualType = (n: Notification) => {
+  if (n.type === 'file_review' || isFileReviewNotification(n)) return 'file_review'
+  if (n.type === 'product_review' || isProductReviewNotification(n)) return 'product_review'
+  return n.type
+}
 
 const getTypeName = (type: string) => {
   const names: Record<string, string> = {
     system: '系统通知',
     order: '订单消息',
-    promotion: '促销活动'
+    promotion: '促销活动',
+    file_review: '文件审核',
+    product_review: '商品审核'
   }
   return names[type] || '通知'
 }
@@ -215,14 +270,18 @@ const goToOrder = () => {
   // 判断是否是管理员
   const isAdmin = userStore.userInfo?.username === 'admin'
   
-  if (isAdmin) {
-    // 管理员跳转到订单管理页面
+  // 检查消息内容，判断是管理员自己的订单还是需要管理的用户订单
+  const message = currentNotification.value?.message || ''
+  const isOwnOrder = message.includes('您的订单') || message.includes('你的订单')
+  
+  if (isAdmin && !isOwnOrder) {
+    // 管理员处理其他用户的订单，跳转到订单管理页面
     router.push('/admin/orders')
   } else {
-    // 普通用户跳转到我的订单页面
+    // 管理员自己的订单或普通用户，跳转到我的订单页面
     // 从消息内容中提取订单号（格式：您的订单 XXX 状态更新）
-    if (currentNotification.value?.message) {
-      const match = currentNotification.value.message.match(/订单\s*(\S+)\s/)
+    if (message) {
+      const match = message.match(/订单\s*(\S+)\s/)
       if (match && match[1]) {
         router.push(`/orders?search=${match[1]}`)
         return
@@ -239,6 +298,16 @@ const goToCoupon = () => {
   } else {
     router.push('/promotions')
   }
+}
+
+const goToFileReview = () => {
+  detailVisible.value = false
+  router.push('/admin/files')
+}
+
+const goToProductReview = () => {
+  detailVisible.value = false
+  router.push('/admin/products?tab=pending')
 }
 
 const markAllRead = async () => {
@@ -508,6 +577,28 @@ onMounted(() => {
   box-shadow: 0 4px 20px rgba(142, 124, 195, 0.15);
 }
 
+/* 文件审核 - 橙色 */
+.notification-item.file_review {
+  border-left-color: #E67E22;
+  background: linear-gradient(135deg, rgba(230, 126, 34, 0.08) 0%, rgba(243, 156, 18, 0.04) 100%);
+}
+
+.notification-item.file_review:hover {
+  background: linear-gradient(135deg, rgba(230, 126, 34, 0.15) 0%, rgba(243, 156, 18, 0.08) 100%);
+  box-shadow: 0 4px 20px rgba(230, 126, 34, 0.15);
+}
+
+/* 商品审核 - 绿色 */
+.notification-item.product_review {
+  border-left-color: #27AE60;
+  background: linear-gradient(135deg, rgba(39, 174, 96, 0.08) 0%, rgba(46, 204, 113, 0.04) 100%);
+}
+
+.notification-item.product_review:hover {
+  background: linear-gradient(135deg, rgba(39, 174, 96, 0.15) 0%, rgba(46, 204, 113, 0.08) 100%);
+  box-shadow: 0 4px 20px rgba(39, 174, 96, 0.15);
+}
+
 /* 未读状态 - 加深背景和左边框 */
 .notification-item.unread {
   border-left-width: 6px;
@@ -525,6 +616,14 @@ onMounted(() => {
   background: linear-gradient(135deg, rgba(142, 124, 195, 0.15) 0%, rgba(165, 148, 210, 0.08) 100%);
 }
 
+.notification-item.unread.file_review {
+  background: linear-gradient(135deg, rgba(230, 126, 34, 0.15) 0%, rgba(243, 156, 18, 0.08) 100%);
+}
+
+.notification-item.unread.product_review {
+  background: linear-gradient(135deg, rgba(39, 174, 96, 0.15) 0%, rgba(46, 204, 113, 0.08) 100%);
+}
+
 .item-icon {
   width: 44px;
   height: 44px;
@@ -540,6 +639,8 @@ onMounted(() => {
 .item-icon.system { color: #4A7FC4; background: rgba(74, 127, 196, 0.15); }
 .item-icon.order { color: #5DADE2; background: rgba(93, 173, 226, 0.15); }
 .item-icon.promotion { color: #8E7CC3; background: rgba(142, 124, 195, 0.15); }
+.item-icon.file_review { color: #E67E22; background: rgba(230, 126, 34, 0.15); }
+.item-icon.product_review { color: #27AE60; background: rgba(39, 174, 96, 0.15); }
 
 /* 类型标签样式 */
 .type-tag {
@@ -570,6 +671,18 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(142, 124, 195, 0.3);
 }
 
+.type-tag.file_review {
+  background: linear-gradient(135deg, #E67E22, #F39C12);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(230, 126, 34, 0.3);
+}
+
+.type-tag.product_review {
+  background: linear-gradient(135deg, #27AE60, #2ECC71);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+}
+
 /* 右侧类型指示器 */
 .type-indicator {
   position: absolute;
@@ -590,6 +703,14 @@ onMounted(() => {
 
 .type-indicator.promotion {
   background: linear-gradient(180deg, #8E7CC3, #A594D2);
+}
+
+.type-indicator.file_review {
+  background: linear-gradient(180deg, #E67E22, #F39C12);
+}
+
+.type-indicator.product_review {
+  background: linear-gradient(180deg, #27AE60, #2ECC71);
 }
 
 .item-content {
@@ -743,6 +864,16 @@ onMounted(() => {
 
 .detail-type.promotion {
   background: linear-gradient(135deg, #8E7CC3, #A594D2);
+  color: #fff;
+}
+
+.detail-type.file_review {
+  background: linear-gradient(135deg, #E67E22, #F39C12);
+  color: #fff;
+}
+
+.detail-type.product_review {
+  background: linear-gradient(135deg, #27AE60, #2ECC71);
   color: #fff;
 }
 

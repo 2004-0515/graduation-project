@@ -1,11 +1,13 @@
 <template>
   <div id="app">
     <router-view />
+    <MusicPlayer />
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import MusicPlayer from '@/components/MusicPlayer.vue'
 
 // 初始化主题和字体大小设置
 const initAppearanceSettings = () => {

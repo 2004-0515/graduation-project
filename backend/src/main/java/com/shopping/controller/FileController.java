@@ -122,6 +122,64 @@ public class FileController {
     }
 
     /**
+     * 上传商品广告视频
+     */
+    @PostMapping("/ad-video")
+    public Response<String> uploadAdVideo(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            return Response.fail(400, "请选择要上传的视频");
+        }
+
+        // 验证文件类型
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("video/")) {
+            return Response.fail(400, "只能上传视频文件");
+        }
+
+        // 验证文件大小 (50MB)
+        long maxSize = 50 * 1024L * 1024L;
+        if (file.getSize() > maxSize) {
+            return Response.fail(400, "视频大小不能超过50MB");
+        }
+
+        try {
+            // 获取当前用户
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String username = auth.getName();
+            User user = userService.findByUsername(username);
+            if (user == null) {
+                return Response.fail(401, "用户未登录");
+            }
+
+            // 按年月存储
+            String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
+            Path uploadPath = Paths.get(uploadDir, "videos", datePath);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+
+            // 生成唯一文件名
+            String originalFilename = file.getOriginalFilename();
+            String extension = "";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+            }
+            String newFilename = UUID.randomUUID().toString() + extension;
+
+            // 保存文件
+            Path filePath = uploadPath.resolve(newFilename);
+            Files.copy(file.getInputStream(), filePath);
+
+            // 生成访问URL
+            String fileUrl = "/uploads/videos/" + datePath + "/" + newFilename;
+
+            return Response.success("视频上传成功", fileUrl);
+        } catch (IOException e) {
+            return Response.fail(500, "视频上传失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 【管理员】获取待审核文件列表
      */
     @GetMapping("/pending")
@@ -347,7 +405,7 @@ public class FileController {
                     if (admin != null) {
                         String title = "新的" + fileTypeName + "待审核";
                         String message = "用户 " + username + " 上传了新的" + fileTypeName + "，请及时审核。";
-                        notificationService.createNotification(admin.getId(), "system", title, message, null);
+                        notificationService.createNotification(admin.getId(), "file_review", title, message, null);
                     }
                 } catch (Exception e) {
                     // 通知发送失败不影响上传
@@ -424,37 +482,11 @@ public class FileController {
             // 生成访问URL
             String fileUrl = "/uploads/products/" + categoryFolder + "/" + datePath + "/" + newFilename;
 
-            // 创建上传记录
-            createUploadRecord(file, user, username, isAdmin, fileUrl, productId);
-
-            String message = isAdmin ? "上传成功" : "上传成功，等待管理员审核";
-            return Response.success(message, fileUrl);
-        } catch (IOException e) {
-            return Response.fail(500, "文件上传失败: " + e.getMessage());
-        }
-    }
-    
-    /**
-     * 创建商品图片上传记录
-     */
-    private void createUploadRecord(MultipartFile file, User user, String username, boolean isAdmin, String fileUrl, Long productId) {
-        UploadFile uploadFile = new UploadFile();
-        uploadFile.setFileType("PRODUCT");
-        uploadFile.setFilePath(fileUrl);
-        uploadFile.setOriginalName(file.getOriginalFilename());
-        uploadFile.setFileSize(file.getSize());
-        uploadFile.setUserId(user.getId());
-        uploadFile.setUsername(username);
-        uploadFile.setRelatedId(productId);  // 关联商品ID
-
-        if (isAdmin) {
-            uploadFile.setStatus(UploadFile.STATUS_APPROVED);
-            uploadFile.setReviewerId(user.getId());
-            uploadFile.setReviewerName(username);
-            uploadFile.setReviewRemark("管理员上传，自动通过");
+            // 商品图片不需要单独审核，跟随商品审核流程
+            // 直接返回URL，不创建审核记录
             
-            // 管理员上传直接更新商品图片
-            if (productId != null) {
+            // 如果是管理员且指定了商品ID，直接更新商品图片
+            if (isAdmin && productId != null) {
                 try {
                     Product product = productService.findById(productId);
                     if (product != null) {
@@ -465,25 +497,13 @@ public class FileController {
                     System.err.println("更新商品图片失败: " + e.getMessage());
                 }
             }
-        } else {
-            uploadFile.setStatus(UploadFile.STATUS_PENDING);
-            
-            // 通知管理员有新的待审核文件
-            try {
-                User admin = userService.findByUsername("admin");
-                if (admin != null) {
-                    String title = "新的商品图片待审核";
-                    String message = "用户 " + username + " 上传了新的商品图片，请及时审核。";
-                    notificationService.createNotification(admin.getId(), "system", title, message, null);
-                }
-            } catch (Exception e) {
-                System.err.println("发送审核通知给管理员失败: " + e.getMessage());
-            }
+
+            return Response.success("上传成功", fileUrl);
+        } catch (IOException e) {
+            return Response.fail(500, "文件上传失败: " + e.getMessage());
         }
-
-        uploadFileService.save(uploadFile);
     }
-
+    
     /**
      * 将分类名转换为安全的文件夹名
      */

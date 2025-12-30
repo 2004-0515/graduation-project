@@ -95,7 +95,7 @@
                   <span v-if="order.couponDiscount && order.couponDiscount > 0" class="discount-info">
                     原价 ¥{{ order.totalAmount?.toFixed(2) }}，优惠 ¥{{ order.couponDiscount?.toFixed(2) }}，
                   </span>
-                  实付 <em>¥{{ (order.payAmount || order.totalAmount)?.toFixed(2) }}</em>
+                  实付 <em>¥{{ getActualPayAmount(order).toFixed(2) }}</em>
                 </div>
                 <div class="order-actions">
                   <button v-if="order.orderStatus === 0" class="btn-cancel" @click="cancelOrder(order)">取消订单</button>
@@ -256,6 +256,11 @@ watch(searchKeyword, () => {
 
 const getTabCount = (value: number) => value === -1 ? orders.value.length : orders.value.filter(o => o.orderStatus === value).length
 const getTotalQuantity = (order: any) => order.items?.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) || 0
+const getActualPayAmount = (order: any) => {
+  const total = Number(order.totalAmount) || 0
+  const discount = Number(order.couponDiscount) || 0
+  return Math.max(0, total - discount)
+}
 const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 6: '申请取消中' }[status] || '未知')
 const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled', 6: 'cancel-requested' }[status] || '')
 
@@ -269,8 +274,8 @@ const payOrder = (order: any) => router.push(`/payment/${order.id}`)
 const cancelOrder = async (order: any) => { 
   try { 
     await orderApi.cancelOrder(order.id)
-    order.orderStatus = 4
-    ElMessage.success('订单已取消') 
+    ElMessage.success('订单已取消')
+    await fetchOrders()
   } catch { 
     ElMessage.error('取消失败') 
   } 
@@ -279,8 +284,8 @@ const cancelOrder = async (order: any) => {
 const requestCancelOrder = async (order: any) => { 
   try { 
     await orderApi.requestCancelOrder(order.id)
-    order.orderStatus = 6
-    ElMessage.success('取消申请已提交，等待管理员审核') 
+    ElMessage.success('取消申请已提交，等待管理员审核')
+    await fetchOrders()
   } catch { 
     ElMessage.error('申请失败') 
   } 
@@ -288,8 +293,9 @@ const requestCancelOrder = async (order: any) => {
 const confirmReceive = async (order: any) => { 
   try { 
     await orderApi.confirmReceive(order.id)
-    order.orderStatus = 3
-    ElMessage.success('已确认收货') 
+    ElMessage.success('已确认收货')
+    // 重新获取订单列表，确保数据同步
+    await fetchOrders()
   } catch { 
     ElMessage.error('操作失败') 
   } 

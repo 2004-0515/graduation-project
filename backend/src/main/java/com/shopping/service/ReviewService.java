@@ -161,6 +161,21 @@ public class ReviewService {
     }
     
     /**
+     * 删除评价（只能删除自己的评价）
+     */
+    @Transactional
+    public void deleteReview(Long reviewId, Long userId) {
+        Review review = reviewRepository.findById(reviewId)
+            .orElseThrow(() -> new ValidationException("评价不存在"));
+        
+        if (!review.getUserId().equals(userId)) {
+            throw new ValidationException("无权删除此评价");
+        }
+        
+        reviewRepository.delete(review);
+    }
+    
+    /**
      * 填充用户信息
      */
     private void fillUserInfo(Review review) {

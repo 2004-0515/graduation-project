@@ -176,6 +176,12 @@ const router = createRouter({
       name: 'adminCoupons',
       component: () => import('@/views/admin/CouponsManageView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/music',
+      name: 'adminMusic',
+      component: () => import('@/views/admin/MusicManageView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
     }
   ],
   scrollBehavior() {

@@ -56,7 +56,7 @@
                 <span class="discount">优惠券：-¥{{ order.couponDiscount?.toFixed(2) }}</span>
               </div>
               <span>应付金额：</span>
-              <em class="total-amount">¥{{ (order.payAmount || order.totalAmount)?.toFixed(2) }}</em>
+              <em class="total-amount">¥{{ actualPayAmount.toFixed(2) }}</em>
             </div>
             <div class="action-buttons">
               <button class="btn btn-glass" @click="goBack">返回</button>
@@ -92,7 +92,7 @@
                 </div>
                 <div class="pay-amount">
                   <span>支付金额</span>
-                  <em>¥{{ (order?.payAmount || order?.totalAmount)?.toFixed(2) }}</em>
+                  <em>¥{{ actualPayAmount.toFixed(2) }}</em>
                 </div>
                 <p class="expire-tip">二维码有效期：<span>{{ formatTime(countdown) }}</span></p>
                 <button class="btn btn-primary btn-block" @click="simulatePay">
@@ -113,7 +113,7 @@
               <div class="success-section" v-if="payStep === 'success'">
                 <div class="success-icon">✓</div>
                 <h3>支付成功</h3>
-                <p class="pay-info">支付金额：¥{{ (order?.payAmount || order?.totalAmount)?.toFixed(2) }}</p>
+                <p class="pay-info">支付金额：¥{{ actualPayAmount.toFixed(2) }}</p>
                 <p class="pay-info">支付方式：{{ currentMethod?.label }}</p>
                 <p class="pay-info">交易单号：{{ transactionNo }}</p>
                 <button class="btn btn-primary btn-block" @click="goToOrders">
@@ -168,6 +168,18 @@ const paymentMethods = [
 ]
 
 const currentMethod = computed(() => paymentMethods.find(m => m.value === selectedMethod.value))
+
+// 计算实际应付金额
+const actualPayAmount = computed(() => {
+  if (!order.value) return 0
+  const total = Number(order.value.totalAmount) || 0
+  const discount = Number(order.value.couponDiscount) || 0
+  // 优先使用 payAmount，如果没有则手动计算
+  if (order.value.payAmount != null) {
+    return Math.max(0, Number(order.value.payAmount))
+  }
+  return Math.max(0, total - discount)
+})
 
 // 生成模拟二维码图案
 const qrPattern = ref<boolean[]>([])

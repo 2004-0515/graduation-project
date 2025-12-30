@@ -9,6 +9,14 @@
     
     <main class="main">
       <div class="container">
+        <!-- 返回按钮 -->
+        <div class="back-bar" v-if="canGoBack">
+          <button class="back-btn" @click="goBack">
+            <span class="back-icon">&larr;</span>
+            <span>返回</span>
+          </button>
+        </div>
+        
         <div class="product-layout">
           <!-- 图片区 -->
           <div class="gallery glass-card">
@@ -18,6 +26,21 @@
             <div class="thumb-list" v-if="product.images?.length > 1">
               <div v-for="(img, i) in product.images" :key="i" :class="['thumb', { active: currentImage === img }]" @click="currentImage = img">
                 <img :src="img" @error="imgErr" />
+              </div>
+            </div>
+            
+            <!-- 广告视频区域 -->
+            <div class="ad-section">
+              <div v-if="product.adVideo && product.adVideoEnabled === 1" class="ad-video-mini" @click="openAdVideo">
+                <video :src="getVideoUrl(product.adVideo)" muted loop autoplay playsinline class="ad-preview"></video>
+                <div class="ad-overlay">
+                  <span class="ad-tag">广告</span>
+                  <span class="ad-expand">点击放大</span>
+                </div>
+              </div>
+              <div v-else class="ad-placeholder">
+                <span class="ad-tag">广告位</span>
+                <span class="ad-text">暂无广告</span>
               </div>
             </div>
           </div>
@@ -98,14 +121,20 @@
               
               <!-- 评价列表 -->
               <div v-if="reviews.length > 0">
-                <div class="review-item" v-for="r in reviews" :key="r.id">
+                <div class="review-item" v-for="r in reviews" :key="r.id" :class="{ 'own-review': isOwnReview(r) }">
                   <div class="review-head">
                     <div class="user-info">
                       <img v-if="r.avatar" :src="getImageUrl(r.avatar)" class="user-avatar" @error="imgErr" />
                       <span class="user-avatar-placeholder" v-else>{{ (r.username || '匿名')[0] }}</span>
                       <span class="username">{{ r.username || '匿名用户' }}</span>
+                      <span v-if="isOwnReview(r)" class="own-tag">我的评价</span>
                     </div>
-                    <span class="review-time">{{ formatTime(r.createdTime) }}</span>
+                    <div class="review-actions">
+                      <span class="review-time">{{ formatTime(r.createdTime) }}</span>
+                      <button v-if="isOwnReview(r)" class="delete-review-btn" @click="deleteReview(r)" title="删除评价">
+                        删除
+                      </button>
+                    </div>
                   </div>
                   <div class="review-rating">
                     <span v-for="i in 5" :key="i" :class="['star', { filled: i <= r.rating }]">★</span>
@@ -129,6 +158,25 @@
       </div>
     </main>
     
+    <!-- 广告视频全屏弹窗 -->
+    <div v-if="showAdVideo" class="ad-video-modal" @click.self="closeAdVideo">
+      <div class="ad-video-container">
+        <div class="ad-video-header">
+          <span class="ad-badge">广告</span>
+          <span class="ad-timer" v-if="adCountdown > 0">{{ adCountdown }}s 后可关闭</span>
+          <button v-else class="ad-close-btn" @click="closeAdVideo">关闭</button>
+        </div>
+        <video 
+          ref="adVideoRef"
+          :src="getVideoUrl(product.adVideo)" 
+          controls 
+          autoplay 
+          class="ad-video-player"
+          @ended="onAdEnded"
+        ></video>
+      </div>
+    </div>
+    
     <Footer />
   </div>
 </template>
@@ -136,7 +184,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import productApi from '../api/productApi'
 import reviewApi from '../api/reviewApi'
 import fileApi from '../api/fileApi'
@@ -157,6 +205,18 @@ const currentImage = ref('')
 const reviews = ref<any[]>([])
 const reviewStats = ref<any>({ total: 0, avgRating: 0, goodRate: 100, ratingCounts: {} })
 
+// 广告视频相关
+const showAdVideo = ref(false)
+const adCountdown = ref(0)
+const adVideoRef = ref<HTMLVideoElement>()
+let adTimer: ReturnType<typeof setInterval> | null = null
+
+// 返回按钮相关
+const canGoBack = computed(() => window.history.length > 1)
+const goBack = () => {
+  router.back()
+}
+
 const userId = computed(() => userStore.userInfo?.id)
 
 const imgErr = (e: Event) => { 
@@ -166,6 +226,43 @@ const imgErr = (e: Event) => {
 }
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+
+const getVideoUrl = (path: string) => {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `http://localhost:8080/api${normalizedPath}`
+}
+
+const openAdVideo = () => {
+  showAdVideo.value = true
+  // 设置倒计时（使用管理员设置的时长，默认5秒）
+  adCountdown.value = product.value.adVideoDuration || 5
+  adTimer = setInterval(() => {
+    if (adCountdown.value > 0) {
+      adCountdown.value--
+    } else if (adTimer) {
+      clearInterval(adTimer)
+      adTimer = null
+    }
+  }, 1000)
+}
+
+const closeAdVideo = () => {
+  if (adCountdown.value > 0) return // 倒计时未结束不能关闭
+  showAdVideo.value = false
+  if (adTimer) {
+    clearInterval(adTimer)
+    adTimer = null
+  }
+  if (adVideoRef.value) {
+    adVideoRef.value.pause()
+  }
+}
+
+const onAdEnded = () => {
+  adCountdown.value = 0 // 视频播放完毕可以关闭
+}
 
 const formatTime = (time: string) => {
   if (!time) return ''
@@ -225,6 +322,31 @@ const buyNow = () => {
   router.push(`/checkout?productId=${product.value.id}&quantity=${quantity.value}`)
 }
 
+// 判断是否是自己的评价
+const isOwnReview = (review: any) => {
+  if (!userStore.isLoggedIn || !userStore.userInfo?.id) return false
+  return review.userId === userStore.userInfo.id
+}
+
+// 删除评价
+const deleteReview = async (review: any) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这条评价吗？', '提示', { type: 'warning' })
+    const res: any = await reviewApi.deleteReview(review.id)
+    if (res?.code === 200) {
+      ElMessage.success('评价已删除')
+      // 重新获取评价列表
+      fetchReviews()
+    } else {
+      ElMessage.error(res?.message || '删除失败')
+    }
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
 onMounted(() => {
   fetchProduct()
   fetchReviews()
@@ -233,6 +355,27 @@ onMounted(() => {
 
 <style scoped>
 .detail-page { min-height: 100vh; background: var(--white); position: relative; }
+
+/* 返回按钮 */
+.back-bar { margin-bottom: 20px; }
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: rgba(90, 143, 212, 0.1);
+  border: 1px solid rgba(90, 143, 212, 0.2);
+  border-radius: 8px;
+  color: #5A8FD4;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.back-btn:hover {
+  background: #5A8FD4;
+  color: #fff;
+}
+.back-icon { font-size: 16px; }
 
 .deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; will-change: transform; }
 .shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; will-change: transform; }
@@ -297,12 +440,17 @@ onMounted(() => {
 .spec-content td { padding: 12px 16px; font-size: 14px; }
 .spec-content td:first-child { width: 120px; color: var(--text-muted); background: rgba(255,255,255,0.3); }
 .review-item { padding: 16px 0; border-bottom: 1px solid rgba(200,200,220,0.15); }
+.review-item.own-review { background: rgba(90, 143, 212, 0.05); padding: 16px; margin: 0 -16px; border-radius: var(--radius-md); }
 .review-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .user-info { display: flex; align-items: center; gap: 10px; }
 .user-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
 .user-avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: var(--sakura); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; }
 .username { font-size: 14px; color: var(--text-title); }
+.own-tag { padding: 2px 8px; background: linear-gradient(135deg, #5A8FD4, #7BA8E8); color: #fff; font-size: 11px; border-radius: 10px; }
+.review-actions { display: flex; align-items: center; gap: 12px; }
 .review-time { font-size: 13px; color: var(--text-muted); }
+.delete-review-btn { padding: 4px 10px; background: transparent; border: 1px solid #e74c3c; color: #e74c3c; font-size: 12px; border-radius: 4px; cursor: pointer; transition: all 0.3s; }
+.delete-review-btn:hover { background: #e74c3c; color: #fff; }
 .review-rating { margin-bottom: 8px; }
 .review-rating .star { font-size: 14px; color: #ddd; }
 .review-rating .star.filled { color: #ffc107; }
@@ -330,5 +478,147 @@ onMounted(() => {
   .action-row { flex-direction: column; }
   .info-panel h1 { font-size: 1.5rem; }
   .price { font-size: 24px; }
+}
+
+/* 广告视频区域 */
+.ad-section {
+  margin-top: 16px;
+}
+
+/* 广告视频小窗口 */
+.ad-video-mini {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  max-width: 200px;
+  aspect-ratio: 16/9;
+  background: #000;
+}
+
+/* 广告占位区域 */
+.ad-placeholder {
+  max-width: 200px;
+  aspect-ratio: 16/9;
+  background: linear-gradient(135deg, #f0f4f8, #e8eef5);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed #ccd5e0;
+}
+
+.ad-placeholder .ad-tag {
+  padding: 2px 8px;
+  background: rgba(90, 143, 212, 0.1);
+  color: #5A8FD4;
+  font-size: 10px;
+  border-radius: 3px;
+}
+
+.ad-placeholder .ad-text {
+  color: #999;
+  font-size: 12px;
+}
+
+.ad-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ad-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 8px;
+  transition: background 0.3s;
+}
+
+.ad-video-mini:hover .ad-overlay {
+  background: rgba(0,0,0,0.4);
+}
+
+.ad-tag {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 6px;
+  background: rgba(255,255,255,0.9);
+  color: #666;
+  font-size: 10px;
+  border-radius: 3px;
+}
+
+.ad-expand {
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* 广告视频全屏弹窗 */
+.ad-video-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ad-video-container {
+  width: 90%;
+  max-width: 900px;
+  background: #000;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.ad-video-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.8);
+}
+
+.ad-badge {
+  padding: 4px 10px;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.ad-timer {
+  color: #999;
+  font-size: 13px;
+}
+
+.ad-close-btn {
+  padding: 6px 16px;
+  background: linear-gradient(135deg, #5A8FD4, #7BA3D9);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.ad-close-btn:hover {
+  transform: scale(1.05);
+}
+
+.ad-video-player {
+  width: 100%;
+  max-height: 70vh;
+  background: #000;
 }
 </style>

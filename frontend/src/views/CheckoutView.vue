@@ -119,6 +119,15 @@
               <button class="submit-btn" @click="submitOrder" :disabled="!selectedAddress || orderItems.length === 0 || submitting">
                 {{ submitting ? '提交中...' : '提交订单' }}
               </button>
+              <p v-if="!selectedAddress && addresses.length === 0" class="submit-tip warning">
+                请先添加收货地址
+              </p>
+              <p v-else-if="!selectedAddress" class="submit-tip warning">
+                请选择收货地址
+              </p>
+              <p v-else-if="orderItems.length === 0" class="submit-tip warning">
+                没有待结算的商品
+              </p>
             </div>
           </div>
         </div>
@@ -234,16 +243,29 @@ const loadOrderItems = async () => {
     }
     
     if (cartStore.items.length > 0) {
-      orderItems.value = cartStore.items
-        .filter(item => item.selected !== false)
-        .map(item => ({
+      // 获取选中的商品（selected 不为 false 的都算选中）
+      const selectedItems = cartStore.items.filter(item => item.selected !== false)
+      if (selectedItems.length > 0) {
+        orderItems.value = selectedItems.map(item => ({
           id: item.productId,
           name: item.productName,
           mainImage: item.productImage,
           price: item.price,
           quantity: item.quantity
         }))
-      sessionStorage.setItem(CHECKOUT_ITEMS_KEY, JSON.stringify(orderItems.value))
+        sessionStorage.setItem(CHECKOUT_ITEMS_KEY, JSON.stringify(orderItems.value))
+      } else {
+        // 没有选中的商品，尝试从 sessionStorage 恢复
+        const savedItems = sessionStorage.getItem(CHECKOUT_ITEMS_KEY)
+        if (savedItems) {
+          try {
+            orderItems.value = JSON.parse(savedItems)
+          } catch (e) {
+            console.error('解析订单数据失败:', e)
+            orderItems.value = []
+          }
+        }
+      }
     } else {
       // 从 sessionStorage 恢复
       const savedItems = sessionStorage.getItem(CHECKOUT_ITEMS_KEY)
@@ -435,6 +457,20 @@ onMounted(() => {
 .submit-btn { width: 100%; padding: 16px; margin-top: 20px; background: linear-gradient(135deg, var(--sakura), #5A8FD4); color: #fff; border: none; border-radius: var(--radius-xl); font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
 .submit-btn:hover:not(:disabled) { box-shadow: 0 6px 24px rgba(90, 143, 212, 0.5); transform: translateY(-2px); }
 .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.submit-tip {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  text-align: center;
+}
+
+.submit-tip.warning {
+  background: rgba(245, 166, 35, 0.1);
+  color: #e67e22;
+  border: 1px solid rgba(245, 166, 35, 0.3);
+}
 
 @media (max-width: 768px) {
   .checkout-layout { grid-template-columns: 1fr; }

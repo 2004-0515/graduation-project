@@ -52,5 +52,10 @@ export default {
   // 检查是否已评价
   checkReviewed(orderId: number, productId: number) {
     return axios.get('/reviews/check', { params: { orderId, productId } })
+  },
+  
+  // 删除评价
+  deleteReview(reviewId: number) {
+    return axios.delete(`/reviews/${reviewId}`)
   }
 }

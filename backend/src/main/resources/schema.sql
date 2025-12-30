@@ -76,6 +76,9 @@ CREATE TABLE tb_product (
     audit_status TINYINT DEFAULT 1 NOT NULL COMMENT '审核状态：0-待审核，1-已通过，2-已拒绝',
     audit_remark VARCHAR(200) DEFAULT NULL COMMENT '审核备注',
     audit_time DATETIME DEFAULT NULL COMMENT '审核时间',
+    ad_video VARCHAR(500) DEFAULT NULL COMMENT '广告视频URL',
+    ad_video_duration INT DEFAULT NULL COMMENT '广告时长(秒)',
+    ad_video_enabled TINYINT DEFAULT 0 COMMENT '是否启用广告：0-禁用，1-启用',
     created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     INDEX idx_product_category (category_id),
@@ -296,3 +299,28 @@ INSERT INTO tb_coupon (name, description, type, discount_amount, min_amount, tot
 ('满500减100', '满500元立减100元', 1, 100.00, 500.00, 200, 1, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1),
 ('8折优惠券', '全场商品8折优惠', 2, NULL, 200.00, 300, 1, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1),
 ('无门槛10元券', '无门槛立减10元', 3, 10.00, 0.00, 2000, 3, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1);
+
+
+-- =====================================================
+-- 14. 音乐表 (music)
+-- =====================================================
+DROP TABLE IF EXISTS music;
+CREATE TABLE music (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '音乐ID',
+    title VARCHAR(100) NOT NULL COMMENT '歌曲名称',
+    artist VARCHAR(100) DEFAULT NULL COMMENT '歌手',
+    url VARCHAR(500) NOT NULL COMMENT '音乐文件URL',
+    cover VARCHAR(500) DEFAULT NULL COMMENT '封面图片URL',
+    duration INT DEFAULT NULL COMMENT '时长(秒)',
+    sort_order INT DEFAULT 0 COMMENT '排序',
+    status TINYINT DEFAULT 1 COMMENT '状态：1-启用，0-禁用',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_music_status (status),
+    INDEX idx_music_sort (sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='音乐表';
+
+-- 插入示例音乐数据
+INSERT INTO music (title, artist, url, cover, sort_order, status) VALUES
+('轻音乐1', '纯音乐', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', NULL, 1, 1),
+('轻音乐2', '纯音乐', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', NULL, 2, 1);

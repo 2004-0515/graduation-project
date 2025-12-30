@@ -97,4 +97,23 @@ public class ReviewController {
         boolean reviewed = reviewService.hasReviewed(orderId, productId);
         return Response.success(reviewed);
     }
+    
+    /**
+     * 删除自己的评价
+     */
+    @DeleteMapping("/{id}")
+    public Response<Void> deleteReview(@PathVariable Long id) {
+        String username = SecurityUtils.getCurrentUsername();
+        User user = userService.findByUsername(username);
+        if (user == null) {
+            return Response.fail(401, "请先登录");
+        }
+        
+        try {
+            reviewService.deleteReview(id, user.getId());
+            return Response.success("删除成功", null);
+        } catch (Exception e) {
+            return Response.fail(400, e.getMessage());
+        }
+    }
 }
