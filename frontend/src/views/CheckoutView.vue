@@ -226,25 +226,34 @@ const loadOrderItems = async () => {
     } catch (error) {
       console.error('获取商品失败:', error)
     }
-  } else if (cartStore.items.length > 0) {
-    orderItems.value = cartStore.items
-      .filter(item => item.selected !== false)
-      .map(item => ({
-        id: item.productId,
-        name: item.productName,
-        mainImage: item.productImage,
-        price: item.price,
-        quantity: item.quantity
-      }))
-    sessionStorage.setItem(CHECKOUT_ITEMS_KEY, JSON.stringify(orderItems.value))
   } else {
-    const savedItems = sessionStorage.getItem(CHECKOUT_ITEMS_KEY)
-    if (savedItems) {
-      try {
-        orderItems.value = JSON.parse(savedItems)
-      } catch (e) {
-        console.error('解析订单数据失败:', e)
-        orderItems.value = []
+    // 先尝试从 cartStore 获取
+    if (cartStore.items.length === 0) {
+      // 如果购物车为空，尝试重新获取
+      await cartStore.fetchCart()
+    }
+    
+    if (cartStore.items.length > 0) {
+      orderItems.value = cartStore.items
+        .filter(item => item.selected !== false)
+        .map(item => ({
+          id: item.productId,
+          name: item.productName,
+          mainImage: item.productImage,
+          price: item.price,
+          quantity: item.quantity
+        }))
+      sessionStorage.setItem(CHECKOUT_ITEMS_KEY, JSON.stringify(orderItems.value))
+    } else {
+      // 从 sessionStorage 恢复
+      const savedItems = sessionStorage.getItem(CHECKOUT_ITEMS_KEY)
+      if (savedItems) {
+        try {
+          orderItems.value = JSON.parse(savedItems)
+        } catch (e) {
+          console.error('解析订单数据失败:', e)
+          orderItems.value = []
+        }
       }
     }
   }

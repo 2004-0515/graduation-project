@@ -24,7 +24,7 @@
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column label="头像" width="60">
             <template #default="{ row }">
-              <el-avatar :size="36" :src="row.avatar || defaultAvatar">{{ row.username?.charAt(0).toUpperCase() }}</el-avatar>
+              <el-avatar :size="36" :src="getAvatarUrl(row.avatar)">{{ row.username?.charAt(0).toUpperCase() }}</el-avatar>
             </template>
           </el-table-column>
           <el-table-column prop="username" label="用户名" width="100" />
@@ -63,7 +63,7 @@
       <el-dialog v-model="detailVisible" title="用户详情" width="600px">
         <div class="user-detail" v-if="currentUser">
           <div class="user-header">
-            <el-avatar :size="80" :src="currentUser.avatar || defaultAvatar">{{ currentUser.username?.charAt(0).toUpperCase() }}</el-avatar>
+            <el-avatar :size="80" :src="getAvatarUrl(currentUser.avatar)">{{ currentUser.username?.charAt(0).toUpperCase() }}</el-avatar>
             <div class="user-info">
               <h3>{{ currentUser.nickname || currentUser.username }}</h3>
               <p>@{{ currentUser.username }}</p>
@@ -120,6 +120,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
+import fileApi from '@/api/fileApi'
 
 const users = ref<any[]>([])
 const loading = ref(false)
@@ -128,6 +129,8 @@ const currentUser = ref<any>(null)
 
 const searchKeyword = ref('')
 const filterStatus = ref<number | null>(null)
+
+const getAvatarUrl = (avatar: string) => fileApi.getImageUrl(avatar)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)

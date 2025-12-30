@@ -10,11 +10,35 @@
         <router-link to="/category" class="nav-link" :class="{ active: $route.path.startsWith('/category') }">全部商品</router-link>
         <router-link to="/hot" class="nav-link" :class="{ active: $route.path === '/hot' }">热销榜</router-link>
         <router-link to="/promotions" class="nav-link" :class="{ active: $route.path === '/promotions' }">促销活动</router-link>
+        <router-link to="/ai-recommend" class="nav-link ai-link" :class="{ active: $route.path === '/ai-recommend' }">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+          </svg>
+          AI推荐
+        </router-link>
       </div>
       
       <div class="nav-actions">
-        <div class="search-box">
-          <input type="text" placeholder="搜索商品..." v-model="query" @keyup.enter="search" />
+        <div class="search-box" :class="{ focused: searchFocused }">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input 
+            type="text" 
+            placeholder="搜索商品..." 
+            v-model="query" 
+            @keyup.enter="search"
+            @focus="searchFocused = true"
+            @blur="searchFocused = false"
+          />
+          <button v-if="query" class="clear-btn" @click="clearSearch">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+          <button class="search-btn" @click="search">
+            搜索
+          </button>
         </div>
         
         <!-- 消息通知 -->
@@ -94,6 +118,8 @@
         <router-link to="/" @click="open = false">首页</router-link>
         <router-link to="/category" @click="open = false">全部商品</router-link>
         <router-link to="/hot" @click="open = false">热销榜</router-link>
+        <router-link to="/promotions" @click="open = false">促销活动</router-link>
+        <router-link to="/ai-recommend" @click="open = false">AI推荐</router-link>
         <router-link to="/cart" @click="open = false">购物车</router-link>
         <router-link to="/notifications" @click="open = false">消息通知</router-link>
         <router-link v-if="!userStore.isLoggedIn" to="/login" @click="open = false">登录</router-link>
@@ -124,19 +150,40 @@ const notificationStore = useNotificationStore()
 const open = ref(false)
 const query = ref('')
 const showDropdown = ref(false)
-const defaultAvatar = 'https://api.dicebear.com/7.x/notionists/svg?seed=default'
+const searchFocused = ref(false)
+// 默认头像 - 使用本地SVG或用户首字母
+const defaultAvatarUrl = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="#9EC5FF" width="100" height="100"/><text x="50" y="60" font-size="40" fill="white" text-anchor="middle" font-family="Arial">U</text></svg>`)
 
 // 计算属性：用户头像
 const userAvatar = computed(() => {
   const avatar = userStore.userInfo?.avatar
-  if (!avatar) return defaultAvatar
-  return fileApi.getImageUrl(avatar)
+  if (avatar) {
+    return fileApi.getImageUrl(avatar)
+  }
+  // 没有头像时，生成带首字母的默认头像
+  const initial = userStore.userInfo?.nickname?.charAt(0) || userStore.userInfo?.username?.charAt(0)?.toUpperCase() || 'U'
+  return 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#9EC5FF"/><stop offset="100%" style="stop-color:#5A8FD4"/></linearGradient></defs><rect fill="url(#g)" width="100" height="100"/><text x="50" y="62" font-size="42" fill="white" text-anchor="middle" font-family="Arial, sans-serif" font-weight="600">${initial}</text></svg>`)
 })
 
 // 判断是否为管理员（用户名为 admin）
 const isAdmin = computed(() => userStore.userInfo?.username === 'admin')
 
-const search = () => { if (query.value.trim()) router.push(`/category?q=${query.value}`) }
+const search = () => { 
+  if (query.value.trim()) {
+    router.push(`/category?q=${encodeURIComponent(query.value.trim())}`)
+  } else {
+    // 搜索框为空时，跳转到全部商品页面（清除搜索条件）
+    router.push('/category')
+  }
+}
+
+const clearSearch = () => {
+  query.value = ''
+  // 如果当前在商品分类页面，清除搜索条件
+  if (router.currentRoute.value.path === '/category') {
+    router.push('/category')
+  }
+}
 
 const handleLogout = async () => {
   await userStore.logout()
@@ -237,24 +284,109 @@ onMounted(() => {
   color: var(--text-title);
 }
 
+.nav-link.ai-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(158, 197, 255, 0.2), rgba(90, 143, 212, 0.15));
+  border-radius: 20px;
+  color: #5A8FD4;
+}
+
+.nav-link.ai-link:hover {
+  background: linear-gradient(135deg, rgba(158, 197, 255, 0.35), rgba(90, 143, 212, 0.25));
+  color: #4A7FC4;
+}
+
+.nav-link.ai-link.active {
+  background: linear-gradient(135deg, #9EC5FF, #5A8FD4);
+  color: #fff;
+}
+
+.nav-link.ai-link.active::after {
+  display: none;
+}
+
 .nav-actions {
   display: flex;
   align-items: center;
   gap: 16px;
 }
 
-.search-box input {
-  width: 200px;
-  padding: 12px 18px;
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
   background: rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(200, 200, 220, 0.2);
   border-radius: 24px;
-  font-size: 14px;
+  transition: all 0.3s;
 }
 
-.search-box input:focus {
+.search-box.focused {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(90, 143, 212, 0.4);
+  box-shadow: 0 0 0 3px rgba(90, 143, 212, 0.1);
+}
+
+.search-box .search-icon {
+  position: absolute;
+  left: 14px;
+  color: #999;
+  pointer-events: none;
+}
+
+.search-box.focused .search-icon {
+  color: #5A8FD4;
+}
+
+.search-box input {
+  width: 180px;
+  padding: 10px 14px 10px 40px;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  outline: none;
+}
+
+.search-box.focused input {
   width: 220px;
-  background: rgba(255, 255, 255, 0.9);
+}
+
+.search-box .clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.1);
+  border: none;
+  border-radius: 50%;
+  color: #666;
+  cursor: pointer;
+  margin-right: 6px;
+  transition: all 0.2s;
+}
+
+.search-box .clear-btn:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.search-box .search-btn {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #9EC5FF, #5A8FD4);
+  border: none;
+  border-radius: 20px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-right: 4px;
+  transition: all 0.2s;
+}
+
+.search-box .search-btn:hover {
+  background: linear-gradient(135deg, #8BB8FF, #4A7FC4);
 }
 
 .icon-btn {

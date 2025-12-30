@@ -10,6 +10,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 /**
  * 用户服务类，处理用户相关业务逻辑
  */
@@ -40,6 +42,15 @@ public class UserService {
      */
     public User findByUsername(String username) {
         return userRepository.findByUsername(username);
+    }
+    
+    /**
+     * 根据ID查询用户
+     * @param id 用户ID
+     * @return 用户信息
+     */
+    public User findById(Long id) {
+        return userRepository.findById(id).orElse(null);
     }
     
     /**
@@ -147,5 +158,18 @@ public class UserService {
             throw new com.shopping.exception.ResourceNotFoundException("用户", userId);
         }
         userRepository.deleteById(userId);
+    }
+    
+    /**
+     * 获取所有管理员用户
+     * @return 管理员用户列表
+     */
+    public List<User> getAdminUsers() {
+        // 在这个系统中，管理员是username为"admin"的用户
+        User admin = userRepository.findByUsername("admin");
+        if (admin != null) {
+            return List.of(admin);
+        }
+        return List.of();
     }
 }

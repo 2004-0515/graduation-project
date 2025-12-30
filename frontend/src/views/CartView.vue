@@ -126,6 +126,10 @@ const clearSelected = async () => {
 
 const goCheckout = () => {
   if (selectedCount.value === 0) { ElMessage.warning('请选择商品'); return }
+  // 同步选中状态到 cartStore
+  cartStore.items.forEach((item, index) => {
+    item.selected = cartItems.value[index]?.selected ?? true
+  })
   router.push('/checkout')
 }
 

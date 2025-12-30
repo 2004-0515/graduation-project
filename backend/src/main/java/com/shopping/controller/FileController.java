@@ -1,8 +1,11 @@
 package com.shopping.controller;
 
 import com.shopping.dto.Response;
+import com.shopping.entity.Product;
 import com.shopping.entity.UploadFile;
 import com.shopping.entity.User;
+import com.shopping.service.NotificationService;
+import com.shopping.service.ProductService;
 import com.shopping.service.UploadFileService;
 import com.shopping.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,18 +28,15 @@ import java.util.UUID;
 /**
  * 文件上传控制器
  * 
- * 文件存储结构:
+ * 文件存储结构（类型/分类 + 年月）:
  * uploads/
- * ├── avatars/          # 用户头像
- * │   └── 2025/01/      # 按年月分类
- * ├── products/         # 商品图片
- * │   └── 2025/01/
- * ├── categories/       # 分类图片
- * │   └── 2025/01/
- * ├── promotions/       # 促销活动图片
- * │   └── 2025/01/
- * └── reviews/          # 评价图片
- *     └── 2025/01/
+ * ├── avatars/2025/01/           # 用户头像（按年月）
+ * ├── products/                   # 商品图片（按分类+年月）
+ * │   └── {分类名}/2025/01/
+ * ├── categories/2025/01/         # 分类图片（按年月）
+ * ├── promotions/2025/01/         # 促销活动图片（按年月）
+ * ├── banners/2025/01/            # 轮播图（按年月）
+ * └── reviews/2025/01/            # 评价图片（按年月）
  */
 @RestController
 @RequestMapping("/files")
@@ -47,9 +47,15 @@ public class FileController {
 
     @Autowired
     private UserService userService;
+    
+    @Autowired
+    private NotificationService notificationService;
 
     @Autowired
     private UploadFileService uploadFileService;
+    
+    @Autowired
+    private ProductService productService;
 
     /**
      * 文件类型枚举
@@ -84,8 +90,11 @@ public class FileController {
      * 上传商品图片
      */
     @PostMapping("/product")
-    public Response<String> uploadProductImage(@RequestParam("file") MultipartFile file) {
-        return uploadFile(file, FileType.PRODUCT);
+    public Response<String> uploadProductImage(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) String categoryName,
+            @RequestParam(required = false) Long productId) {
+        return uploadProductFile(file, categoryName, productId);
     }
 
     /**
@@ -150,7 +159,73 @@ public class FileController {
             return Response.fail(404, "文件不存在");
         }
 
+        // 审核通过时，更新关联的头像或商品图片
+        if (status == 1) {
+            try {
+                if ("AVATAR".equals(file.getFileType())) {
+                    // 更新用户头像
+                    User user = userService.findById(file.getUserId());
+                    if (user != null) {
+                        System.out.println("更新用户头像: userId=" + user.getId() + ", avatar=" + file.getFilePath());
+                        user.setAvatar(file.getFilePath());
+                        userService.saveUser(user);
+                        System.out.println("用户头像更新成功");
+                    } else {
+                        System.err.println("未找到用户: userId=" + file.getUserId());
+                    }
+                } else if ("PRODUCT".equals(file.getFileType()) && file.getRelatedId() != null) {
+                    // 更新商品图片
+                    Product product = productService.findById(file.getRelatedId());
+                    if (product != null) {
+                        System.out.println("更新商品图片: productId=" + product.getId() + ", image=" + file.getFilePath());
+                        product.setMainImage(file.getFilePath());
+                        productService.saveProduct(product);
+                        System.out.println("商品图片更新成功");
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("更新关联记录失败: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+
+        // 发送通知给上传者
+        try {
+            String fileTypeName = getFileTypeName(file.getFileType());
+            String title, message;
+            
+            if (status == 1) {
+                title = fileTypeName + "审核通过";
+                message = "您上传的" + fileTypeName + "已通过审核，现已生效。";
+            } else {
+                title = fileTypeName + "审核未通过";
+                message = "您上传的" + fileTypeName + "未通过审核。" + 
+                         (remark != null && !remark.isEmpty() ? "原因：" + remark : "请重新上传符合要求的图片。");
+            }
+            
+            notificationService.createNotification(file.getUserId(), "system", title, message, null);
+        } catch (Exception e) {
+            // 通知发送失败不影响审核结果
+            System.err.println("发送审核通知失败: " + e.getMessage());
+        }
+
         return Response.success(status == 1 ? "审核通过" : "已拒绝", file);
+    }
+    
+    /**
+     * 获取文件类型的中文名称
+     */
+    private String getFileTypeName(String fileType) {
+        if (fileType == null) return "文件";
+        switch (fileType.toUpperCase()) {
+            case "AVATAR": return "头像";
+            case "PRODUCT": return "商品图片";
+            case "CATEGORY": return "分类图片";
+            case "BANNER": return "轮播图";
+            case "PROMOTION": return "促销图片";
+            case "REVIEW": return "评价图片";
+            default: return "文件";
+        }
     }
 
     /**
@@ -188,7 +263,7 @@ public class FileController {
     }
 
     /**
-     * 通用文件上传方法
+     * 通用文件上传方法（按类型+年月存储）
      */
     private Response<String> uploadFile(MultipartFile file, FileType fileType) {
         if (file.isEmpty()) {
@@ -219,7 +294,7 @@ public class FileController {
             // 判断是否为管理员
             boolean isAdmin = "admin".equals(username);
 
-            // 按年月创建子目录
+            // 按类型+年月存储
             String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
             Path uploadPath = Paths.get(uploadDir, fileType.folder, datePath);
             if (!Files.exists(uploadPath)) {
@@ -264,6 +339,20 @@ public class FileController {
                 }
             } else {
                 uploadFile.setStatus(UploadFile.STATUS_PENDING);
+                
+                // 通知管理员有新的待审核文件
+                try {
+                    String fileTypeName = getFileTypeName(fileType.name());
+                    User admin = userService.findByUsername("admin");
+                    if (admin != null) {
+                        String title = "新的" + fileTypeName + "待审核";
+                        String message = "用户 " + username + " 上传了新的" + fileTypeName + "，请及时审核。";
+                        notificationService.createNotification(admin.getId(), "system", title, message, null);
+                    }
+                } catch (Exception e) {
+                    // 通知发送失败不影响上传
+                    System.err.println("发送审核通知给管理员失败: " + e.getMessage());
+                }
             }
 
             uploadFileService.save(uploadFile);
@@ -273,5 +362,137 @@ public class FileController {
         } catch (IOException e) {
             return Response.fail(500, "文件上传失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 上传商品图片（按分类+年月存储）
+     */
+    private Response<String> uploadProductFile(MultipartFile file, String categoryName, Long productId) {
+        if (file.isEmpty()) {
+            return Response.fail(400, "请选择要上传的文件");
+        }
+
+        // 验证文件类型
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            return Response.fail(400, "只能上传图片文件");
+        }
+
+        // 验证文件大小 (5MB)
+        long maxSize = 5 * 1024L * 1024L;
+        if (file.getSize() > maxSize) {
+            return Response.fail(400, "图片大小不能超过5MB");
+        }
+
+        try {
+            // 获取当前用户
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String username = auth.getName();
+            User user = userService.findByUsername(username);
+            if (user == null) {
+                return Response.fail(401, "用户未登录");
+            }
+
+            // 判断是否为管理员
+            boolean isAdmin = "admin".equals(username);
+
+            // 年月路径
+            String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
+            
+            // 确定存储路径：分类名/年月 或 其他/年月
+            String categoryFolder = (categoryName != null && !categoryName.trim().isEmpty()) 
+                ? sanitizeFolderName(categoryName) 
+                : "其他";
+            
+            Path uploadPath = Paths.get(uploadDir, "products", categoryFolder, datePath);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+
+            // 生成唯一文件名
+            String originalFilename = file.getOriginalFilename();
+            String extension = "";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+            }
+            String newFilename = UUID.randomUUID().toString() + extension;
+
+            // 保存文件
+            Path filePath = uploadPath.resolve(newFilename);
+            Files.copy(file.getInputStream(), filePath);
+
+            // 生成访问URL
+            String fileUrl = "/uploads/products/" + categoryFolder + "/" + datePath + "/" + newFilename;
+
+            // 创建上传记录
+            createUploadRecord(file, user, username, isAdmin, fileUrl, productId);
+
+            String message = isAdmin ? "上传成功" : "上传成功，等待管理员审核";
+            return Response.success(message, fileUrl);
+        } catch (IOException e) {
+            return Response.fail(500, "文件上传失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 创建商品图片上传记录
+     */
+    private void createUploadRecord(MultipartFile file, User user, String username, boolean isAdmin, String fileUrl, Long productId) {
+        UploadFile uploadFile = new UploadFile();
+        uploadFile.setFileType("PRODUCT");
+        uploadFile.setFilePath(fileUrl);
+        uploadFile.setOriginalName(file.getOriginalFilename());
+        uploadFile.setFileSize(file.getSize());
+        uploadFile.setUserId(user.getId());
+        uploadFile.setUsername(username);
+        uploadFile.setRelatedId(productId);  // 关联商品ID
+
+        if (isAdmin) {
+            uploadFile.setStatus(UploadFile.STATUS_APPROVED);
+            uploadFile.setReviewerId(user.getId());
+            uploadFile.setReviewerName(username);
+            uploadFile.setReviewRemark("管理员上传，自动通过");
+            
+            // 管理员上传直接更新商品图片
+            if (productId != null) {
+                try {
+                    Product product = productService.findById(productId);
+                    if (product != null) {
+                        product.setMainImage(fileUrl);
+                        productService.saveProduct(product);
+                    }
+                } catch (Exception e) {
+                    System.err.println("更新商品图片失败: " + e.getMessage());
+                }
+            }
+        } else {
+            uploadFile.setStatus(UploadFile.STATUS_PENDING);
+            
+            // 通知管理员有新的待审核文件
+            try {
+                User admin = userService.findByUsername("admin");
+                if (admin != null) {
+                    String title = "新的商品图片待审核";
+                    String message = "用户 " + username + " 上传了新的商品图片，请及时审核。";
+                    notificationService.createNotification(admin.getId(), "system", title, message, null);
+                }
+            } catch (Exception e) {
+                System.err.println("发送审核通知给管理员失败: " + e.getMessage());
+            }
+        }
+
+        uploadFileService.save(uploadFile);
+    }
+
+    /**
+     * 将分类名转换为安全的文件夹名
+     */
+    private String sanitizeFolderName(String name) {
+        if (name == null) return "other";
+        // 移除特殊字符，只保留中文、字母、数字
+        String sanitized = name.trim()
+                .replaceAll("[\\\\/:*?\"<>|]", "")  // 移除Windows不允许的字符
+                .replaceAll("\\s+", "_");           // 空格替换为下划线
+        return sanitized.isEmpty() ? "other" : sanitized;
     }
 }

@@ -23,6 +23,7 @@
         <router-link to="/admin/orders" class="nav-item" :class="{ active: $route.path.startsWith('/admin/orders') }">
           <span class="nav-icon">订单</span>
           <span class="nav-text">订单管理</span>
+          <span v-if="pendingOrderCount > 0" class="pending-badge">{{ pendingOrderCount }}</span>
         </router-link>
         <router-link to="/admin/users" class="nav-item" :class="{ active: $route.path.startsWith('/admin/users') }">
           <span class="nav-icon">用户</span>
@@ -67,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/userStore'
@@ -78,6 +79,7 @@ const router = useRouter()
 const userStore = useUserStore()
 const pendingCount = ref(0)
 const pendingProductCount = ref(0)
+const pendingOrderCount = ref(0)
 
 const pageTitle = computed(() => {
   const titles: Record<string, string> = {
@@ -115,6 +117,31 @@ const fetchPendingProductCount = async () => {
   }
 }
 
+const fetchPendingOrderCount = async () => {
+  try {
+    // 获取待发货订单数量（状态1=已支付待发货）
+    const res: any = await axios.get('/orders/pending/count')
+    if (res?.code === 200) {
+      pendingOrderCount.value = res.data || 0
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+// 刷新所有待处理数量
+const refreshPendingCounts = () => {
+  fetchPendingCount()
+  fetchPendingProductCount()
+  fetchPendingOrderCount()
+}
+
+// 提供给子组件调用的刷新方法
+provide('refreshPendingCounts', refreshPendingCounts)
+provide('refreshPendingOrderCount', fetchPendingOrderCount)
+provide('refreshPendingProductCount', fetchPendingProductCount)
+provide('refreshPendingFileCount', fetchPendingCount)
+
 const handleLogout = async () => {
   await userStore.logout()
   ElMessage.success('已退出登录')
@@ -124,6 +151,7 @@ const handleLogout = async () => {
 onMounted(() => {
   fetchPendingCount()
   fetchPendingProductCount()
+  fetchPendingOrderCount()
 })
 </script>
 

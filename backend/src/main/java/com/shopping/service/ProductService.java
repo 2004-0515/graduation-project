@@ -54,6 +54,13 @@ public class ProductService {
     }
     
     /**
+     * 根据ID获取商品（别名方法）
+     */
+    public Product findById(Long id) {
+        return getProductById(id);
+    }
+    
+    /**
      * 根据分类ID获取商品列表
      * @param categoryId 分类ID
      * @return 商品列表

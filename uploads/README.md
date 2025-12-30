@@ -1,17 +1,12 @@
 # 图片资源文件夹
 
-此文件夹用于存放网站所需的各类图片资源。
+此文件夹用于存放雅集商城系统所需的各类图片资源。
 
 ## 文件夹结构
 
 ```
 uploads/
 ├── products/           # 商品图片
-│   ├── electronics/    # 电子产品
-│   ├── clothing/       # 服装
-│   ├── food/           # 食品
-│   ├── home/           # 家居用品
-│   └── other/          # 其他商品
 ├── categories/         # 分类图标/封面图
 ├── avatars/            # 用户头像
 ├── banners/            # 首页轮播图/广告横幅
@@ -29,9 +24,16 @@ uploads/
 | 用户头像 | 200x200 | jpg/png | 2MB |
 | 轮播横幅 | 1920x600 | jpg | 5MB |
 | 促销海报 | 800x400 | jpg/png | 5MB |
+| 评价图片 | 800x800 | jpg/png | 5MB |
 
 ## 命名规范
 
 - 使用小写字母和数字
 - 单词之间用下划线连接
 - 示例: `product_001.jpg`, `banner_spring_sale.png`
+
+## 访问方式
+
+图片通过后端静态资源服务访问：
+- URL格式: `http://localhost:8080/uploads/products/xxx.jpg`
+- 前端使用相对路径: `/uploads/products/xxx.jpg`

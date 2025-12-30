@@ -133,8 +133,11 @@ import Footer from '../components/Footer.vue'
 import notificationApi, { type Notification } from '../api/notificationApi'
 import { useNotificationStore } from '../stores/notificationStore'
 
+import { useUserStore } from '../stores/userStore'
+
 const router = useRouter()
 const notificationStore = useNotificationStore()
+const userStore = useUserStore()
 
 const tabs = [
   { name: 'all', label: '全部' },
@@ -208,15 +211,25 @@ const openDetail = async (item: Notification) => {
 
 const goToOrder = () => {
   detailVisible.value = false
-  // 从消息内容中提取订单号（格式：您的订单 XXX 状态更新）
-  if (currentNotification.value?.message) {
-    const match = currentNotification.value.message.match(/订单\s*(\S+)\s/)
-    if (match && match[1]) {
-      router.push(`/orders?search=${match[1]}`)
-      return
+  
+  // 判断是否是管理员
+  const isAdmin = userStore.userInfo?.username === 'admin'
+  
+  if (isAdmin) {
+    // 管理员跳转到订单管理页面
+    router.push('/admin/orders')
+  } else {
+    // 普通用户跳转到我的订单页面
+    // 从消息内容中提取订单号（格式：您的订单 XXX 状态更新）
+    if (currentNotification.value?.message) {
+      const match = currentNotification.value.message.match(/订单\s*(\S+)\s/)
+      if (match && match[1]) {
+        router.push(`/orders?search=${match[1]}`)
+        return
+      }
     }
+    router.push('/orders')
   }
-  router.push('/orders')
 }
 
 const goToCoupon = () => {

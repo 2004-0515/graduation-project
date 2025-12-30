@@ -63,10 +63,8 @@
             <div class="image-upload-area">
               <el-upload
                 class="avatar-uploader"
-                :action="uploadUrl"
-                :headers="uploadHeaders"
                 :show-file-list="false"
-                :on-success="handleUploadSuccess"
+                :http-request="handleImageUpload"
                 :before-upload="beforeUpload"
                 accept="image/*"
               >
@@ -95,16 +93,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
 import axios from '@/utils/axios'
 import fileApi from '@/api/fileApi'
-import { useUserStore } from '@/stores/userStore'
 
-const userStore = useUserStore()
 const products = ref<any[]>([])
 const categories = ref<any[]>([])
 const loading = ref(false)
@@ -114,11 +110,6 @@ const isEdit = ref(false)
 const editId = ref<number | null>(null)
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
-
-const uploadUrl = computed(() => `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/files/product`)
-const uploadHeaders = computed(() => ({
-  Authorization: `Bearer ${userStore.token}`
-}))
 
 const form = reactive({
   name: '',
@@ -201,13 +192,23 @@ const beforeUpload = (file: File) => {
   return true
 }
 
-const handleUploadSuccess = (response: any) => {
-  if (response.code === 200) {
-    // 后端直接返回URL字符串
-    form.mainImage = response.data
-    ElMessage.success('图片上传成功')
-  } else {
-    ElMessage.error(response.message || '上传失败')
+const handleImageUpload = async (options: any) => {
+  try {
+    // 获取当前选择的分类名称，用于按分类存储图片
+    const categoryName = form.categoryId 
+      ? categories.value.find(c => c.id === form.categoryId)?.name 
+      : undefined
+    // 编辑时传入商品ID，审核通过后自动更新商品图片
+    const productId = isEdit.value && editId.value ? editId.value : undefined
+    const res: any = await fileApi.uploadProductImage(options.file, categoryName, productId)
+    if (res?.code === 200 && res.data) {
+      form.mainImage = res.data
+      ElMessage.success(res.message || '图片上传成功')
+    } else {
+      ElMessage.error(res?.message || '上传失败')
+    }
+  } catch (e) {
+    ElMessage.error('图片上传失败')
   }
 }
 

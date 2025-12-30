@@ -33,40 +33,47 @@
         </div>
       </div>
 
-      <!-- 快捷操作 -->
-      <div class="section">
-        <h3>快捷操作</h3>
-        <div class="quick-actions">
-          <router-link to="/admin/products" class="action-btn">
-            <span class="action-icon">+</span>
-            <span>添加商品</span>
-          </router-link>
-          <router-link to="/admin/categories" class="action-btn">
-            <span class="action-icon">+</span>
-            <span>添加分类</span>
-          </router-link>
-          <router-link to="/admin/orders" class="action-btn">
-            <span class="action-icon">待</span>
-            <span>待处理订单 ({{ stats.pendingOrders }})</span>
-          </router-link>
-          <router-link to="/admin/products" class="action-btn warning">
-            <span class="action-icon">!</span>
-            <span>库存预警 ({{ stats.lowStockProducts }})</span>
-          </router-link>
+      <!-- 图表区域 -->
+      <div class="charts-row">
+        <!-- 销售趋势图 -->
+        <div class="chart-card">
+          <h3>近7天销售趋势</h3>
+          <div ref="salesChartRef" class="chart-container"></div>
+        </div>
+        <!-- 订单状态分布 -->
+        <div class="chart-card">
+          <h3>订单状态分布</h3>
+          <div ref="orderPieRef" class="chart-container"></div>
         </div>
       </div>
 
-      <!-- 今日数据 -->
-      <div class="section">
-        <h3>今日数据</h3>
-        <div class="today-stats">
-          <div class="today-item">
-            <span class="today-value">{{ stats.todayOrders }}</span>
-            <span class="today-label">今日订单</span>
-          </div>
-          <div class="today-item">
-            <span class="today-value">¥{{ stats.todayRevenue.toFixed(2) }}</span>
-            <span class="today-label">今日收入</span>
+      <!-- 第二行图表 -->
+      <div class="charts-row">
+        <!-- 商品分类销量 -->
+        <div class="chart-card">
+          <h3>商品分类销量TOP5</h3>
+          <div ref="categoryBarRef" class="chart-container"></div>
+        </div>
+        <!-- 今日数据 -->
+        <div class="chart-card today-card">
+          <h3>今日数据</h3>
+          <div class="today-stats">
+            <div class="today-item">
+              <span class="today-value">{{ stats.todayOrders }}</span>
+              <span class="today-label">今日订单</span>
+            </div>
+            <div class="today-item">
+              <span class="today-value">¥{{ stats.todayRevenue.toFixed(2) }}</span>
+              <span class="today-label">今日收入</span>
+            </div>
+            <div class="today-item">
+              <span class="today-value">{{ stats.pendingOrders }}</span>
+              <span class="today-label">待处理订单</span>
+            </div>
+            <div class="today-item warning">
+              <span class="today-value">{{ stats.lowStockProducts }}</span>
+              <span class="today-label">库存预警</span>
+            </div>
           </div>
         </div>
       </div>
@@ -108,9 +115,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
+import * as echarts from 'echarts'
 
 const stats = reactive({
   totalUsers: 0,
@@ -124,6 +132,17 @@ const stats = reactive({
 })
 
 const recentOrders = ref<any[]>([])
+const allOrders = ref<any[]>([])
+const allProducts = ref<any[]>([])
+
+// 图表引用
+const salesChartRef = ref<HTMLElement | null>(null)
+const orderPieRef = ref<HTMLElement | null>(null)
+const categoryBarRef = ref<HTMLElement | null>(null)
+
+let salesChart: echarts.ECharts | null = null
+let orderPieChart: echarts.ECharts | null = null
+let categoryBarChart: echarts.ECharts | null = null
 
 const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消' }[status] || '未知')
 const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled' }[status] || '')
@@ -134,20 +153,132 @@ const formatDate = (dateStr: string) => {
   return `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2,'0')}`
 }
 
+// 初始化销售趋势图
+const initSalesChart = () => {
+  if (!salesChartRef.value) return
+  salesChart = echarts.init(salesChartRef.value)
+  
+  // 计算近7天数据
+  const days: string[] = []
+  const salesData: number[] = []
+  const orderCountData: number[] = []
+  
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date()
+    date.setDate(date.getDate() - i)
+    const dateStr = `${date.getMonth()+1}/${date.getDate()}`
+    days.push(dateStr)
+    
+    const dayOrders = allOrders.value.filter(o => {
+      const orderDate = new Date(o.createdTime)
+      return orderDate.toDateString() === date.toDateString() && o.orderStatus >= 1
+    })
+    salesData.push(dayOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0))
+    orderCountData.push(dayOrders.length)
+  }
+  
+  salesChart.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+    legend: { data: ['销售额', '订单数'], bottom: 0 },
+    grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+    xAxis: { type: 'category', data: days, axisLine: { lineStyle: { color: '#ddd' } }, axisLabel: { color: '#666' } },
+    yAxis: [
+      { type: 'value', name: '销售额', axisLine: { show: false }, splitLine: { lineStyle: { color: '#f0f0f0' } }, axisLabel: { color: '#666', formatter: '¥{value}' } },
+      { type: 'value', name: '订单数', axisLine: { show: false }, splitLine: { show: false }, axisLabel: { color: '#666' } }
+    ],
+    series: [
+      { name: '销售额', type: 'bar', data: salesData, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#5A8FD4' }, { offset: 1, color: '#9EC5FF' }]), borderRadius: [4, 4, 0, 0] } },
+      { name: '订单数', type: 'line', yAxisIndex: 1, data: orderCountData, smooth: true, itemStyle: { color: '#f5a623' }, lineStyle: { width: 3 }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(245, 166, 35, 0.3)' }, { offset: 1, color: 'rgba(245, 166, 35, 0.05)' }]) } }
+    ]
+  })
+}
+
+// 初始化订单状态饼图
+const initOrderPieChart = () => {
+  if (!orderPieRef.value) return
+  orderPieChart = echarts.init(orderPieRef.value)
+  
+  const statusCount = [
+    { value: allOrders.value.filter(o => o.orderStatus === 0).length, name: '待付款' },
+    { value: allOrders.value.filter(o => o.orderStatus === 1).length, name: '待发货' },
+    { value: allOrders.value.filter(o => o.orderStatus === 2).length, name: '待收货' },
+    { value: allOrders.value.filter(o => o.orderStatus === 3).length, name: '已完成' },
+    { value: allOrders.value.filter(o => o.orderStatus === 4).length, name: '已取消' }
+  ].filter(item => item.value > 0)
+  
+  orderPieChart.setOption({
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    legend: { orient: 'vertical', right: '5%', top: 'center' },
+    series: [{
+      type: 'pie',
+      radius: ['40%', '70%'],
+      center: ['35%', '50%'],
+      avoidLabelOverlap: false,
+      itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
+      label: { show: false },
+      emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
+      data: statusCount,
+      color: ['#ffc107', '#5A8FD4', '#17a2b8', '#28a745', '#dc3545']
+    }]
+  })
+}
+
+// 初始化分类销量柱状图
+const initCategoryBarChart = () => {
+  if (!categoryBarRef.value) return
+  categoryBarChart = echarts.init(categoryBarRef.value)
+  
+  // 统计各分类销量
+  const categoryMap = new Map<string, number>()
+  allProducts.value.forEach(p => {
+    const catName = p.categoryName || '未分类'
+    categoryMap.set(catName, (categoryMap.get(catName) || 0) + (p.sales || 0))
+  })
+  
+  const sortedCategories = Array.from(categoryMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+  
+  categoryBarChart.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+    xAxis: { type: 'value', axisLine: { show: false }, splitLine: { lineStyle: { color: '#f0f0f0' } }, axisLabel: { color: '#666' } },
+    yAxis: { type: 'category', data: sortedCategories.map(c => c[0]).reverse(), axisLine: { lineStyle: { color: '#ddd' } }, axisLabel: { color: '#666' } },
+    series: [{
+      type: 'bar',
+      data: sortedCategories.map(c => c[1]).reverse(),
+      itemStyle: { 
+        color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+          { offset: 0, color: '#667eea' },
+          { offset: 1, color: '#764ba2' }
+        ]),
+        borderRadius: [0, 4, 4, 0]
+      },
+      barWidth: 20
+    }]
+  })
+}
+
 const fetchStats = async () => {
   try {
     // 获取用户数
     const usersRes: any = await adminApi.getUsers({ page: 0, size: 1 })
     if (usersRes?.code === 200) stats.totalUsers = usersRes.data?.totalElements || 0
 
-    // 获取商品数
-    const productsRes: any = await adminApi.getProducts({ page: 0, size: 1 })
-    if (productsRes?.code === 200) stats.totalProducts = productsRes.data?.totalElements || 0
+    // 获取商品数据
+    const productsRes: any = await adminApi.getProducts({ page: 0, size: 1000 })
+    if (productsRes?.code === 200) {
+      const products = productsRes.data?.content || []
+      allProducts.value = products
+      stats.totalProducts = productsRes.data?.totalElements || products.length
+      stats.lowStockProducts = products.filter((p: any) => p.stock < 10).length
+    }
 
-    // 获取订单数据（使用管理员API获取所有订单）
-    const ordersRes: any = await adminApi.getAllOrders({ page: 0, size: 100 })
+    // 获取订单数据
+    const ordersRes: any = await adminApi.getAllOrders({ page: 0, size: 1000 })
     if (ordersRes?.code === 200) {
       const orders = ordersRes.data || []
+      allOrders.value = orders
       stats.totalOrders = orders.length
       stats.totalRevenue = orders.filter((o: any) => o.orderStatus >= 1).reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0)
       stats.pendingOrders = orders.filter((o: any) => o.orderStatus === 0 || o.orderStatus === 1).length
@@ -162,18 +293,34 @@ const fetchStats = async () => {
       recentOrders.value = orders.slice(0, 5)
     }
 
-    // 低库存商品
-    const allProductsRes: any = await adminApi.getProducts({ page: 0, size: 100 })
-    if (allProductsRes?.code === 200) {
-      const products = allProductsRes.data?.content || []
-      stats.lowStockProducts = products.filter((p: any) => p.stock < 10).length
-    }
+    // 初始化图表
+    await nextTick()
+    initSalesChart()
+    initOrderPieChart()
+    initCategoryBarChart()
   } catch (e) {
     console.error('获取统计数据失败:', e)
   }
 }
 
-onMounted(() => fetchStats())
+// 窗口大小变化时重绘图表
+const handleResize = () => {
+  salesChart?.resize()
+  orderPieChart?.resize()
+  categoryBarChart?.resize()
+}
+
+onMounted(() => {
+  fetchStats()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  salesChart?.dispose()
+  orderPieChart?.dispose()
+  categoryBarChart?.dispose()
+})
 </script>
 
 <style scoped>
@@ -183,7 +330,7 @@ onMounted(() => fetchStats())
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .stat-card {
@@ -217,6 +364,70 @@ onMounted(() => fetchStats())
 .stat-value { font-size: 28px; font-weight: 700; color: #1a1f36; }
 .stat-label { font-size: 14px; color: #666; margin-top: 4px; }
 
+/* 图表区域 */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.chart-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.chart-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1f36;
+  margin: 0 0 16px;
+}
+
+.chart-container {
+  height: 280px;
+}
+
+/* 今日数据卡片 */
+.today-card .today-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  height: 280px;
+  align-content: center;
+}
+
+.today-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+}
+
+.today-item.warning {
+  background: #fff3cd;
+}
+
+.today-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #5A8FD4;
+}
+
+.today-item.warning .today-value {
+  color: #856404;
+}
+
+.today-label {
+  font-size: 14px;
+  color: #666;
+  margin-top: 8px;
+}
+
 .section {
   background: #fff;
   border-radius: 12px;
@@ -245,75 +456,6 @@ onMounted(() => fetchStats())
   font-size: 14px;
   color: #5A8FD4;
   text-decoration: none;
-}
-
-.quick-actions {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  text-decoration: none;
-  color: #1a1f36;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s;
-}
-
-.action-btn:hover {
-  background: #e9ecef;
-}
-
-.action-btn.warning {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.action-icon {
-  width: 32px;
-  height: 32px;
-  background: #5A8FD4;
-  color: #fff;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.action-btn.warning .action-icon {
-  background: #ffc107;
-  color: #856404;
-}
-
-.today-stats {
-  display: flex;
-  gap: 48px;
-}
-
-.today-item {
-  display: flex;
-  flex-direction: column;
-}
-
-.today-value {
-  font-size: 32px;
-  font-weight: 700;
-  color: #5A8FD4;
-}
-
-.today-label {
-  font-size: 14px;
-  color: #666;
-  margin-top: 4px;
 }
 
 .orders-table {
@@ -366,11 +508,11 @@ onMounted(() => fetchStats())
 
 @media (max-width: 1200px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .quick-actions { grid-template-columns: repeat(2, 1fr); }
+  .charts-row { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 768px) {
   .stats-grid { grid-template-columns: 1fr; }
-  .quick-actions { grid-template-columns: 1fr; }
+  .today-card .today-stats { grid-template-columns: 1fr; }
 }
 </style>

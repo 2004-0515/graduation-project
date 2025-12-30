@@ -42,7 +42,7 @@
             <h3>商品信息</h3>
             <div class="items-list">
               <div v-for="item in order.items" :key="item.id" class="order-item" @click="$router.push(`/product/${item.productId}`)">
-                <img :src="item.productImage" class="item-img" @error="imgErr" />
+                <img :src="getImageUrl(item.productImage)" class="item-img" @error="imgErr" />
                 <div class="item-info">
                   <h4>{{ item.productName }}</h4>
                   <p>¥{{ item.productPrice }} × {{ item.quantity }}</p>
@@ -76,8 +76,11 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import orderApi from '../api/orderApi'
+import fileApi from '../api/fileApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+
+const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
 const route = useRoute()
 const router = useRouter()

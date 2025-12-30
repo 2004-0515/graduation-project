@@ -21,27 +21,28 @@ TRUNCATE TABLE tb_user;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- 用户表 20个
+-- 密码: 123456 (BCrypt加密后的完整哈希值)
 INSERT INTO tb_user (id, username, password, email, phone, nickname, bio, points, status, created_time, updated_time) VALUES
-(1, 'admin', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'admin@menggo.com', '13800000001', '管理员', '系统管理员', 99999, 1, NOW(), NOW()),
-(2, 'zhangsan', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'zhangsan@qq.com', '13812345678', '张三', '热爱购物', 2580, 1, NOW(), NOW()),
-(3, 'lisi', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'lisi@163.com', '13987654321', '李四', '数码爱好者', 1890, 1, NOW(), NOW()),
-(4, 'wangwu', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'wangwu@gmail.com', '13666666666', '王五', '时尚达人', 3200, 1, NOW(), NOW()),
-(5, 'zhaoliu', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'zhaoliu@126.com', '13555555555', '赵六', '美食爱好者', 1560, 1, NOW(), NOW()),
-(6, 'sunqi', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'sunqi@sina.com', '13444444444', '孙七', '运动达人', 980, 1, NOW(), NOW()),
-(7, 'zhouba', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'zhouba@qq.com', '13333333333', '周八', '家居爱好者', 2100, 1, NOW(), NOW()),
-(8, 'wujiu', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'wujiu@163.com', '13222222222', '吴九', '图书收藏家', 1750, 1, NOW(), NOW()),
-(9, 'zhengshi', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'zhengshi@gmail.com', '13111111111', '郑十', '护肤达人', 2890, 1, NOW(), NOW()),
-(10, 'xiaoming', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'xiaoming@qq.com', '15012345678', '小明', '学生党', 680, 1, NOW(), NOW()),
-(11, 'xiaohong', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'xiaohong@163.com', '15112345678', '小红', '白领丽人', 1420, 1, NOW(), NOW()),
-(12, 'daming', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'daming@126.com', '15212345678', '大明', '程序员', 3560, 1, NOW(), NOW()),
-(13, 'xiaoli', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'xiaoli@sina.com', '15312345678', '小丽', '全职妈妈', 890, 1, NOW(), NOW()),
-(14, 'laowang', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'laowang@qq.com', '15412345678', '老王', '退休教师', 2340, 1, NOW(), NOW()),
-(15, 'xiaozhang', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'xiaozhang@163.com', '15512345678', '小张', '自由职业', 1680, 1, NOW(), NOW()),
-(16, 'chenchen', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'chenchen@gmail.com', '15612345678', '晨晨', '大学生', 520, 1, NOW(), NOW()),
-(17, 'linlin', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'linlin@126.com', '15712345678', '琳琳', '设计师', 1950, 1, NOW(), NOW()),
-(18, 'yangyang', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'yangyang@sina.com', '15812345678', '洋洋', '销售经理', 2780, 1, NOW(), NOW()),
-(19, 'huihui', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'huihui@qq.com', '15912345678', '慧慧', '医生', 1230, 1, NOW(), NOW()),
-(20, 'mingming', '$2a$10$rDkPvvAFV8kqwvKJzwlCv.', 'mingming@163.com', '13012345678', '明明', '工程师', 3100, 1, NOW(), NOW());
+(1, 'admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'admin@menggo.com', '13800000001', '管理员', '系统管理员', 99999, 1, NOW(), NOW()),
+(2, 'zhangsan', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'zhangsan@qq.com', '13812345678', '张三', '热爱购物', 2580, 1, NOW(), NOW()),
+(3, 'lisi', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'lisi@163.com', '13987654321', '李四', '数码爱好者', 1890, 1, NOW(), NOW()),
+(4, 'wangwu', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'wangwu@gmail.com', '13666666666', '王五', '时尚达人', 3200, 1, NOW(), NOW()),
+(5, 'zhaoliu', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'zhaoliu@126.com', '13555555555', '赵六', '美食爱好者', 1560, 1, NOW(), NOW()),
+(6, 'sunqi', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'sunqi@sina.com', '13444444444', '孙七', '运动达人', 980, 1, NOW(), NOW()),
+(7, 'zhouba', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'zhouba@qq.com', '13333333333', '周八', '家居爱好者', 2100, 1, NOW(), NOW()),
+(8, 'wujiu', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'wujiu@163.com', '13222222222', '吴九', '图书收藏家', 1750, 1, NOW(), NOW()),
+(9, 'zhengshi', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'zhengshi@gmail.com', '13111111111', '郑十', '护肤达人', 2890, 1, NOW(), NOW()),
+(10, 'xiaoming', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'xiaoming@qq.com', '15012345678', '小明', '学生党', 680, 1, NOW(), NOW()),
+(11, 'xiaohong', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'xiaohong@163.com', '15112345678', '小红', '白领丽人', 1420, 1, NOW(), NOW()),
+(12, 'daming', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'daming@126.com', '15212345678', '大明', '程序员', 3560, 1, NOW(), NOW()),
+(13, 'xiaoli', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'xiaoli@sina.com', '15312345678', '小丽', '全职妈妈', 890, 1, NOW(), NOW()),
+(14, 'laowang', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'laowang@qq.com', '15412345678', '老王', '退休教师', 2340, 1, NOW(), NOW()),
+(15, 'xiaozhang', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'xiaozhang@163.com', '15512345678', '小张', '自由职业', 1680, 1, NOW(), NOW()),
+(16, 'chenchen', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'chenchen@gmail.com', '15612345678', '晨晨', '大学生', 520, 1, NOW(), NOW()),
+(17, 'linlin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'linlin@126.com', '15712345678', '琳琳', '设计师', 1950, 1, NOW(), NOW()),
+(18, 'yangyang', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'yangyang@sina.com', '15812345678', '洋洋', '销售经理', 2780, 1, NOW(), NOW()),
+(19, 'huihui', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'huihui@qq.com', '15912345678', '慧慧', '医生', 1230, 1, NOW(), NOW()),
+(20, 'mingming', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'mingming@163.com', '13012345678', '明明', '工程师', 3100, 1, NOW(), NOW());
 
 -- 分类表 12个
 INSERT INTO tb_category (id, name, description, parent_id, sort_order, status, created_time, updated_time) VALUES

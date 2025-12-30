@@ -43,6 +43,12 @@
           </aside>
 
           <div class="content">
+            <!-- 搜索提示 -->
+            <div v-if="searchKeyword" class="search-hint">
+              <span>搜索 "<em>{{ searchKeyword }}</em>" 的结果</span>
+              <button class="clear-search" @click="clearSearchKeyword">清除搜索</button>
+            </div>
+
             <div class="toolbar">
               <div class="sort-bar">
                 <span>排序：</span>
@@ -112,8 +118,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import productApi from '../api/productApi'
 import categoryApi from '../api/categoryApi'
 import fileApi from '../api/fileApi'
@@ -121,6 +127,7 @@ import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
 const route = useRoute()
+const router = useRouter()
 const products = ref<any[]>([])
 const categories = ref<any[]>([])
 const selectedCategory = ref<number | null>(null)
@@ -131,6 +138,15 @@ const currentPage = ref(1)
 const pageSize = ref(12)
 const total = ref(0)
 const loading = ref(false)
+
+// 搜索关键词
+const searchKeyword = computed(() => {
+  return (route.query.q || route.query.keyword || '') as string
+})
+
+const clearSearchKeyword = () => {
+  router.push('/category')
+}
 
 const imgErr = (e: Event) => { 
   const img = e.target as HTMLImageElement
@@ -179,17 +195,21 @@ const selectCategory = (id: number | null) => {
   selectedCategory.value = id
   currentPage.value = 1
   fetchProducts()
+  // 滚动到内容区域顶部
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 const changeSort = (sort: string) => {
   sortBy.value = sort
   currentPage.value = 1
   fetchProducts()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 const applyPriceFilter = () => {
   currentPage.value = 1
   fetchProducts()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 const clearPriceFilter = () => {
@@ -197,6 +217,7 @@ const clearPriceFilter = () => {
   maxPrice.value = null
   currentPage.value = 1
   fetchProducts()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 const handlePageChange = (page: number) => {
@@ -232,10 +253,53 @@ onMounted(() => {
 .page-header h1 { font-size: 2.25rem; font-weight: 500; margin: 0 0 8px; }
 .page-header p { font-size: 15px; color: var(--text-body); margin: 0; }
 
+/* 搜索提示 */
+.search-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, rgba(183, 212, 255, 0.15), rgba(90, 143, 212, 0.1));
+  border-radius: 10px;
+  border: 1px solid rgba(90, 143, 212, 0.2);
+}
+
+.search-hint span {
+  font-size: 14px;
+  color: var(--text-body);
+}
+
+.search-hint em {
+  color: #5A8FD4;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.search-hint .clear-search {
+  padding: 6px 14px;
+  background: #fff;
+  border: 1px solid rgba(90, 143, 212, 0.3);
+  border-radius: 6px;
+  font-size: 13px;
+  color: #5A8FD4;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.search-hint .clear-search:hover {
+  background: #5A8FD4;
+  color: #fff;
+}
+
 .layout { display: grid; grid-template-columns: 260px 1fr; gap: 32px; }
 
 /* 侧边栏 */
-.sidebar { padding: 24px; height: fit-content; position: sticky; top: 100px; }
+.sidebar { padding: 24px; height: fit-content; position: sticky; top: 100px; max-height: calc(100vh - 120px); overflow-y: auto; }
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(90, 143, 212, 0.2); border-radius: 2px; }
+.sidebar::-webkit-scrollbar-thumb:hover { background: rgba(90, 143, 212, 0.4); }
 .filter-group { margin-bottom: 28px; }
 .filter-group:last-child { margin-bottom: 0; }
 .filter-group h3 { font-size: 14px; font-weight: 600; color: var(--text-title); margin: 0 0 16px; text-transform: uppercase; letter-spacing: 1px; }

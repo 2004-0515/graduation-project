@@ -122,6 +122,19 @@ public class NotificationService {
         }
     }
 
+    /**
+     * 发送通知给所有管理员
+     */
+    @Transactional
+    public void sendToAllAdmins(String type, String title, String message, Long relatedId) {
+        List<User> admins = userService.getAdminUsers();
+        System.out.println("=== sendToAllAdmins: found " + admins.size() + " admins ===");
+        for (User admin : admins) {
+            System.out.println("=== Sending notification to admin: " + admin.getUsername() + " (id=" + admin.getId() + ") ===");
+            createNotification(admin.getId(), type, title, message, relatedId);
+        }
+    }
+
     private NotificationDto toDto(Notification n) {
         NotificationDto dto = new NotificationDto();
         dto.setId(n.getId());

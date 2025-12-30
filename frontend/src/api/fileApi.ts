@@ -26,10 +26,19 @@ const fileApi = {
 
   /**
    * 上传商品图片 (最大5MB)
+   * @param file 图片文件
+   * @param categoryName 可选的分类名称，用于按分类存储图片
+   * @param productId 可选的商品ID，用于审核通过后更新商品图片
    */
-  uploadProductImage(file: File) {
+  uploadProductImage(file: File, categoryName?: string, productId?: number) {
     const formData = new FormData()
     formData.append('file', file)
+    if (categoryName) {
+      formData.append('categoryName', categoryName)
+    }
+    if (productId) {
+      formData.append('productId', productId.toString())
+    }
     return axios.post('/files/product', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })

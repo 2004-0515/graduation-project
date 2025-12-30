@@ -42,4 +42,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     // 【管理员】根据状态查询所有订单，按创建时间倒序（带订单项和用户）
     @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items LEFT JOIN FETCH o.user WHERE o.orderStatus = :orderStatus")
     List<Order> findByOrderStatusOrderByCreatedTimeDesc(@Param("orderStatus") Integer orderStatus);
+    
+    // 统计指定状态的订单数量
+    long countByOrderStatus(Integer orderStatus);
 }

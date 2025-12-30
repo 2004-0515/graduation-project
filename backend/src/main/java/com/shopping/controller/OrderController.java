@@ -170,6 +170,17 @@ public class OrderController {
     }
 
     /**
+     * 【管理员】获取待发货订单数量
+     * @return 待发货订单数量
+     */
+    @GetMapping("/pending/count")
+    public Response<Long> getPendingOrderCount() {
+        logger.info("Admin fetching pending order count");
+        long count = orderService.getPendingOrderCount();
+        return Response.success("获取待发货订单数量成功", count);
+    }
+
+    /**
      * 【管理员】获取所有订单列表
      * @param status 订单状态过滤（可选）
      * @param page 页码（从0开始）

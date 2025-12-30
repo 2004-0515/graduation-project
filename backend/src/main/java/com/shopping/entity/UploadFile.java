@@ -64,6 +64,10 @@ public class UploadFile {
     @Column(name = "review_remark", length = 200)
     private String reviewRemark;
 
+    /** 关联ID（如商品ID），用于审核通过后更新对应记录 */
+    @Column(name = "related_id")
+    private Long relatedId;
+
     /** 上传时间 */
     @Column(name = "created_time", nullable = false, updatable = false)
     private LocalDateTime createdTime;

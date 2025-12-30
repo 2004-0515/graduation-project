@@ -99,12 +99,14 @@ public class ProductController {
                 .collect(java.util.stream.Collectors.toList());
         }
         
-        // 关键词搜索
+        // 关键词搜索（匹配商品名称、描述、分类名称）
         if (keyword != null && !keyword.trim().isEmpty()) {
             String kw = keyword.toLowerCase();
             allProducts = allProducts.stream()
                 .filter(p -> p.getName().toLowerCase().contains(kw) || 
-                            (p.getDescription() != null && p.getDescription().toLowerCase().contains(kw)))
+                            (p.getDescription() != null && p.getDescription().toLowerCase().contains(kw)) ||
+                            (p.getCategory() != null && p.getCategory().getName() != null && 
+                             p.getCategory().getName().toLowerCase().contains(kw)))
                 .collect(java.util.stream.Collectors.toList());
         }
         

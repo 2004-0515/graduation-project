@@ -9,9 +9,13 @@
           <aside class="sidebar">
             <div class="user-card">
               <div class="avatar-wrapper">
-                <div class="avatar">
-                  <img v-if="userInfo?.avatar" :src="getAvatarUrl(userInfo.avatar)" alt="头像" />
-                  <span v-else>{{ userInitial }}</span>
+                <div class="avatar" @click="previewAvatar" title="点击查看大图">
+                  <img :src="getAvatarUrl(userInfo?.avatar)" alt="头像" />
+                  <div class="avatar-zoom-hint">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+                    </svg>
+                  </div>
                 </div>
                 <label class="avatar-upload" title="更换头像">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -174,6 +178,23 @@
       </template>
     </el-dialog>
 
+    <!-- 头像预览弹窗 -->
+    <Transition name="preview">
+      <div v-if="showAvatarPreview" class="avatar-preview-overlay" @click="showAvatarPreview = false">
+        <div class="avatar-preview-content" @click.stop>
+          <img :src="getAvatarUrl(userInfo?.avatar)" alt="头像预览" />
+          <div class="preview-info">
+            <span>{{ userInfo?.nickname || userInfo?.username }}</span>
+          </div>
+          <button class="preview-close" @click="showAvatarPreview = false">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </Transition>
+
     <Footer />
   </div>
 </template>
@@ -192,8 +213,23 @@ const userStore = useUserStore()
 const cartStore = useCartStore()
 const userInfo = computed(() => userStore.userInfo)
 const userInitial = computed(() => userInfo.value?.nickname?.charAt(0) || userInfo.value?.username?.charAt(0).toUpperCase() || 'U')
+const showAvatarPreview = ref(false)
 
-const getAvatarUrl = (avatar: string) => fileApi.getImageUrl(avatar)
+const previewAvatar = () => {
+  showAvatarPreview.value = true
+}
+
+// 生成默认头像URL（与导航栏保持一致）
+const getDefaultAvatarUrl = (initial: string) => {
+  return 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#9EC5FF"/><stop offset="100%" style="stop-color:#5A8FD4"/></linearGradient></defs><rect fill="url(#g)" width="100" height="100"/><text x="50" y="62" font-size="42" fill="white" text-anchor="middle" font-family="Arial, sans-serif" font-weight="600">${initial}</text></svg>`)
+}
+
+const getAvatarUrl = (avatar: string | undefined | null) => {
+  if (avatar) {
+    return fileApi.getImageUrl(avatar)
+  }
+  return getDefaultAvatarUrl(userInitial.value)
+}
 
 const handleAvatarChange = async (e: Event) => {
   const input = e.target as HTMLInputElement
@@ -215,18 +251,21 @@ const handleAvatarChange = async (e: Event) => {
   try {
     const res: any = await fileApi.uploadAvatar(file)
     if (res?.code === 200) {
-      await userStore.fetchUserInfo()
-      // 检查是否需要审核
-      if (res.message?.includes('审核')) {
+      // 刷新用户信息
+      await userStore.fetchCurrentUser()
+      // 检查返回消息是否包含审核提示
+      const msg = res.message || ''
+      if (msg.includes('审核')) {
         ElMessage.success('头像上传成功，等待管理员审核后生效')
       } else {
-        ElMessage.success('头像上传成功')
+        ElMessage.success('头像更换成功')
       }
     } else {
       ElMessage.error(res?.message || '上传失败')
     }
   } catch (error: any) {
-    ElMessage.error(error.message || '上传失败')
+    console.error('头像上传失败:', error)
+    ElMessage.error(error.response?.data?.message || error.message || '上传失败')
   }
 
   input.value = ''
@@ -487,5 +526,101 @@ onMounted(async () => {
   .sidebar { position: static; }
   .quick-actions { grid-template-columns: repeat(2, 1fr); }
   .form-row { grid-template-columns: 1fr; }
+}
+
+/* 头像可点击样式 */
+.avatar {
+  cursor: pointer;
+  position: relative;
+}
+
+.avatar:hover .avatar-zoom-hint {
+  opacity: 1;
+}
+
+.avatar-zoom-hint {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.3s;
+  border-radius: 50%;
+}
+
+/* 头像预览弹窗 */
+.avatar-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(8px);
+}
+
+.avatar-preview-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.avatar-preview-content img {
+  width: 300px;
+  height: 300px;
+  object-fit: cover;
+  border-radius: 50%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 4px solid rgba(255, 255, 255, 0.2);
+}
+
+.preview-info {
+  text-align: center;
+  margin-top: 20px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.preview-close {
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.preview-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: rotate(90deg);
+}
+
+/* 预览动画 */
+.preview-enter-active,
+.preview-leave-active {
+  transition: all 0.3s ease;
+}
+
+.preview-enter-from,
+.preview-leave-to {
+  opacity: 0;
+}
+
+.preview-enter-from .avatar-preview-content,
+.preview-leave-to .avatar-preview-content {
+  transform: scale(0.8);
 }
 </style>

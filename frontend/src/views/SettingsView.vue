@@ -55,7 +55,7 @@
                         <p>{{ userStore.userInfo?.phone || '未绑定' }}</p>
                       </div>
                     </div>
-                    <button class="link-btn">{{ userStore.userInfo?.phone ? '更换' : '绑定' }}</button>
+                    <button class="link-btn" @click="openPhoneDialog">{{ userStore.userInfo?.phone ? '更换' : '绑定' }}</button>
                   </div>
                   <div class="security-item">
                     <div class="item-info">
@@ -65,11 +65,37 @@
                         <p>{{ userStore.userInfo?.email || '未绑定' }}</p>
                       </div>
                     </div>
-                    <button class="link-btn">{{ userStore.userInfo?.email ? '更换' : '绑定' }}</button>
+                    <button class="link-btn" @click="openEmailDialog">{{ userStore.userInfo?.email ? '更换' : '绑定' }}</button>
                   </div>
                 </div>
               </div>
             </div>
+
+            <!-- 手机绑定弹窗 -->
+            <el-dialog v-model="phoneDialogVisible" title="绑定手机" width="400px">
+              <el-form :model="phoneForm" label-position="top">
+                <el-form-item label="手机号码">
+                  <el-input v-model="phoneForm.phone" placeholder="请输入手机号码" maxlength="11" />
+                </el-form-item>
+              </el-form>
+              <template #footer>
+                <el-button @click="phoneDialogVisible = false">取消</el-button>
+                <el-button type="primary" @click="savePhone" :loading="saving">确定</el-button>
+              </template>
+            </el-dialog>
+
+            <!-- 邮箱绑定弹窗 -->
+            <el-dialog v-model="emailDialogVisible" title="绑定邮箱" width="400px">
+              <el-form :model="emailForm" label-position="top">
+                <el-form-item label="邮箱地址">
+                  <el-input v-model="emailForm.email" placeholder="请输入邮箱地址" />
+                </el-form-item>
+              </el-form>
+              <template #footer>
+                <el-button @click="emailDialogVisible = false">取消</el-button>
+                <el-button type="primary" @click="saveEmail" :loading="saving">确定</el-button>
+              </template>
+            </el-dialog>
 
             <div class="settings-card" v-show="activeSection === 'notification'">
               <div class="card-header">
@@ -207,6 +233,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import settingsApi from '../api/settingsApi'
+import axios from '../utils/axios'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -242,6 +269,75 @@ const notifySettings = reactive<Record<string, boolean>>({ order: true, promotio
 const privacySettings = reactive({ profileVisibility: 'public', showPurchases: false, personalization: true })
 const appearanceSettings = reactive({ fontSize: 'medium' })
 const currentTheme = ref('light')
+
+// 手机和邮箱绑定
+const phoneDialogVisible = ref(false)
+const emailDialogVisible = ref(false)
+const saving = ref(false)
+const phoneForm = reactive({ phone: '' })
+const emailForm = reactive({ email: '' })
+
+const openPhoneDialog = () => {
+  phoneForm.phone = userStore.userInfo?.phone || ''
+  phoneDialogVisible.value = true
+}
+
+const openEmailDialog = () => {
+  emailForm.email = userStore.userInfo?.email || ''
+  emailDialogVisible.value = true
+}
+
+const savePhone = async () => {
+  if (!phoneForm.phone) {
+    ElMessage.warning('请输入手机号码')
+    return
+  }
+  if (!/^1[3-9]\d{9}$/.test(phoneForm.phone)) {
+    ElMessage.warning('请输入正确的手机号码')
+    return
+  }
+  saving.value = true
+  try {
+    const res: any = await axios.put('/auth/me', { phone: phoneForm.phone })
+    if (res?.code === 200) {
+      ElMessage.success('手机绑定成功')
+      userStore.userInfo!.phone = phoneForm.phone
+      phoneDialogVisible.value = false
+    } else {
+      ElMessage.error(res?.message || '绑定失败')
+    }
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '绑定失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+const saveEmail = async () => {
+  if (!emailForm.email) {
+    ElMessage.warning('请输入邮箱地址')
+    return
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailForm.email)) {
+    ElMessage.warning('请输入正确的邮箱地址')
+    return
+  }
+  saving.value = true
+  try {
+    const res: any = await axios.put('/auth/me', { email: emailForm.email })
+    if (res?.code === 200) {
+      ElMessage.success('邮箱绑定成功')
+      userStore.userInfo!.email = emailForm.email
+      emailDialogVisible.value = false
+    } else {
+      ElMessage.error(res?.message || '绑定失败')
+    }
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '绑定失败')
+  } finally {
+    saving.value = false
+  }
+}
 
 const loadNotificationSettings = async () => {
   try {
@@ -284,6 +380,66 @@ const savePrivacySettings = async () => {
 watch(notifySettings, () => saveNotificationSettings(), { deep: true })
 watch(() => privacySettings.profileVisibility, () => savePrivacySettings())
 
+// 外观设置 - 字体大小
+watch(() => appearanceSettings.fontSize, (newSize) => {
+  const sizeMap: Record<string, string> = { small: '14px', medium: '16px', large: '18px' }
+  document.documentElement.style.setProperty('--base-font-size', sizeMap[newSize] || '16px')
+  localStorage.setItem('fontSize', newSize)
+})
+
+// 外观设置 - 主题
+watch(currentTheme, (newTheme) => {
+  applyTheme(newTheme)
+  localStorage.setItem('theme', newTheme)
+})
+
+// 加载保存的外观设置
+const loadAppearanceSettings = () => {
+  const savedFontSize = localStorage.getItem('fontSize')
+  if (savedFontSize) {
+    appearanceSettings.fontSize = savedFontSize
+    // 立即应用字体大小
+    const sizeMap: Record<string, string> = { small: '14px', medium: '16px', large: '18px' }
+    document.documentElement.style.setProperty('--base-font-size', sizeMap[savedFontSize] || '16px')
+  }
+  const savedTheme = localStorage.getItem('theme')
+  if (savedTheme) {
+    currentTheme.value = savedTheme
+    // 立即应用主题
+    applyTheme(savedTheme)
+  }
+}
+
+// 应用主题
+const applyTheme = (theme: string) => {
+  if (theme === 'dark') {
+    document.documentElement.classList.add('dark-theme')
+  } else if (theme === 'light') {
+    document.documentElement.classList.remove('dark-theme')
+  } else {
+    // auto - 跟随系统
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    if (prefersDark) {
+      document.documentElement.classList.add('dark-theme')
+    } else {
+      document.documentElement.classList.remove('dark-theme')
+    }
+  }
+}
+
+// 监听系统主题变化
+const setupSystemThemeListener = () => {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if (currentTheme.value === 'auto') {
+      if (e.matches) {
+        document.documentElement.classList.add('dark-theme')
+      } else {
+        document.documentElement.classList.remove('dark-theme')
+      }
+    }
+  })
+}
+
 const changePassword = async () => {
   if (!passwordForm.oldPassword || !passwordForm.newPassword) { ElMessage.warning('请填写完整'); return }
   if (passwordForm.newPassword.length < 6) { ElMessage.warning('新密码至少6位'); return }
@@ -307,12 +463,34 @@ const handleLogout = () => {
     .then(() => { userStore.logout(); ElMessage.success('已退出登录'); router.push('/') }).catch(() => {})
 }
 
-const handleDeleteAccount = () => {
-  ElMessageBox.confirm('注销账户后，您的所有数据将被永久删除且无法恢复。确定要继续吗？', '危险操作', { confirmButtonText: '确定注销', cancelButtonText: '取消', type: 'error' })
-    .then(() => { ElMessage.info('账户注销功能暂未开放') }).catch(() => {})
+const handleDeleteAccount = async () => {
+  try {
+    await ElMessageBox.prompt('注销账户后，您的所有数据将被永久删除且无法恢复。请输入您的密码确认操作：', '危险操作', {
+      confirmButtonText: '确定注销',
+      cancelButtonText: '取消',
+      type: 'error',
+      inputType: 'password',
+      inputPlaceholder: '请输入密码',
+      inputValidator: (val) => val ? true : '请输入密码'
+    })
+    
+    // 调用删除账户API
+    const res: any = await axios.delete('/users/me')
+    if (res?.code === 200) {
+      ElMessage.success('账户已注销')
+      userStore.logout()
+      router.push('/')
+    } else {
+      ElMessage.error(res?.message || '注销失败')
+    }
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error('注销失败')
+    }
+  }
 }
 
-onMounted(() => { loadNotificationSettings(); loadPrivacySettings() })
+onMounted(() => { loadNotificationSettings(); loadPrivacySettings(); loadAppearanceSettings(); setupSystemThemeListener() })
 </script>
 
 <style scoped>

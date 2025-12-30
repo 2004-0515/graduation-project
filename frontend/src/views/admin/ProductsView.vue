@@ -62,25 +62,31 @@
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column label="图片" width="70">
             <template #default="{ row }">
-              <el-image :src="getImageUrl(row.mainImage)" style="width: 45px; height: 45px; border-radius: 4px" fit="cover">
+              <el-image 
+                :src="getImageUrl(row.mainImage)" 
+                style="width: 45px; height: 45px; border-radius: 4px; cursor: pointer" 
+                fit="cover"
+                :preview-src-list="[getImageUrl(row.mainImage)]"
+                preview-teleported
+              >
                 <template #error><div class="img-placeholder">暂无</div></template>
               </el-image>
             </template>
           </el-table-column>
-          <el-table-column prop="name" label="商品名称" min-width="150" show-overflow-tooltip />
-          <el-table-column label="分类" width="110">
+          <el-table-column prop="name" label="商品名称" min-width="180" show-overflow-tooltip />
+          <el-table-column label="分类" width="100">
             <template #default="{ row }">{{ row.categoryName || '-' }}</template>
           </el-table-column>
-          <el-table-column prop="price" label="价格" width="100">
+          <el-table-column prop="price" label="价格" width="90">
             <template #default="{ row }">¥{{ row.price }}</template>
           </el-table-column>
-          <el-table-column prop="stock" label="库存" width="80">
+          <el-table-column prop="stock" label="库存" width="70">
             <template #default="{ row }">
               <span :class="{ 'low-stock': row.stock < 10 }">{{ row.stock }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="sales" label="销量" width="80" />
-          <el-table-column label="卖家" width="70" show-overflow-tooltip>
+          <el-table-column prop="sales" label="销量" width="70" />
+          <el-table-column label="卖家" width="80" show-overflow-tooltip>
             <template #default="{ row }">
               <span>{{ row.sellerName || '平台' }}</span>
             </template>
@@ -90,14 +96,14 @@
               <el-switch v-model="row.status" :active-value="1" :inactive-value="0" size="small" @change="toggleStatus(row)" />
             </template>
           </el-table-column>
-          <el-table-column label="审核" width="80">
+          <el-table-column label="审核" width="85">
             <template #default="{ row }">
               <el-tag :type="getAuditTagType(row.auditStatus)" size="small">
                 {{ getAuditText(row.auditStatus) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="120">
+          <el-table-column label="操作" :width="activeTab === 'pending' ? 150 : 120" fixed="right">
             <template #default="{ row }">
               <template v-if="activeTab === 'pending'">
                 <el-button type="success" link size="small" @click="handleAudit(row, 1)">通过</el-button>
@@ -190,13 +196,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, inject } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
 import fileApi from '@/api/fileApi'
 import axios from '@/utils/axios'
+
+// 注入刷新侧边栏待审核数量的方法
+const refreshPendingProductCount = inject<() => void>('refreshPendingProductCount', () => {})
 
 const products = ref<any[]>([])
 const categories = ref<any[]>([])
@@ -293,7 +302,13 @@ const beforeImageUpload = (file: File) => {
 
 const handleImageUpload = async (options: any) => {
   try {
-    const res: any = await fileApi.uploadProductImage(options.file)
+    // 获取当前选择的分类名称，用于按分类存储图片
+    const categoryName = form.categoryId 
+      ? categories.value.find(c => c.id === form.categoryId)?.name 
+      : undefined
+    // 编辑时传入商品ID，管理员上传直接更新商品图片
+    const productId = isEdit.value && editId.value ? editId.value : undefined
+    const res: any = await fileApi.uploadProductImage(options.file, categoryName, productId)
     if (res?.code === 200 && res.data) {
       form.mainImage = res.data
       ElMessage.success('图片上传成功')
@@ -454,6 +469,7 @@ const handleAudit = async (product: any, auditStatus: number) => {
       ElMessage.success('审核通过')
       fetchProducts()
       fetchPendingCount()
+      refreshPendingProductCount() // 刷新侧边栏数量
     } catch {} finally { auditing.value = false }
   } else {
     // 拒绝 - 打开弹窗
@@ -475,6 +491,7 @@ const confirmReject = async () => {
     rejectDialogVisible.value = false
     fetchProducts()
     fetchPendingCount()
+    refreshPendingProductCount() // 刷新侧边栏数量
   } catch (e) {
     ElMessage.error('操作失败')
   } finally { auditing.value = false }

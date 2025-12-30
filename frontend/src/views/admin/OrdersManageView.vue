@@ -83,7 +83,7 @@
             <h4>商品信息</h4>
             <div class="items-list">
               <div v-for="item in currentOrder.items" :key="item.id" class="item-row">
-                <el-image :src="item.productImage" style="width: 50px; height: 50px; border-radius: 6px" fit="cover" />
+                <el-image :src="getImageUrl(item.productImage)" style="width: 50px; height: 50px; border-radius: 6px" fit="cover" />
                 <div class="item-info">
                   <span class="name">{{ item.productName }}</span>
                   <span class="price">¥{{ item.price }} x {{ item.quantity }}</span>
@@ -111,10 +111,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, inject } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
+import fileApi from '@/api/fileApi'
+
+const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+
+// 注入刷新待发货数量的方法
+const refreshPendingOrderCount = inject<() => void>('refreshPendingOrderCount', () => {})
 
 const allOrders = ref<any[]>([]) // 所有订单数据
 const orders = ref<any[]>([]) // 当前页显示的订单
@@ -206,6 +212,8 @@ const shipOrder = async (order: any) => {
     await adminApi.shipOrder(order.id)
     order.orderStatus = 2
     ElMessage.success('发货成功')
+    // 刷新侧边栏待发货数量
+    refreshPendingOrderCount()
   } catch {}
 }
 
@@ -225,6 +233,8 @@ const reviewCancel = async (order: any, approved: boolean) => {
     await adminApi.reviewCancelRequest(order.id, approved)
     order.orderStatus = approved ? 4 : 1
     ElMessage.success(approved ? '已同意取消' : '已拒绝取消申请')
+    // 刷新侧边栏待发货数量（拒绝取消会恢复为待发货状态）
+    refreshPendingOrderCount()
   } catch {}
 }
 

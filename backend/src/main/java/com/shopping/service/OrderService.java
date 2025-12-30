@@ -64,6 +64,14 @@ public class OrderService {
     private ReviewRepository reviewRepository;
     
     /**
+     * 获取待发货订单数量（状态=1，已支付待发货）
+     * @return 待发货订单数量
+     */
+    public long getPendingOrderCount() {
+        return orderRepository.countByOrderStatus(OrderConstants.OrderStatus.PENDING_SHIPMENT);
+    }
+    
+    /**
      * 获取用户订单列表
      * @param username 用户名
      * @param status 订单状态过滤（可选）
@@ -294,6 +302,11 @@ public class OrderService {
         // 发送支付成功通知
         notificationService.sendOrderNotification(order.getUser().getId(), savedOrder.getId(),
                 savedOrder.getOrderNo(), "支付成功，等待发货");
+        
+        // 发送通知给管理员：有新订单待发货
+        notificationService.sendToAllAdmins("order", "新订单待发货", 
+                "用户 " + order.getUser().getUsername() + " 的订单 " + savedOrder.getOrderNo() + " 已支付，请尽快发货", 
+                savedOrder.getId());
         
         logger.info("Order {} paid successfully", orderId);
         

@@ -60,7 +60,7 @@
               @click="$router.push(`/product/${product.id}`)"
             >
               <div class="product-image">
-                <el-image :src="product.mainImage" fit="cover" />
+                <el-image :src="getImageUrl(product.mainImage)" fit="cover" />
                 <span class="discount-tag" v-if="product.discount">{{ product.discount }}折</span>
               </div>
               <div class="product-info">
@@ -94,6 +94,7 @@ import { ElMessage } from 'element-plus'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
 import productApi from '../api/productApi'
+import fileApi from '../api/fileApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -101,6 +102,8 @@ const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
 const userStore = useUserStore()
+
+const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
 const userId = computed(() => userStore.userInfo?.id || null)
 

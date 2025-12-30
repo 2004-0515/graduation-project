@@ -82,11 +82,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, inject } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
 import axios from '@/utils/axios'
 import fileApi from '@/api/fileApi'
+
+// 注入刷新侧边栏待审核数量的方法
+const refreshPendingFileCount = inject<() => void>('refreshPendingFileCount', () => {})
 
 const files = ref<any[]>([])
 const pageNo = ref(1)
@@ -164,6 +167,7 @@ const handleReview = async (file: any, status: number) => {
     if (res?.code === 200) {
       ElMessage.success('审核通过')
       fetchFiles()
+      refreshPendingFileCount() // 刷新侧边栏数量
     } else {
       ElMessage.error(res?.message || '操作失败')
     }
@@ -184,6 +188,7 @@ const confirmReject = async () => {
       ElMessage.success('已拒绝')
       rejectVisible.value = false
       fetchFiles()
+      refreshPendingFileCount() // 刷新侧边栏数量
     } else {
       ElMessage.error(res?.message || '操作失败')
     }
