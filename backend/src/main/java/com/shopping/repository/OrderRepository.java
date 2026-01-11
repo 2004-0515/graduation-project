@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -45,4 +46,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     
     // 统计指定状态的订单数量
     long countByOrderStatus(Integer orderStatus);
+    
+    // 【理性消费】根据用户ID、支付状态和时间范围查询订单
+    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items i LEFT JOIN FETCH i.product WHERE o.user.id = :userId AND o.paymentStatus = :paymentStatus AND o.createdTime BETWEEN :startTime AND :endTime")
+    List<Order> findByUserIdAndPaymentStatusAndCreatedTimeBetween(
+            @Param("userId") Long userId, 
+            @Param("paymentStatus") Integer paymentStatus, 
+            @Param("startTime") LocalDateTime startTime, 
+            @Param("endTime") LocalDateTime endTime);
+    
+    // 【理性消费】根据用户ID、支付状态和时间查询订单（某时间之后）
+    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items i LEFT JOIN FETCH i.product WHERE o.user.id = :userId AND o.paymentStatus = :paymentStatus AND o.createdTime > :afterTime")
+    List<Order> findByUserIdAndPaymentStatusAndCreatedTimeAfter(
+            @Param("userId") Long userId, 
+            @Param("paymentStatus") Integer paymentStatus, 
+            @Param("afterTime") LocalDateTime afterTime);
 }

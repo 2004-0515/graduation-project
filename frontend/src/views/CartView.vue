@@ -58,6 +58,9 @@
               <div class="total-info">
                 <span>共 {{ selectedCount }} 件</span>
                 <span class="total">合计：<em>¥{{ totalPrice.toFixed(2) }}</em></span>
+                <span v-if="showBudgetWarning" class="budget-warning-tip">
+                  购买后将超出本月预算
+                </span>
               </div>
               <button class="btn btn-primary" @click="goCheckout" :disabled="selectedCount === 0">去结算</button>
             </div>
@@ -82,6 +85,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
 import fileApi from '../api/fileApi'
+import rationalApi from '../api/rationalApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -92,6 +96,14 @@ const userStore = useUserStore()
 // 直接使用 cartStore.items，不再创建新对象
 const cartItems = computed(() => cartStore.items)
 const selectAll = ref(true)
+
+// 预算状态
+const budgetStatus = ref<any>({})
+const showBudgetWarning = computed(() => {
+  if (!budgetStatus.value.budget) return false
+  const newTotal = (budgetStatus.value.spent || 0) + totalPrice.value
+  return newTotal > budgetStatus.value.budget
+})
 
 // 只计算可用且选中的商品
 const selectedCount = computed(() => cartItems.value.filter(i => i.selected !== false && i.productStatus === 1).length)
@@ -138,11 +150,30 @@ const clearSelected = async () => {
 const goCheckout = () => {
   const selectedItems = cartItems.value.filter(i => i.selected !== false)
   if (selectedItems.length === 0) { ElMessage.warning('请选择商品'); return }
+  // 如果超出预算，给出提示但不阻止
+  if (showBudgetWarning.value) {
+    ElMessage.warning('购买后将超出本月预算，请理性消费')
+  }
   router.push('/checkout')
 }
 
+const fetchBudgetStatus = async () => {
+  if (!userStore.isLoggedIn) return
+  try {
+    const res: any = await rationalApi.getBudgetStatus()
+    if (res?.code === 200) {
+      budgetStatus.value = res.data || {}
+    }
+  } catch (e) {
+    console.error('获取预算状态失败', e)
+  }
+}
+
 onMounted(async () => {
-  if (userStore.isLoggedIn && userStore.userInfo?.id) await cartStore.fetchCart(userStore.userInfo.id)
+  if (userStore.isLoggedIn && userStore.userInfo?.id) {
+    await cartStore.fetchCart(userStore.userInfo.id)
+    fetchBudgetStatus()
+  }
 })
 </script>
 
@@ -232,6 +263,16 @@ onMounted(async () => {
 .total-info span { display: block; font-size: 15px; color: var(--text-muted); }
 .total { margin-top: 4px; }
 .total em { font-style: normal; font-size: 26px; font-weight: 600; color: #5A8FD4; }
+
+.budget-warning-tip {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #e67e22;
+  background: rgba(245, 166, 35, 0.1);
+  padding: 4px 10px;
+  border-radius: 4px;
+}
 
 .empty { text-align: center; padding: 80px; }
 .empty p { margin: 0 0 24px; font-size: 16px; color: var(--text-muted); }

@@ -1,7 +1,7 @@
 # 雅集商城系统测试报告
 
 **测试日期**: 2025-12-28  
-**最后更新**: 2026-01-11 22:10  
+**最后更新**: 2026-01-11 22:40  
 **测试环境**: Windows 11, Node.js, Java 17, MySQL 9.2  
 **测试人员**: Kiro AI Assistant
 
@@ -151,6 +151,17 @@
 | 上传文件 | POST | /files/upload | ✅ 通过 | 支持图片上传 |
 | 获取文件 | GET | /uploads/** | ✅ 通过 | 静态资源访问 |
 
+### 2.13 理性消费模块 (RationalConsumptionController)
+
+| 接口 | 方法 | 路径 | 测试结果 | 备注 |
+|------|------|------|----------|------|
+| 获取预算状态 | GET | /rational-consumption/budget/status | ✅ 通过 | 返回预算使用情况 |
+| 获取当前预算 | GET | /rational-consumption/budget | ✅ 通过 | 返回预算设置 |
+| 设置月度预算 | POST | /rational-consumption/budget | ✅ 通过 | 设置预算金额和阈值 |
+| 获取消费报告 | GET | /rational-consumption/report | ✅ 通过 | 返回消费分析报告 |
+| 检测重复购买 | GET | /rational-consumption/duplicate-check/{productId} | ✅ 通过 | 检测是否重复购买 |
+| 批量检测重复购买 | POST | /rational-consumption/duplicate-check/batch | ✅ 通过 | 购物车场景批量检测 |
+
 ---
 
 ## 三、前端页面测试结果
@@ -182,6 +193,7 @@
 | 收货地址 | /address | ✅ 通过 | 地址CRUD |
 | 账户设置 | /settings | ✅ 通过 | 安全、通知、隐私设置 |
 | 消息通知 | /notifications | ✅ 通过 | 通知列表 |
+| 理性消费 | /rational-consumption | ✅ 通过 | 预算管理、消费报告 |
 
 ### 3.3 管理员后台页面 (admin账号)
 
@@ -213,6 +225,7 @@
 | tb_review | 50 | ✅ 正常 | 商品评价 |
 | notifications | 40+ | ✅ 正常 | 通知消息 |
 | tb_upload_file | 动态 | ✅ 正常 | 上传文件 |
+| tb_consumption_budget | 动态 | ✅ 正常 | 消费预算 |
 | security_settings | 动态 | ✅ 正常 | 安全设置 |
 | privacy_settings | 动态 | ✅ 正常 | 隐私设置 |
 | notification_settings | 动态 | ✅ 正常 | 通知设置 |
@@ -303,9 +316,9 @@
 
 ### 8.1 测试统计
 
-- **API接口测试**: 68个接口，全部通过
-- **前端页面测试**: 25个页面，全部通过
-- **数据库表测试**: 15张表，全部正常
+- **API接口测试**: 74个接口，全部通过
+- **前端页面测试**: 26个页面，全部通过
+- **数据库表测试**: 16张表，全部正常
 - **功能流程测试**: 5个核心流程，全部通过
 
 ### 8.2 总体评价
@@ -327,6 +340,7 @@
 11. ✅ 卖家发货管理（查看订单、发货操作）
 12. ✅ 支付模拟（微信/支付宝）
 13. ✅ 订单取消申请与审核
+14. ✅ 理性消费助手（预算管理、消费报告、重复购买检测）
 
 ### 8.4 建议改进
 
@@ -338,4 +352,4 @@
 
 ---
 
-**测试报告生成时间**: 2026-01-11 22:10:00
+**测试报告生成时间**: 2026-01-11 22:40:00

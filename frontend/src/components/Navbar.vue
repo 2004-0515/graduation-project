@@ -94,6 +94,10 @@
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="12" y1="2" x2="12" y2="4"/></svg>
                   降价提醒
                 </router-link>
+                <router-link to="/rational-consumption" class="dropdown-item">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                  理性消费
+                </router-link>
                 <router-link to="/address" class="dropdown-item">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                   收货地址
@@ -137,6 +141,7 @@
           <router-link to="/my-products" @click="open = false">我的商品</router-link>
           <router-link to="/seller-orders" @click="open = false">卖家发货</router-link>
           <router-link to="/price-alerts" @click="open = false">降价提醒</router-link>
+          <router-link to="/rational-consumption" @click="open = false">理性消费</router-link>
           <router-link to="/address" @click="open = false">收货地址</router-link>
           <a @click="handleLogout; open = false" class="logout-link">退出登录</a>
         </template>
@@ -162,6 +167,7 @@ const open = ref(false)
 const query = ref('')
 const showDropdown = ref(false)
 const searchFocused = ref(false)
+
 // 默认头像 - 使用本地SVG或用户首字母
 const defaultAvatarUrl = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="#9EC5FF" width="100" height="100"/><text x="50" y="60" font-size="40" fill="white" text-anchor="middle" font-family="Arial">U</text></svg>`)
 

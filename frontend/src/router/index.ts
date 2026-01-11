@@ -140,6 +140,12 @@ const router = createRouter({
       component: () => import('@/views/PriceAlertsView.vue'),
       meta: { requiresAuth: true }
     },
+    {
+      path: '/rational-consumption',
+      name: 'rationalConsumption',
+      component: () => import('@/views/RationalConsumptionView.vue'),
+      meta: { requiresAuth: true }
+    },
     // 管理员后台路由
     {
       path: '/admin',
@@ -209,6 +215,7 @@ const router = createRouter({
 
 // 路由守卫
 import { useUserStore } from '@/stores/userStore'
+
 router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore()
 

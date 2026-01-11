@@ -427,3 +427,61 @@ CREATE TABLE tb_upload_file (
     INDEX idx_upload_file_type (file_type),
     CONSTRAINT fk_upload_file_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='上传文件表';
+
+
+-- =====================================================
+-- 19. 消费预算表 (tb_consumption_budget)
+-- =====================================================
+DROP TABLE IF EXISTS tb_consumption_budget;
+CREATE TABLE tb_consumption_budget (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '预算ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    monthly_budget DECIMAL(10, 2) NOT NULL COMMENT '月度预算金额',
+    budget_month VARCHAR(6) NOT NULL COMMENT '预算年月(格式:202601)',
+    alert_enabled TINYINT DEFAULT 1 COMMENT '是否启用预算提醒：0-否，1-是',
+    alert_threshold INT DEFAULT 80 COMMENT '预算警告阈值(百分比)',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_budget_user (user_id),
+    INDEX idx_budget_month (budget_month),
+    UNIQUE KEY uk_user_month (user_id, budget_month),
+    CONSTRAINT fk_budget_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消费预算表';
+
+-- =====================================================
+-- 20. 想要清单表 (tb_wishlist) - 延迟满足功能
+-- =====================================================
+DROP TABLE IF EXISTS tb_wishlist;
+CREATE TABLE tb_wishlist (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT 'ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    product_id BIGINT NOT NULL COMMENT '商品ID',
+    added_price DECIMAL(10, 2) DEFAULT NULL COMMENT '加入时的价格',
+    cooling_days INT DEFAULT 3 COMMENT '冷静期天数',
+    cooling_end_time DATETIME DEFAULT NULL COMMENT '冷静期结束时间',
+    status TINYINT DEFAULT 0 COMMENT '状态：0-冷静中，1-可购买，2-已购买，3-已移除',
+    reason VARCHAR(500) DEFAULT NULL COMMENT '加入原因/备注',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_wishlist_user (user_id),
+    INDEX idx_wishlist_product (product_id),
+    INDEX idx_wishlist_status (status),
+    CONSTRAINT fk_wishlist_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_wishlist_product FOREIGN KEY (product_id) REFERENCES tb_product(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='想要清单表';
+
+-- =====================================================
+-- 21. 消费成就表 (tb_consumption_achievement)
+-- =====================================================
+DROP TABLE IF EXISTS tb_consumption_achievement;
+CREATE TABLE tb_consumption_achievement (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '成就ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    achievement_type VARCHAR(50) NOT NULL COMMENT '成就类型',
+    achievement_name VARCHAR(100) NOT NULL COMMENT '成就名称',
+    achievement_desc VARCHAR(200) DEFAULT NULL COMMENT '成就描述',
+    achieved_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '达成时间',
+    INDEX idx_achievement_user (user_id),
+    INDEX idx_achievement_type (achievement_type),
+    UNIQUE KEY uk_user_achievement (user_id, achievement_type),
+    CONSTRAINT fk_achievement_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消费成就表';

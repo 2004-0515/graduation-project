@@ -116,6 +116,16 @@
                 <span>应付金额</span>
                 <em>¥{{ total.toFixed(2) }}</em>
               </div>
+              
+              <!-- 预算警告 -->
+              <div v-if="showBudgetWarning" class="budget-warning-tip">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <span>此订单将超出本月预算 ¥{{ budgetOverAmount.toFixed(2) }}</span>
+              </div>
+              
               <button class="submit-btn" @click="submitOrder" :disabled="!selectedAddress || orderItems.length === 0 || submitting">
                 {{ submitting ? '提交中...' : '提交订单' }}
               </button>
@@ -140,7 +150,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
 import addressApi from '../api/addressApi'
@@ -148,6 +158,7 @@ import orderApi from '../api/orderApi'
 import productApi from '../api/productApi'
 import couponApi from '../api/couponApi'
 import fileApi from '../api/fileApi'
+import rationalApi from '../api/rationalApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -168,6 +179,19 @@ const submitting = ref(false)
 const availableCoupons = ref<any[]>([])
 const selectedCoupon = ref<number | null>(null)
 const couponDiscount = ref(0)
+
+// 理性消费检测
+const budgetStatus = ref<any>({})
+const showBudgetWarning = computed(() => {
+  if (!budgetStatus.value.budget) return false
+  const newSpent = (budgetStatus.value.spent || 0) + total.value
+  return newSpent > budgetStatus.value.budget
+})
+const budgetOverAmount = computed(() => {
+  if (!budgetStatus.value.budget) return 0
+  const newSpent = (budgetStatus.value.spent || 0) + total.value
+  return Math.max(0, newSpent - budgetStatus.value.budget)
+})
 
 const subtotal = computed(() => orderItems.value.reduce((sum, item) => sum + item.price * item.quantity, 0))
 const total = computed(() => Math.max(0, subtotal.value + shipping.value - couponDiscount.value))
@@ -218,6 +242,19 @@ const selectCoupon = (coupon: any) => {
 const clearCoupon = () => {
   selectedCoupon.value = null
   couponDiscount.value = 0
+}
+
+// 获取预算状态
+const fetchBudgetStatus = async () => {
+  if (!userStore.isLoggedIn) return
+  try {
+    const res: any = await rationalApi.getBudgetStatus()
+    if (res?.code === 200) {
+      budgetStatus.value = res.data || {}
+    }
+  } catch (error) {
+    console.error('获取预算状态失败:', error)
+  }
 }
 
 const loadOrderItems = async () => {
@@ -312,6 +349,26 @@ const submitOrder = async () => {
     return
   }
   
+  // 冲动消费拦截 - 超出预算警告
+  if (showBudgetWarning.value) {
+    try {
+      await ElMessageBox.confirm(
+        `此订单将使您本月消费超出预算 ¥${budgetOverAmount.value.toFixed(2)}，确定要继续吗？`,
+        '理性消费提醒',
+        {
+          confirmButtonText: '仍然购买',
+          cancelButtonText: '再想想',
+          type: 'warning',
+          customClass: 'budget-warning-dialog'
+        }
+      )
+    } catch {
+      // 用户选择再想想
+      ElMessage.info('理性消费，从我做起')
+      return
+    }
+  }
+  
   submitting.value = true
   try {
     const orderData: any = {
@@ -365,6 +422,7 @@ watch(subtotal, () => {
 onMounted(() => {
   fetchAddresses()
   loadOrderItems()
+  fetchBudgetStatus()
 })
 </script>
 
@@ -499,6 +557,24 @@ onMounted(() => {
   background: rgba(245, 166, 35, 0.1);
   color: #e67e22;
   border: 1px solid rgba(245, 166, 35, 0.3);
+}
+
+/* 预算警告 */
+.budget-warning-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  margin-top: 16px;
+  background: rgba(231, 76, 60, 0.08);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  border-radius: var(--radius-md);
+  color: #e74c3c;
+  font-size: 13px;
+}
+
+.budget-warning-tip svg {
+  flex-shrink: 0;
 }
 
 @media (max-width: 768px) {

@@ -127,10 +127,39 @@
               <button class="btn btn-primary" @click="buyNow">立即购买</button>
             </div>
 
+            <!-- 想要清单按钮 -->
+            <div class="wishlist-action">
+              <button class="btn-wishlist" @click="showWishlistDialog = true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span>加入想要清单</span>
+                <span class="wishlist-tip">设置冷静期，避免冲动消费</span>
+              </button>
+            </div>
+
             <div class="service-row">
               <span>正品保障</span>
               <span>7天无理由</span>
               <span>极速发货</span>
+            </div>
+            
+            <!-- 重复购买提醒 -->
+            <div v-if="duplicateWarnings.length > 0" class="duplicate-warning glass-card">
+              <div class="warning-header">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <span>理性消费提醒</span>
+              </div>
+              <div class="warning-list">
+                <div v-for="(warn, idx) in duplicateWarnings" :key="idx" class="warning-item">
+                  <span class="warning-type" :class="warn.type">{{ warn.type === 'same' ? '重复购买' : '同类商品' }}</span>
+                  <span class="warning-msg">{{ warn.message }}</span>
+                </div>
+              </div>
+              <router-link to="/rational-consumption" class="warning-link">查看消费报告</router-link>
             </div>
           </div>
         </div>
@@ -273,6 +302,53 @@
       </div>
     </div>
     
+    <!-- 想要清单弹窗 -->
+    <div v-if="showWishlistDialog" class="wishlist-dialog-overlay" @click.self="showWishlistDialog = false">
+      <div class="wishlist-dialog glass-card">
+        <div class="wishlist-dialog-header">
+          <h3>加入想要清单</h3>
+          <button class="close-btn" @click="showWishlistDialog = false">x</button>
+        </div>
+        <div class="wishlist-dialog-body">
+          <div class="wishlist-product">
+            <img :src="currentImage" :alt="product.name" />
+            <div class="wp-info">
+              <h4>{{ product.name }}</h4>
+              <span class="wp-price">{{ formatMoney(product.price) }}</span>
+            </div>
+          </div>
+          <div class="cooling-select">
+            <span class="label">冷静期</span>
+            <div class="cooling-options">
+              <button 
+                v-for="d in [1, 3, 7, 14]" 
+                :key="d"
+                :class="['cooling-btn', { active: wishlistForm.coolingDays === d }]"
+                @click="wishlistForm.coolingDays = d"
+              >
+                {{ d }}天
+              </button>
+            </div>
+            <p class="cooling-tip">冷静期内无法购买，帮助您避免冲动消费</p>
+          </div>
+          <div class="reason-input">
+            <span class="label">想要原因（选填）</span>
+            <textarea 
+              v-model="wishlistForm.reason" 
+              placeholder="记录一下为什么想要这个商品..."
+              maxlength="200"
+            ></textarea>
+          </div>
+        </div>
+        <div class="wishlist-dialog-footer">
+          <button class="btn btn-glass" @click="showWishlistDialog = false">取消</button>
+          <button class="btn btn-primary" @click="addToWishlist" :disabled="addingWishlist">
+            {{ addingWishlist ? '添加中...' : '加入清单' }}
+          </button>
+        </div>
+      </div>
+    </div>
+    
     <Footer />
   </div>
 </template>
@@ -286,6 +362,7 @@ import productApi from '../api/productApi'
 import reviewApi from '../api/reviewApi'
 import fileApi from '../api/fileApi'
 import priceApi from '../api/priceApi'
+import rationalApi from '../api/rationalApi'
 import type { PriceHistory, PriceStats, PriceAlert } from '../api/priceApi'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
@@ -319,6 +396,17 @@ const showAdVideo = ref(false)
 const adCountdown = ref(0)
 const adVideoRef = ref<HTMLVideoElement>()
 let adTimer: ReturnType<typeof setInterval> | null = null
+
+// 重复购买检测
+const duplicateWarnings = ref<any[]>([])
+
+// 想要清单
+const showWishlistDialog = ref(false)
+const addingWishlist = ref(false)
+const wishlistForm = ref({
+  coolingDays: 3,
+  reason: ''
+})
 
 // 返回按钮相关
 const canGoBack = computed(() => window.history.length > 1)
@@ -486,6 +574,20 @@ const fetchPriceAlert = async () => {
     }
   } catch (e) {
     console.error('获取降价提醒失败', e)
+  }
+}
+
+// 检测重复购买
+const checkDuplicatePurchase = async () => {
+  if (!userStore.isLoggedIn) return
+  const productId = Number(route.params.id)
+  try {
+    const res: any = await rationalApi.checkDuplicate(productId)
+    if (res?.code === 200) {
+      duplicateWarnings.value = res.data || []
+    }
+  } catch (e) {
+    console.error('检测重复购买失败', e)
   }
 }
 
@@ -678,6 +780,41 @@ const cancelAlert = async () => {
   }
 }
 
+// 格式化金额
+const formatMoney = (val: number | undefined) => {
+  if (val === undefined || val === null) return '¥0.00'
+  return `¥${Number(val).toFixed(2)}`
+}
+
+// 添加到想要清单
+const addToWishlist = async () => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  
+  addingWishlist.value = true
+  try {
+    const res: any = await rationalApi.addToWishlist(
+      product.value.id,
+      wishlistForm.value.coolingDays,
+      wishlistForm.value.reason
+    )
+    if (res?.code === 200) {
+      ElMessage.success('已加入想要清单，冷静期' + wishlistForm.value.coolingDays + '天')
+      showWishlistDialog.value = false
+      wishlistForm.value = { coolingDays: 3, reason: '' }
+    } else {
+      ElMessage.error(res?.message || '添加失败')
+    }
+  } catch (e) {
+    ElMessage.error('添加失败')
+  } finally {
+    addingWishlist.value = false
+  }
+}
+
 // 监听窗口大小变化
 const handleResize = () => {
   if (priceChart) {
@@ -697,6 +834,7 @@ onMounted(() => {
   fetchReviews()
   fetchPriceHistory()
   fetchPriceAlert()
+  checkDuplicatePurchase()
   window.addEventListener('resize', handleResize)
 })
 
@@ -781,6 +919,70 @@ onUnmounted(() => {
 .action-row .btn { flex: 1; padding: 14px 0; }
 
 .service-row { display: flex; gap: 20px; margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(200,200,220,0.2); font-size: 13px; color: var(--text-muted); }
+
+/* 重复购买提醒 */
+.duplicate-warning {
+  margin-top: 20px;
+  padding: 16px;
+  background: rgba(245, 166, 35, 0.08);
+  border: 1px solid rgba(245, 166, 35, 0.3);
+}
+
+.warning-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #e67e22;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.warning-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.warning-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.warning-type {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.warning-type.same {
+  background: rgba(231, 76, 60, 0.15);
+  color: #e74c3c;
+}
+
+.warning-type.similar {
+  background: rgba(245, 166, 35, 0.15);
+  color: #e67e22;
+}
+
+.warning-msg {
+  color: var(--text-body);
+}
+
+.warning-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #5A8FD4;
+  text-decoration: none;
+}
+
+.warning-link:hover {
+  text-decoration: underline;
+}
 
 /* Detail Section */
 .detail-section { overflow: hidden; }
@@ -1230,6 +1432,197 @@ onUnmounted(() => {
 }
 
 .alert-dialog-footer .btn {
+  flex: 1;
+  padding: 10px 0;
+}
+
+/* 想要清单按钮 */
+.wishlist-action {
+  margin-top: 16px;
+}
+
+.btn-wishlist {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 20px;
+  background: rgba(90, 143, 212, 0.08);
+  border: 1px dashed rgba(90, 143, 212, 0.4);
+  border-radius: var(--radius-md);
+  color: #5A8FD4;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.btn-wishlist:hover {
+  background: rgba(90, 143, 212, 0.15);
+  border-style: solid;
+}
+
+.btn-wishlist svg {
+  flex-shrink: 0;
+}
+
+.wishlist-tip {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+
+/* 想要清单弹窗 */
+.wishlist-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.wishlist-dialog {
+  width: 100%;
+  max-width: 420px;
+  background: white;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.wishlist-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(200,200,220,0.2);
+}
+
+.wishlist-dialog-header h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-title);
+}
+
+.wishlist-dialog-body {
+  padding: 20px;
+}
+
+.wishlist-product {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(230, 242, 255, 0.3);
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+}
+
+.wishlist-product img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.wp-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.wp-info h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-title);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wp-price {
+  font-size: 18px;
+  font-weight: 600;
+  color: #5A8FD4;
+}
+
+.cooling-select {
+  margin-bottom: 20px;
+}
+
+.cooling-select .label,
+.reason-input .label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-title);
+  margin-bottom: 10px;
+}
+
+.cooling-options {
+  display: flex;
+  gap: 10px;
+}
+
+.cooling-btn {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid rgba(200, 220, 255, 0.5);
+  background: white;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-body);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.cooling-btn:hover {
+  border-color: #5A8FD4;
+  color: #5A8FD4;
+}
+
+.cooling-btn.active {
+  background: #5A8FD4;
+  border-color: #5A8FD4;
+  color: white;
+}
+
+.cooling-tip {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.reason-input textarea {
+  width: 100%;
+  height: 80px;
+  padding: 12px;
+  border: 1px solid rgba(200, 220, 255, 0.5);
+  border-radius: 8px;
+  font-size: 14px;
+  resize: none;
+  font-family: inherit;
+}
+
+.reason-input textarea:focus {
+  outline: none;
+  border-color: #5A8FD4;
+}
+
+.wishlist-dialog-footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid rgba(200,200,220,0.2);
+}
+
+.wishlist-dialog-footer .btn {
   flex: 1;
   padding: 10px 0;
 }
