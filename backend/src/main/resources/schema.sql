@@ -66,6 +66,8 @@ CREATE TABLE tb_product (
     category_id BIGINT NOT NULL COMMENT '分类ID',
     price DECIMAL(10, 2) NOT NULL COMMENT '商品价格',
     original_price DECIMAL(10, 2) DEFAULT NULL COMMENT '原价',
+    pending_price DECIMAL(10, 2) DEFAULT NULL COMMENT '待审核价格',
+    pending_original_price DECIMAL(10, 2) DEFAULT NULL COMMENT '待审核原价',
     stock INT DEFAULT 0 NOT NULL COMMENT '库存数量',
     sales INT DEFAULT 0 NOT NULL COMMENT '销量',
     status TINYINT DEFAULT 1 NOT NULL COMMENT '状态：1-上架，0-下架',
@@ -148,10 +150,15 @@ CREATE TABLE tb_order_item (
     quantity INT DEFAULT 1 NOT NULL COMMENT '购买数量',
     total_price DECIMAL(10, 2) NOT NULL COMMENT '小计金额',
     product_image VARCHAR(200) DEFAULT NULL COMMENT '商品图片（快照）',
+    seller_id BIGINT DEFAULT NULL COMMENT '卖家ID',
+    seller_name VARCHAR(50) DEFAULT NULL COMMENT '卖家用户名',
+    ship_status TINYINT DEFAULT 0 COMMENT '发货状态：0-未发货，1-已发货',
+    ship_time DATETIME DEFAULT NULL COMMENT '发货时间',
     created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     INDEX idx_order_item_order (order_id),
     INDEX idx_order_item_product (product_id),
+    INDEX idx_order_item_seller (seller_id),
     CONSTRAINT fk_order_item_order FOREIGN KEY (order_id) REFERENCES tb_order(id) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_order_item_product FOREIGN KEY (product_id) REFERENCES tb_product(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单项表';
@@ -324,3 +331,99 @@ CREATE TABLE music (
 INSERT INTO music (title, artist, url, cover, sort_order, status) VALUES
 ('轻音乐1', '纯音乐', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', NULL, 1, 1),
 ('轻音乐2', '纯音乐', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', NULL, 2, 1);
+
+
+-- =====================================================
+-- 15. 价格历史表 (tb_price_history)
+-- =====================================================
+DROP TABLE IF EXISTS tb_price_history;
+CREATE TABLE tb_price_history (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID',
+    product_id BIGINT NOT NULL COMMENT '商品ID',
+    price DECIMAL(10, 2) NOT NULL COMMENT '记录时的价格',
+    original_price DECIMAL(10, 2) DEFAULT NULL COMMENT '原价',
+    recorded_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录时间',
+    change_type VARCHAR(20) DEFAULT NULL COMMENT '变化类型：INITIAL-初始，INCREASE-涨价，DECREASE-降价，UNCHANGED-不变',
+    change_amount DECIMAL(10, 2) DEFAULT NULL COMMENT '价格变化金额',
+    change_rate DECIMAL(5, 2) DEFAULT NULL COMMENT '价格变化百分比',
+    INDEX idx_price_history_product (product_id),
+    INDEX idx_price_history_time (recorded_time),
+    CONSTRAINT fk_price_history_product FOREIGN KEY (product_id) REFERENCES tb_product(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='价格历史表';
+
+-- =====================================================
+-- 16. 降价提醒表 (tb_price_alert)
+-- =====================================================
+DROP TABLE IF EXISTS tb_price_alert;
+CREATE TABLE tb_price_alert (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '提醒ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    product_id BIGINT NOT NULL COMMENT '商品ID',
+    target_price DECIMAL(10, 2) NOT NULL COMMENT '目标价格',
+    current_price DECIMAL(10, 2) NOT NULL COMMENT '设置时的当前价格',
+    status TINYINT DEFAULT 0 NOT NULL COMMENT '状态：0-监控中，1-已触发，2-已取消',
+    triggered_time DATETIME DEFAULT NULL COMMENT '触发时间',
+    triggered_price DECIMAL(10, 2) DEFAULT NULL COMMENT '触发时的价格',
+    notified TINYINT DEFAULT 0 COMMENT '是否已通知：0-否，1-是',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_price_alert_user (user_id),
+    INDEX idx_price_alert_product (product_id),
+    INDEX idx_price_alert_status (status),
+    UNIQUE KEY uk_user_product (user_id, product_id),
+    CONSTRAINT fk_price_alert_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_price_alert_product FOREIGN KEY (product_id) REFERENCES tb_product(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='降价提醒表';
+
+
+
+
+-- =====================================================
+-- 17. 商品评价表 (tb_review)
+-- =====================================================
+DROP TABLE IF EXISTS tb_review;
+CREATE TABLE tb_review (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '评价ID',
+    product_id BIGINT NOT NULL COMMENT '商品ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    order_id BIGINT NOT NULL COMMENT '订单ID',
+    order_item_id BIGINT DEFAULT NULL COMMENT '订单项ID',
+    rating INT NOT NULL COMMENT '评分1-5星',
+    content VARCHAR(500) DEFAULT NULL COMMENT '评价内容',
+    images TEXT DEFAULT NULL COMMENT '评价图片（JSON数组）',
+    is_anonymous TINYINT DEFAULT 0 NOT NULL COMMENT '是否匿名：0-否，1-是',
+    reply VARCHAR(500) DEFAULT NULL COMMENT '商家回复',
+    reply_time DATETIME DEFAULT NULL COMMENT '回复时间',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    INDEX idx_review_product (product_id),
+    INDEX idx_review_user (user_id),
+    INDEX idx_review_order (order_id),
+    CONSTRAINT fk_review_product FOREIGN KEY (product_id) REFERENCES tb_product(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_review_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_review_order FOREIGN KEY (order_id) REFERENCES tb_order(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='商品评价表';
+
+-- =====================================================
+-- 18. 上传文件表 (tb_upload_file)
+-- =====================================================
+DROP TABLE IF EXISTS tb_upload_file;
+CREATE TABLE tb_upload_file (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '文件ID',
+    file_type VARCHAR(20) NOT NULL COMMENT '文件类型：AVATAR-头像，PRODUCT-商品，CATEGORY-分类，PROMOTION-促销，REVIEW-评价',
+    file_path VARCHAR(255) NOT NULL COMMENT '文件路径',
+    original_name VARCHAR(255) DEFAULT NULL COMMENT '原始文件名',
+    file_size BIGINT DEFAULT NULL COMMENT '文件大小(字节)',
+    user_id BIGINT NOT NULL COMMENT '上传用户ID',
+    username VARCHAR(50) DEFAULT NULL COMMENT '上传用户名',
+    status TINYINT DEFAULT 0 NOT NULL COMMENT '审核状态：0-待审核，1-已通过，2-已拒绝',
+    reviewer_id BIGINT DEFAULT NULL COMMENT '审核人ID',
+    reviewer_name VARCHAR(50) DEFAULT NULL COMMENT '审核人用户名',
+    review_time DATETIME DEFAULT NULL COMMENT '审核时间',
+    review_remark VARCHAR(200) DEFAULT NULL COMMENT '审核备注',
+    related_id BIGINT DEFAULT NULL COMMENT '关联ID（如商品ID）',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+    INDEX idx_upload_file_user (user_id),
+    INDEX idx_upload_file_status (status),
+    INDEX idx_upload_file_type (file_type),
+    CONSTRAINT fk_upload_file_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='上传文件表';

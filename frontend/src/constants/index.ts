@@ -75,6 +75,46 @@ export const PRODUCT_STATUS_MAP: Record<number, string> = {
   [PRODUCT_STATUS.ON_SHELF]: '在售'
 }
 
+// ==================== 商品审核状态 ====================
+
+export const AUDIT_STATUS = {
+  PENDING: 0,
+  APPROVED: 1,
+  REJECTED: 2
+} as const
+
+export const AUDIT_STATUS_MAP: Record<number, string> = {
+  [AUDIT_STATUS.PENDING]: '待审核',
+  [AUDIT_STATUS.APPROVED]: '已通过',
+  [AUDIT_STATUS.REJECTED]: '已拒绝'
+}
+
+// ==================== 文件审核状态 ====================
+
+export const FILE_REVIEW_STATUS = {
+  PENDING: 0,
+  APPROVED: 1,
+  REJECTED: 2
+} as const
+
+export const FILE_REVIEW_STATUS_MAP: Record<number, string> = {
+  [FILE_REVIEW_STATUS.PENDING]: '待审核',
+  [FILE_REVIEW_STATUS.APPROVED]: '已通过',
+  [FILE_REVIEW_STATUS.REJECTED]: '已拒绝'
+}
+
+// ==================== 卖家发货状态 ====================
+
+export const SHIP_STATUS = {
+  PENDING: 0,
+  SHIPPED: 1
+} as const
+
+export const SHIP_STATUS_MAP: Record<number, string> = {
+  [SHIP_STATUS.PENDING]: '待发货',
+  [SHIP_STATUS.SHIPPED]: '已发货'
+}
+
 // ==================== 用户状态 ====================
 
 export const USER_STATUS = {

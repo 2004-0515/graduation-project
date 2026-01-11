@@ -55,6 +55,58 @@
               <span class="original" v-if="product.originalPrice">¥{{ product.originalPrice }}</span>
               <span class="sales">已售 {{ product.sales || 0 }}</span>
             </div>
+            
+            <!-- 价格历史与降价提醒 -->
+            <div class="price-history-section glass-card">
+              <div class="price-stats" v-if="priceStats">
+                <div class="stat-item">
+                  <span class="stat-label">历史最低</span>
+                  <span class="stat-value lowest">¥{{ priceStats.lowestPrice }}</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">历史最高</span>
+                  <span class="stat-value highest">¥{{ priceStats.highestPrice }}</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">平均价格</span>
+                  <span class="stat-value avg">¥{{ priceStats.avgPrice }}</span>
+                </div>
+                <div class="stat-badge" v-if="priceStats.isLowestPrice">
+                  <span class="lowest-badge">当前历史最低价</span>
+                </div>
+              </div>
+              
+              <div class="price-actions">
+                <button class="price-chart-btn" @click="togglePriceChart">
+                  <span class="chart-icon">📈</span>
+                  <span>{{ showPriceChart ? '收起' : '查看' }}价格走势</span>
+                </button>
+                <button 
+                  v-if="!priceAlert || priceAlert.status !== 0" 
+                  class="alert-btn" 
+                  @click="openAlertDialog"
+                >
+                  <span class="bell-icon">🔔</span>
+                  <span>降价提醒</span>
+                </button>
+                <button 
+                  v-else 
+                  class="alert-btn active" 
+                  @click="cancelAlert"
+                >
+                  <span class="bell-icon">🔕</span>
+                  <span>已设提醒 ¥{{ priceAlert.targetPrice }}</span>
+                </button>
+              </div>
+              
+              <!-- 价格走势图 -->
+              <div v-show="showPriceChart" class="price-chart-container">
+                <div ref="priceChartRef" class="price-chart"></div>
+                <div v-if="priceHistory.length === 0" class="no-history">
+                  <p>暂无价格历史记录</p>
+                </div>
+              </div>
+            </div>
 
             <div class="info-row">
               <span class="label">库存</span>
@@ -177,17 +229,64 @@
       </div>
     </div>
     
+    <!-- 降价提醒设置对话框 -->
+    <div v-if="showAlertDialog" class="alert-dialog-overlay" @click.self="showAlertDialog = false">
+      <div class="alert-dialog glass-card">
+        <div class="alert-dialog-header">
+          <h3>设置降价提醒</h3>
+          <button class="close-btn" @click="showAlertDialog = false">×</button>
+        </div>
+        <div class="alert-dialog-body">
+          <div class="current-price-info">
+            <span class="label">当前价格</span>
+            <span class="value">¥{{ product.price }}</span>
+          </div>
+          <div class="target-price-input">
+            <span class="label">目标价格</span>
+            <div class="input-wrapper">
+              <span class="currency">¥</span>
+              <input 
+                type="number" 
+                v-model.number="targetPrice" 
+                :max="product.price - 0.01"
+                min="0.01"
+                step="0.01"
+                placeholder="输入期望价格"
+              />
+            </div>
+          </div>
+          <div class="quick-select">
+            <span class="label">快捷选择</span>
+            <div class="quick-btns">
+              <button @click="targetPrice = Math.floor(product.price * 0.95 * 100) / 100">降5%</button>
+              <button @click="targetPrice = Math.floor(product.price * 0.9 * 100) / 100">降10%</button>
+              <button @click="targetPrice = Math.floor(product.price * 0.8 * 100) / 100">降20%</button>
+              <button v-if="priceStats" @click="targetPrice = priceStats.lowestPrice">历史最低</button>
+            </div>
+          </div>
+          <p class="alert-tip">当商品价格降至目标价格时，我们将通过站内消息通知您</p>
+        </div>
+        <div class="alert-dialog-footer">
+          <button class="btn btn-glass" @click="showAlertDialog = false">取消</button>
+          <button class="btn btn-primary" @click="setAlert">确认设置</button>
+        </div>
+      </div>
+    </div>
+    
     <Footer />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import * as echarts from 'echarts'
 import productApi from '../api/productApi'
 import reviewApi from '../api/reviewApi'
 import fileApi from '../api/fileApi'
+import priceApi from '../api/priceApi'
+import type { PriceHistory, PriceStats, PriceAlert } from '../api/priceApi'
 import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
 import Navbar from '../components/Navbar.vue'
@@ -204,6 +303,16 @@ const tab = ref('detail')
 const currentImage = ref('')
 const reviews = ref<any[]>([])
 const reviewStats = ref<any>({ total: 0, avgRating: 0, goodRate: 100, ratingCounts: {} })
+
+// 价格历史相关
+const priceHistory = ref<PriceHistory[]>([])
+const priceStats = ref<PriceStats | null>(null)
+const priceAlert = ref<PriceAlert | null>(null)
+const showPriceChart = ref(false)
+const priceChartRef = ref<HTMLDivElement>()
+let priceChart: echarts.ECharts | null = null
+const targetPrice = ref<number>(0)
+const showAlertDialog = ref(false)
 
 // 广告视频相关
 const showAdVideo = ref(false)
@@ -347,9 +456,256 @@ const deleteReview = async (review: any) => {
   }
 }
 
+// 获取价格历史
+const fetchPriceHistory = async () => {
+  const productId = Number(route.params.id)
+  try {
+    const [historyRes, statsRes]: any[] = await Promise.all([
+      priceApi.getPriceHistory(productId),
+      priceApi.getPriceStats(productId)
+    ])
+    if (historyRes?.code === 200) {
+      priceHistory.value = historyRes.data || []
+    }
+    if (statsRes?.code === 200) {
+      priceStats.value = statsRes.data
+    }
+  } catch (e) {
+    console.error('获取价格历史失败', e)
+  }
+}
+
+// 获取用户的降价提醒
+const fetchPriceAlert = async () => {
+  if (!userStore.isLoggedIn) return
+  const productId = Number(route.params.id)
+  try {
+    const res: any = await priceApi.getUserProductAlert(productId)
+    if (res?.code === 200) {
+      priceAlert.value = res.data
+    }
+  } catch (e) {
+    console.error('获取降价提醒失败', e)
+  }
+}
+
+// 初始化价格图表
+const initPriceChart = () => {
+  if (!priceChartRef.value || priceHistory.value.length === 0) return
+  
+  if (priceChart) {
+    priceChart.dispose()
+  }
+  
+  priceChart = echarts.init(priceChartRef.value)
+  
+  const dates = priceHistory.value.map(h => h.recordedTime.substring(0, 10))
+  const prices = priceHistory.value.map(h => h.price)
+  
+  const option: echarts.EChartsOption = {
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderColor: '#e0e0e0',
+      borderWidth: 1,
+      textStyle: {
+        color: '#333'
+      },
+      formatter: (params: any) => {
+        if (!Array.isArray(params) || params.length === 0) return ''
+        const date = params[0].axisValue
+        let html = `<div style="font-weight:600;margin-bottom:8px">${date}</div>`
+        params.forEach((item: any) => {
+          const color = item.color
+          const name = item.seriesName
+          const value = item.value
+          html += `<div style="display:flex;align-items:center;margin:4px 0">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:8px"></span>
+            <span style="flex:1">${name}</span>
+            <span style="font-weight:600;margin-left:12px">¥${value}</span>
+          </div>`
+        })
+        return html
+      }
+    },
+    legend: {
+      data: ['价格走势', '平均价格', '历史最低'],
+      bottom: 0,
+      textStyle: {
+        fontSize: 12,
+        color: '#666'
+      },
+      itemWidth: 20,
+      itemHeight: 10
+    },
+    grid: {
+      left: '3%',
+      right: '8%',
+      bottom: '12%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: dates,
+      axisLabel: {
+        fontSize: 11,
+        color: '#666'
+      }
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: {
+        formatter: '¥{value}',
+        fontSize: 11,
+        color: '#666'
+      },
+      splitLine: {
+        lineStyle: {
+          color: 'rgba(200,200,220,0.2)'
+        }
+      }
+    },
+    series: [
+      {
+        name: '价格走势',
+        type: 'line',
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: {
+          color: '#5A8FD4',
+          width: 2
+        },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(90, 143, 212, 0.3)' },
+            { offset: 1, color: 'rgba(90, 143, 212, 0.05)' }
+          ])
+        },
+        itemStyle: {
+          color: '#5A8FD4'
+        },
+        data: prices
+      },
+      {
+        name: '平均价格',
+        type: 'line',
+        symbol: 'none',
+        lineStyle: {
+          color: '#faad14',
+          type: 'dashed',
+          width: 1.5
+        },
+        data: priceStats.value ? dates.map(() => priceStats.value!.avgPrice) : []
+      },
+      {
+        name: '历史最低',
+        type: 'line',
+        symbol: 'none',
+        lineStyle: {
+          color: '#52c41a',
+          type: 'dashed',
+          width: 1.5
+        },
+        data: priceStats.value ? dates.map(() => priceStats.value!.lowestPrice) : []
+      }
+    ]
+  }
+  
+  priceChart.setOption(option)
+}
+
+// 切换价格图表显示
+const togglePriceChart = () => {
+  showPriceChart.value = !showPriceChart.value
+  if (showPriceChart.value) {
+    setTimeout(() => initPriceChart(), 100)
+  }
+}
+
+// 打开降价提醒对话框
+const openAlertDialog = () => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  targetPrice.value = Math.floor(product.value.price * 0.9 * 100) / 100
+  showAlertDialog.value = true
+}
+
+// 设置降价提醒
+const setAlert = async () => {
+  if (targetPrice.value >= product.value.price) {
+    ElMessage.warning('目标价格必须低于当前价格')
+    return
+  }
+  if (targetPrice.value <= 0) {
+    ElMessage.warning('请输入有效的目标价格')
+    return
+  }
+  
+  try {
+    const res: any = await priceApi.createAlert(product.value.id, targetPrice.value)
+    if (res?.code === 200) {
+      ElMessage.success('降价提醒设置成功')
+      priceAlert.value = res.data
+      showAlertDialog.value = false
+    } else {
+      ElMessage.error(res?.message || '设置失败')
+    }
+  } catch (e) {
+    ElMessage.error('设置降价提醒失败')
+  }
+}
+
+// 取消降价提醒
+const cancelAlert = async () => {
+  try {
+    await ElMessageBox.confirm('确定要取消降价提醒吗？', '提示', { type: 'warning' })
+    const res: any = await priceApi.cancelAlert(product.value.id)
+    if (res?.code === 200) {
+      ElMessage.success('已取消降价提醒')
+      priceAlert.value = null
+    } else {
+      ElMessage.error(res?.message || '取消失败')
+    }
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error('取消失败')
+    }
+  }
+}
+
+// 监听窗口大小变化
+const handleResize = () => {
+  if (priceChart) {
+    priceChart.resize()
+  }
+}
+
+// 监听价格历史变化，更新图表
+watch(priceHistory, () => {
+  if (showPriceChart.value) {
+    setTimeout(() => initPriceChart(), 100)
+  }
+})
+
 onMounted(() => {
   fetchProduct()
   fetchReviews()
+  fetchPriceHistory()
+  fetchPriceAlert()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  if (priceChart) {
+    priceChart.dispose()
+    priceChart = null
+  }
 })
 </script>
 
@@ -620,5 +976,281 @@ onMounted(() => {
   width: 100%;
   max-height: 70vh;
   background: #000;
+}
+
+/* 价格历史区域 */
+.price-history-section {
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.price-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(200,200,220,0.2);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.stat-value.lowest { color: #52c41a; }
+.stat-value.highest { color: #ff4d4f; }
+.stat-value.avg { color: #faad14; }
+
+.stat-badge {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.lowest-badge {
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #52c41a, #73d13d);
+  color: #fff;
+  font-size: 12px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.price-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.price-chart-btn,
+.alert-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(90, 143, 212, 0.1);
+  border: 1px solid rgba(90, 143, 212, 0.2);
+  border-radius: 8px;
+  color: #5A8FD4;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.price-chart-btn:hover,
+.alert-btn:hover {
+  background: rgba(90, 143, 212, 0.2);
+}
+
+.alert-btn.active {
+  background: linear-gradient(135deg, #5A8FD4, #7BA8E8);
+  color: #fff;
+  border-color: transparent;
+}
+
+.chart-icon,
+.bell-icon {
+  font-size: 14px;
+}
+
+.price-chart-container {
+  margin-top: 16px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: rgba(255,255,255,0.5);
+}
+
+.price-chart {
+  width: 100%;
+  height: 250px;
+}
+
+.no-history {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* 降价提醒对话框 */
+.alert-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alert-dialog {
+  width: 90%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.alert-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(200,200,220,0.2);
+}
+
+.alert-dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.alert-dialog-header .close-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.3s;
+}
+
+.alert-dialog-header .close-btn:hover {
+  background: rgba(0,0,0,0.05);
+  color: var(--text-title);
+}
+
+.alert-dialog-body {
+  padding: 20px;
+}
+
+.current-price-info,
+.target-price-input {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.current-price-info .label,
+.target-price-input .label,
+.quick-select .label {
+  font-size: 14px;
+  color: var(--text-body);
+}
+
+.current-price-info .value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #5A8FD4;
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(200,200,220,0.3);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.input-wrapper .currency {
+  padding: 8px 12px;
+  background: rgba(245,250,255,0.5);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.input-wrapper input {
+  width: 120px;
+  padding: 8px 12px;
+  border: none;
+  font-size: 16px;
+  outline: none;
+}
+
+.quick-select {
+  margin-bottom: 16px;
+}
+
+.quick-select .label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.quick-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.quick-btns button {
+  padding: 6px 12px;
+  background: rgba(90, 143, 212, 0.1);
+  border: 1px solid rgba(90, 143, 212, 0.2);
+  border-radius: 6px;
+  color: #5A8FD4;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.quick-btns button:hover {
+  background: #5A8FD4;
+  color: #fff;
+}
+
+.alert-tip {
+  margin: 0;
+  padding: 12px;
+  background: rgba(250, 173, 20, 0.1);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #d48806;
+  line-height: 1.5;
+}
+
+.alert-dialog-footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid rgba(200,200,220,0.2);
+}
+
+.alert-dialog-footer .btn {
+  flex: 1;
+  padding: 10px 0;
+}
+
+@media (max-width: 900px) {
+  .price-stats {
+    gap: 12px;
+  }
+  
+  .stat-badge {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 8px;
+  }
+  
+  .price-actions {
+    flex-direction: column;
+  }
+  
+  .price-chart {
+    height: 200px;
+  }
 }
 </style>

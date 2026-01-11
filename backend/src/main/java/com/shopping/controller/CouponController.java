@@ -256,6 +256,7 @@ public class CouponController {
      */
     @GetMapping("/admin/all")
     public Response<List<Coupon>> getAllCoupons() {
+        com.shopping.utils.AdminUtils.requireAdmin();
         return Response.success(couponService.getAllCoupons());
     }
     
@@ -264,6 +265,7 @@ public class CouponController {
      */
     @PostMapping("/admin")
     public Response<Coupon> createCoupon(@RequestBody Coupon coupon) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         return Response.success("创建成功", couponService.createCoupon(coupon));
     }
     
@@ -272,6 +274,7 @@ public class CouponController {
      */
     @PutMapping("/admin/{id}")
     public Response<Coupon> updateCoupon(@PathVariable Long id, @RequestBody Coupon coupon) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         return Response.success("更新成功", couponService.updateCoupon(id, coupon));
     }
     
@@ -280,6 +283,7 @@ public class CouponController {
      */
     @DeleteMapping("/admin/{id}")
     public Response<Void> deleteCoupon(@PathVariable Long id) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         couponService.deleteCoupon(id);
         return Response.success("删除成功");
     }
@@ -289,6 +293,7 @@ public class CouponController {
      */
     @PostMapping("/admin/reset-user-coupon")
     public Response<Integer> resetUserCoupon(@RequestBody java.util.Map<String, Long> body) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         Long userId = body.get("userId");
         Long couponId = body.get("couponId");
         

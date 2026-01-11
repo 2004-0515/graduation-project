@@ -170,14 +170,27 @@ public class OrderController {
     }
 
     /**
-     * 【管理员】获取待发货订单数量
+     * 【管理员】获取待发货订单数量（已废弃，发货由卖家执行）
      * @return 待发货订单数量
      */
     @GetMapping("/pending/count")
     public Response<Long> getPendingOrderCount() {
+        com.shopping.utils.AdminUtils.requireAdmin();
         logger.info("Admin fetching pending order count");
         long count = orderService.getPendingOrderCount();
         return Response.success("获取待发货订单数量成功", count);
+    }
+    
+    /**
+     * 【管理员】获取待审核取消申请数量
+     * @return 待审核取消申请数量
+     */
+    @GetMapping("/cancel-requests/count")
+    public Response<Long> getCancelRequestCount() {
+        com.shopping.utils.AdminUtils.requireAdmin();
+        logger.info("Admin fetching cancel request count");
+        long count = orderService.getCancelRequestCount();
+        return Response.success("获取待审核取消申请数量成功", count);
     }
 
     /**
@@ -192,6 +205,7 @@ public class OrderController {
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         logger.info("Admin fetching all orders, status: {}, page: {}, size: {}", status, page, size);
         List<OrderDto> orders = orderService.getAllOrders(status, page, size);
         logger.info("Admin found {} orders", orders.size());
@@ -205,6 +219,7 @@ public class OrderController {
      */
     @PutMapping("/{id}/ship")
     public Response<String> shipOrder(@PathVariable Long id) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         logger.info("Admin shipping order {}", id);
         orderService.shipOrder(id);
         logger.info("Order {} shipped successfully", id);
@@ -219,6 +234,7 @@ public class OrderController {
      */
     @PutMapping("/{id}/status")
     public Response<String> updateOrderStatus(@PathVariable Long id, @RequestBody java.util.Map<String, Integer> body) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         Integer status = body.get("status");
         logger.info("Admin updating order {} status to {}", id, status);
         orderService.updateOrderStatus(id, status);
@@ -233,10 +249,49 @@ public class OrderController {
      */
     @PutMapping("/{id}/review-cancel")
     public Response<String> reviewCancelRequest(@PathVariable Long id, @RequestBody java.util.Map<String, Boolean> body) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         Boolean approved = body.get("approved");
         logger.info("Admin reviewing cancel request for order {}, approved: {}", id, approved);
         orderService.reviewCancelRequest(id, approved != null && approved);
         return Response.success(approved != null && approved ? "已同意取消申请" : "已拒绝取消申请");
+    }
+    
+    /**
+     * 【卖家】获取自己的订单项列表
+     * @param shipStatus 发货状态过滤（可选）：0-未发货，1-已发货
+     * @return 订单项列表
+     */
+    @GetMapping("/seller/items")
+    public Response<java.util.List<OrderItemDto>> getSellerOrderItems(
+            @RequestParam(required = false) Integer shipStatus) {
+        String username = getCurrentUsername();
+        logger.info("Seller {} fetching order items, shipStatus: {}", username, shipStatus);
+        java.util.List<OrderItemDto> items = orderService.getSellerOrderItems(username, shipStatus);
+        return Response.success("获取订单列表成功", items);
+    }
+    
+    /**
+     * 【卖家】发货
+     * @param itemId 订单项ID
+     * @return 操作结果
+     */
+    @PutMapping("/seller/items/{itemId}/ship")
+    public Response<String> sellerShipItem(@PathVariable Long itemId) {
+        String username = getCurrentUsername();
+        logger.info("Seller {} shipping item {}", username, itemId);
+        orderService.sellerShipItem(itemId, username);
+        return Response.success("发货成功");
+    }
+    
+    /**
+     * 【卖家】获取待发货订单项数量
+     * @return 待发货数量
+     */
+    @GetMapping("/seller/pending/count")
+    public Response<Long> getSellerPendingShipCount() {
+        String username = getCurrentUsername();
+        long count = orderService.getSellerPendingShipCount(username);
+        return Response.success("获取待发货数量成功", count);
     }
 
     /**

@@ -77,8 +77,16 @@
           <el-table-column label="分类" width="100">
             <template #default="{ row }">{{ row.categoryName || '-' }}</template>
           </el-table-column>
-          <el-table-column prop="price" label="价格" width="90">
-            <template #default="{ row }">¥{{ row.price }}</template>
+          <el-table-column prop="price" label="价格" width="120">
+            <template #default="{ row }">
+              <div class="price-cell">
+                <span class="current-price">¥{{ row.price }}</span>
+                <div v-if="row.pendingPrice && activeTab === 'pending'" class="pending-price-info">
+                  <el-icon class="arrow-icon"><Bottom /></el-icon>
+                  <span class="new-price">¥{{ row.pendingPrice }}</span>
+                </div>
+              </div>
+            </template>
           </el-table-column>
           <el-table-column prop="stock" label="库存" width="70">
             <template #default="{ row }">
@@ -119,7 +127,7 @@
               <template v-if="activeTab === 'pending'">
                 <el-button type="success" link size="small" @click="handleAudit(row, 1)">通过</el-button>
                 <el-button type="danger" link size="small" @click="handleAudit(row, 2)">拒绝</el-button>
-                <el-button type="primary" link size="small" @click="openDialog(row)">查看</el-button>
+                <el-button type="primary" link size="small" @click="openCompareDialog(row)">查看</el-button>
               </template>
               <template v-else>
                 <el-button type="primary" link size="small" @click="openDialog(row)">编辑</el-button>
@@ -286,6 +294,111 @@
           <el-button type="success" @click="confirmApprove" :loading="auditing">确认通过</el-button>
         </template>
       </el-dialog>
+
+      <!-- 待审核商品对比查看弹窗 -->
+      <el-dialog v-model="compareDialogVisible" title="商品审核详情" width="900px" class="compare-dialog">
+        <div class="compare-container" v-if="compareProduct">
+          <div class="compare-header">
+            <div class="product-basic">
+              <el-image :src="getImageUrl(compareProduct.mainImage)" class="product-thumb" fit="cover">
+                <template #error><div class="img-placeholder">暂无图片</div></template>
+              </el-image>
+              <div class="product-meta">
+                <h3>{{ compareProduct.name }}</h3>
+                <p class="seller-info">卖家: {{ compareProduct.sellerName || '平台' }}</p>
+                <p class="category-info">分类: {{ compareProduct.categoryName || '-' }}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="compare-content">
+            <!-- 当前信息 -->
+            <div class="compare-card current">
+              <div class="card-header">
+                <span class="card-title">当前信息</span>
+                <el-tag type="info" size="small">线上版本</el-tag>
+              </div>
+              <div class="card-body">
+                <div class="info-row">
+                  <span class="label">商品价格</span>
+                  <span class="value price">¥{{ compareProduct.price }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">原价</span>
+                  <span class="value">{{ compareProduct.originalPrice ? '¥' + compareProduct.originalPrice : '-' }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">库存</span>
+                  <span class="value">{{ compareProduct.stock }} 件</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">销量</span>
+                  <span class="value">{{ compareProduct.sales }} 件</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 箭头 -->
+            <div class="compare-arrow">
+              <el-icon size="32"><Right /></el-icon>
+            </div>
+
+            <!-- 待审核信息 -->
+            <div class="compare-card pending">
+              <div class="card-header">
+                <span class="card-title">待审核信息</span>
+                <el-tag type="warning" size="small">待审核</el-tag>
+              </div>
+              <div class="card-body">
+                <div class="info-row" :class="{ changed: compareProduct.pendingPrice && compareProduct.pendingPrice !== compareProduct.price }">
+                  <span class="label">商品价格</span>
+                  <span class="value price new-price">
+                    ¥{{ compareProduct.pendingPrice || compareProduct.price }}
+                    <span v-if="compareProduct.pendingPrice && compareProduct.pendingPrice !== compareProduct.price" class="change-badge">
+                      {{ compareProduct.pendingPrice < compareProduct.price ? '降价' : '涨价' }}
+                    </span>
+                  </span>
+                </div>
+                <div class="info-row" :class="{ changed: compareProduct.pendingOriginalPrice && compareProduct.pendingOriginalPrice !== compareProduct.originalPrice }">
+                  <span class="label">原价</span>
+                  <span class="value">{{ compareProduct.pendingOriginalPrice ? '¥' + compareProduct.pendingOriginalPrice : (compareProduct.originalPrice ? '¥' + compareProduct.originalPrice : '-') }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">库存</span>
+                  <span class="value">{{ compareProduct.stock }} 件</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">销量</span>
+                  <span class="value">{{ compareProduct.sales }} 件</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 广告视频信息 -->
+          <div v-if="compareProduct.adVideo" class="ad-video-section">
+            <el-divider content-position="left">广告视频</el-divider>
+            <div class="ad-video-preview" @click="openVideoPreview(compareProduct)">
+              <video :src="getVideoUrl(compareProduct.adVideo)" class="ad-video-thumb" muted></video>
+              <div class="play-overlay">
+                <el-icon size="24"><VideoPlay /></el-icon>
+                <span>点击预览</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 商品描述 -->
+          <div class="description-section">
+            <el-divider content-position="left">商品描述</el-divider>
+            <p class="description-text">{{ compareProduct.description || '暂无描述' }}</p>
+          </div>
+        </div>
+        <template #footer>
+          <el-button @click="compareDialogVisible = false">关闭</el-button>
+          <el-button type="danger" @click="compareDialogVisible = false; handleAudit(compareProduct, 2)">拒绝</el-button>
+          <el-button type="success" @click="compareDialogVisible = false; handleAudit(compareProduct, 1)">通过</el-button>
+        </template>
+      </el-dialog>
     </div>
   </AdminLayout>
 </template>
@@ -293,7 +406,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, VideoPlay } from '@element-plus/icons-vue'
+import { Plus, VideoPlay, Bottom, Right } from '@element-plus/icons-vue'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
 import fileApi from '@/api/fileApi'
@@ -327,6 +440,10 @@ const approveDialogVisible = ref(false)
 const approveProduct = ref<any>(null)
 const approveAdEnabled = ref(0)
 const approveAdDuration = ref(5)
+
+// 对比查看弹窗相关
+const compareDialogVisible = ref(false)
+const compareProduct = ref<any>(null)
 
 const searchKeyword = ref('')
 const filterStatus = ref<string>('')
@@ -489,6 +606,12 @@ const openVideoPreview = (product: any) => {
   }
 }
 
+// 打开对比查看弹窗
+const openCompareDialog = (product: any) => {
+  compareProduct.value = product
+  compareDialogVisible.value = true
+}
+
 const fetchCategories = async () => {
   try {
     const res: any = await adminApi.getCategories()
@@ -631,13 +754,33 @@ const toggleStatus = async (product: any) => {
   }
 }
 
+// 从localStorage读取上次的广告设置
+const getLastAdSettings = () => {
+  try {
+    const saved = localStorage.getItem('admin_ad_settings')
+    if (saved) {
+      return JSON.parse(saved)
+    }
+  } catch {}
+  return { enabled: 1, duration: 5 }
+}
+
+// 保存广告设置到localStorage
+const saveAdSettings = (enabled: number, duration: number) => {
+  try {
+    localStorage.setItem('admin_ad_settings', JSON.stringify({ enabled, duration }))
+  } catch {}
+}
+
 const handleAudit = async (product: any, auditStatus: number) => {
   if (auditStatus === 1) {
     // 通过 - 如果有广告视频，打开设置弹窗
     if (product.adVideo) {
       approveProduct.value = product
-      approveAdEnabled.value = 0
-      approveAdDuration.value = 5
+      // 使用上次保存的设置
+      const lastSettings = getLastAdSettings()
+      approveAdEnabled.value = lastSettings.enabled
+      approveAdDuration.value = lastSettings.duration
       approveDialogVisible.value = true
     } else {
       // 没有广告视频，直接确认
@@ -664,12 +807,14 @@ const confirmApprove = async () => {
   auditing.value = true
   try {
     const data: any = { auditStatus: 1 }
-    // 如果有广告视频，传递广告设置
+    // 如果有广告视频，传递广告设置并保存到localStorage
     if (approveProduct.value.adVideo) {
       data.adVideoEnabled = approveAdEnabled.value
       if (approveAdEnabled.value === 1) {
         data.adVideoDuration = approveAdDuration.value
       }
+      // 保存本次设置供下次使用
+      saveAdSettings(approveAdEnabled.value, approveAdDuration.value)
     }
     await axios.post(`/products/${approveProduct.value.id}/audit`, data)
     ElMessage.success(approveAdEnabled.value === 1 ? '审核通过，广告已启用' : '审核通过')
@@ -1113,5 +1258,241 @@ onMounted(() => {
 .ad-label {
   font-size: 13px;
   color: #666;
+}
+
+.pending-price-tag {
+  font-size: 11px;
+  color: #faad14;
+  background: #fffbe6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.price-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.current-price {
+  font-weight: 500;
+  color: #333;
+}
+
+.pending-price-info {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 8px;
+  background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
+  border-radius: 12px;
+  border: 1px solid #91d5ff;
+}
+
+.pending-price-info .arrow-icon {
+  font-size: 12px;
+  color: #1890ff;
+}
+
+.pending-price-info .new-price {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1890ff;
+}
+
+/* 对比查看弹窗 */
+.compare-dialog :deep(.el-dialog__body) {
+  padding: 20px 24px;
+}
+
+.compare-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.compare-header {
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.product-basic {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.product-thumb {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.product-meta h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 8px;
+}
+
+.product-meta .seller-info,
+.product-meta .category-info {
+  font-size: 13px;
+  color: #666;
+  margin: 4px 0;
+}
+
+.compare-content {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.compare-card {
+  flex: 1;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.compare-card.current {
+  background: #f5f7fa;
+  border: 1px solid #e4e7ed;
+}
+
+.compare-card.pending {
+  background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%);
+  border: 1px solid #91d5ff;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.card-body {
+  padding: 16px;
+}
+
+.card-body .info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.06);
+}
+
+.card-body .info-row:last-child {
+  border-bottom: none;
+}
+
+.card-body .info-row .label {
+  font-size: 13px;
+  color: #666;
+}
+
+.card-body .info-row .value {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.card-body .info-row .value.price {
+  font-size: 18px;
+  color: #5A8FD4;
+  font-weight: 600;
+}
+
+.card-body .info-row.changed {
+  background: rgba(250, 173, 20, 0.1);
+  margin: 0 -16px;
+  padding: 10px 16px;
+  border-radius: 6px;
+}
+
+.card-body .info-row .new-price {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.change-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #52c41a;
+  color: #fff;
+}
+
+.compare-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5A8FD4;
+  flex-shrink: 0;
+}
+
+.ad-video-section {
+  margin-top: 8px;
+}
+
+.ad-video-preview {
+  position: relative;
+  width: 200px;
+  height: 120px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.ad-video-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+.play-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #fff;
+  font-size: 12px;
+  transition: background 0.3s;
+}
+
+.ad-video-preview:hover .play-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.description-section {
+  margin-top: 8px;
+}
+
+.description-text {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+  margin: 0;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
 }
 </style>

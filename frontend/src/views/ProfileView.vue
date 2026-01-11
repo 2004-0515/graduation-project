@@ -61,6 +61,19 @@
                 </svg>
                 我的订单
               </router-link>
+              <router-link to="/my-products" class="nav-item">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
+                </svg>
+                我的商品
+              </router-link>
+              <router-link to="/seller-orders" class="nav-item">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+                </svg>
+                卖家发货
+                <span v-if="sellerPendingCount > 0" class="nav-badge">{{ sellerPendingCount }}</span>
+              </router-link>
               <router-link to="/address" class="nav-item">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
@@ -95,6 +108,10 @@
               <div class="action-item" @click="$router.push('/cart')">
                 <span class="action-label">购物车</span>
                 <span class="action-count">{{ cartCount }}</span>
+              </div>
+              <div class="action-item" @click="$router.push('/price-alerts')">
+                <span class="action-label">降价提醒</span>
+                <span class="action-count">{{ priceAlertCount }}</span>
               </div>
             </div>
 
@@ -206,6 +223,7 @@ import { useUserStore } from '../stores/userStore'
 import { useCartStore } from '../stores/cartStore'
 import orderApi from '../api/orderApi'
 import fileApi from '../api/fileApi'
+import axios from '../utils/axios'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -284,6 +302,8 @@ const pendingPayment = ref(0)
 const pendingShipment = ref(0)
 const pendingReceive = ref(0)
 const cartCount = computed(() => cartStore.items.length)
+const priceAlertCount = ref(0)
+const sellerPendingCount = ref(0)
 
 const showPasswordDialog = ref(false)
 
@@ -359,6 +379,27 @@ onMounted(async () => {
     }
   } catch (e) {
     console.error('获取订单统计失败:', e)
+  }
+  
+  // 获取降价提醒数量
+  try {
+    const res: any = await axios.get('/price/alerts')
+    if (res?.code === 200) {
+      const alerts = res.data || []
+      priceAlertCount.value = alerts.filter((a: any) => a.status === 0).length
+    }
+  } catch (e) {
+    console.error('获取降价提醒数量失败:', e)
+  }
+  
+  // 获取卖家待发货数量
+  try {
+    const res: any = await axios.get('/orders/seller/pending/count')
+    if (res?.code === 200) {
+      sellerPendingCount.value = res.data || 0
+    }
+  } catch (e) {
+    console.error('获取卖家待发货数量失败:', e)
   }
 })
 </script>
@@ -440,9 +481,22 @@ onMounted(async () => {
 .nav-item { display: flex; align-items: center; gap: 12px; padding: 14px 18px; color: var(--text-body); text-decoration: none; border-radius: var(--radius-md); transition: all 0.3s; margin-bottom: 4px; font-size: 15px; }
 .nav-item:hover { background: rgba(230, 242, 255, 0.5); color: var(--sakura); }
 .nav-item.active { background: rgba(230, 242, 255, 0.6); color: #5A8FD4; }
+.nav-badge { 
+  display: inline-block; 
+  min-width: 18px; 
+  height: 18px; 
+  line-height: 18px; 
+  padding: 0 6px; 
+  margin-left: auto; 
+  font-size: 12px; 
+  background: #f56c6c; 
+  color: #fff; 
+  border-radius: 9px; 
+  text-align: center;
+}
 
 /* Main Panel */
-.quick-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.quick-actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
 .action-item { 
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(24px);

@@ -91,14 +91,15 @@ const imgErr = (e: Event) => {
   img.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect fill="#f8f8fc" width="80" height="80"/><text fill="#ccc" font-family="Arial" font-size="12" x="50%" y="50%" text-anchor="middle" dy=".3em">商品</text></svg>')
 }
 
-const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 5: '已退款' }[status] || '未知')
-const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled' }[status] || '')
+const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 6: '申请取消中' }[status] || '未知')
+const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled', 6: 'cancel-requested' }[status] || '')
 const getStatusDesc = (status: number) => ({
   0: '请尽快完成支付，超时订单将自动取消',
   1: '商家正在准备商品，请耐心等待',
   2: '商品已发出，请注意查收',
   3: '订单已完成，感谢您的购买',
-  4: '订单已取消'
+  4: '订单已取消',
+  6: '取消申请已提交，等待管理员审核'
 }[status] || '')
 
 const formatDate = (dateStr: string) => {
@@ -153,6 +154,7 @@ onMounted(async () => {
 .status-label.shipping { color: #3498db; }
 .status-label.completed { color: #27ae60; }
 .status-label.cancelled { color: var(--text-muted); }
+.status-label.cancel-requested { color: #e67e22; }
 .status-desc { font-size: 14px; color: var(--text-muted); margin: 8px 0 0; }
 .status-actions { display: flex; gap: 12px; }
 .status-actions .btn { padding: 12px 28px; }

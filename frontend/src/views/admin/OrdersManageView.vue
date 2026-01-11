@@ -48,10 +48,9 @@
           <el-table-column prop="createdTime" label="下单时间" width="160">
             <template #default="{ row }">{{ formatDate(row.createdTime) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="260" fixed="right">
+          <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="viewDetail(row)">详情</el-button>
-              <el-button v-if="row.orderStatus === 1" type="success" link @click="shipOrder(row)">发货</el-button>
               <el-button v-if="row.orderStatus === 0" type="warning" link @click="cancelOrder(row)">取消</el-button>
               <template v-if="row.orderStatus === 6">
                 <el-button type="success" link @click="reviewCancel(row, true)">同意取消</el-button>
@@ -206,18 +205,6 @@ const handleSearch = () => {
 const viewDetail = (order: any) => {
   currentOrder.value = order
   detailVisible.value = true
-}
-
-const shipOrder = async (order: any) => {
-  try {
-    await ElMessageBox.confirm('确定要发货吗？', '提示')
-    await adminApi.shipOrder(order.id)
-    ElMessage.success('发货成功')
-    // 刷新侧边栏待发货数量
-    adminStore.fetchPendingOrderCount()
-    // 重新获取订单列表，确保数据同步
-    await fetchOrders()
-  } catch {}
 }
 
 const cancelOrder = async (order: any) => {

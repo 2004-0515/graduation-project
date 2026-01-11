@@ -72,6 +72,14 @@ public class OrderService {
     }
     
     /**
+     * 获取待审核取消申请数量（状态=6，申请取消中）
+     * @return 待审核取消申请数量
+     */
+    public long getCancelRequestCount() {
+        return orderRepository.countByOrderStatus(OrderConstants.OrderStatus.CANCEL_REQUESTED);
+    }
+    
+    /**
      * 获取用户订单列表
      * @param username 用户名
      * @param status 订单状态过滤（可选）
@@ -209,6 +217,10 @@ public class OrderService {
             orderItem.setPrice(product.getPrice());
             orderItem.setQuantity(itemRequest.getQuantity());
             orderItem.setTotalPrice(itemTotalPrice);
+            // 保存卖家信息
+            orderItem.setSellerId(product.getSellerId());
+            orderItem.setSellerName(product.getSellerName());
+            orderItem.setShipStatus(0); // 未发货
 
             order.getItems().add(orderItem);
             totalAmount = totalAmount.add(itemTotalPrice);
@@ -303,10 +315,30 @@ public class OrderService {
         notificationService.sendOrderNotification(order.getUser().getId(), savedOrder.getId(),
                 savedOrder.getOrderNo(), "支付成功，等待发货");
         
-        // 发送通知给管理员：有新订单待发货
-        notificationService.sendToAllAdmins("order", "新订单待发货", 
-                "用户 " + order.getUser().getUsername() + " 的订单 " + savedOrder.getOrderNo() + " 已支付，请尽快发货", 
-                savedOrder.getId());
+        // 发送通知给对应的卖家：有新订单待发货
+        // 按卖家分组发送通知，每个卖家只收到一条通知
+        java.util.Map<Long, java.util.List<OrderItem>> sellerItemsMap = new java.util.HashMap<>();
+        for (OrderItem item : order.getItems()) {
+            if (item.getSellerId() != null) {
+                sellerItemsMap.computeIfAbsent(item.getSellerId(), k -> new java.util.ArrayList<>()).add(item);
+            }
+        }
+        
+        for (java.util.Map.Entry<Long, java.util.List<OrderItem>> entry : sellerItemsMap.entrySet()) {
+            Long sellerId = entry.getKey();
+            java.util.List<OrderItem> items = entry.getValue();
+            // 构建商品名称列表
+            String productNames = items.stream()
+                    .map(OrderItem::getProductName)
+                    .limit(3)
+                    .collect(Collectors.joining("、"));
+            if (items.size() > 3) {
+                productNames += "等" + items.size() + "件商品";
+            }
+            notificationService.sendToUser(sellerId, "order", "新订单待发货", 
+                    "用户 " + order.getUser().getUsername() + " 购买了您的商品：" + productNames + "，请尽快发货", 
+                    savedOrder.getId());
+        }
         
         logger.info("Order {} paid successfully", orderId);
         
@@ -474,7 +506,7 @@ public class OrderService {
     }
 
     /**
-     * 【管理员】发货
+     * 【管理员】发货（整单发货，已废弃，改用卖家发货）
      * @param orderId 订单ID
      */
     @Transactional
@@ -494,6 +526,117 @@ public class OrderService {
         // 发送发货通知
         notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
                 order.getOrderNo(), "已发货，请注意查收");
+    }
+    
+    /**
+     * 【卖家】获取自己的订单项列表
+     * @param username 卖家用户名
+     * @param shipStatus 发货状态过滤（可选）：0-未发货，1-已发货
+     * @return 订单项列表
+     */
+    public List<OrderItemDto> getSellerOrderItems(String username, Integer shipStatus) {
+        User seller = userService.getUserByUsername(username);
+        List<OrderItem> items;
+        
+        if (shipStatus != null) {
+            items = orderItemRepository.findBySellerIdAndShipStatusOrderByCreatedTimeDesc(seller.getId(), shipStatus);
+        } else {
+            items = orderItemRepository.findBySellerIdOrderByCreatedTimeDesc(seller.getId());
+        }
+        
+        return items.stream()
+                .map(this::convertSellerOrderItemToDto)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 【卖家】发货
+     * @param itemId 订单项ID
+     * @param username 卖家用户名
+     */
+    @Transactional
+    public void sellerShipItem(Long itemId, String username) {
+        User seller = userService.getUserByUsername(username);
+        OrderItem item = orderItemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("订单项", itemId));
+        
+        // 验证是否是该卖家的商品
+        if (item.getSellerId() == null || !item.getSellerId().equals(seller.getId())) {
+            throw new ValidationException("无权操作此订单项");
+        }
+        
+        // 验证订单状态
+        Order order = item.getOrder();
+        if (order.getOrderStatus() != OrderConstants.OrderStatus.PENDING_SHIPMENT) {
+            throw new ValidationException("订单状态不允许发货");
+        }
+        
+        // 验证发货状态
+        if (item.getShipStatus() != null && item.getShipStatus() == 1) {
+            throw new ValidationException("该商品已发货");
+        }
+        
+        // 更新订单项发货状态
+        item.setShipStatus(1);
+        item.setShipTime(LocalDateTime.now());
+        orderItemRepository.save(item);
+        
+        // 检查该订单的所有商品是否都已发货
+        boolean allShipped = order.getItems().stream()
+                .allMatch(i -> i.getShipStatus() != null && i.getShipStatus() == 1);
+        
+        if (allShipped) {
+            // 所有商品都已发货，更新订单状态
+            order.setOrderStatus(OrderConstants.OrderStatus.PENDING_RECEIPT);
+            order.setShippingTime(LocalDateTime.now());
+            orderRepository.save(order);
+            
+            // 发送发货通知给买家
+            notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
+                    order.getOrderNo(), "已全部发货，请注意查收");
+        } else {
+            // 部分发货通知
+            notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
+                    order.getOrderNo(), "部分商品已发货");
+        }
+        
+        logger.info("Seller {} shipped item {} for order {}", username, itemId, order.getOrderNo());
+    }
+    
+    /**
+     * 【卖家】获取待发货订单项数量
+     * @param username 卖家用户名
+     * @return 待发货数量
+     */
+    public long getSellerPendingShipCount(String username) {
+        User seller = userService.getUserByUsername(username);
+        return orderItemRepository.countBySellerIdAndShipStatus(seller.getId(), 0);
+    }
+    
+    /**
+     * 将OrderItem转换为卖家视角的DTO（包含订单信息）
+     */
+    private OrderItemDto convertSellerOrderItemToDto(OrderItem item) {
+        OrderItemDto dto = new OrderItemDto();
+        dto.setId(item.getId());
+        dto.setOrderId(item.getOrder().getId());
+        dto.setProductId(item.getProduct().getId());
+        dto.setProductName(item.getProductName());
+        dto.setProductImage(item.getProductImage());
+        dto.setPrice(item.getPrice());
+        dto.setQuantity(item.getQuantity());
+        dto.setShipStatus(item.getShipStatus());
+        dto.setShipTime(item.getShipTime());
+        // 添加订单相关信息
+        dto.setOrderNo(item.getOrder().getOrderNo());
+        dto.setOrderStatus(item.getOrder().getOrderStatus());
+        dto.setBuyerName(item.getOrder().getUser().getUsername());
+        dto.setCreatedTime(item.getCreatedTime());
+        // 解析收货地址
+        if (item.getOrder().getShippingAddress() != null) {
+            dto.setShippingAddress(parseAddressJson(item.getOrder().getShippingAddress()));
+        }
+        return dto;
     }
 
     /**

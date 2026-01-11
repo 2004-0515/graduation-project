@@ -1,6 +1,7 @@
 package com.shopping.dto;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 /**
  * 订单商品DTO
@@ -14,6 +15,15 @@ public class OrderItemDto {
     private BigDecimal price;
     private Integer quantity;
     private Boolean reviewed;
+    
+    // 卖家视角需要的字段
+    private Integer shipStatus;
+    private LocalDateTime shipTime;
+    private String orderNo;
+    private Integer orderStatus;
+    private String buyerName;
+    private LocalDateTime createdTime;
+    private AddressDto shippingAddress;
 
     public OrderItemDto() {}
 
@@ -80,5 +90,61 @@ public class OrderItemDto {
     
     public void setReviewed(Boolean reviewed) {
         this.reviewed = reviewed;
+    }
+    
+    public Integer getShipStatus() {
+        return shipStatus;
+    }
+    
+    public void setShipStatus(Integer shipStatus) {
+        this.shipStatus = shipStatus;
+    }
+    
+    public LocalDateTime getShipTime() {
+        return shipTime;
+    }
+    
+    public void setShipTime(LocalDateTime shipTime) {
+        this.shipTime = shipTime;
+    }
+    
+    public String getOrderNo() {
+        return orderNo;
+    }
+    
+    public void setOrderNo(String orderNo) {
+        this.orderNo = orderNo;
+    }
+    
+    public Integer getOrderStatus() {
+        return orderStatus;
+    }
+    
+    public void setOrderStatus(Integer orderStatus) {
+        this.orderStatus = orderStatus;
+    }
+    
+    public String getBuyerName() {
+        return buyerName;
+    }
+    
+    public void setBuyerName(String buyerName) {
+        this.buyerName = buyerName;
+    }
+    
+    public LocalDateTime getCreatedTime() {
+        return createdTime;
+    }
+    
+    public void setCreatedTime(LocalDateTime createdTime) {
+        this.createdTime = createdTime;
+    }
+    
+    public AddressDto getShippingAddress() {
+        return shippingAddress;
+    }
+    
+    public void setShippingAddress(AddressDto shippingAddress) {
+        this.shippingAddress = shippingAddress;
     }
 }

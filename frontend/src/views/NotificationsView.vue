@@ -61,6 +61,9 @@
                   <svg v-else-if="getActualType(item) === 'product_review'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
                   </svg>
+                  <svg v-else-if="getActualType(item) === 'review'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                  </svg>
                   <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 2v4M16 2v4M2 10h20"/>
                   </svg>
@@ -118,8 +121,8 @@
             查看订单
           </el-button>
           <el-button v-if="getActualType(currentNotification) === 'promotion'" 
-                     type="primary" @click="goToCoupon">
-            {{ currentNotification?.relatedId ? '查看优惠券' : '领取优惠券' }}
+                     type="primary" @click="goToPromotion">
+            {{ isPriceAlertNotification(currentNotification) ? '查看商品' : (currentNotification?.relatedId ? '查看优惠券' : '领取优惠券') }}
           </el-button>
           <el-button v-if="isAdmin && getActualType(currentNotification) === 'file_review'" 
                      type="primary" @click="goToFileReview">
@@ -128,6 +131,10 @@
           <el-button v-if="isAdmin && getActualType(currentNotification) === 'product_review'" 
                      type="primary" @click="goToProductReview">
             去审核
+          </el-button>
+          <el-button v-if="getActualType(currentNotification) === 'review'" 
+                     type="primary" @click="goToProductDetail">
+            查看商品
           </el-button>
           <el-button @click="detailVisible = false">关闭</el-button>
         </div>
@@ -164,7 +171,8 @@ const tabs = [
   { name: 'order', label: '订单' },
   { name: 'promotion', label: '促销' },
   { name: 'file_review', label: '文件审核' },
-  { name: 'product_review', label: '商品审核' }
+  { name: 'product_review', label: '商品审核' },
+  { name: 'review', label: '评价' }
 ]
 
 const activeTab = ref('all')
@@ -185,6 +193,7 @@ const filteredNotifications = computed(() => {
     case 'promotion': return notifications.value.filter(n => n.type === 'promotion')
     case 'file_review': return notifications.value.filter(n => n.type === 'file_review' || isFileReviewNotification(n))
     case 'product_review': return notifications.value.filter(n => n.type === 'product_review' || isProductReviewNotification(n))
+    case 'review': return notifications.value.filter(n => n.type === 'review')
     default: return notifications.value
   }
 })
@@ -218,6 +227,7 @@ const isProductReviewNotification = (n: Notification) => {
 const getActualType = (n: Notification) => {
   if (n.type === 'file_review' || isFileReviewNotification(n)) return 'file_review'
   if (n.type === 'product_review' || isProductReviewNotification(n)) return 'product_review'
+  if (n.type === 'review') return 'review'
   return n.type
 }
 
@@ -227,7 +237,8 @@ const getTypeName = (type: string) => {
     order: '订单消息',
     promotion: '促销活动',
     file_review: '文件审核',
-    product_review: '商品审核'
+    product_review: '商品审核',
+    review: '商品评价'
   }
   return names[type] || '通知'
 }
@@ -300,6 +311,32 @@ const goToCoupon = () => {
   }
 }
 
+// 判断是否是降价提醒通知
+const isPriceAlertNotification = (n: Notification | null) => {
+  if (!n) return false
+  return n.type === 'promotion' && (n.title?.includes('降价提醒') || n.message?.includes('已降价至'))
+}
+
+// 跳转到促销相关页面
+const goToPromotion = () => {
+  detailVisible.value = false
+  if (isPriceAlertNotification(currentNotification.value)) {
+    // 降价提醒，跳转到商品详情页
+    if (currentNotification.value?.relatedId) {
+      router.push(`/product/${currentNotification.value.relatedId}`)
+    } else {
+      router.push('/products')
+    }
+  } else {
+    // 其他促销通知，跳转到优惠券页面
+    if (currentNotification.value?.relatedId) {
+      router.push(`/coupon/${currentNotification.value.relatedId}`)
+    } else {
+      router.push('/promotions')
+    }
+  }
+}
+
 const goToFileReview = () => {
   detailVisible.value = false
   router.push('/admin/files')
@@ -308,6 +345,15 @@ const goToFileReview = () => {
 const goToProductReview = () => {
   detailVisible.value = false
   router.push('/admin/products?tab=pending')
+}
+
+const goToProductDetail = () => {
+  detailVisible.value = false
+  if (currentNotification.value?.relatedId) {
+    router.push(`/product/${currentNotification.value.relatedId}`)
+  } else {
+    router.push('/my-products')
+  }
 }
 
 const markAllRead = async () => {
@@ -599,6 +645,17 @@ onMounted(() => {
   box-shadow: 0 4px 20px rgba(39, 174, 96, 0.15);
 }
 
+/* 商品评价 - 金黄色 */
+.notification-item.review {
+  border-left-color: #F1C40F;
+  background: linear-gradient(135deg, rgba(241, 196, 15, 0.08) 0%, rgba(243, 156, 18, 0.04) 100%);
+}
+
+.notification-item.review:hover {
+  background: linear-gradient(135deg, rgba(241, 196, 15, 0.15) 0%, rgba(243, 156, 18, 0.08) 100%);
+  box-shadow: 0 4px 20px rgba(241, 196, 15, 0.15);
+}
+
 /* 未读状态 - 加深背景和左边框 */
 .notification-item.unread {
   border-left-width: 6px;
@@ -624,6 +681,10 @@ onMounted(() => {
   background: linear-gradient(135deg, rgba(39, 174, 96, 0.15) 0%, rgba(46, 204, 113, 0.08) 100%);
 }
 
+.notification-item.unread.review {
+  background: linear-gradient(135deg, rgba(241, 196, 15, 0.15) 0%, rgba(243, 156, 18, 0.08) 100%);
+}
+
 .item-icon {
   width: 44px;
   height: 44px;
@@ -641,6 +702,7 @@ onMounted(() => {
 .item-icon.promotion { color: #8E7CC3; background: rgba(142, 124, 195, 0.15); }
 .item-icon.file_review { color: #E67E22; background: rgba(230, 126, 34, 0.15); }
 .item-icon.product_review { color: #27AE60; background: rgba(39, 174, 96, 0.15); }
+.item-icon.review { color: #F1C40F; background: rgba(241, 196, 15, 0.15); }
 
 /* 类型标签样式 */
 .type-tag {
@@ -683,6 +745,12 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
 }
 
+.type-tag.review {
+  background: linear-gradient(135deg, #F1C40F, #F39C12);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(241, 196, 15, 0.3);
+}
+
 /* 右侧类型指示器 */
 .type-indicator {
   position: absolute;
@@ -711,6 +779,10 @@ onMounted(() => {
 
 .type-indicator.product_review {
   background: linear-gradient(180deg, #27AE60, #2ECC71);
+}
+
+.type-indicator.review {
+  background: linear-gradient(180deg, #F1C40F, #F39C12);
 }
 
 .item-content {
@@ -874,6 +946,11 @@ onMounted(() => {
 
 .detail-type.product_review {
   background: linear-gradient(135deg, #27AE60, #2ECC71);
+  color: #fff;
+}
+
+.detail-type.review {
+  background: linear-gradient(135deg, #F1C40F, #F39C12);
   color: #fff;
 }
 

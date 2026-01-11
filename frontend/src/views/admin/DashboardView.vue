@@ -144,8 +144,8 @@ let salesChart: echarts.ECharts | null = null
 let orderPieChart: echarts.ECharts | null = null
 let categoryBarChart: echarts.ECharts | null = null
 
-const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消' }[status] || '未知')
-const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled' }[status] || '')
+const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 6: '申请取消中' }[status] || '未知')
+const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled', 6: 'cancel-requested' }[status] || '')
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '-'
@@ -203,7 +203,8 @@ const initOrderPieChart = () => {
     { value: allOrders.value.filter(o => o.orderStatus === 1).length, name: '待发货' },
     { value: allOrders.value.filter(o => o.orderStatus === 2).length, name: '待收货' },
     { value: allOrders.value.filter(o => o.orderStatus === 3).length, name: '已完成' },
-    { value: allOrders.value.filter(o => o.orderStatus === 4).length, name: '已取消' }
+    { value: allOrders.value.filter(o => o.orderStatus === 4).length, name: '已取消' },
+    { value: allOrders.value.filter(o => o.orderStatus === 6).length, name: '申请取消中' }
   ].filter(item => item.value > 0)
   
   orderPieChart.setOption({
@@ -218,7 +219,7 @@ const initOrderPieChart = () => {
       label: { show: false },
       emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
       data: statusCount,
-      color: ['#ffc107', '#5A8FD4', '#17a2b8', '#28a745', '#dc3545']
+      color: ['#ffc107', '#5A8FD4', '#17a2b8', '#28a745', '#dc3545', '#fd7e14']
     }]
   })
 }
@@ -499,6 +500,8 @@ onUnmounted(() => {
 .status-tag.shipping { background: #d4edda; color: #155724; }
 .status-tag.completed { background: #d1ecf1; color: #0c5460; }
 .status-tag.cancelled { background: #f8d7da; color: #721c24; }
+
+.status-tag.cancel-requested { background: #ffe5d0; color: #c35a00; }
 
 .empty {
   text-align: center;

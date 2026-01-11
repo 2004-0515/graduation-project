@@ -3,11 +3,13 @@ package com.shopping.service;
 import com.shopping.entity.Product;
 import com.shopping.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -18,6 +20,18 @@ public class ProductService {
     
     @Autowired
     private ProductRepository productRepository;
+    
+    @Autowired
+    @Lazy
+    private PriceHistoryService priceHistoryService;
+    
+    @Autowired
+    @Lazy
+    private PriceAlertService priceAlertService;
+    
+    @Autowired
+    @Lazy
+    private NotificationService notificationService;
     
     /**
      * 获取商品列表，支持分页（只返回已审核通过的商品）
@@ -93,6 +107,35 @@ public class ProductService {
      * @return 保存后的商品信息
      */
     public Product saveProduct(Product product) {
+        // 检查是否是价格变动
+        if (product.getId() != null) {
+            Product oldProduct = productRepository.findById(product.getId()).orElse(null);
+            if (oldProduct != null) {
+                BigDecimal oldPrice = oldProduct.getPrice();
+                BigDecimal newPrice = product.getPrice();
+                
+                // 价格发生变化时记录历史并检查降价提醒
+                if (oldPrice != null && newPrice != null && oldPrice.compareTo(newPrice) != 0) {
+                    Product savedProduct = productRepository.save(product);
+                    
+                    // 记录价格历史
+                    priceHistoryService.recordPriceChange(savedProduct.getId(), newPrice, product.getOriginalPrice());
+                    
+                    // 如果是降价，检查并触发降价提醒
+                    if (newPrice.compareTo(oldPrice) < 0) {
+                        priceAlertService.checkAndTriggerAlerts(savedProduct.getId(), newPrice);
+                    }
+                    
+                    return savedProduct;
+                }
+            }
+        } else {
+            // 新商品，保存后初始化价格历史
+            Product savedProduct = productRepository.save(product);
+            priceHistoryService.initializePriceHistory(savedProduct.getId());
+            return savedProduct;
+        }
+        
         return productRepository.save(product);
     }
     
@@ -134,9 +177,69 @@ public class ProductService {
     public Product auditProduct(Long productId, Integer auditStatus, String remark) {
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new com.shopping.exception.ResourceNotFoundException("商品", productId));
+        
         product.setAuditStatus(auditStatus);
         product.setAuditRemark(remark);
         product.setAuditTime(java.time.LocalDateTime.now());
+        
+        // 审核通过时，把待审核价格更新到正式价格
+        if (auditStatus == 1) {
+            BigDecimal oldPrice = product.getPrice();
+            BigDecimal newPrice = product.getPendingPrice();
+            
+            // 如果有待审核价格，更新正式价格
+            if (newPrice != null) {
+                product.setPrice(newPrice);
+                product.setPendingPrice(null); // 清空待审核价格
+            }
+            if (product.getPendingOriginalPrice() != null) {
+                product.setOriginalPrice(product.getPendingOriginalPrice());
+                product.setPendingOriginalPrice(null);
+            }
+            
+            Product savedProduct = productRepository.save(product);
+            
+            // 如果价格降低了，检查并触发降价提醒
+            BigDecimal finalPrice = savedProduct.getPrice();
+            if (newPrice != null && oldPrice != null && newPrice.compareTo(oldPrice) < 0) {
+                priceAlertService.checkAndTriggerAlerts(productId, finalPrice);
+                // 记录价格历史
+                priceHistoryService.recordPriceChange(productId, finalPrice, savedProduct.getOriginalPrice());
+            }
+            
+            // 通知卖家审核通过
+            if (savedProduct.getSellerId() != null) {
+                notificationService.sendToUser(savedProduct.getSellerId(), "product_review",
+                    "商品审核通过",
+                    "您的商品「" + savedProduct.getName() + "」已通过审核，现已上架。",
+                    savedProduct.getId());
+            }
+            
+            return savedProduct;
+        }
+        
+        // 审核拒绝时，清空待审核价格
+        if (auditStatus == 2) {
+            product.setPendingPrice(null);
+            product.setPendingOriginalPrice(null);
+            
+            Product savedProduct = productRepository.save(product);
+            
+            // 通知卖家审核拒绝
+            if (savedProduct.getSellerId() != null) {
+                String message = "您的商品「" + savedProduct.getName() + "」未通过审核。";
+                if (remark != null && !remark.isEmpty()) {
+                    message += "原因：" + remark;
+                } else {
+                    message += "请修改后重新提交。";
+                }
+                notificationService.sendToUser(savedProduct.getSellerId(), "product_review",
+                    "商品审核未通过", message, savedProduct.getId());
+            }
+            
+            return savedProduct;
+        }
+        
         return productRepository.save(product);
     }
     

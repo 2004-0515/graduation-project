@@ -5,7 +5,7 @@ import axios from '@/utils/axios'
 export const useAdminStore = defineStore('admin', () => {
   const pendingFileCount = ref(0)
   const pendingProductCount = ref(0)
-  const pendingOrderCount = ref(0)
+  const pendingOrderCount = ref(0) // 待审核取消申请数量
 
   const fetchPendingFileCount = async () => {
     try {
@@ -29,9 +29,10 @@ export const useAdminStore = defineStore('admin', () => {
     }
   }
 
+  // 获取待审核取消申请数量（管理员需要处理的）
   const fetchPendingOrderCount = async () => {
     try {
-      const res: any = await axios.get('/orders/pending/count')
+      const res: any = await axios.get('/orders/cancel-requests/count')
       if (res?.code === 200) {
         pendingOrderCount.value = res.data || 0
       }

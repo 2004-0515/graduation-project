@@ -52,6 +52,20 @@ public class OrderItem {
     @Column(name = "product_image", length = 200)
     private String productImage;
     
+    // 卖家信息（用于卖家查看和发货）
+    @Column(name = "seller_id")
+    private Long sellerId;
+    
+    @Column(name = "seller_name", length = 50)
+    private String sellerName;
+    
+    // 发货状态：0-未发货，1-已发货
+    @Column(name = "ship_status", columnDefinition = "tinyint default 0")
+    private Integer shipStatus = 0;
+    
+    @Column(name = "ship_time")
+    private LocalDateTime shipTime;
+    
     @Column(name = "created_time", nullable = false, updatable = false)
     private LocalDateTime createdTime;
     

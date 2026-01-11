@@ -56,6 +56,13 @@ public class Product {
     @Column(name = "original_price", precision = 10, scale = 2)
     private BigDecimal originalPrice;
     
+    // 待审核的价格（用户修改价格后，审核通过前暂存在这里）
+    @Column(name = "pending_price", precision = 10, scale = 2)
+    private BigDecimal pendingPrice;
+    
+    @Column(name = "pending_original_price", precision = 10, scale = 2)
+    private BigDecimal pendingOriginalPrice;
+    
     @Column(name = "stock", nullable = false, columnDefinition = "int default 0")
     private Integer stock;
     

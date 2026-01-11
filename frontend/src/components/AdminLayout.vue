@@ -46,6 +46,10 @@
           <span class="nav-icon">乐</span>
           <span class="nav-text">音乐管理</span>
         </router-link>
+        <router-link to="/admin/price" class="nav-item" :class="{ active: $route.path.startsWith('/admin/price') }">
+          <span class="nav-icon">价</span>
+          <span class="nav-text">价格管理</span>
+        </router-link>
       </nav>
       
       <div class="sidebar-footer">
@@ -98,7 +102,8 @@ const pageTitle = computed(() => {
     '/admin/files': '文件审核',
     '/admin/notifications': '消息管理',
     '/admin/coupons': '促销管理',
-    '/admin/music': '音乐管理'
+    '/admin/music': '音乐管理',
+    '/admin/price': '价格管理'
   }
   return titles[route.path] || '管理后台'
 })

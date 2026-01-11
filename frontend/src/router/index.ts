@@ -128,6 +128,18 @@ const router = createRouter({
       component: () => import('@/views/MyProductsView.vue'),
       meta: { requiresAuth: true }
     },
+    {
+      path: '/seller-orders',
+      name: 'sellerOrders',
+      component: () => import('@/views/SellerOrdersView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/price-alerts',
+      name: 'priceAlerts',
+      component: () => import('@/views/PriceAlertsView.vue'),
+      meta: { requiresAuth: true }
+    },
     // 管理员后台路由
     {
       path: '/admin',
@@ -182,6 +194,12 @@ const router = createRouter({
       name: 'adminMusic',
       component: () => import('@/views/admin/MusicManageView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/price',
+      name: 'adminPrice',
+      component: () => import('@/views/admin/PriceManageView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
     }
   ],
   scrollBehavior() {
@@ -203,13 +221,22 @@ router.beforeEach(async (to, _from, next) => {
     if (!userStore.userInfo) {
       try {
         await userStore.fetchCurrentUser()
-        next()
       } catch (error) {
         next({ name: 'login', query: { redirect: to.fullPath } })
+        return
       }
-    } else {
-      next()
     }
+    
+    // 检查管理员权限
+    if (to.meta.requiresAdmin) {
+      if (userStore.userInfo?.username !== 'admin') {
+        // 非管理员用户访问管理页面，重定向到首页
+        next({ name: 'home' })
+        return
+      }
+    }
+    
+    next()
   } else {
     next()
   }

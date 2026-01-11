@@ -188,6 +188,7 @@ public class FileController {
             @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String fileType) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         Page<UploadFile> files = uploadFileService.findAll(pageNo, pageSize, status, fileType);
         return Response.success(files);
     }
@@ -199,6 +200,7 @@ public class FileController {
     public Response<UploadFile> reviewFile(
             @PathVariable Long id,
             @RequestBody Map<String, Object> body) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         Integer status = (Integer) body.get("status");
         String remark = (String) body.get("remark");
 
@@ -291,6 +293,7 @@ public class FileController {
      */
     @GetMapping("/pending/count")
     public Response<Long> getPendingCount() {
+        com.shopping.utils.AdminUtils.requireAdmin();
         return Response.success(uploadFileService.countPending());
     }
 
@@ -299,6 +302,7 @@ public class FileController {
      */
     @DeleteMapping("/{id}")
     public Response<Void> deleteFile(@PathVariable Long id) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         try {
             UploadFile file = uploadFileService.findById(id);
             if (file == null) {

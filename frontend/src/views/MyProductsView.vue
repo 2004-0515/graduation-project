@@ -26,6 +26,9 @@
             <div class="product-info">
               <h3>{{ product.name }}</h3>
               <p class="price">¥{{ product.price }}</p>
+              <p class="pending-price" v-if="product.pendingPrice">
+                待审核价格: ¥{{ product.pendingPrice }}
+              </p>
               <p class="stock">库存: {{ product.stock }} | 销量: {{ product.sales }}</p>
               <p v-if="product.auditStatus === 2" class="reject-reason">
                 拒绝原因: {{ product.auditRemark || '无' }}
@@ -447,6 +450,16 @@ onMounted(() => {
   padding: 8px;
   background: #fff5f5;
   border-radius: 6px;
+}
+
+.product-info .pending-price {
+  font-size: 13px;
+  color: #faad14;
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  background: #fffbe6;
+  border-radius: 4px;
+  display: inline-block;
 }
 
 .product-actions {

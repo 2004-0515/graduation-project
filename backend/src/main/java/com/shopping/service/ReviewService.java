@@ -36,6 +36,9 @@ public class ReviewService {
     @Autowired
     private OrderRepository orderRepository;
     
+    @Autowired
+    private NotificationService notificationService;
+    
     /**
      * 创建评价
      */
@@ -71,7 +74,23 @@ public class ReviewService {
         }
         
         review.setUserId(userId);
-        return reviewRepository.save(review);
+        Review savedReview = reviewRepository.save(review);
+        
+        // 通知卖家有新评价
+        try {
+            Product product = productRepository.findById(review.getProductId()).orElse(null);
+            if (product != null && product.getSellerId() != null) {
+                String ratingText = review.getRating() >= 4 ? "好评" : (review.getRating() >= 3 ? "中评" : "差评");
+                notificationService.sendToUser(product.getSellerId(), "review",
+                    "商品收到新" + ratingText,
+                    "您的商品「" + product.getName() + "」收到了新评价（" + review.getRating() + "星），请及时查看。",
+                    product.getId());
+            }
+        } catch (Exception e) {
+            // 通知发送失败不影响评价创建
+        }
+        
+        return savedReview;
     }
     
     /**

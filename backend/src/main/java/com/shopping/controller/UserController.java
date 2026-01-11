@@ -3,6 +3,7 @@ package com.shopping.controller;
 import com.shopping.dto.Response;
 import com.shopping.entity.User;
 import com.shopping.service.UserService;
+import com.shopping.utils.AdminUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +23,7 @@ public class UserController {
     private UserService userService;
     
     /**
-     * 获取用户列表，支持分页
+     * 【管理员】获取用户列表，支持分页
      * @param pageNo 页码（从0开始）
      * @param pageSize 每页记录数
      * @return 分页用户列表
@@ -31,17 +32,19 @@ public class UserController {
     public Response<Page<User>> getUsers(
             @RequestParam(defaultValue = "0") int pageNo,
             @RequestParam(defaultValue = "10") int pageSize) {
+        AdminUtils.requireAdmin();
         Page<User> users = userService.fetchUsers(pageNo, pageSize);
         return Response.success(users);
     }
     
     /**
-     * 根据用户名获取用户信息
+     * 【管理员】根据用户名获取用户信息
      * @param username 用户名
      * @return 用户信息
      */
     @GetMapping("/username/{username}")
     public Response<User> getUserByUsername(@PathVariable String username) {
+        AdminUtils.requireAdmin();
         User user = userService.findByUsername(username);
         if (user != null) {
             return Response.success(user);
@@ -51,12 +54,13 @@ public class UserController {
     }
     
     /**
-     * 根据邮箱获取用户信息
+     * 【管理员】根据邮箱获取用户信息
      * @param email 邮箱
      * @return 用户信息
      */
     @GetMapping("/email/{email}")
     public Response<User> getUserByEmail(@PathVariable String email) {
+        AdminUtils.requireAdmin();
         User user = userService.findByEmail(email);
         if (user != null) {
             return Response.success(user);
@@ -66,24 +70,26 @@ public class UserController {
     }
     
     /**
-     * 创建新用户
+     * 【管理员】创建新用户
      * @param user 用户信息
      * @return 创建后的用户信息
      */
     @PostMapping
     public Response<User> createUser(@RequestBody User user) {
+        AdminUtils.requireAdmin();
         User createdUser = userService.saveUser(user);
         return Response.success("用户创建成功", createdUser);
     }
     
     /**
-     * 更新用户信息
+     * 【管理员】更新用户信息
      * @param id 用户ID
      * @param user 用户信息
      * @return 更新后的用户信息
      */
     @PutMapping("/{id}")
     public Response<User> updateUser(@PathVariable Long id, @RequestBody User user) {
+        AdminUtils.requireAdmin();
         user.setId(id);
         User updatedUser = userService.saveUser(user);
         return Response.success("用户更新成功", updatedUser);
@@ -97,6 +103,7 @@ public class UserController {
      */
     @PutMapping("/{id}/status")
     public Response<String> updateUserStatus(@PathVariable Long id, @RequestBody java.util.Map<String, Integer> body) {
+        AdminUtils.requireAdmin();
         Integer status = body.get("status");
         userService.updateUserStatus(id, status);
         return Response.success("用户状态更新成功");
@@ -109,6 +116,7 @@ public class UserController {
      */
     @DeleteMapping("/{id}")
     public Response<String> deleteUser(@PathVariable Long id) {
+        AdminUtils.requireAdmin();
         userService.deleteUserById(id);
         return Response.success("用户删除成功");
     }

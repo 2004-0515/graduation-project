@@ -3,6 +3,7 @@ package com.shopping.controller;
 import com.shopping.dto.Response;
 import com.shopping.entity.Category;
 import com.shopping.service.CategoryService;
+import com.shopping.utils.AdminUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -55,36 +56,39 @@ public class CategoryController {
     }
     
     /**
-     * 创建商品分类
+     * 【管理员】创建商品分类
      * @param category 商品分类信息
      * @return 创建后的商品分类
      */
     @PostMapping
     public Response<Category> createCategory(@RequestBody Category category) {
+        AdminUtils.requireAdmin();
         Category createdCategory = categoryService.saveCategory(category);
         return Response.success("分类创建成功", createdCategory);
     }
     
     /**
-     * 更新商品分类
+     * 【管理员】更新商品分类
      * @param id 分类ID
      * @param category 商品分类信息
      * @return 更新后的商品分类
      */
     @PutMapping("/{id}")
     public Response<Category> updateCategory(@PathVariable Long id, @RequestBody Category category) {
+        AdminUtils.requireAdmin();
         category.setId(id);
         Category updatedCategory = categoryService.saveCategory(category);
         return Response.success("分类更新成功", updatedCategory);
     }
     
     /**
-     * 删除商品分类
+     * 【管理员】删除商品分类
      * @param id 分类ID
      * @return 删除结果
      */
     @DeleteMapping("/{id}")
     public Response<Void> deleteCategory(@PathVariable Long id) {
+        AdminUtils.requireAdmin();
         categoryService.deleteCategory(id);
         return Response.success("分类删除成功");
     }

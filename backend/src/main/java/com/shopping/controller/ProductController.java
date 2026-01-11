@@ -306,12 +306,27 @@ public class ProductController {
         if (data.get("description") != null) {
             product.setDescription((String) data.get("description"));
         }
+        
+        // 价格处理：普通用户修改价格保存到待审核字段，管理员直接修改
         if (data.get("price") != null) {
-            product.setPrice(new java.math.BigDecimal(data.get("price").toString()));
+            java.math.BigDecimal newPrice = new java.math.BigDecimal(data.get("price").toString());
+            if (isAdmin) {
+                product.setPrice(newPrice);
+            } else {
+                // 普通用户：保存到待审核价格字段
+                product.setPendingPrice(newPrice);
+            }
         }
         if (data.get("originalPrice") != null) {
-            product.setOriginalPrice(new java.math.BigDecimal(data.get("originalPrice").toString()));
+            java.math.BigDecimal newOriginalPrice = new java.math.BigDecimal(data.get("originalPrice").toString());
+            if (isAdmin) {
+                product.setOriginalPrice(newOriginalPrice);
+            } else {
+                // 普通用户：保存到待审核原价字段
+                product.setPendingOriginalPrice(newOriginalPrice);
+            }
         }
+        
         if (data.get("stock") != null) {
             product.setStock(Integer.parseInt(data.get("stock").toString()));
         }
@@ -369,12 +384,34 @@ public class ProductController {
     }
     
     /**
-     * 删除商品
+     * 删除商品（只有管理员或商品所有者可以删除）
      * @param id 商品ID
      * @return 删除结果
      */
     @DeleteMapping("/{id}")
     public Response<Void> deleteProduct(@PathVariable Long id) {
+        // 获取当前用户
+        String username = null;
+        try {
+            username = SecurityUtils.getCurrentUsername();
+        } catch (Exception e) {
+            return Response.fail(401, "用户未登录");
+        }
+        
+        Product product = productService.getProductById(id);
+        if (product == null) {
+            return Response.fail(404, "商品不存在");
+        }
+        
+        // 检查权限：管理员或商品所有者
+        boolean isAdmin = "admin".equals(username);
+        if (!isAdmin) {
+            User user = userService.findByUsername(username);
+            if (user == null || product.getSellerId() == null || !product.getSellerId().equals(user.getId())) {
+                return Response.fail(403, "无权删除此商品");
+            }
+        }
+        
         productService.deleteProduct(id);
         return Response.success("商品删除成功");
     }
@@ -466,15 +503,17 @@ public class ProductController {
      */
     @GetMapping("/pending")
     public Response<List<Product>> getPendingProducts() {
+        com.shopping.utils.AdminUtils.requireAdmin();
         List<Product> products = productService.getPendingProducts();
         return Response.success(products);
     }
     
     /**
-     * 获取待审核商品数量
+     * 获取待审核商品数量（管理员）
      */
     @GetMapping("/pending/count")
     public Response<Long> getPendingCount() {
+        com.shopping.utils.AdminUtils.requireAdmin();
         long count = productService.countPendingProducts();
         return Response.success(count);
     }
@@ -486,6 +525,7 @@ public class ProductController {
     public Response<Product> auditProduct(
             @PathVariable Long id,
             @RequestBody Map<String, Object> data) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         Integer auditStatus = Integer.parseInt(data.get("auditStatus").toString());
         String remark = (String) data.getOrDefault("remark", "");
         
@@ -511,6 +551,7 @@ public class ProductController {
      */
     @PutMapping("/batch-status")
     public Response<Void> batchUpdateAllStatus(@RequestBody Map<String, Object> data) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         Integer status = Integer.parseInt(data.get("status").toString());
         productService.updateAllProductsStatus(status);
         String msg = status == 1 ? "全部商品已上架" : "全部商品已下架";

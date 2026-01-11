@@ -105,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import musicApi, { type Music } from '@/api/musicApi'
 
 const defaultCover = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%235A8FD4" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="white" font-size="30">♪</text></svg>'
@@ -124,6 +124,45 @@ const duration = ref(0)
 const volume = ref(80)
 const isMuted = ref(false)
 const loopMode = ref<'none' | 'list' | 'single'>('list')
+
+// 播放状态持久化的key
+const STORAGE_KEY = 'musicPlayerState'
+
+// 保存播放状态到localStorage
+const savePlayerState = () => {
+  const currentMusic = musicList.value[currentIndex.value]
+  const state = {
+    currentMusicId: currentMusic?.id ?? null,
+    currentIndex: currentIndex.value,
+    currentTime: currentTime.value,
+    volume: volume.value,
+    isMuted: isMuted.value,
+    loopMode: loopMode.value,
+    isPlaying: isPlaying.value,
+    isMinimized: isMinimized.value,
+    isExpanded: isExpanded.value
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+}
+
+// 从localStorage恢复播放状态
+const restorePlayerState = () => {
+  const saved = localStorage.getItem(STORAGE_KEY)
+  if (saved) {
+    try {
+      const state = JSON.parse(saved)
+      volume.value = state.volume ?? 80
+      isMuted.value = state.isMuted ?? false
+      loopMode.value = state.loopMode ?? 'list'
+      isMinimized.value = state.isMinimized ?? false
+      isExpanded.value = state.isExpanded ?? false
+      return state
+    } catch (e) {
+      console.error('恢复播放状态失败', e)
+    }
+  }
+  return null
+}
 
 // 拖拽相关
 const isDragging = ref(false)
@@ -217,6 +256,7 @@ const onVolumeMouseUp = () => {
   isVolumeDragging.value = false
   document.removeEventListener('mousemove', onVolumeMouseMove)
   document.removeEventListener('mouseup', onVolumeMouseUp)
+  savePlayerState()
 }
 
 const updateVolumeFromEvent = (e: MouseEvent) => {
@@ -247,8 +287,22 @@ const onProgressMouseMove = (e: MouseEvent) => {
 
 const onProgressMouseUp = () => {
   if (isProgressDragging.value && audioRef.value && duration.value) {
-    // 拖拽结束时才真正设置播放位置
+    // 拖拽结束时设置播放位置
     audioRef.value.currentTime = (dragProgress.value / 100) * duration.value
+    
+    // 如果当前是暂停状态，拖动进度条后自动播放
+    if (!isPlaying.value) {
+      removeInteractionListeners()
+      hasUserInteraction = true
+      audioRef.value.play().then(() => {
+        isPlaying.value = true
+        savePlayerState()
+      }).catch(e => {
+        console.error('播放失败', e)
+      })
+    } else {
+      savePlayerState()
+    }
   }
   isProgressDragging.value = false
   document.removeEventListener('mousemove', onProgressMouseMove)
@@ -276,29 +330,125 @@ const loadMusic = async () => {
     if (res?.code === 200) {
       musicList.value = res.data || []
       if (musicList.value.length > 0 && audioRef.value) {
-        audioRef.value.src = musicList.value[0].url
+        // 恢复之前的播放状态
+        const savedState = restorePlayerState()
+        
+        // 通过歌曲ID恢复正确的索引
+        let restoredIndex = 0
+        let shouldRestoreTime = false
+        if (savedState && savedState.currentMusicId) {
+          const foundIndex = musicList.value.findIndex(m => m.id === savedState.currentMusicId)
+          if (foundIndex >= 0) {
+            restoredIndex = foundIndex
+            shouldRestoreTime = true // 找到了同一首歌，可以恢复进度
+          }
+        } else if (savedState && savedState.currentIndex < musicList.value.length) {
+          // 兼容旧版本，使用索引
+          restoredIndex = savedState.currentIndex
+          shouldRestoreTime = true
+        }
+        currentIndex.value = restoredIndex
+        
+        audioRef.value.src = musicList.value[currentIndex.value].url
         audioRef.value.volume = volume.value / 100
+        audioRef.value.muted = isMuted.value
+        
+        // 只有找到同一首歌时才恢复进度
+        if (savedState && savedState.isPlaying && shouldRestoreTime) {
+          audioRef.value.currentTime = savedState.currentTime || 0
+          // 尝试自动播放
+          tryAutoPlay()
+        } else {
+          // 切换到新歌曲，重置进度
+          currentTime.value = 0
+        }
       }
     }
   } catch (e) { console.error(e) }
 }
 
+// 尝试自动播放，如果被阻止则等待用户交互
+const tryAutoPlay = () => {
+  if (!audioRef.value) return
+  
+  audioRef.value.play().then(() => {
+    isPlaying.value = true
+    removeInteractionListeners()
+  }).catch(() => {
+    // 浏览器阻止了自动播放，等待用户任意交互后恢复
+    addInteractionListeners()
+  })
+}
+
+// 用户交互后自动恢复播放
+const onUserInteraction = () => {
+  if (audioRef.value && !isPlaying.value) {
+    // 标记已经有用户交互，可以播放了
+    hasUserInteraction = true
+    audioRef.value.play().then(() => {
+      isPlaying.value = true
+      savePlayerState()
+    }).catch(() => {
+      // 播放失败，但已经解锁了，下次点击就能播放
+    })
+    removeInteractionListeners()
+  }
+}
+
+// 标记是否已有用户交互
+let hasUserInteraction = false
+
+// 添加用户交互监听
+const addInteractionListeners = () => {
+  // 注意：mousemove 不被浏览器认为是有效的用户激活事件，无法解锁音频
+  // 使用 pointerdown 可以更早触发（比 click 早）
+  document.addEventListener('pointerdown', onUserInteraction, { once: true })
+  document.addEventListener('keydown', onUserInteraction, { once: true })
+  document.addEventListener('touchstart', onUserInteraction, { once: true })
+}
+
+// 移除用户交互监听
+const removeInteractionListeners = () => {
+  document.removeEventListener('pointerdown', onUserInteraction)
+  document.removeEventListener('keydown', onUserInteraction)
+  document.removeEventListener('touchstart', onUserInteraction)
+}
+
 const togglePlay = () => {
   if (!audioRef.value || musicList.value.length === 0) return
+  
+  // 移除交互监听，因为用户已经点击了播放按钮
+  removeInteractionListeners()
+  hasUserInteraction = true
+  
   if (isPlaying.value) {
     audioRef.value.pause()
+    isPlaying.value = false
   } else {
-    audioRef.value.play()
+    audioRef.value.play().then(() => {
+      isPlaying.value = true
+    }).catch(e => {
+      console.error('播放失败', e)
+    })
   }
-  isPlaying.value = !isPlaying.value
+  savePlayerState()
 }
 
 const playAt = (index: number) => {
   if (!audioRef.value || index < 0 || index >= musicList.value.length) return
+  
+  // 移除交互监听，标记已有用户交互
+  removeInteractionListeners()
+  hasUserInteraction = true
+  
   currentIndex.value = index
   audioRef.value.src = musicList.value[index].url
-  audioRef.value.play()
-  isPlaying.value = true
+  audioRef.value.play().then(() => {
+    isPlaying.value = true
+    savePlayerState()
+  }).catch(e => {
+    console.error('播放失败', e)
+  })
 }
 
 const playPrev = () => {
@@ -317,23 +467,30 @@ const toggleLoop = () => {
   const modes: ('none' | 'list' | 'single')[] = ['none', 'list', 'single']
   const idx = modes.indexOf(loopMode.value)
   loopMode.value = modes[(idx + 1) % 3]
+  savePlayerState()
 }
 
 const toggleMute = () => {
   if (!audioRef.value) return
   isMuted.value = !isMuted.value
   audioRef.value.muted = isMuted.value
+  savePlayerState()
 }
 
 const setVolume = () => {
   if (!audioRef.value) return
   audioRef.value.volume = volume.value / 100
   if (volume.value > 0) isMuted.value = false
+  savePlayerState()
 }
 
 const onTimeUpdate = () => {
   if (audioRef.value && !isProgressDragging.value) {
     currentTime.value = audioRef.value.currentTime
+    // 每5秒保存一次播放进度
+    if (Math.floor(currentTime.value) % 5 === 0) {
+      savePlayerState()
+    }
   }
 }
 
@@ -343,14 +500,29 @@ const onLoaded = () => {
 
 const onEnded = () => {
   if (loopMode.value === 'single') {
-    audioRef.value?.play()
+    audioRef.value?.play().catch(() => {})
   } else if (loopMode.value === 'list') {
-    playNext()
+    const newIndex = currentIndex.value < musicList.value.length - 1 ? currentIndex.value + 1 : 0
+    if (audioRef.value) {
+      currentIndex.value = newIndex
+      audioRef.value.src = musicList.value[newIndex].url
+      audioRef.value.play().then(() => {
+        savePlayerState()
+      }).catch(() => {})
+    }
   } else {
     if (currentIndex.value < musicList.value.length - 1) {
-      playNext()
+      const newIndex = currentIndex.value + 1
+      if (audioRef.value) {
+        currentIndex.value = newIndex
+        audioRef.value.src = musicList.value[newIndex].url
+        audioRef.value.play().then(() => {
+          savePlayerState()
+        }).catch(() => {})
+      }
     } else {
       isPlaying.value = false
+      savePlayerState()
     }
   }
 }
@@ -368,15 +540,28 @@ const closeVolumePanel = (e: MouseEvent) => {
   }
 }
 
+// 页面卸载前保存状态
+const handleBeforeUnload = () => {
+  savePlayerState()
+}
+
+// 监听最小化和展开状态变化
+watch(isMinimized, () => savePlayerState())
+watch(isExpanded, () => savePlayerState())
+
 onMounted(() => {
   loadMusic()
   initPosition()
   window.addEventListener('resize', onResize)
+  window.addEventListener('beforeunload', handleBeforeUnload)
   document.addEventListener('click', closeVolumePanel)
 })
 
 onUnmounted(() => {
+  savePlayerState()
+  removeInteractionListeners()
   window.removeEventListener('resize', onResize)
+  window.removeEventListener('beforeunload', handleBeforeUnload)
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
   document.removeEventListener('click', closeVolumePanel)

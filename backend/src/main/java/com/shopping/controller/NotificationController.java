@@ -89,6 +89,7 @@ public class NotificationController {
      */
     @PostMapping("/admin/send")
     public Response<Void> sendNotification(@RequestBody Map<String, Object> body) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         Long userId = ((Number) body.get("userId")).longValue();
         String type = (String) body.get("type");
         String title = (String) body.get("title");
@@ -103,6 +104,7 @@ public class NotificationController {
      */
     @PostMapping("/admin/broadcast")
     public Response<Void> broadcastNotification(@RequestBody Map<String, Object> body) {
+        com.shopping.utils.AdminUtils.requireAdmin();
         String type = (String) body.get("type");
         String title = (String) body.get("title");
         String message = (String) body.get("message");

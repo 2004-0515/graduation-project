@@ -3,6 +3,7 @@ package com.shopping.controller;
 import com.shopping.dto.Response;
 import com.shopping.entity.Music;
 import com.shopping.service.MusicService;
+import com.shopping.utils.AdminUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
@@ -40,18 +41,20 @@ public class MusicController {
     }
     
     /**
-     * 获取所有音乐(管理后台用)
+     * 【管理员】获取所有音乐(管理后台用)
      */
     @GetMapping
     public Response<List<Music>> getAllMusic() {
+        AdminUtils.requireAdmin();
         return Response.success(musicService.getAllMusic());
     }
     
     /**
-     * 上传音乐文件
+     * 【管理员】上传音乐文件
      */
     @PostMapping("/upload")
     public Response<String> uploadMusic(@RequestParam("file") MultipartFile file) {
+        AdminUtils.requireAdmin();
         if (file.isEmpty()) {
             return Response.fail(400, "请选择文件");
         }
@@ -96,10 +99,11 @@ public class MusicController {
     }
     
     /**
-     * 上传封面图片
+     * 【管理员】上传封面图片
      */
     @PostMapping("/upload-cover")
     public Response<String> uploadCover(@RequestParam("file") MultipartFile file) {
+        AdminUtils.requireAdmin();
         if (file.isEmpty()) {
             return Response.fail(400, "请选择文件");
         }
@@ -136,36 +140,40 @@ public class MusicController {
     }
     
     /**
-     * 添加音乐
+     * 【管理员】添加音乐
      */
     @PostMapping
     public Response<Music> addMusic(@RequestBody Music music) {
+        AdminUtils.requireAdmin();
         return Response.success("添加成功", musicService.saveMusic(music));
     }
     
     /**
-     * 更新音乐
+     * 【管理员】更新音乐
      */
     @PutMapping("/{id}")
     public Response<Music> updateMusic(@PathVariable Long id, @RequestBody Music music) {
+        AdminUtils.requireAdmin();
         music.setId(id);
         return Response.success("更新成功", musicService.saveMusic(music));
     }
     
     /**
-     * 删除音乐
+     * 【管理员】删除音乐
      */
     @DeleteMapping("/{id}")
     public Response<String> deleteMusic(@PathVariable Long id) {
+        AdminUtils.requireAdmin();
         musicService.deleteMusic(id);
         return Response.success("删除成功");
     }
     
     /**
-     * 更新音乐状态
+     * 【管理员】更新音乐状态
      */
     @PutMapping("/{id}/status")
     public Response<String> updateStatus(@PathVariable Long id, @RequestBody java.util.Map<String, Integer> body) {
+        AdminUtils.requireAdmin();
         musicService.updateStatus(id, body.get("status"));
         return Response.success("状态更新成功");
     }
