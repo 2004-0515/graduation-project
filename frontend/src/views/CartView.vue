@@ -28,22 +28,24 @@
               <span>操作</span>
             </div>
 
-            <div v-for="item in cartItems" :key="item.id" class="cart-item">
+            <div v-for="item in cartItems" :key="item.id" :class="['cart-item', { 'item-unavailable': item.productStatus !== 1 }]">
               <label class="checkbox-wrap">
-                <input type="checkbox" :checked="item.selected !== false" @change="item.selected = ($event.target as HTMLInputElement).checked" />
+                <input type="checkbox" :checked="item.selected !== false && item.productStatus === 1" @change="item.selected = ($event.target as HTMLInputElement).checked" :disabled="item.productStatus !== 1" />
               </label>
               <div class="item-info">
                 <img :src="getImageUrl(item.productImage)" class="item-img" @error="imgErr" />
                 <div class="item-detail">
                   <h4 @click="$router.push(`/product/${item.productId}`)">{{ item.productName }}</h4>
                   <p>商品编号: {{ item.productId }}</p>
+                  <p v-if="item.productStatus !== 1" class="item-warning">商品已下架</p>
+                  <p v-else-if="item.stock !== undefined && item.stock < item.quantity" class="item-warning">库存不足（剩余{{ item.stock }}件）</p>
                 </div>
               </div>
               <div class="item-price">¥{{ item.price }}</div>
               <div class="item-qty">
-                <button @click="updateQty(item, -1)" :disabled="item.quantity <= 1">-</button>
+                <button @click="updateQty(item, -1)" :disabled="item.quantity <= 1 || item.productStatus !== 1">-</button>
                 <span>{{ item.quantity }}</span>
-                <button @click="updateQty(item, 1)">+</button>
+                <button @click="updateQty(item, 1)" :disabled="item.productStatus !== 1 || (item.stock !== undefined && item.quantity >= item.stock)">+</button>
               </div>
               <div class="item-subtotal">¥{{ (item.price * item.quantity).toFixed(2) }}</div>
               <button class="delete-btn" @click="removeItem(item)">删除</button>
@@ -91,8 +93,9 @@ const userStore = useUserStore()
 const cartItems = computed(() => cartStore.items)
 const selectAll = ref(true)
 
-const selectedCount = computed(() => cartItems.value.filter(i => i.selected !== false).length)
-const totalPrice = computed(() => cartItems.value.filter(i => i.selected !== false).reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0))
+// 只计算可用且选中的商品
+const selectedCount = computed(() => cartItems.value.filter(i => i.selected !== false && i.productStatus === 1).length)
+const totalPrice = computed(() => cartItems.value.filter(i => i.selected !== false && i.productStatus === 1).reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0))
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 const imgErr = (e: Event) => { 
@@ -100,7 +103,12 @@ const imgErr = (e: Event) => {
   img.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect fill="#f8f8fc" width="80" height="80"/><text fill="#ccc" font-family="Arial" font-size="12" x="50%" y="50%" text-anchor="middle" dy=".3em">商品</text></svg>')
 }
 const toggleSelectAll = () => { 
-  cartStore.items.forEach(item => item.selected = selectAll.value) 
+  // 只选中可用的商品
+  cartStore.items.forEach(item => {
+    if (item.productStatus === 1) {
+      item.selected = selectAll.value
+    }
+  }) 
 }
 
 const updateQty = async (item: any, delta: number) => {
@@ -190,7 +198,10 @@ onMounted(async () => {
 .item-detail h4:hover { color: var(--sakura); }
 .item-detail p { margin: 0; font-size: 14px; color: var(--text-muted); }
 
-.item-price, .item-subtotal { font-size: 16px; color: var(--text-body); }
+/* 不可用商品样式 */
+.cart-item.item-unavailable { background: rgba(200, 200, 200, 0.1); opacity: 0.7; }
+.cart-item.item-unavailable .item-img { filter: grayscale(50%); }
+.item-warning { color: #e74c3c; font-size: 13px; margin-top: 4px; }.item-price, .item-subtotal { font-size: 16px; color: var(--text-body); }
 .item-subtotal { font-weight: 600; color: #5A8FD4; }
 
 .item-qty { display: flex; align-items: center; gap: 8px; }

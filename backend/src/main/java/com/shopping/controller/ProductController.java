@@ -486,6 +486,7 @@ public class ProductController {
     
     /**
      * 获取当前用户的商品列表
+     * 兼容旧数据：同时查询sellerId和sellerName匹配的商品
      */
     @GetMapping("/my")
     public Response<List<Product>> getMyProducts() {
@@ -494,7 +495,8 @@ public class ProductController {
         if (user == null) {
             return Response.fail(401, "用户未登录");
         }
-        List<Product> products = productService.getProductsBySellerId(user.getId());
+        // 兼容旧数据：同时通过sellerId和sellerName查询
+        List<Product> products = productService.getProductsBySellerIdOrName(user.getId(), username);
         return Response.success(products);
     }
     

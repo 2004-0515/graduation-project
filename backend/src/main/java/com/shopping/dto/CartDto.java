@@ -13,6 +13,7 @@ public class CartDto {
     private Integer quantity;
     private Boolean selected;
     private Integer stock;
+    private Integer productStatus; // 商品状态：0=下架，1=上架
 
     public CartDto() {}
 
@@ -87,5 +88,13 @@ public class CartDto {
 
     public void setStock(Integer stock) {
         this.stock = stock;
+    }
+
+    public Integer getProductStatus() {
+        return productStatus;
+    }
+
+    public void setProductStatus(Integer productStatus) {
+        this.productStatus = productStatus;
     }
 }

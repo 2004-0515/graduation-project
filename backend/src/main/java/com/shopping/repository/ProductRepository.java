@@ -33,6 +33,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @EntityGraph(attributePaths = {"category"})
     List<Product> findBySellerId(Long sellerId);
     
+    // 根据卖家ID或卖家用户名查询商品（兼容旧数据）
+    @EntityGraph(attributePaths = {"category"})
+    List<Product> findBySellerIdOrSellerName(Long sellerId, String sellerName);
+    
     // 根据卖家ID和审核状态查询商品
     @EntityGraph(attributePaths = {"category"})
     List<Product> findBySellerIdAndAuditStatus(Long sellerId, Integer auditStatus);

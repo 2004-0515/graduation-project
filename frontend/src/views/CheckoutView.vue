@@ -229,6 +229,17 @@ const loadOrderItems = async () => {
       const res: any = await productApi.getProductById(Number(productId))
       if (res?.code === 200) {
         const product = res.data
+        // 检查商品是否可购买
+        if (product.status !== 1) {
+          ElMessage.error('该商品已下架，无法购买')
+          router.push('/cart')
+          return
+        }
+        if (product.stock < quantity) {
+          ElMessage.error('商品库存不足')
+          router.push('/cart')
+          return
+        }
         orderItems.value = [{ ...product, quantity }]
         sessionStorage.setItem(CHECKOUT_ITEMS_KEY, JSON.stringify(orderItems.value))
       }
@@ -243,10 +254,20 @@ const loadOrderItems = async () => {
     }
     
     if (cartStore.items.length > 0) {
-      // 获取选中的商品（selected 不为 false 的都算选中）
-      const selectedItems = cartStore.items.filter(item => item.selected !== false)
-      if (selectedItems.length > 0) {
-        orderItems.value = selectedItems.map(item => ({
+      // 获取选中且可用的商品（selected 不为 false 且商品状态为上架）
+      const selectedItems = cartStore.items.filter(item => item.selected !== false && item.productStatus === 1)
+      
+      // 检查库存
+      const validItems = selectedItems.filter(item => {
+        if (item.stock !== undefined && item.quantity > item.stock) {
+          ElMessage.warning(`商品"${item.productName}"库存不足，已从结算列表移除`)
+          return false
+        }
+        return true
+      })
+      
+      if (validItems.length > 0) {
+        orderItems.value = validItems.map(item => ({
           id: item.productId,
           name: item.productName,
           mainImage: item.productImage,
@@ -312,7 +333,15 @@ const submitOrder = async () => {
       ElMessage.success('订单创建成功')
       sessionStorage.removeItem(CHECKOUT_ITEMS_KEY)
       if (!route.query.productId) {
-        cartStore.clearCart()
+        // 只删除已下单的商品，而不是清空整个购物车
+        // 获取已下单商品对应的购物车项ID
+        const orderedProductIds = orderItems.value.map(item => item.id)
+        const cartItemsToDelete = cartStore.items
+          .filter(item => orderedProductIds.includes(item.productId))
+          .map(item => item.id)
+        if (cartItemsToDelete.length > 0) {
+          await cartStore.batchDelete(cartItemsToDelete)
+        }
       }
       // 跳转到支付页面
       router.push(`/payment/${res.data.id}`)

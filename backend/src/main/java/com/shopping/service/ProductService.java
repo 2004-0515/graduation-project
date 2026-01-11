@@ -155,6 +155,13 @@ public class ProductService {
     }
     
     /**
+     * 获取卖家的商品列表（兼容旧数据，同时查询sellerId和sellerName）
+     */
+    public List<Product> getProductsBySellerIdOrName(Long sellerId, String sellerName) {
+        return productRepository.findBySellerIdOrSellerName(sellerId, sellerName);
+    }
+    
+    /**
      * 获取待审核的商品列表
      */
     public List<Product> getPendingProducts() {

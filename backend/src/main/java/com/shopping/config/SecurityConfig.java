@@ -51,6 +51,8 @@ public class SecurityConfig {
                 .requestMatchers("/auth/login", "/auth/register", "/auth/captcha", "/auth/validate-captcha", "/auth/test-password-match", "/categories/**", "/products/**").permitAll()
                 // 允许访问上传的文件
                 .requestMatchers("/uploads/**").permitAll()
+                // 允许匿名查看商品评价
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/reviews/product/**").permitAll()
                 // 用户信息API需要认证访问
                 .requestMatchers("/auth/me", "/auth/change-password").authenticated()
                 // 文件上传需要认证

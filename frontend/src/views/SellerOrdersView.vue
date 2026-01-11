@@ -3,7 +3,7 @@
     <Navbar />
     <div class="container">
       <div class="page-header">
-        <h1>我的订单</h1>
+        <h1>卖家发货</h1>
         <p class="subtitle">管理您销售商品的订单，及时发货</p>
       </div>
 
@@ -32,6 +32,9 @@
               <div class="order-info">
                 <span class="order-no">订单号: {{ item.orderNo }}</span>
                 <span class="buyer">买家: {{ item.buyerName }}</span>
+                <span class="order-status-tag" :class="getOrderStatusClass(item.orderStatus)">
+                  {{ getOrderStatusText(item.orderStatus) }}
+                </span>
               </div>
               <div class="ship-status" :class="item.shipStatus === 1 ? 'shipped' : 'pending'">
                 {{ item.shipStatus === 1 ? '已发货' : '待发货' }}
@@ -94,6 +97,18 @@ const formatDate = (dateStr: string) => {
   if (!dateStr) return '-'
   const date = new Date(dateStr)
   return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`
+}
+
+// 订单状态文本
+const getOrderStatusText = (status: number) => {
+  const map: Record<number, string> = { 1: '待发货', 2: '待收货', 3: '已完成' }
+  return map[status] || ''
+}
+
+// 订单状态样式类
+const getOrderStatusClass = (status: number) => {
+  const map: Record<number, string> = { 1: 'pending', 2: 'shipping', 3: 'completed' }
+  return map[status] || ''
 }
 
 const formatAddress = (addr: any) => {
@@ -241,11 +256,34 @@ onMounted(() => {
   gap: 20px;
   font-size: 14px;
   color: #666;
+  align-items: center;
 }
 
 .order-no {
   font-weight: 500;
   color: #333;
+}
+
+.order-status-tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.order-status-tag.pending {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.order-status-tag.shipping {
+  background: #fff7e6;
+  color: #fa8c16;
+}
+
+.order-status-tag.completed {
+  background: #f6ffed;
+  color: #52c41a;
 }
 
 .ship-status {

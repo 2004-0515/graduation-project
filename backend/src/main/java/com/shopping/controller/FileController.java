@@ -263,7 +263,7 @@ public class FileController {
                          (remark != null && !remark.isEmpty() ? "原因：" + remark : "请重新上传符合要求的图片。");
             }
             
-            notificationService.createNotification(file.getUserId(), "system", title, message, null);
+            notificationService.createNotification(file.getUserId(), "file_review", title, message, null);
         } catch (Exception e) {
             // 通知发送失败不影响审核结果
             System.err.println("发送审核通知失败: " + e.getMessage());

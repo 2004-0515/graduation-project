@@ -266,6 +266,7 @@ public class CartService {
         dto.setQuantity(cart.getQuantity());
         dto.setSelected(cart.getSelected());
         dto.setStock(cart.getProduct().getStock());
+        dto.setProductStatus(cart.getProduct().getStatus());
         return dto;
     }
 }

@@ -648,7 +648,25 @@ public class OrderService {
     public void updateOrderStatus(Long orderId, Integer status) {
         Order order = orderRepository.findById(orderId).orElseThrow(
             () -> new ResourceNotFoundException("订单", orderId));
+        
+        int oldStatus = order.getOrderStatus();
         order.setOrderStatus(status);
+        
+        // 处理状态变更的业务逻辑
+        if (status == OrderConstants.OrderStatus.CANCELLED && oldStatus != OrderConstants.OrderStatus.CANCELLED) {
+            // 取消订单：恢复库存
+            for (OrderItem item : order.getItems()) {
+                productService.increaseStock(item.getProduct().getId(), item.getQuantity());
+            }
+            // 归还优惠券（如果已支付过）
+            if (order.getCouponId() != null && order.getPaymentStatus() == OrderConstants.PaymentStatus.PAID) {
+                couponService.returnCoupon(order.getCouponId());
+            }
+        } else if (status == OrderConstants.OrderStatus.COMPLETED && oldStatus != OrderConstants.OrderStatus.COMPLETED) {
+            // 完成订单：设置完成时间
+            order.setEndTime(LocalDateTime.now());
+        }
+        
         orderRepository.save(order);
         
         // 发送状态变更通知

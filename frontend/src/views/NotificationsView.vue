@@ -128,9 +128,17 @@
                      type="primary" @click="goToFileReview">
             去审核
           </el-button>
+          <el-button v-if="!isAdmin && getActualType(currentNotification) === 'file_review'" 
+                     type="primary" @click="goToSettings">
+            查看设置
+          </el-button>
           <el-button v-if="isAdmin && getActualType(currentNotification) === 'product_review'" 
                      type="primary" @click="goToProductReview">
             去审核
+          </el-button>
+          <el-button v-if="!isAdmin && getActualType(currentNotification) === 'product_review'" 
+                     type="primary" @click="goToMyProducts">
+            查看我的商品
           </el-button>
           <el-button v-if="getActualType(currentNotification) === 'review'" 
                      type="primary" @click="goToProductDetail">
@@ -281,11 +289,19 @@ const goToOrder = () => {
   // 判断是否是管理员
   const isAdmin = userStore.userInfo?.username === 'admin'
   
-  // 检查消息内容，判断是管理员自己的订单还是需要管理的用户订单
+  // 检查消息内容，判断通知类型
   const message = currentNotification.value?.message || ''
+  const title = currentNotification.value?.title || ''
   const isOwnOrder = message.includes('您的订单') || message.includes('你的订单')
   
-  if (isAdmin && !isOwnOrder) {
+  // 卖家收到的发货通知，跳转到卖家发货页面
+  const isSellerShipNotification = title.includes('新订单待发货') || 
+                                    (message.includes('购买了您的商品') && message.includes('请尽快发货'))
+  
+  if (isSellerShipNotification) {
+    // 卖家发货通知，跳转到卖家发货页面
+    router.push('/seller-orders')
+  } else if (isAdmin && !isOwnOrder) {
     // 管理员处理其他用户的订单，跳转到订单管理页面
     router.push('/admin/orders')
   } else {
@@ -342,9 +358,19 @@ const goToFileReview = () => {
   router.push('/admin/files')
 }
 
+const goToSettings = () => {
+  detailVisible.value = false
+  router.push('/settings')
+}
+
 const goToProductReview = () => {
   detailVisible.value = false
   router.push('/admin/products?tab=pending')
+}
+
+const goToMyProducts = () => {
+  detailVisible.value = false
+  router.push('/my-products')
 }
 
 const goToProductDetail = () => {

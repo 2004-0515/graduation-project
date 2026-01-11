@@ -96,6 +96,7 @@ export interface CartItem {
   quantity: number
   selected: boolean
   stock: number
+  productStatus?: number // 商品状态：0=下架，1=上架
 }
 
 export interface AddToCartRequest {
