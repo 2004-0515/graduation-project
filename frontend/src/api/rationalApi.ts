@@ -58,6 +58,13 @@ const rationalApi = {
   },
 
   /**
+   * 检查商品是否在想要清单中
+   */
+  checkInWishlist(productId: number): Promise<ApiResponse<{ inWishlist: boolean }>> {
+    return axios.get(`/rational-consumption/wishlist/check/${productId}`)
+  },
+
+  /**
    * 获取想要清单
    */
   getWishlist(): Promise<ApiResponse<any[]>> {
@@ -92,6 +99,50 @@ const rationalApi = {
    */
   getAchievements(): Promise<ApiResponse<any[]>> {
     return axios.get('/rational-consumption/achievements')
+  },
+
+  // ==================== 管理员接口 ====================
+
+  /**
+   * 【管理员】获取理性消费统计数据
+   */
+  getAdminStats(): Promise<ApiResponse<any>> {
+    return axios.get('/rational-consumption/admin/stats')
+  },
+
+  /**
+   * 【管理员】获取全站消费趋势
+   */
+  getConsumptionTrend(): Promise<ApiResponse<any[]>> {
+    return axios.get('/rational-consumption/admin/consumption-trend')
+  },
+
+  /**
+   * 【管理员】获取最近想要清单活动
+   */
+  getWishlistActivity(): Promise<ApiResponse<any[]>> {
+    return axios.get('/rational-consumption/admin/wishlist-activity')
+  },
+
+  /**
+   * 【管理员】获取最近成就记录
+   */
+  getRecentAchievements(): Promise<ApiResponse<any[]>> {
+    return axios.get('/rational-consumption/admin/recent-achievements')
+  },
+
+  /**
+   * 【管理员】手动授予成就
+   */
+  grantAchievement(userId: number, type: string): Promise<ApiResponse<any>> {
+    return axios.post('/rational-consumption/admin/grant-achievement', { userId, type })
+  },
+
+  /**
+   * 【管理员】撤销成就
+   */
+  revokeAchievement(userId: number, type: string): Promise<ApiResponse<any>> {
+    return axios.post('/rational-consumption/admin/revoke-achievement', { userId, type })
   }
 }
 

@@ -27,4 +27,33 @@ public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
     
     @Query("SELECT COUNT(w) FROM Wishlist w WHERE w.userId = :userId AND w.status = 3")
     int countRemovedFromWishlist(@Param("userId") Long userId);
+    
+    // ==================== 管理员统计查询 ====================
+    
+    /** 统计全站想要清单总数 */
+    @Query("SELECT COUNT(w) FROM Wishlist w")
+    long countAll();
+    
+    /** 按状态统计 */
+    long countByStatus(Integer status);
+    
+    /** 统计冷静期内的数量 */
+    @Query("SELECT COUNT(w) FROM Wishlist w WHERE w.status = 0")
+    long countCooling();
+    
+    /** 统计已购买数量（冷静期后购买） */
+    @Query("SELECT COUNT(w) FROM Wishlist w WHERE w.status = 2")
+    long countPurchased();
+    
+    /** 统计已放弃数量 */
+    @Query("SELECT COUNT(w) FROM Wishlist w WHERE w.status = 3")
+    long countRemoved();
+    
+    /** 获取最近的想要清单记录（分页） */
+    @Query("SELECT w FROM Wishlist w ORDER BY w.createdTime DESC")
+    List<Wishlist> findRecentWishlists();
+    
+    /** 按用户统计想要清单数量 */
+    @Query("SELECT w.userId, COUNT(w) FROM Wishlist w GROUP BY w.userId ORDER BY COUNT(w) DESC")
+    List<Object[]> countByUserGrouped();
 }

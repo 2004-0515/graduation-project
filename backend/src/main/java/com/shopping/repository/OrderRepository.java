@@ -61,4 +61,11 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("userId") Long userId, 
             @Param("paymentStatus") Integer paymentStatus, 
             @Param("afterTime") LocalDateTime afterTime);
+    
+    // 【管理员统计】根据支付状态和时间范围查询所有订单
+    @Query("SELECT o FROM Order o WHERE o.paymentStatus = :paymentStatus AND o.createdTime BETWEEN :startTime AND :endTime")
+    List<Order> findByPaymentStatusAndCreatedTimeBetween(
+            @Param("paymentStatus") Integer paymentStatus,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime);
 }

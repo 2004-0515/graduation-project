@@ -152,6 +152,20 @@ public class RationalConsumptionController {
     }
 
     /**
+     * 检查商品是否在想要清单中
+     */
+    @GetMapping("/wishlist/check/{productId}")
+    public Response<?> checkInWishlist(@PathVariable Long productId) {
+        String username = SecurityUtils.getCurrentUsername();
+        if (username == null) {
+            return Response.success(Map.of("inWishlist", false));
+        }
+        
+        boolean inWishlist = rationalConsumptionService.isInWishlist(username, productId);
+        return Response.success(Map.of("inWishlist", inWishlist));
+    }
+
+    /**
      * 获取想要清单
      */
     @GetMapping("/wishlist")
@@ -229,5 +243,105 @@ public class RationalConsumptionController {
         
         List<Map<String, Object>> achievements = rationalConsumptionService.getAchievements(username);
         return Response.success(achievements);
+    }
+
+    // ==================== 管理员接口 ====================
+
+    /**
+     * 【管理员】获取理性消费统计数据
+     */
+    @GetMapping("/admin/stats")
+    public Response<?> getAdminStats() {
+        String username = SecurityUtils.getCurrentUsername();
+        if (!"admin".equals(username)) {
+            return Response.fail("无权限访问");
+        }
+        
+        Map<String, Object> stats = rationalConsumptionService.getAdminStats();
+        return Response.success(stats);
+    }
+
+    /**
+     * 【管理员】获取全站消费趋势
+     */
+    @GetMapping("/admin/consumption-trend")
+    public Response<?> getConsumptionTrend() {
+        String username = SecurityUtils.getCurrentUsername();
+        if (!"admin".equals(username)) {
+            return Response.fail("无权限访问");
+        }
+        
+        List<Map<String, Object>> trend = rationalConsumptionService.getGlobalConsumptionTrend();
+        return Response.success(trend);
+    }
+
+    /**
+     * 【管理员】获取最近想要清单活动
+     */
+    @GetMapping("/admin/wishlist-activity")
+    public Response<?> getWishlistActivity() {
+        String username = SecurityUtils.getCurrentUsername();
+        if (!"admin".equals(username)) {
+            return Response.fail("无权限访问");
+        }
+        
+        List<Map<String, Object>> activities = rationalConsumptionService.getRecentWishlistActivity();
+        return Response.success(activities);
+    }
+
+    /**
+     * 【管理员】获取最近成就记录
+     */
+    @GetMapping("/admin/recent-achievements")
+    public Response<?> getRecentAchievements() {
+        String username = SecurityUtils.getCurrentUsername();
+        if (!"admin".equals(username)) {
+            return Response.fail("无权限访问");
+        }
+        
+        List<Map<String, Object>> achievements = rationalConsumptionService.getRecentAchievements();
+        return Response.success(achievements);
+    }
+
+    /**
+     * 【管理员】手动授予成就
+     */
+    @PostMapping("/admin/grant-achievement")
+    public Response<?> grantAchievement(@RequestBody Map<String, Object> params) {
+        String username = SecurityUtils.getCurrentUsername();
+        if (!"admin".equals(username)) {
+            return Response.fail("无权限访问");
+        }
+        
+        try {
+            Long userId = Long.parseLong(params.get("userId").toString());
+            String type = params.get("type").toString();
+            
+            rationalConsumptionService.grantAchievement(userId, type);
+            return Response.success("成就授予成功");
+        } catch (RuntimeException e) {
+            return Response.fail(e.getMessage());
+        }
+    }
+
+    /**
+     * 【管理员】撤销成就
+     */
+    @PostMapping("/admin/revoke-achievement")
+    public Response<?> revokeAchievement(@RequestBody Map<String, Object> params) {
+        String username = SecurityUtils.getCurrentUsername();
+        if (!"admin".equals(username)) {
+            return Response.fail("无权限访问");
+        }
+        
+        try {
+            Long userId = Long.parseLong(params.get("userId").toString());
+            String type = params.get("type").toString();
+            
+            rationalConsumptionService.revokeAchievement(userId, type);
+            return Response.success("成就已撤销");
+        } catch (RuntimeException e) {
+            return Response.fail(e.getMessage());
+        }
     }
 }

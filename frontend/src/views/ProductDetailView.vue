@@ -129,12 +129,17 @@
 
             <!-- 想要清单按钮 -->
             <div class="wishlist-action">
-              <button class="btn-wishlist" @click="showWishlistDialog = true">
+              <button 
+                class="btn-wishlist" 
+                :class="{ 'in-wishlist': isInWishlist }"
+                @click="handleWishlistClick"
+              >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
                 </svg>
-                <span>加入想要清单</span>
-                <span class="wishlist-tip">设置冷静期，避免冲动消费</span>
+                <span>{{ isInWishlist ? '已在想要清单' : '加入想要清单' }}</span>
+                <span class="wishlist-tip" v-if="!isInWishlist">设置冷静期，避免冲动消费</span>
+                <span class="wishlist-tip" v-else>点击查看清单</span>
               </button>
             </div>
 
@@ -407,6 +412,7 @@ const wishlistForm = ref({
   coolingDays: 3,
   reason: ''
 })
+const isInWishlist = ref(false)
 
 // 返回按钮相关
 const canGoBack = computed(() => window.history.length > 1)
@@ -805,6 +811,7 @@ const addToWishlist = async () => {
       ElMessage.success('已加入想要清单，冷静期' + wishlistForm.value.coolingDays + '天')
       showWishlistDialog.value = false
       wishlistForm.value = { coolingDays: 3, reason: '' }
+      isInWishlist.value = true
     } else {
       ElMessage.error(res?.message || '添加失败')
     }
@@ -812,6 +819,37 @@ const addToWishlist = async () => {
     ElMessage.error('添加失败')
   } finally {
     addingWishlist.value = false
+  }
+}
+
+// 检查商品是否在想要清单中
+const checkWishlistStatus = async () => {
+  if (!userStore.isLoggedIn) return
+  const productId = Number(route.params.id)
+  try {
+    const res: any = await rationalApi.checkInWishlist(productId)
+    if (res?.code === 200) {
+      isInWishlist.value = res.data?.inWishlist || false
+    }
+  } catch (e) {
+    console.error('检查想要清单状态失败', e)
+  }
+}
+
+// 处理想要清单按钮点击
+const handleWishlistClick = () => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  
+  if (isInWishlist.value) {
+    // 已在清单中，跳转到理性消费页面
+    router.push('/rational-consumption?tab=wishlist')
+  } else {
+    // 打开添加弹窗
+    showWishlistDialog.value = true
   }
 }
 
@@ -835,6 +873,7 @@ onMounted(() => {
   fetchPriceHistory()
   fetchPriceAlert()
   checkDuplicatePurchase()
+  checkWishlistStatus()
   window.addEventListener('resize', handleResize)
 })
 
@@ -1461,6 +1500,16 @@ onUnmounted(() => {
 .btn-wishlist:hover {
   background: rgba(90, 143, 212, 0.15);
   border-style: solid;
+}
+
+.btn-wishlist.in-wishlist {
+  background: linear-gradient(135deg, rgba(90, 143, 212, 0.15), rgba(158, 197, 255, 0.2));
+  border: 1px solid #5A8FD4;
+  border-style: solid;
+}
+
+.btn-wishlist.in-wishlist:hover {
+  background: linear-gradient(135deg, rgba(90, 143, 212, 0.25), rgba(158, 197, 255, 0.3));
 }
 
 .btn-wishlist svg {

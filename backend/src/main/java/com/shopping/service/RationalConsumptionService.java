@@ -567,6 +567,15 @@ public class RationalConsumptionService {
         return stats;
     }
 
+    /**
+     * 检查商品是否在想要清单中
+     */
+    public boolean isInWishlist(String username, Long productId) {
+        User user = userService.getUserByUsername(username);
+        return wishlistRepository.findByUserIdAndProductIdAndStatusIn(
+                user.getId(), productId, Arrays.asList(0, 1)).isPresent();
+    }
+
     // ==================== 成就系统 ====================
 
     /**
@@ -665,6 +674,203 @@ public class RationalConsumptionService {
         
         if (underBudgetMonths >= 3) {
             checkAndGrantAchievement(user.getId(), "BUDGET_MASTER", "预算大师", "连续3个月未超预算");
+        }
+    }
+
+    // ==================== 管理员统计功能 ====================
+
+    /**
+     * 获取理性消费管理统计数据
+     */
+    public Map<String, Object> getAdminStats() {
+        Map<String, Object> stats = new HashMap<>();
+        String currentMonth = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMM"));
+        
+        // 想要清单统计
+        stats.put("totalWishlistItems", wishlistRepository.countAll());
+        stats.put("coolingItems", wishlistRepository.countCooling());
+        stats.put("purchasedFromWishlist", wishlistRepository.countPurchased());
+        stats.put("removedFromWishlist", wishlistRepository.countRemoved());
+        
+        // 计算冷静期转化率
+        long totalCompleted = wishlistRepository.countPurchased() + wishlistRepository.countRemoved();
+        if (totalCompleted > 0) {
+            double conversionRate = (double) wishlistRepository.countPurchased() / totalCompleted * 100;
+            stats.put("wishlistConversionRate", Math.round(conversionRate * 10) / 10.0);
+        } else {
+            stats.put("wishlistConversionRate", 0);
+        }
+        
+        // 预算统计
+        stats.put("usersWithBudget", budgetRepository.countUsersWithBudget());
+        stats.put("currentMonthBudgetUsers", budgetRepository.countByBudgetMonth(currentMonth));
+        BigDecimal avgBudget = budgetRepository.getAverageBudgetByMonth(currentMonth);
+        stats.put("averageBudget", avgBudget != null ? avgBudget : BigDecimal.ZERO);
+        
+        // 成就统计
+        stats.put("usersWithAchievements", achievementRepository.countUsersWithAchievements());
+        stats.put("totalAchievementsGranted", achievementRepository.countTotalAchievements());
+        
+        // 成就分布
+        List<Object[]> achievementCounts = achievementRepository.countByAchievementType();
+        Map<String, Long> achievementDistribution = new HashMap<>();
+        for (Object[] row : achievementCounts) {
+            achievementDistribution.put((String) row[0], (Long) row[1]);
+        }
+        stats.put("achievementDistribution", achievementDistribution);
+        
+        return stats;
+    }
+
+    /**
+     * 获取全站消费趋势（最近6个月）
+     */
+    public List<Map<String, Object>> getGlobalConsumptionTrend() {
+        List<Map<String, Object>> trends = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+        
+        for (int i = 5; i >= 0; i--) {
+            LocalDateTime monthStart = now.minusMonths(i).withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
+            LocalDateTime monthEnd = monthStart.plusMonths(1).minusSeconds(1);
+            String monthStr = monthStart.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+            
+            // 获取该月所有已支付订单
+            List<Order> orders = orderRepository.findByPaymentStatusAndCreatedTimeBetween(1, monthStart, monthEnd);
+            
+            BigDecimal totalAmount = orders.stream()
+                    .map(o -> o.getPayAmount() != null ? o.getPayAmount() : o.getTotalAmount())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            // 获取该月设置预算的用户数
+            String budgetMonth = monthStart.format(DateTimeFormatter.ofPattern("yyyyMM"));
+            long budgetUsers = budgetRepository.countByBudgetMonth(budgetMonth);
+            
+            Map<String, Object> monthData = new HashMap<>();
+            monthData.put("month", monthStr);
+            monthData.put("totalAmount", totalAmount);
+            monthData.put("orderCount", orders.size());
+            monthData.put("budgetUsers", budgetUsers);
+            
+            trends.add(monthData);
+        }
+        
+        return trends;
+    }
+
+    /**
+     * 获取最近的想要清单活动
+     */
+    public List<Map<String, Object>> getRecentWishlistActivity() {
+        List<Wishlist> recentItems = wishlistRepository.findRecentWishlists();
+        List<Map<String, Object>> activities = new ArrayList<>();
+        
+        int count = 0;
+        for (Wishlist item : recentItems) {
+            if (count >= 20) break;
+            
+            Map<String, Object> activity = new HashMap<>();
+            activity.put("id", item.getId());
+            activity.put("userId", item.getUserId());
+            activity.put("productId", item.getProductId());
+            activity.put("status", item.getStatus());
+            activity.put("statusName", getWishlistStatusName(item.getStatus()));
+            activity.put("coolingDays", item.getCoolingDays());
+            activity.put("createdTime", item.getCreatedTime());
+            
+            // 商品信息
+            Product product = item.getProduct();
+            if (product != null) {
+                activity.put("productName", product.getName());
+                activity.put("productImage", product.getMainImage());
+                activity.put("productPrice", product.getPrice());
+            }
+            
+            // 用户信息
+            try {
+                User user = userService.findById(item.getUserId());
+                activity.put("username", user != null ? user.getUsername() : "未知用户");
+            } catch (Exception e) {
+                activity.put("username", "未知用户");
+            }
+            
+            activities.add(activity);
+            count++;
+        }
+        
+        return activities;
+    }
+
+    private String getWishlistStatusName(Integer status) {
+        if (status == null) return "未知";
+        switch (status) {
+            case 0: return "冷静中";
+            case 1: return "可购买";
+            case 2: return "已购买";
+            case 3: return "已放弃";
+            default: return "未知";
+        }
+    }
+
+    /**
+     * 获取最近获得的成就
+     */
+    public List<Map<String, Object>> getRecentAchievements() {
+        List<ConsumptionAchievement> achievements = achievementRepository.findTop20ByOrderByAchievedTimeDesc();
+        List<Map<String, Object>> result = new ArrayList<>();
+        
+        for (ConsumptionAchievement ach : achievements) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", ach.getId());
+            item.put("userId", ach.getUserId());
+            item.put("type", ach.getAchievementType());
+            item.put("name", ach.getAchievementName());
+            item.put("description", ach.getAchievementDesc());
+            item.put("achievedTime", ach.getAchievedTime());
+            
+            // 用户信息
+            try {
+                User user = userService.findById(ach.getUserId());
+                item.put("username", user != null ? user.getUsername() : "未知用户");
+            } catch (Exception e) {
+                item.put("username", "未知用户");
+            }
+            
+            result.add(item);
+        }
+        
+        return result;
+    }
+
+    /**
+     * 管理员手动授予成就
+     */
+    @Transactional
+    public void grantAchievement(Long userId, String type) {
+        // 成就定义
+        Map<String, String[]> achievementDefs = new HashMap<>();
+        achievementDefs.put("FIRST_WISHLIST", new String[]{"理性第一步", "首次使用想要清单"});
+        achievementDefs.put("DELAYED_GRATIFICATION_3", new String[]{"延迟满足达人", "通过想要清单购买3件商品"});
+        achievementDefs.put("RATIONAL_GIVEUP_5", new String[]{"理性放弃者", "从想要清单移除5件商品"});
+        achievementDefs.put("BUDGET_MASTER", new String[]{"预算大师", "连续3个月未超预算"});
+        achievementDefs.put("SAVING_STAR", new String[]{"节约之星", "单月节省超过500元"});
+        achievementDefs.put("RATIONAL_100", new String[]{"理性消费达人", "理性指数达到100分"});
+        
+        String[] def = achievementDefs.get(type);
+        if (def == null) {
+            throw new RuntimeException("无效的成就类型");
+        }
+        
+        checkAndGrantAchievement(userId, type, def[0], def[1]);
+    }
+
+    /**
+     * 管理员撤销成就
+     */
+    @Transactional
+    public void revokeAchievement(Long userId, String type) {
+        Optional<ConsumptionAchievement> achievement = achievementRepository.findByUserIdAndAchievementType(userId, type);
+        if (achievement.isPresent()) {
+            achievementRepository.delete(achievement.get());
         }
     }
 }

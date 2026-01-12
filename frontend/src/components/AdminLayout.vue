@@ -50,6 +50,10 @@
           <span class="nav-icon">价</span>
           <span class="nav-text">价格管理</span>
         </router-link>
+        <router-link to="/admin/rational" class="nav-item" :class="{ active: $route.path.startsWith('/admin/rational') }">
+          <span class="nav-icon">理</span>
+          <span class="nav-text">理性消费</span>
+        </router-link>
       </nav>
       
       <div class="sidebar-footer">
@@ -103,7 +107,8 @@ const pageTitle = computed(() => {
     '/admin/notifications': '消息管理',
     '/admin/coupons': '促销管理',
     '/admin/music': '音乐管理',
-    '/admin/price': '价格管理'
+    '/admin/price': '价格管理',
+    '/admin/rational': '理性消费管理'
   }
   return titles[route.path] || '管理后台'
 })

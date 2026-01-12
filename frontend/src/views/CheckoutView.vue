@@ -353,13 +353,14 @@ const submitOrder = async () => {
   if (showBudgetWarning.value) {
     try {
       await ElMessageBox.confirm(
-        `此订单将使您本月消费超出预算 ¥${budgetOverAmount.value.toFixed(2)}，确定要继续吗？`,
+        `此订单将使您本月消费超出预算 ¥${budgetOverAmount.value.toFixed(2)}，确定要继续吗？\n\n理性消费提示：建议您先查看消费报告，评估是否真的需要这些商品。`,
         '理性消费提醒',
         {
-          confirmButtonText: '仍然购买',
+          confirmButtonText: '我已知晓风险，继续购买',
           cancelButtonText: '再想想',
           type: 'warning',
-          customClass: 'budget-warning-dialog'
+          customClass: 'budget-warning-dialog',
+          distinguishCancelAndClose: true
         }
       )
     } catch {

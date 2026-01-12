@@ -20,6 +20,12 @@
           </button>
         </div>
 
+        <!-- 加载状态 -->
+        <div v-if="loading" class="loading-state glass-card">
+          <div class="loading-spinner"></div>
+          <p>加载中...</p>
+        </div>
+
         <!-- 预算概览Tab -->
         <div v-show="activeTab === 'budget'" class="tab-content">
           <!-- 预算概览卡片 -->
@@ -227,7 +233,7 @@
               class="wishlist-item glass-card"
             >
               <div class="wi-image">
-                <img :src="item.productImage || '/placeholder.png'" :alt="item.productName" />
+                <img :src="getImageUrl(item.productImage)" :alt="item.productName" />
                 <div v-if="item.status === 0" class="cooling-badge">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
@@ -257,7 +263,7 @@
                 <button 
                   v-if="item.status === 1" 
                   class="btn-buy"
-                  @click="goToBuy(item.productId)"
+                  @click="goToBuy(item.productId, item.id)"
                 >
                   去购买
                 </button>
@@ -351,14 +357,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/userStore'
 import rationalApi from '@/api/rationalApi'
+import fileApi from '@/api/fileApi'
 import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
@@ -368,6 +376,7 @@ const tabs = [
   { key: 'achievements', label: '消费成就' }
 ]
 const activeTab = ref('budget')
+const loading = ref(false)
 
 const budgetStatus = ref<any>({})
 const report = ref<any>({})
@@ -398,6 +407,12 @@ const rationalLevelClass = computed(() => {
 
 const earnedCount = computed(() => achievements.value.filter(a => a.earned).length)
 
+// 获取图片URL
+const getImageUrl = (path: string) => {
+  if (!path) return '/placeholder.png'
+  return fileApi.getImageUrl(path)
+}
+
 const formatMoney = (val: number | undefined, showSymbol = true) => {
   if (val === undefined || val === null) return showSymbol ? '¥0.00' : '0'
   return showSymbol ? `¥${val.toFixed(2)}` : val.toFixed(0)
@@ -423,6 +438,7 @@ const formatMonth = (month: string) => {
 
 const fetchBudgetStatus = async () => {
   if (!userStore.isLoggedIn) return
+  loading.value = true
   try {
     const res: any = await rationalApi.getBudgetStatus()
     if (res?.code === 200) {
@@ -432,6 +448,8 @@ const fetchBudgetStatus = async () => {
     }
   } catch (error) {
     console.error('获取预算状态失败:', error)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -526,11 +544,39 @@ const handleRemoveWishlist = async (id: number) => {
   }
 }
 
-const goToBuy = (productId: number) => {
+const goToBuy = async (productId: number, wishlistId: number) => {
+  // 标记为已购买
+  try {
+    await rationalApi.markAsPurchased(wishlistId)
+  } catch (e) {
+    // 忽略错误，继续跳转
+  }
   router.push(`/product/${productId}`)
 }
 
+// 监听Tab切换，刷新对应数据
+watch(activeTab, (newTab) => {
+  if (newTab === 'wishlist') {
+    fetchWishlist()
+    fetchWishlistStats()
+  } else if (newTab === 'achievements') {
+    fetchAchievements()
+  }
+})
+
 onMounted(() => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  
+  // 处理URL参数切换tab
+  const tabParam = route.query.tab as string
+  if (tabParam && tabs.some(t => t.key === tabParam)) {
+    activeTab.value = tabParam
+  }
+  
   fetchBudgetStatus()
   fetchReport()
   fetchWishlist()
@@ -728,5 +774,35 @@ onMounted(() => {
   .wishlist-item { flex-direction: column; text-align: center; }
   .wi-actions { flex-direction: row; }
   .tab-nav { width: 100%; justify-content: center; }
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(90, 143, 212, 0.2);
+  border-top-color: #5A8FD4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
 }
 </style>

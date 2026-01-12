@@ -63,6 +63,12 @@ public class OrderService {
     @Autowired
     private ReviewRepository reviewRepository;
     
+    @Autowired
+    private RationalConsumptionService rationalConsumptionService;
+    
+    @Autowired
+    private WishlistRepository wishlistRepository;
+    
     /**
      * 获取待发货订单数量（状态=1，已支付待发货）
      * @return 待发货订单数量
@@ -204,6 +210,17 @@ public class OrderService {
             if (itemRequest.getQuantity() > product.getStock()) {
                 throw new ValidationException("商品[" + product.getName() + "]库存不足");
             }
+            
+            // 理性消费检查：冷静期验证
+            java.util.Optional<Wishlist> wishlistItem = wishlistRepository
+                    .findByUserIdAndProductIdAndStatusIn(user.getId(), product.getId(), java.util.Arrays.asList(0));
+            if (wishlistItem.isPresent()) {
+                Wishlist wl = wishlistItem.get();
+                if (wl.getCoolingEndTime() != null && wl.getCoolingEndTime().isAfter(LocalDateTime.now())) {
+                    long hoursLeft = java.time.temporal.ChronoUnit.HOURS.between(LocalDateTime.now(), wl.getCoolingEndTime());
+                    throw new ValidationException("商品[" + product.getName() + "]仍在冷静期内（剩余" + hoursLeft + "小时），请等待冷静期结束后再购买");
+                }
+            }
 
             // 计算订单项小计
             BigDecimal itemTotalPrice = product.getPrice().multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
@@ -292,6 +309,21 @@ public class OrderService {
         if (order.getOrderStatus() != OrderConstants.OrderStatus.PENDING_PAYMENT) {
             throw new ValidationException("订单状态不允许支付");
         }
+        
+        // 理性消费检查：预算验证（记录但不阻止）
+        try {
+            BigDecimal currentSpending = rationalConsumptionService.getCurrentMonthSpending(order.getUser().getId());
+            ConsumptionBudget budget = rationalConsumptionService.getCurrentBudget(username);
+            BigDecimal payAmount = order.getPayAmount() != null ? order.getPayAmount() : order.getTotalAmount();
+            
+            if (currentSpending.add(payAmount).compareTo(budget.getMonthlyBudget()) > 0) {
+                logger.warn("Order {} would exceed budget for user {}. Current: {}, Order: {}, Budget: {}", 
+                        order.getOrderNo(), username, currentSpending, payAmount, budget.getMonthlyBudget());
+                // 记录冲动消费拦截次数（用户选择继续购买）
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to check budget for user {}: {}", username, e.getMessage());
+        }
 
         // 更新订单状态
         order.setPaymentMethod(paymentMethod);
@@ -309,6 +341,24 @@ public class OrderService {
         // 更新商品销量
         for (OrderItem item : order.getItems()) {
             productService.increaseSales(item.getProduct().getId(), item.getQuantity());
+            
+            // 检查并更新想要清单状态
+            try {
+                java.util.Optional<Wishlist> wishlistItem = wishlistRepository
+                        .findByUserIdAndProductIdAndStatusIn(order.getUser().getId(), item.getProduct().getId(), java.util.Arrays.asList(1));
+                if (wishlistItem.isPresent()) {
+                    rationalConsumptionService.markAsPurchased(username, wishlistItem.get().getId());
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to update wishlist for product {}: {}", item.getProduct().getId(), e.getMessage());
+            }
+        }
+        
+        // 检查预算相关成就
+        try {
+            rationalConsumptionService.checkBudgetAchievements(username);
+        } catch (Exception e) {
+            logger.warn("Failed to check budget achievements for user {}: {}", username, e.getMessage());
         }
         
         // 发送支付成功通知

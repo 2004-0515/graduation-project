@@ -206,6 +206,12 @@ const router = createRouter({
       name: 'adminPrice',
       component: () => import('@/views/admin/PriceManageView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/rational',
+      name: 'adminRational',
+      component: () => import('@/views/admin/RationalManageView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
     }
   ],
   scrollBehavior() {
