@@ -116,15 +116,34 @@
             <div class="info-row">
               <span class="label">数量</span>
               <div class="qty-control">
-                <button @click="quantity > 1 && quantity--">-</button>
-                <input type="number" v-model.number="quantity" min="1" :max="product.stock" />
-                <button @click="quantity < product.stock && quantity++">+</button>
+                <button @click="quantity > 1 && quantity--" :disabled="product.stock === 0">-</button>
+                <input 
+                  type="number" 
+                  v-model.number="quantity" 
+                  min="1" 
+                  :max="product.stock" 
+                  :disabled="product.stock === 0"
+                  @blur="validateQuantityInput"
+                />
+                <button @click="quantity < product.stock && quantity++" :disabled="product.stock === 0">+</button>
               </div>
             </div>
 
             <div class="action-row">
-              <button class="btn btn-glass" @click="addToCart">加入购物车</button>
-              <button class="btn btn-primary" @click="buyNow">立即购买</button>
+              <button 
+                class="btn btn-glass" 
+                @click.prevent.stop="addToCart"
+                :disabled="!canAddToCart || addingToCart"
+              >
+                {{ isOwnProduct ? '这是您的商品' : (addingToCart ? '添加中...' : '加入购物车') }}
+              </button>
+              <button 
+                class="btn btn-primary" 
+                @click.prevent.stop="buyNow"
+                :disabled="!canBuyNow"
+              >
+                {{ isOwnProduct ? '这是您的商品' : '立即购买' }}
+              </button>
             </div>
 
             <!-- 想要清单按钮 -->
@@ -312,7 +331,7 @@
       <div class="wishlist-dialog glass-card">
         <div class="wishlist-dialog-header">
           <h3>加入想要清单</h3>
-          <button class="close-btn" @click="showWishlistDialog = false">x</button>
+          <button class="close-btn" @click="showWishlistDialog = false">×</button>
         </div>
         <div class="wishlist-dialog-body">
           <div class="wishlist-product">
@@ -422,6 +441,43 @@ const goBack = () => {
 
 const userId = computed(() => userStore.userInfo?.id)
 
+// 判断是否是自己的商品
+const isOwnProduct = computed(() => {
+  return product.value?.sellerId && userId.value && product.value.sellerId === userId.value
+})
+
+// 按钮可用状态 - 添加空指针保护和卖家判断
+const canAddToCart = computed(() => product.value?.stock > 0 && !isOwnProduct.value)
+const canBuyNow = computed(() => product.value?.stock > 0 && !isOwnProduct.value)
+
+// 添加loading状态防止并发请求
+const addingToCart = ref(false)
+// 添加一个非响应式的锁，用于更快的并发控制
+let isAddingToCart = false
+
+// 验证数量输入 - 增强版：处理NaN、小数、负数
+const validateQuantityInput = () => {
+  // 处理NaN、null、undefined、空字符串
+  if (isNaN(quantity.value) || quantity.value === null || quantity.value === undefined || quantity.value === '') {
+    quantity.value = 1
+    return
+  }
+  
+  // 处理小数：向下取整
+  quantity.value = Math.floor(quantity.value)
+  
+  // 处理超过库存的情况
+  if (quantity.value > product.value.stock) {
+    quantity.value = product.value.stock
+    ElMessage.warning(`数量已调整为最大库存 ${product.value.stock} 件`)
+  }
+  
+  // 处理小于1的情况（包括负数）
+  if (quantity.value < 1) {
+    quantity.value = 1
+  }
+}
+
 const imgErr = (e: Event) => { 
   const img = e.target as HTMLImageElement
   // 使用 data URI 作为占位图，避免外部服务不可用
@@ -516,12 +572,76 @@ const fetchReviews = async () => {
 }
 
 const addToCart = async () => {
-  if (!userStore.isLoggedIn) { ElMessage.warning('请先登录'); router.push('/login'); return }
-  try { await cartStore.addToCart(userId.value, product.value.id, quantity.value) } catch { ElMessage.error('加入购物车失败') }
+  // 双重锁：先检查非响应式锁（更快）
+  if (isAddingToCart) {
+    console.log('防止并发：非响应式锁生效')
+    return
+  }
+  
+  // 再检查响应式锁
+  if (addingToCart.value) {
+    console.log('防止并发：响应式锁生效')
+    return
+  }
+  
+  // 立即设置两个锁
+  isAddingToCart = true
+  addingToCart.value = true
+  
+  try {
+    if (!userStore.isLoggedIn) { 
+      ElMessage.warning('请先登录')
+      router.push('/login')
+      return 
+    }
+    
+    // 先验证并调整数量
+    validateQuantityInput()
+    
+    // 验证库存
+    if (product.value.stock === 0) {
+      ElMessage.warning('商品已售罄')
+      return
+    }
+    
+    if (quantity.value > product.value.stock) {
+      ElMessage.warning(`库存不足，当前库存仅剩 ${product.value.stock} 件`)
+      return
+    }
+    
+    await cartStore.addToCart(userId.value, product.value.id, quantity.value) 
+  } catch (error: any) {
+    // 提取后端错误消息
+    const errorMsg = error?.response?.data?.message || error?.message || '加入购物车失败'
+    ElMessage.error(errorMsg)
+  } finally {
+    // 确保两个锁都被释放
+    isAddingToCart = false
+    addingToCart.value = false
+  }
 }
 
 const buyNow = () => {
-  if (!userStore.isLoggedIn) { ElMessage.warning('请先登录'); router.push('/login'); return }
+  if (!userStore.isLoggedIn) { 
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return 
+  }
+  
+  // 先验证并调整数量
+  validateQuantityInput()
+  
+  // 验证库存
+  if (product.value.stock === 0) {
+    ElMessage.warning('商品已售罄')
+    return
+  }
+  
+  if (quantity.value > product.value.stock) {
+    ElMessage.warning(`库存不足，当前库存仅剩 ${product.value.stock} 件`)
+    return
+  }
+  
   router.push(`/checkout?productId=${product.value.id}&quantity=${quantity.value}`)
 }
 
@@ -682,17 +802,17 @@ const initPriceChart = () => {
         symbol: 'circle',
         symbolSize: 6,
         lineStyle: {
-          color: '#5A8FD4',
+          color: 'var(--primary)',
           width: 2
         },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(90, 143, 212, 0.3)' },
-            { offset: 1, color: 'rgba(90, 143, 212, 0.05)' }
+            { offset: 0, color: 'rgba(155, 135, 245, 0.3)' },
+            { offset: 1, color: 'rgba(155, 135, 245, 0.05)' }
           ])
         },
         itemStyle: {
-          color: '#5A8FD4'
+          color: 'var(--primary)'
         },
         data: prices
       },
@@ -896,24 +1016,24 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 10px 20px;
-  background: rgba(90, 143, 212, 0.1);
-  border: 1px solid rgba(90, 143, 212, 0.2);
+  background: rgba(155, 135, 245, 0.1);
+  border: 1px solid rgba(155, 135, 245, 0.2);
   border-radius: 8px;
-  color: #5A8FD4;
+  color: var(--primary);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.3s;
 }
 .back-btn:hover {
-  background: #5A8FD4;
-  color: #fff;
+  background: var(--primary);
+  color: var(--white);
 }
 .back-icon { font-size: 16px; }
 
 .deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; will-change: transform; }
 .shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; will-change: transform; }
-.s1 { width: 600px; height: 600px; top: 5%; right: -10%; background: linear-gradient(135deg, #D4E8FF, #B7D4FF); opacity: 0.15; }
-.s2 { width: 500px; height: 500px; bottom: 5%; left: -10%; background: linear-gradient(135deg, #E0F0FF, #C5D8FF); opacity: 0.12; animation-delay: -10s; }
+.s1 { width: 600px; height: 600px; top: 5%; right: -10%; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.5; }
+.s2 { width: 500px; height: 500px; bottom: 5%; left: -10%; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.5; animation-delay: -10s; }
 
 @keyframes float {
   0%, 100% { transform: translate(0, 0) scale(1); }
@@ -931,33 +1051,45 @@ onUnmounted(() => {
 .main-img img { width: 100%; height: 100%; object-fit: contain; }
 .thumb-list { display: flex; gap: 12px; }
 .thumb { width: 72px; height: 72px; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: all 0.3s; }
-.thumb:hover, .thumb.active { border-color: var(--sakura); }
+.thumb:hover, .thumb.active { border-color: var(--primary); }
 .thumb img { width: 100%; height: 100%; object-fit: cover; }
 
 /* Info */
 .info-panel h1 { font-size: 2rem; font-weight: 500; margin: 0 0 12px; }
-.desc { font-size: 15px; color: var(--text-body); margin: 0 0 24px; line-height: 1.7; }
+.desc { font-size: 15px; color: var(--text-secondary); margin: 0 0 24px; line-height: 1.7; }
 
 .price-box { display: flex; align-items: baseline; gap: 12px; padding: 20px; margin-bottom: 24px; }
-.price { font-size: 32px; font-weight: 600; color: #5A8FD4; }
-.original { font-size: 17px; color: var(--text-muted); text-decoration: line-through; }
-.sales { margin-left: auto; font-size: 14px; color: var(--text-muted); }
+.price { font-size: 32px; font-weight: 600; color: var(--primary); }
+.original { font-size: 17px; color: var(--text-tertiary); text-decoration: line-through; }
+.sales { margin-left: auto; font-size: 14px; color: var(--text-tertiary); }
 
-.info-row { display: flex; align-items: center; padding: 16px 0; border-bottom: 1px solid rgba(200,200,220,0.2); }
-.label { width: 80px; font-size: 15px; color: var(--text-muted); }
-.value { font-size: 15px; color: var(--text-body); }
+.info-row { display: flex; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--gray-200); }
+.label { width: 80px; font-size: 15px; color: var(--text-tertiary); }
+.value { font-size: 15px; color: var(--text-secondary); }
 
 .qty-control { display: flex; align-items: center; }
-.qty-control button { width: 32px; height: 32px; border: 1px solid rgba(200,200,220,0.3); background: rgba(255,255,255,0.6); cursor: pointer; }
+.qty-control button { width: 32px; height: 32px; border: 1px solid var(--gray-300); background: var(--white); cursor: pointer; }
 .qty-control button:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
 .qty-control button:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
-.qty-control button:hover { border-color: var(--sakura); color: var(--sakura); }
-.qty-control input { width: 80px; height: 32px; border: 1px solid rgba(200,200,220,0.3); border-left: none; border-right: none; text-align: center; font-size: 14px; background: rgba(255,255,255,0.6); }
+.qty-control button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.qty-control button:disabled { opacity: 0.5; cursor: not-allowed; }
+.qty-control input { width: 80px; height: 32px; border: 1px solid var(--gray-300); border-left: none; border-right: none; text-align: center; font-size: 14px; background: var(--white); }
+.qty-control input:disabled { opacity: 0.5; cursor: not-allowed; background: var(--gray-100); }
 
 .action-row { display: flex; gap: 16px; margin-top: 32px; }
 .action-row .btn { flex: 1; padding: 14px 0; }
+.action-row .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--gray-200);
+  color: var(--text-tertiary);
+  border-color: var(--gray-300);
+}
+.action-row .btn.btn-primary:disabled {
+  background: var(--gray-300);
+}
 
-.service-row { display: flex; gap: 20px; margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(200,200,220,0.2); font-size: 13px; color: var(--text-muted); }
+.service-row { display: flex; gap: 20px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--gray-200); font-size: 13px; color: var(--text-tertiary); }
 
 /* 重复购买提醒 */
 .duplicate-warning {
@@ -1008,14 +1140,14 @@ onUnmounted(() => {
 }
 
 .warning-msg {
-  color: var(--text-body);
+  color: var(--text-secondary);
 }
 
 .warning-link {
   display: inline-block;
   margin-top: 12px;
   font-size: 13px;
-  color: #5A8FD4;
+  color: var(--primary);
   text-decoration: none;
 }
 
@@ -1025,47 +1157,47 @@ onUnmounted(() => {
 
 /* Detail Section */
 .detail-section { overflow: hidden; }
-.tabs { display: flex; border-bottom: 1px solid rgba(200,200,220,0.2); }
-.tabs button { padding: 16px 32px; background: none; border: none; font-size: 14px; color: var(--text-muted); cursor: pointer; position: relative; }
-.tabs button.active { color: var(--text-title); }
-.tabs button.active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 40px; height: 2px; background: var(--sakura); }
+.tabs { display: flex; border-bottom: 1px solid var(--gray-200); }
+.tabs button { padding: 16px 32px; background: none; border: none; font-size: 14px; color: var(--text-tertiary); cursor: pointer; position: relative; }
+.tabs button.active { color: var(--text-primary); }
+.tabs button.active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 40px; height: 2px; background: var(--primary); }
 .tab-content { padding: 32px; min-height: 200px; }
-.detail-content h3 { font-size: 18px; font-weight: 500; color: var(--text-title); margin: 0 0 12px; }
-.detail-content p { font-size: 14px; color: var(--text-body); line-height: 1.8; margin: 0; }
+.detail-content h3 { font-size: 18px; font-weight: 500; color: var(--text-primary); margin: 0 0 12px; }
+.detail-content p { font-size: 14px; color: var(--text-secondary); line-height: 1.8; margin: 0; }
 .spec-content table { width: 100%; border-collapse: collapse; }
-.spec-content tr { border-bottom: 1px solid rgba(200,200,220,0.15); }
+.spec-content tr { border-bottom: 1px solid var(--gray-200); }
 .spec-content td { padding: 12px 16px; font-size: 14px; }
-.spec-content td:first-child { width: 120px; color: var(--text-muted); background: rgba(255,255,255,0.3); }
-.review-item { padding: 16px 0; border-bottom: 1px solid rgba(200,200,220,0.15); }
-.review-item.own-review { background: rgba(90, 143, 212, 0.05); padding: 16px; margin: 0 -16px; border-radius: var(--radius-md); }
+.spec-content td:first-child { width: 120px; color: var(--text-tertiary); background: var(--gray-50); }
+.review-item { padding: 16px 0; border-bottom: 1px solid var(--gray-200); }
+.review-item.own-review { background: rgba(155, 135, 245, 0.05); padding: 16px; margin: 0 -16px; border-radius: var(--radius-md); }
 .review-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .user-info { display: flex; align-items: center; gap: 10px; }
 .user-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
-.user-avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: var(--sakura); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; }
-.username { font-size: 14px; color: var(--text-title); }
-.own-tag { padding: 2px 8px; background: linear-gradient(135deg, #5A8FD4, #7BA8E8); color: #fff; font-size: 11px; border-radius: 10px; }
+.user-avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: var(--white); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.username { font-size: 14px; color: var(--text-primary); }
+.own-tag { padding: 2px 8px; background: var(--primary); color: var(--white); font-size: 11px; border-radius: 10px; }
 .review-actions { display: flex; align-items: center; gap: 12px; }
-.review-time { font-size: 13px; color: var(--text-muted); }
+.review-time { font-size: 13px; color: var(--text-tertiary); }
 .delete-review-btn { padding: 4px 10px; background: transparent; border: 1px solid #e74c3c; color: #e74c3c; font-size: 12px; border-radius: 4px; cursor: pointer; transition: all 0.3s; }
 .delete-review-btn:hover { background: #e74c3c; color: #fff; }
 .review-rating { margin-bottom: 8px; }
 .review-rating .star { font-size: 14px; color: #ddd; }
 .review-rating .star.filled { color: #ffc107; }
-.review-text { margin: 0 0 10px; font-size: 14px; color: var(--text-body); line-height: 1.7; }
+.review-text { margin: 0 0 10px; font-size: 14px; color: var(--text-secondary); line-height: 1.7; }
 .review-images { display: flex; gap: 8px; margin-bottom: 10px; }
 .review-images img { width: 80px; height: 80px; border-radius: var(--radius-sm); object-fit: cover; cursor: pointer; }
-.review-reply { padding: 12px; background: rgba(245, 250, 255, 0.5); border-radius: var(--radius-sm); font-size: 13px; color: var(--text-body); }
-.reply-label { color: var(--sakura-deep); font-weight: 500; }
+.review-reply { padding: 12px; background: var(--gray-50); border-radius: var(--radius-sm); font-size: 13px; color: var(--text-secondary); }
+.reply-label { color: var(--primary); font-weight: 500; }
 
 /* 评价统计 */
-.review-stats { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: rgba(245, 250, 255, 0.5); border-radius: var(--radius-md); margin-bottom: 20px; }
+.review-stats { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: var(--gray-50); border-radius: var(--radius-md); margin-bottom: 20px; }
 .stats-left { display: flex; align-items: center; gap: 16px; }
-.avg-rating { font-size: 36px; font-weight: 600; color: var(--sakura-deep); }
+.avg-rating { font-size: 36px; font-weight: 600; color: var(--primary); }
 .rating-stars .star { font-size: 18px; color: #ddd; }
 .rating-stars .star.filled { color: #ffc107; }
-.total-count { font-size: 14px; color: var(--text-muted); }
-.good-rate { font-size: 16px; font-weight: 500; color: var(--sakura-deep); }
-.empty-review { text-align: center; padding: 40px; color: var(--text-muted); }
+.total-count { font-size: 14px; color: var(--text-tertiary); }
+.good-rate { font-size: 16px; font-weight: 500; color: var(--primary); }
+.empty-review { text-align: center; padding: 40px; color: var(--text-tertiary); }
 
 @media (max-width: 900px) {
   .product-layout { grid-template-columns: 1fr; gap: 24px; }
@@ -1109,8 +1241,8 @@ onUnmounted(() => {
 
 .ad-placeholder .ad-tag {
   padding: 2px 8px;
-  background: rgba(90, 143, 212, 0.1);
-  color: #5A8FD4;
+  background: rgba(155, 135, 245, 0.1);
+  color: var(--primary);
   font-size: 10px;
   border-radius: 3px;
 }
@@ -1200,8 +1332,8 @@ onUnmounted(() => {
 
 .ad-close-btn {
   padding: 6px 16px;
-  background: linear-gradient(135deg, #5A8FD4, #7BA3D9);
-  color: #fff;
+  background: var(--primary);
+  color: var(--white);
   border: none;
   border-radius: 6px;
   font-size: 13px;
@@ -1231,7 +1363,7 @@ onUnmounted(() => {
   gap: 16px;
   margin-bottom: 16px;
   padding-bottom: 16px;
-  border-bottom: 1px solid rgba(200,200,220,0.2);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .stat-item {
@@ -1242,7 +1374,7 @@ onUnmounted(() => {
 
 .stat-label {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .stat-value {
@@ -1281,10 +1413,10 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: rgba(90, 143, 212, 0.1);
-  border: 1px solid rgba(90, 143, 212, 0.2);
+  background: rgba(155, 135, 245, 0.1);
+  border: 1px solid rgba(155, 135, 245, 0.2);
   border-radius: 8px;
-  color: #5A8FD4;
+  color: var(--primary);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.3s;
@@ -1292,12 +1424,12 @@ onUnmounted(() => {
 
 .price-chart-btn:hover,
 .alert-btn:hover {
-  background: rgba(90, 143, 212, 0.2);
+  background: rgba(155, 135, 245, 0.2);
 }
 
 .alert-btn.active {
-  background: linear-gradient(135deg, #5A8FD4, #7BA8E8);
-  color: #fff;
+  background: var(--primary);
+  color: var(--white);
   border-color: transparent;
 }
 
@@ -1310,7 +1442,7 @@ onUnmounted(() => {
   margin-top: 16px;
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: rgba(255,255,255,0.5);
+  background: var(--white);
 }
 
 .price-chart {
@@ -1321,7 +1453,7 @@ onUnmounted(() => {
 .no-history {
   padding: 40px;
   text-align: center;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 /* 降价提醒对话框 */
@@ -1348,7 +1480,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(200,200,220,0.2);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .alert-dialog-header h3 {
@@ -1357,21 +1489,54 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.alert-dialog-header .close-btn {
-  width: 28px;
-  height: 28px;
+.alert-dialog-header .close-btn,
+.wishlist-dialog-header .close-btn {
+  width: 32px;
+  height: 32px;
   border: none;
-  background: transparent;
-  font-size: 20px;
-  color: var(--text-muted);
+  background: rgba(155, 135, 245, 0.08);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-secondary);
   cursor: pointer;
   border-radius: 50%;
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
 }
 
-.alert-dialog-header .close-btn:hover {
-  background: rgba(0,0,0,0.05);
-  color: var(--text-title);
+.alert-dialog-header .close-btn::before,
+.wishlist-dialog-header .close-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, 
+    rgba(255, 183, 213, 0.3) 0%, 
+    rgba(199, 163, 255, 0.3) 100%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  border-radius: 50%;
+}
+
+.alert-dialog-header .close-btn:hover,
+.wishlist-dialog-header .close-btn:hover {
+  background: rgba(155, 135, 245, 0.15);
+  color: var(--primary);
+  transform: rotate(90deg) scale(1.1);
+  box-shadow: 0 2px 8px rgba(155, 135, 245, 0.2);
+}
+
+.alert-dialog-header .close-btn:hover::before,
+.wishlist-dialog-header .close-btn:hover::before {
+  opacity: 1;
+}
+
+.alert-dialog-header .close-btn:active,
+.wishlist-dialog-header .close-btn:active {
+  transform: rotate(90deg) scale(0.95);
 }
 
 .alert-dialog-body {
@@ -1390,27 +1555,27 @@ onUnmounted(() => {
 .target-price-input .label,
 .quick-select .label {
   font-size: 14px;
-  color: var(--text-body);
+  color: var(--text-secondary);
 }
 
 .current-price-info .value {
   font-size: 20px;
   font-weight: 600;
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .input-wrapper {
   display: flex;
   align-items: center;
-  border: 1px solid rgba(200,200,220,0.3);
+  border: 1px solid var(--gray-300);
   border-radius: 8px;
   overflow: hidden;
 }
 
 .input-wrapper .currency {
   padding: 8px 12px;
-  background: rgba(245,250,255,0.5);
-  color: var(--text-muted);
+  background: var(--gray-50);
+  color: var(--text-tertiary);
   font-size: 14px;
 }
 
@@ -1439,18 +1604,18 @@ onUnmounted(() => {
 
 .quick-btns button {
   padding: 6px 12px;
-  background: rgba(90, 143, 212, 0.1);
-  border: 1px solid rgba(90, 143, 212, 0.2);
+  background: rgba(155, 135, 245, 0.1);
+  border: 1px solid rgba(155, 135, 245, 0.2);
   border-radius: 6px;
-  color: #5A8FD4;
+  color: var(--primary);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .quick-btns button:hover {
-  background: #5A8FD4;
-  color: #fff;
+  background: var(--primary);
+  color: var(--white);
 }
 
 .alert-tip {
@@ -1467,7 +1632,7 @@ onUnmounted(() => {
   display: flex;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid rgba(200,200,220,0.2);
+  border-top: 1px solid var(--gray-200);
 }
 
 .alert-dialog-footer .btn {
@@ -1487,10 +1652,10 @@ onUnmounted(() => {
   justify-content: center;
   gap: 8px;
   padding: 14px 20px;
-  background: rgba(90, 143, 212, 0.08);
-  border: 1px dashed rgba(90, 143, 212, 0.4);
+  background: rgba(155, 135, 245, 0.08);
+  border: 1px dashed rgba(155, 135, 245, 0.4);
   border-radius: var(--radius-md);
-  color: #5A8FD4;
+  color: var(--primary);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.3s;
@@ -1498,18 +1663,18 @@ onUnmounted(() => {
 }
 
 .btn-wishlist:hover {
-  background: rgba(90, 143, 212, 0.15);
+  background: rgba(155, 135, 245, 0.15);
   border-style: solid;
 }
 
 .btn-wishlist.in-wishlist {
-  background: linear-gradient(135deg, rgba(90, 143, 212, 0.15), rgba(158, 197, 255, 0.2));
-  border: 1px solid #5A8FD4;
+  background: rgba(155, 135, 245, 0.15);
+  border: 1px solid var(--primary);
   border-style: solid;
 }
 
 .btn-wishlist.in-wishlist:hover {
-  background: linear-gradient(135deg, rgba(90, 143, 212, 0.25), rgba(158, 197, 255, 0.3));
+  background: rgba(155, 135, 245, 0.25);
 }
 
 .btn-wishlist svg {
@@ -1518,7 +1683,7 @@ onUnmounted(() => {
 
 .wishlist-tip {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   margin-left: 8px;
 }
 
@@ -1547,14 +1712,14 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(200,200,220,0.2);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .wishlist-dialog-header h3 {
   margin: 0;
   font-size: 17px;
   font-weight: 600;
-  color: var(--text-title);
+  color: var(--text-primary);
 }
 
 .wishlist-dialog-body {
@@ -1565,7 +1730,7 @@ onUnmounted(() => {
   display: flex;
   gap: 16px;
   padding: 16px;
-  background: rgba(230, 242, 255, 0.3);
+  background: rgba(155, 135, 245, 0.08);
   border-radius: var(--radius-md);
   margin-bottom: 20px;
 }
@@ -1588,7 +1753,7 @@ onUnmounted(() => {
   margin: 0 0 8px;
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-title);
+  color: var(--text-primary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -1598,7 +1763,7 @@ onUnmounted(() => {
 .wp-price {
   font-size: 18px;
   font-weight: 600;
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .cooling-select {
@@ -1610,7 +1775,7 @@ onUnmounted(() => {
   display: block;
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-title);
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
@@ -1622,37 +1787,37 @@ onUnmounted(() => {
 .cooling-btn {
   flex: 1;
   padding: 10px;
-  border: 1px solid rgba(200, 220, 255, 0.5);
-  background: white;
+  border: 1px solid var(--gray-300);
+  background: var(--white);
   border-radius: 8px;
   font-size: 14px;
-  color: var(--text-body);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .cooling-btn:hover {
-  border-color: #5A8FD4;
-  color: #5A8FD4;
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .cooling-btn.active {
-  background: #5A8FD4;
-  border-color: #5A8FD4;
-  color: white;
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--white);
 }
 
 .cooling-tip {
   margin: 10px 0 0;
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .reason-input textarea {
   width: 100%;
   height: 80px;
   padding: 12px;
-  border: 1px solid rgba(200, 220, 255, 0.5);
+  border: 1px solid var(--gray-300);
   border-radius: 8px;
   font-size: 14px;
   resize: none;
@@ -1661,14 +1826,14 @@ onUnmounted(() => {
 
 .reason-input textarea:focus {
   outline: none;
-  border-color: #5A8FD4;
+  border-color: var(--primary);
 }
 
 .wishlist-dialog-footer {
   display: flex;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid rgba(200,200,220,0.2);
+  border-top: 1px solid var(--gray-200);
 }
 
 .wishlist-dialog-footer .btn {

@@ -257,12 +257,26 @@ public class ProductController {
             product.setCategory(category);
         }
         
-        // 管理员创建的商品自动通过审核
+        // 广告视频相关字段
+        if (data.get("adVideo") != null && !data.get("adVideo").toString().isEmpty()) {
+            product.setAdVideo((String) data.get("adVideo"));
+            if (data.get("adVideoDuration") != null) {
+                product.setAdVideoDuration(Integer.parseInt(data.get("adVideoDuration").toString()));
+            }
+        }
+        
+        // 管理员创建的商品自动通过审核，且广告自动启用
         if ("admin".equals(username)) {
             product.setAuditStatus(1);
             product.setAuditTime(java.time.LocalDateTime.now());
+            // 管理员上传的广告自动启用
+            if (product.getAdVideo() != null && !product.getAdVideo().isEmpty()) {
+                product.setAdVideoEnabled(1);
+            }
         } else {
             product.setAuditStatus(0);
+            // 普通用户上传的广告默认禁用，需要审核
+            product.setAdVideoEnabled(0);
         }
         
         Product createdProduct = productService.saveProduct(product);
@@ -345,16 +359,31 @@ public class ProductController {
             product.setCategory(category);
         }
         
-        // 广告视频相关字段（只有管理员可以设置时长和启用状态）
+        // 广告视频相关字段
         if (data.get("adVideo") != null) {
-            product.setAdVideo((String) data.get("adVideo"));
+            String adVideo = (String) data.get("adVideo");
+            product.setAdVideo(adVideo);
+            
+            // 管理员上传广告自动启用，普通用户需要审核
+            if (isAdmin) {
+                if (!adVideo.isEmpty()) {
+                    // 管理员上传广告自动启用
+                    if (data.get("adVideoEnabled") != null) {
+                        product.setAdVideoEnabled(Integer.parseInt(data.get("adVideoEnabled").toString()));
+                    } else {
+                        product.setAdVideoEnabled(1); // 默认启用
+                    }
+                } else {
+                    product.setAdVideoEnabled(0); // 清空广告则禁用
+                }
+            } else {
+                // 普通用户上传广告默认禁用
+                product.setAdVideoEnabled(0);
+            }
         }
         if (isAdmin) {
             if (data.get("adVideoDuration") != null) {
                 product.setAdVideoDuration(Integer.parseInt(data.get("adVideoDuration").toString()));
-            }
-            if (data.get("adVideoEnabled") != null) {
-                product.setAdVideoEnabled(Integer.parseInt(data.get("adVideoEnabled").toString()));
             }
         }
         

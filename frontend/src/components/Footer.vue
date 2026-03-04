@@ -2,8 +2,8 @@
   <footer class="footer">
     <div class="footer-inner">
       <div class="footer-brand">
-        <span class="brand-text">雅集商城</span>
-        <p class="brand-slogan">品质生活，从这里开始</p>
+        <span class="brand-text">紫苑风鸢</span>
+        <p class="brand-slogan">让心愿随风而起，理性消费每一刻</p>
       </div>
       
       <div class="footer-links">
@@ -35,7 +35,7 @@
     </div>
     
     <div class="footer-bottom">
-      <p>© 2025 雅集商城 · 用心服务每一位顾客</p>
+      <p>© 2025 紫苑风鸢 · 用心服务每一位顾客</p>
     </div>
   </footer>
 </template>
@@ -43,10 +43,10 @@
 <style scoped>
 .footer {
   margin-top: 80px;
-  background: linear-gradient(135deg, rgba(230, 242, 255, 0.95), rgba(240, 248, 255, 0.95));
+  background: var(--white);
   backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(183, 212, 255, 0.4);
-  box-shadow: 0 -4px 30px rgba(90, 143, 212, 0.15);
+  border-top: 1px solid var(--gray-200);
+  box-shadow: 0 -4px 30px rgba(155, 135, 245, 0.08);
 }
 
 .footer-inner {
@@ -65,14 +65,14 @@
 .brand-text {
   font-size: 24px;
   font-weight: 600;
-  color: var(--text-title);
+  color: var(--text-primary);
   letter-spacing: 3px;
 }
 
 .brand-slogan {
   margin: 10px 0 0;
   font-size: 14px;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .footer-links {
@@ -87,10 +87,10 @@
 .link-col h4 {
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-title);
+  color: var(--text-primary);
   margin: 0 0 16px;
   padding-bottom: 10px;
-  border-bottom: 2px solid rgba(183, 212, 255, 0.4);
+  border-bottom: 2px solid var(--primary);
 }
 
 .link-list {
@@ -100,27 +100,27 @@
 }
 
 .link-list a {
-  color: var(--text-body);
+  color: var(--text-secondary);
   text-decoration: none;
   font-size: 14px;
   transition: color 0.3s;
 }
 
 .link-list a:hover {
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .footer-bottom {
-  border-top: 1px solid rgba(183, 212, 255, 0.3);
+  border-top: 1px solid var(--gray-200);
   padding: 20px 32px;
   text-align: center;
-  background: rgba(235, 245, 255, 0.5);
+  background: var(--gray-50);
 }
 
 .footer-bottom p {
   margin: 0;
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 @media (max-width: 768px) {

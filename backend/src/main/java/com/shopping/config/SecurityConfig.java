@@ -53,6 +53,9 @@ public class SecurityConfig {
                 .requestMatchers("/uploads/**").permitAll()
                 // 允许匿名查看商品评价
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/reviews/product/**").permitAll()
+                // 搜索相关API - 建议和热词允许匿名访问，历史记录需要登录
+                .requestMatchers("/search/suggestions", "/search/hot-keywords", "/search/stats").permitAll()
+                .requestMatchers("/search/history/**").authenticated()
                 // 用户信息API需要认证访问
                 .requestMatchers("/auth/me", "/auth/change-password").authenticated()
                 // 文件上传需要认证

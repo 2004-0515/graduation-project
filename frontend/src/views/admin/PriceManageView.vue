@@ -460,7 +460,7 @@ onMounted(() => {
 
 .option-price {
   float: right;
-  color: #5A8FD4;
+  color: var(--primary);
   font-size: 13px;
 }
 
@@ -494,7 +494,7 @@ onMounted(() => {
   color: #333;
 }
 
-.stat-value.current { color: #5A8FD4; }
+.stat-value.current { color: var(--primary); }
 .stat-value.lowest { color: #52c41a; }
 .stat-value.highest { color: #ff4d4f; }
 .stat-value.avg { color: #faad14; }

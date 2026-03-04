@@ -26,9 +26,12 @@ public class UserDto {
     private String bio;
 
     private String avatar;
+    
+    // 以下字段存在于数据库但前端已不再使用（会员系统功能已移除）
     private Integer points;
     private Integer growthValue;
     private Integer memberDays;
+    
     private LocalDateTime createdTime;
     private LocalDateTime updatedTime;
     private LocalDateTime lastLoginTime;

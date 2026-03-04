@@ -1,5 +1,6 @@
 package com.shopping.service;
 
+import com.shopping.constants.PriceAlertConstants;
 import com.shopping.entity.PriceAlert;
 import com.shopping.entity.Product;
 import com.shopping.repository.PriceAlertRepository;
@@ -37,7 +38,7 @@ public class PriceAlertService {
             // 更新现有提醒
             PriceAlert alert = existing.get();
             alert.setTargetPrice(targetPrice);
-            alert.setStatus(0); // 重置为监控中
+            alert.setStatus(PriceAlertConstants.AlertStatus.MONITORING);
             alert.setNotified(false);
             alert.setTriggeredTime(null);
             alert.setTriggeredPrice(null);
@@ -65,7 +66,7 @@ public class PriceAlertService {
         alert.setProductId(productId);
         alert.setTargetPrice(targetPrice);
         alert.setCurrentPrice(product.getPrice());
-        alert.setStatus(0); // 监控中
+        alert.setStatus(PriceAlertConstants.AlertStatus.MONITORING);
         alert.setNotified(false);
         
         return priceAlertRepository.save(alert);
@@ -78,7 +79,7 @@ public class PriceAlertService {
     public void cancelAlert(Long userId, Long productId) {
         Optional<PriceAlert> alert = priceAlertRepository.findByUserIdAndProductId(userId, productId);
         alert.ifPresent(a -> {
-            a.setStatus(2); // 已取消
+            a.setStatus(PriceAlertConstants.AlertStatus.CANCELLED);
             priceAlertRepository.save(a);
         });
     }
@@ -103,7 +104,7 @@ public class PriceAlertService {
      * 获取用户有效的降价提醒
      */
     public List<PriceAlert> getUserActiveAlerts(Long userId) {
-        return priceAlertRepository.findByUserIdAndStatusOrderByCreatedTimeDesc(userId, 0);
+        return priceAlertRepository.findByUserIdAndStatusOrderByCreatedTimeDesc(userId, PriceAlertConstants.AlertStatus.MONITORING);
     }
     
     /**
@@ -117,7 +118,7 @@ public class PriceAlertService {
      * 检查用户是否已设置某商品的降价提醒
      */
     public boolean hasActiveAlert(Long userId, Long productId) {
-        return priceAlertRepository.existsByUserIdAndProductIdAndStatus(userId, productId, 0);
+        return priceAlertRepository.existsByUserIdAndProductIdAndStatus(userId, productId, PriceAlertConstants.AlertStatus.MONITORING);
     }
     
     /**
@@ -128,7 +129,7 @@ public class PriceAlertService {
         List<PriceAlert> triggeredAlerts = priceAlertRepository.findTriggeredAlerts(productId, newPrice);
         
         for (PriceAlert alert : triggeredAlerts) {
-            alert.setStatus(1); // 已触发
+            alert.setStatus(PriceAlertConstants.AlertStatus.TRIGGERED);
             alert.setTriggeredTime(LocalDateTime.now());
             alert.setTriggeredPrice(newPrice);
             priceAlertRepository.save(alert);
@@ -166,7 +167,7 @@ public class PriceAlertService {
      * 统计用户有效的降价提醒数量
      */
     public long countUserActiveAlerts(Long userId) {
-        return priceAlertRepository.countByUserIdAndStatus(userId, 0);
+        return priceAlertRepository.countByUserIdAndStatus(userId, PriceAlertConstants.AlertStatus.MONITORING);
     }
     
     /**
@@ -183,7 +184,7 @@ public class PriceAlertService {
      * 统计所有有效的降价提醒数量
      */
     public long countActiveAlerts() {
-        return priceAlertRepository.countByStatus(0);
+        return priceAlertRepository.countByStatus(PriceAlertConstants.AlertStatus.MONITORING);
     }
     
     /**
@@ -194,14 +195,14 @@ public class PriceAlertService {
         PriceAlert alert = priceAlertRepository.findById(alertId)
                 .orElseThrow(() -> new RuntimeException("降价提醒不存在"));
         
-        if (alert.getStatus() != 0) {
+        if (alert.getStatus() != PriceAlertConstants.AlertStatus.MONITORING) {
             throw new RuntimeException("该提醒已不在监控状态");
         }
         
         Product product = productRepository.findById(alert.getProductId()).orElse(null);
         BigDecimal currentPrice = product != null ? product.getPrice() : alert.getTargetPrice();
         
-        alert.setStatus(1);
+        alert.setStatus(PriceAlertConstants.AlertStatus.TRIGGERED);
         alert.setTriggeredTime(LocalDateTime.now());
         alert.setTriggeredPrice(currentPrice);
         alert.setNotified(false);
@@ -221,11 +222,11 @@ public class PriceAlertService {
         PriceAlert alert = priceAlertRepository.findById(alertId)
                 .orElseThrow(() -> new RuntimeException("降价提醒不存在"));
         
-        if (alert.getStatus() == 0) {
+        if (alert.getStatus() == PriceAlertConstants.AlertStatus.MONITORING) {
             throw new RuntimeException("该提醒已在监控状态");
         }
         
-        alert.setStatus(0);
+        alert.setStatus(PriceAlertConstants.AlertStatus.MONITORING);
         alert.setTriggeredTime(null);
         alert.setTriggeredPrice(null);
         alert.setNotified(false);

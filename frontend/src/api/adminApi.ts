@@ -168,7 +168,7 @@ const adminApi = {
   /**
    * 发送通知给多个用户
    */
-  broadcastNotification(data: { userIds: number[]; type: string; title: string; message: string }): Promise<ApiResponse<void>> {
+  broadcastNotification(data: { userIds: number[]; type: string; title: string; message: string; relatedId?: number }): Promise<ApiResponse<void>> {
     return axios.post('/notifications/admin/broadcast', data)
   },
   

@@ -84,18 +84,33 @@
       <div v-if="isExpanded" class="playlist">
         <div class="playlist-header">播放列表 ({{ musicList.length }})</div>
         <div class="playlist-items">
-          <div 
-            v-for="(music, index) in musicList" 
-            :key="music.id" 
-            class="playlist-item"
-            :class="{ active: currentIndex === index }"
-            @click="playAt(index)"
-          >
-            <span class="item-index">{{ index + 1 }}</span>
-            <span class="item-title">{{ music.title }}</span>
-            <span class="item-artist">{{ music.artist }}</span>
+          <div v-if="isLoading" class="loading-list">
+            <div class="loading-spinner"></div>
+            <span>加载中{{ retryCount > 0 ? ` (重试 ${retryCount}/${MAX_RETRY})` : '' }}...</span>
           </div>
-          <div v-if="musicList.length === 0" class="empty-list">暂无音乐</div>
+          <div v-else-if="loadError" class="error-list">
+            <div class="error-icon">⚠️</div>
+            <span class="error-text">加载失败</span>
+            <button class="retry-btn" @click="retryLoad">重试</button>
+          </div>
+          <template v-else>
+            <div 
+              v-for="(music, index) in musicList" 
+              :key="music.id" 
+              class="playlist-item"
+              :class="{ active: currentIndex === index }"
+              @click="playAt(index)"
+            >
+              <span class="item-index">{{ index + 1 }}</span>
+              <span class="item-title">{{ music.title }}</span>
+              <span class="item-artist">{{ music.artist }}</span>
+            </div>
+            <div v-if="musicList.length === 0" class="empty-list">
+              <div class="empty-icon">🎵</div>
+              <span>暂无音乐</span>
+              <button class="retry-btn" @click="retryLoad">刷新</button>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -108,7 +123,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import musicApi, { type Music } from '@/api/musicApi'
 
-const defaultCover = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%235A8FD4" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="white" font-size="30">♪</text></svg>'
+const defaultCover = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%239b87f5" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="white" font-size="30">♪</text></svg>'
 
 const playerRef = ref<HTMLElement>()
 const audioRef = ref<HTMLAudioElement>()
@@ -124,6 +139,10 @@ const duration = ref(0)
 const volume = ref(80)
 const isMuted = ref(false)
 const loopMode = ref<'none' | 'list' | 'single'>('list')
+const isLoading = ref(true) // 添加加载状态
+const loadError = ref(false) // 添加错误状态
+const retryCount = ref(0) // 重试次数
+const MAX_RETRY = 3 // 最大重试次数
 
 // 播放状态持久化的key
 const STORAGE_KEY = 'musicPlayerState'
@@ -324,11 +343,16 @@ const toggleVolumePanel = () => {
 
 const onResize = () => constrainPosition()
 
-const loadMusic = async () => {
+const loadMusic = async (isRetry = false) => {
+  isLoading.value = true
+  loadError.value = false
+  
   try {
     const res: any = await musicApi.getEnabledMusic()
     if (res?.code === 200) {
       musicList.value = res.data || []
+      retryCount.value = 0 // 重置重试次数
+      
       if (musicList.value.length > 0 && audioRef.value) {
         // 恢复之前的播放状态
         const savedState = restorePlayerState()
@@ -363,8 +387,30 @@ const loadMusic = async () => {
           currentTime.value = 0
         }
       }
+    } else {
+      throw new Error('API返回错误')
     }
-  } catch (e) { console.error(e) }
+  } catch (e) { 
+    console.error('加载音乐失败', e)
+    loadError.value = true
+    
+    // 自动重试机制
+    if (!isRetry && retryCount.value < MAX_RETRY) {
+      retryCount.value++
+      console.log(`自动重试加载音乐 (${retryCount.value}/${MAX_RETRY})...`)
+      setTimeout(() => {
+        loadMusic(true)
+      }, 2000 * retryCount.value) // 递增延迟: 2s, 4s, 6s
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// 手动重试加载
+const retryLoad = () => {
+  retryCount.value = 0
+  loadMusic()
 }
 
 // 尝试自动播放，如果被阻止则等待用户交互
@@ -588,12 +634,12 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,251,255,0.98));
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   border-radius: 40px;
-  box-shadow: 0 6px 24px rgba(90, 143, 212, 0.3);
+  box-shadow: 0 6px 24px rgba(155, 135, 245, 0.3);
   cursor: grab;
-  border: 2px solid rgba(183, 212, 255, 0.6);
+  border: 2px solid rgba(155, 135, 245, 0.3);
 }
 
 .music-player.dragging .mini-player {
@@ -605,7 +651,7 @@ onUnmounted(() => {
   height: 42px;
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: 0 3px 10px rgba(90, 143, 212, 0.3);
+  box-shadow: 0 3px 10px rgba(155, 135, 245, 0.3);
 }
 
 .mini-cover img {
@@ -620,19 +666,19 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #5A8FD4, #7BA3D9);
+  background: var(--primary);
   color: white;
   border-radius: 50%;
   font-size: 11px;
   font-weight: bold;
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 3px 10px rgba(90, 143, 212, 0.4);
+  box-shadow: 0 4px 16px rgba(155, 135, 245, 0.4);
 }
 
 .mini-btn:hover {
   transform: scale(1.1);
-  box-shadow: 0 4px 14px rgba(90, 143, 212, 0.5);
+  box-shadow: 0 6px 20px rgba(155, 135, 245, 0.5);
 }
 
 .mini-btn .play-icon {
@@ -647,11 +693,11 @@ onUnmounted(() => {
 /* 播放器主体 */
 .player-content {
   width: 280px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.98));
-  backdrop-filter: blur(20px);
+  background: var(--white);
+  backdrop-filter: blur(32px);
   border-radius: 20px;
-  box-shadow: 0 10px 40px rgba(90, 143, 212, 0.25);
-  border: 2px solid rgba(183, 212, 255, 0.5);
+  box-shadow: 0 12px 48px rgba(155, 135, 245, 0.25);
+  border: 2px solid rgba(155, 135, 245, 0.2);
   overflow: hidden;
 }
 
@@ -660,7 +706,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 14px 18px;
-  background: linear-gradient(135deg, #5A8FD4, #7BA3D9);
+  background: var(--primary);
   color: white;
   cursor: grab;
 }
@@ -717,7 +763,7 @@ onUnmounted(() => {
   height: 64px;
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: 0 6px 16px rgba(90, 143, 212, 0.35);
+  box-shadow: 0 6px 16px rgba(155, 135, 245, 0.35);
 }
 
 .cover.rotating {
@@ -764,7 +810,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  color: #5A8FD4;
+  color: var(--primary);
   font-weight: 500;
   margin-bottom: 8px;
 }
@@ -785,7 +831,7 @@ onUnmounted(() => {
   right: 0;
   height: 6px;
   transform: translateY(-50%);
-  background: #E0EDFF;
+  background: rgba(155, 135, 245, 0.15);
   border-radius: 3px;
 }
 
@@ -795,7 +841,7 @@ onUnmounted(() => {
   left: 0;
   height: 6px;
   transform: translateY(-50%);
-  background: linear-gradient(90deg, #5A8FD4, #7BA8E8);
+  background: var(--primary);
   border-radius: 3px;
   pointer-events: none;
 }
@@ -807,9 +853,9 @@ onUnmounted(() => {
   width: 16px;
   height: 16px;
   background: #fff;
-  border: 3px solid #5A8FD4;
+  border: 3px solid var(--primary);
   border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(90, 143, 212, 0.4);
+  box-shadow: 0 2px 8px rgba(155, 135, 245, 0.4);
   pointer-events: none;
   transition: transform 0.1s;
 }
@@ -835,8 +881,8 @@ onUnmounted(() => {
   width: 42px;
   height: 42px;
   border: none;
-  background: #F0F6FF;
-  color: #5A8FD4;
+  background: rgba(155, 135, 245, 0.1);
+  color: var(--primary);
   border-radius: 50%;
   cursor: pointer;
   display: flex;
@@ -846,20 +892,21 @@ onUnmounted(() => {
 }
 
 .ctrl-btn:hover {
-  background: #E0EDFF;
+  background: rgba(155, 135, 245, 0.15);
   transform: scale(1.05);
 }
 
 .ctrl-btn.play-btn {
   width: 52px;
   height: 52px;
-  background: linear-gradient(135deg, #5A8FD4, #7BA3D9);
-  box-shadow: 0 4px 14px rgba(90, 143, 212, 0.4);
+  background: var(--primary);
+  box-shadow: 0 4px 20px rgba(155, 135, 245, 0.4);
 }
 
 .ctrl-btn.play-btn:hover {
+  background: var(--primary-dark);
   transform: scale(1.08);
-  box-shadow: 0 6px 18px rgba(90, 143, 212, 0.5);
+  box-shadow: 0 6px 24px rgba(155, 135, 245, 0.5);
 }
 
 .ctrl-btn.small {
@@ -870,7 +917,7 @@ onUnmounted(() => {
 }
 
 .ctrl-btn.active {
-  background: #5A8FD4;
+  background: var(--primary);
   color: white;
 }
 
@@ -887,11 +934,11 @@ onUnmounted(() => {
 }
 
 .btn-icon.prev {
-  border-right: 12px solid #5A8FD4;
+  border-right: 12px solid var(--primary);
 }
 
 .btn-icon.next {
-  border-left: 12px solid #5A8FD4;
+  border-left: 12px solid var(--primary);
 }
 
 .btn-icon.play {
@@ -900,7 +947,7 @@ onUnmounted(() => {
   border-left: 14px solid white;
   border-top: 9px solid transparent;
   border-bottom: 9px solid transparent;
-  margin-left: 4px;
+  margin-left: 3px;
 }
 
 .btn-icon.pause {
@@ -908,6 +955,7 @@ onUnmounted(() => {
   height: 16px;
   border-left: 4px solid white;
   border-right: 4px solid white;
+  box-sizing: border-box;
 }
 
 .btn-icon.mute, .btn-icon.vol-low, .btn-icon.vol-high {
@@ -918,9 +966,9 @@ onUnmounted(() => {
   background-position: center;
 }
 
-.btn-icon.vol-high::before { content: '音'; font-size: 11px; color: #5A8FD4; }
-.btn-icon.vol-low::before { content: '小'; font-size: 11px; color: #5A8FD4; }
-.btn-icon.mute::before { content: '静'; font-size: 11px; color: #999; }
+.btn-icon.vol-high::before { content: '音'; font-size: 11px; color: var(--primary); }
+.btn-icon.vol-low::before { content: '小'; font-size: 11px; color: var(--primary); }
+.btn-icon.mute::before { content: '静'; font-size: 11px; color: var(--text-tertiary); }
 
 /* 音量控制 */
 .volume-wrap {
@@ -936,8 +984,8 @@ onUnmounted(() => {
   backdrop-filter: blur(20px);
   border-radius: 14px;
   padding: 16px 14px;
-  box-shadow: 0 6px 24px rgba(90, 143, 212, 0.3);
-  border: 2px solid rgba(183, 212, 255, 0.5);
+  box-shadow: 0 6px 24px rgba(155, 135, 245, 0.3);
+  border: 2px solid rgba(155, 135, 245, 0.3);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -949,7 +997,7 @@ onUnmounted(() => {
 .volume-track {
   width: 10px;
   height: 100px;
-  background: #E0EDFF;
+  background: rgba(155, 135, 245, 0.15);
   border-radius: 5px;
   position: relative;
   cursor: pointer;
@@ -960,7 +1008,7 @@ onUnmounted(() => {
   bottom: 0;
   left: 0;
   width: 100%;
-  background: linear-gradient(to top, #5A8FD4, #7BA8E8);
+  background: var(--primary);
   border-radius: 5px;
   pointer-events: none;
 }
@@ -972,9 +1020,9 @@ onUnmounted(() => {
   width: 18px;
   height: 18px;
   background: #fff;
-  border: 3px solid #5A8FD4;
+  border: 3px solid var(--primary);
   border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(90, 143, 212, 0.4);
+  box-shadow: 0 2px 8px rgba(155, 135, 245, 0.4);
   cursor: grab;
   pointer-events: none;
 }
@@ -982,15 +1030,15 @@ onUnmounted(() => {
 .volume-value {
   font-size: 14px;
   font-weight: 600;
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .mute-btn {
   padding: 6px 14px;
-  background: #F0F6FF;
+  background: rgba(155, 135, 245, 0.1);
   border: none;
   border-radius: 8px;
-  color: #5A8FD4;
+  color: var(--primary);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -999,20 +1047,20 @@ onUnmounted(() => {
 }
 
 .mute-btn:hover {
-  background: #E0EDFF;
+  background: rgba(155, 135, 245, 0.15);
 }
 
 /* 播放列表 */
 .playlist {
-  border-top: 2px solid rgba(183, 212, 255, 0.3);
+  border-top: 2px solid rgba(155, 135, 245, 0.15);
 }
 
 .playlist-header {
   padding: 12px 18px;
   font-size: 13px;
   font-weight: 600;
-  color: #5A8FD4;
-  background: #F8FBFF;
+  color: var(--primary);
+  background: rgba(155, 135, 245, 0.05);
 }
 
 .playlist-items {
@@ -1030,15 +1078,15 @@ onUnmounted(() => {
 }
 
 .playlist-item:hover {
-  background: #F0F6FF;
+  background: rgba(155, 135, 245, 0.08);
 }
 
 .playlist-item.active {
-  background: #E8F2FF;
+  background: rgba(155, 135, 245, 0.12);
 }
 
 .playlist-item.active .item-title {
-  color: #5A8FD4;
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -1064,9 +1112,81 @@ onUnmounted(() => {
 
 .empty-list {
   padding: 24px;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   color: #7A7A8C;
   font-size: 14px;
+}
+
+.empty-icon {
+  font-size: 32px;
+  opacity: 0.5;
+}
+
+.error-list {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #E74C3C;
+  font-size: 14px;
+}
+
+.error-icon {
+  font-size: 32px;
+}
+
+.error-text {
+  color: #7A7A8C;
+}
+
+.retry-btn {
+  padding: 8px 20px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(155, 135, 245, 0.3);
+}
+
+.retry-btn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(155, 135, 245, 0.4);
+}
+
+.retry-btn:active {
+  transform: translateY(0);
+}
+
+.loading-list {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #7A7A8C;
+  font-size: 14px;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--gray-200);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* 深色主题 */
@@ -1121,7 +1241,7 @@ onUnmounted(() => {
 }
 
 :global(html.dark-theme) .mute-btn {
-  background: rgba(60, 80, 120, 0.5);
-  color: #9EC5FF;
+  background: rgba(60, 50, 80, 0.5);
+  color: rgba(155, 135, 245, 0.8);
 }
 </style>

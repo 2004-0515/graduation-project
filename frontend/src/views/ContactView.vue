@@ -108,8 +108,8 @@ const submitForm = () => {
 
 <style scoped>
 .contact-page { min-height: 100vh; background: var(--white); position: relative; }
-.contact-page::before { content: ''; position: fixed; top: 5%; right: -10%; width: 600px; height: 600px; background: linear-gradient(135deg, #D4E8FF, #B7D4FF); opacity: 0.15; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
-.contact-page::after { content: ''; position: fixed; bottom: 5%; left: -10%; width: 500px; height: 500px; background: linear-gradient(135deg, #E0F0FF, #C5D8FF); opacity: 0.12; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
+.contact-page::before { content: ''; position: fixed; top: 5%; right: -10%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.15; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
+.contact-page::after { content: ''; position: fixed; bottom: 5%; left: -10%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.12; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
 .main-content { position: relative; z-index: 1; padding: 100px 0 80px; }
 .page-header { margin-bottom: 32px; text-align: center; }
 .page-header h1 { font-size: 2rem; font-weight: 600; color: var(--text-title); margin: 0 0 8px; }
@@ -117,9 +117,9 @@ const submitForm = () => {
 .contact-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
 .contact-info { display: flex; flex-direction: column; gap: 20px; }
 .info-card { padding: 32px; text-align: center; }
-.info-icon { width: 64px; height: 64px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; background: rgba(90, 143, 212, 0.1); border-radius: 50%; color: #5A8FD4; }
+.info-icon { width: 64px; height: 64px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; background: rgba(155, 135, 245, 0.1); border-radius: 50%; color: var(--primary); }
 .info-card h3 { margin: 0 0 12px; font-size: 18px; font-weight: 600; color: var(--text-title); }
-.info-value { margin: 0 0 8px; font-size: 20px; font-weight: 600; color: #5A8FD4; }
+.info-value { margin: 0 0 8px; font-size: 20px; font-weight: 600; color: var(--primary); }
 .info-desc { margin: 0; font-size: 14px; color: var(--text-muted); }
 .contact-form { padding: 36px; }
 .contact-form h2 { margin: 0 0 8px; font-size: 1.5rem; font-weight: 600; color: var(--text-title); }
@@ -127,7 +127,7 @@ const submitForm = () => {
 :deep(.el-form-item__label) { font-size: 14px; color: var(--text-body); font-weight: 500; }
 :deep(.el-input__wrapper), :deep(.el-textarea__inner), :deep(.el-select__wrapper) { border-radius: var(--radius-md); background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(200, 220, 255, 0.4); box-shadow: none !important; }
 :deep(.el-input__wrapper:hover), :deep(.el-input__wrapper.is-focus), :deep(.el-textarea__inner:focus) { border-color: var(--sakura); }
-.submit-btn { width: 100%; padding: 16px; background: linear-gradient(135deg, var(--sakura), #5A8FD4); color: #fff; border: none; border-radius: var(--radius-xl); font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
-.submit-btn:hover { box-shadow: 0 6px 24px rgba(90, 143, 212, 0.5); transform: translateY(-2px); }
+.submit-btn { width: 100%; padding: 16px; background: linear-gradient(135deg, var(--sakura), var(--primary)); color: #fff; border: none; border-radius: var(--radius-xl); font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+.submit-btn:hover { box-shadow: 0 6px 24px rgba(155, 135, 245, 0.5); transform: translateY(-2px); }
 @media (max-width: 768px) { .contact-layout { grid-template-columns: 1fr; } }
 </style>

@@ -350,7 +350,7 @@ onUnmounted(() => {
 .item-detail { flex: 1; display: flex; flex-direction: column; gap: 4px; }
 .item-detail .name { font-size: 14px; color: var(--text-body); }
 .item-detail .qty { font-size: 13px; color: var(--text-muted); }
-.item-row .price { font-size: 15px; font-weight: 600; color: #5A8FD4; }
+.item-row .price { font-size: 15px; font-weight: 600; color: var(--primary); }
 
 .address-info { padding: 16px; background: rgba(255,255,255,0.5); border-radius: 8px; }
 .address-info p { margin: 0 0 8px; font-size: 14px; color: var(--text-body); }
@@ -360,18 +360,18 @@ onUnmounted(() => {
 .payment-section h3 { font-size: 16px; color: var(--text-title); margin: 0 0 16px; }
 .payment-methods { display: flex; gap: 16px; }
 .method-item { flex: 1; display: flex; align-items: center; gap: 12px; padding: 20px; background: rgba(255,255,255,0.6); border: 2px solid rgba(200,200,220,0.3); border-radius: 12px; cursor: pointer; transition: all 0.3s; position: relative; }
-.method-item:hover { border-color: rgba(90,143,212,0.4); }
-.method-item.active { border-color: #5A8FD4; background: rgba(90,143,212,0.05); }
+.method-item:hover { border-color: var(--primary); }
+.method-item.active { border-color: var(--primary); background: rgba(155, 135, 245, 0.05); }
 .method-icon { font-size: 20px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.05); border-radius: 8px; font-weight: bold; }
 .method-item span { font-size: 15px; color: var(--text-body); }
-.check-mark { position: absolute; right: 16px; width: 24px; height: 24px; background: #5A8FD4; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.check-mark { position: absolute; right: 16px; width: 24px; height: 24px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; }
 
 .payment-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 24px; border-top: 1px solid rgba(200,200,220,0.2); margin-top: 24px; }
 .total-section { font-size: 16px; color: var(--text-body); }
 .price-detail { margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
 .price-detail .original { font-size: 14px; color: var(--text-muted); }
 .price-detail .discount { font-size: 14px; color: #e74c3c; }
-.total-amount { font-style: normal; font-size: 28px; font-weight: 600; color: #5A8FD4; }
+.total-amount { font-style: normal; font-size: 28px; font-weight: 600; color: var(--primary); }
 .action-buttons { display: flex; gap: 12px; }
 .action-buttons .btn { padding: 12px 32px; }
 

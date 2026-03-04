@@ -241,15 +241,15 @@ onMounted(() => {
 <style scoped>
 .promo-page { min-height: 100vh; background: var(--white); position: relative; }
 .deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-.deco-bg { position: absolute; top: 0; left: 0; width: 60%; height: 50%; background: linear-gradient(135deg, #E8F4FF 0%, #D4E8FF 100%); opacity: 0.5; filter: blur(60px); }
+.deco-bg { position: absolute; top: 0; left: 0; width: 60%; height: 50%; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); filter: blur(60px); }
 .shape { position: absolute; border-radius: 50%; filter: blur(60px); }
-.s1 { width: 600px; height: 600px; top: 25%; right: -5%; background: linear-gradient(135deg, #D4E8FF, #B7D4FF); opacity: 0.15; }
-.s2 { width: 500px; height: 500px; bottom: 5%; left: -5%; background: linear-gradient(135deg, #E0F0FF, #C5D8FF); opacity: 0.12; }
+.s1 { width: 600px; height: 600px; top: 25%; right: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); }
+.s2 { width: 500px; height: 500px; bottom: 5%; left: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); }
 
 .main { position: relative; z-index: 1; padding: 100px 0 60px; }
 
 .hero { padding: 48px; margin-bottom: 48px; text-align: center; }
-.hero-tag { display: inline-block; padding: 8px 20px; background: var(--sakura); color: #fff; border-radius: 20px; font-size: 15px; font-weight: 500; margin-bottom: 16px; }
+.hero-tag { display: inline-block; padding: 8px 20px; background: var(--primary); color: #fff; border-radius: 20px; font-size: 15px; font-weight: 500; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(155, 135, 245, 0.3); }
 .hero h1 { font-size: 2.5rem; font-weight: 600; margin: 0 0 12px; }
 .hero p { font-size: 18px; color: var(--text-body); margin: 0; }
 
@@ -258,19 +258,19 @@ onMounted(() => {
 .section-head h2 { font-size: 1.75rem; font-weight: 600; margin: 0; }
 .sub { font-size: 15px; color: var(--text-muted); }
 .more { font-size: 14px; color: var(--text-muted); text-decoration: none; }
-.more:hover { color: var(--sakura); }
+.more:hover { color: var(--primary); }
 
 .loading-state, .empty-state { text-align: center; padding: 60px; color: var(--text-muted); }
 
 .coupon-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
 .coupon-card { display: flex; overflow: hidden; transition: all 0.3s; cursor: pointer; }
-.coupon-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(90, 143, 212, 0.15); }
+.coupon-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .coupon-card.claimed { opacity: 0.6; }
 
 .coupon-left { width: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; color: #fff; }
-.coupon-left.type-reduce { background: linear-gradient(135deg, #5A8FD4, #7BA8E8); }
-.coupon-left.type-discount { background: linear-gradient(135deg, #f5a623, #f7b84b); }
-.coupon-left.type-free { background: linear-gradient(135deg, #52c41a, #73d13d); }
+.coupon-left.type-reduce { background: var(--primary); }
+.coupon-left.type-discount { background: #f5a623; }
+.coupon-left.type-free { background: #52c41a; }
 
 .coupon-value { font-size: 28px; font-weight: 700; line-height: 1.2; }
 .coupon-cond { font-size: 12px; opacity: 0.9; margin-top: 4px; }
@@ -296,14 +296,14 @@ onMounted(() => {
 
 .flash-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .flash-card { overflow: hidden; cursor: pointer; transition: all 0.3s; }
-.flash-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(90, 143, 212, 0.15); }
+.flash-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
 .flash-img { height: 160px; overflow: hidden; }
 .flash-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
 .flash-card:hover .flash-img img { transform: scale(1.05); }
 .flash-info { padding: 14px; }
 .flash-info h4 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--text-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .flash-price { margin-bottom: 4px; }
-.flash-price .current { font-size: 18px; font-weight: 600; color: #5A8FD4; }
+.flash-price .current { font-size: 18px; font-weight: 600; color: var(--primary); }
 .sales-text { font-size: 12px; color: var(--text-muted); }
 
 @media (max-width: 1024px) { .flash-grid { grid-template-columns: repeat(2, 1fr); } }

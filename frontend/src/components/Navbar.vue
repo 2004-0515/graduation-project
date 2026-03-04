@@ -2,7 +2,7 @@
   <nav class="navbar">
     <div class="nav-inner">
       <router-link to="/" class="logo">
-        <span class="logo-text">雅集</span>
+        <span class="logo-text">紫苑风鸢</span>
       </router-link>
       
       <div class="nav-links">
@@ -28,8 +28,8 @@
             placeholder="搜索商品..." 
             v-model="query" 
             @keyup.enter="search"
-            @focus="searchFocused = true"
-            @blur="searchFocused = false"
+            @focus="handleSearchFocus"
+            @blur="handleSearchBlur"
           />
           <button v-if="query" class="clear-btn" @click="clearSearch">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -39,6 +39,13 @@
           <button class="search-btn" @click="search">
             搜索
           </button>
+          <SearchDropdown 
+            ref="searchDropdownRef"
+            :visible="showSearchDropdown" 
+            :keyword="query"
+            @select="handleSearchSelect"
+            @close="closeSearchDropdown"
+          />
         </div>
         
         <!-- 消息通知 -->
@@ -158,6 +165,8 @@ import { useUserStore } from '@/stores/userStore'
 import { useCartStore } from '@/stores/cartStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import fileApi from '@/api/fileApi'
+import searchApi from '@/api/searchApi'
+import SearchDropdown from '@/components/SearchDropdown.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -167,9 +176,11 @@ const open = ref(false)
 const query = ref('')
 const showDropdown = ref(false)
 const searchFocused = ref(false)
+const showSearchDropdown = ref(false)
+const searchDropdownRef = ref<InstanceType<typeof SearchDropdown> | null>(null)
 
 // 默认头像 - 使用本地SVG或用户首字母
-const defaultAvatarUrl = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="#9EC5FF" width="100" height="100"/><text x="50" y="60" font-size="40" fill="white" text-anchor="middle" font-family="Arial">U</text></svg>`)
+const defaultAvatarUrl = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="#9b87f5" width="100" height="100"/><text x="50" y="60" font-size="40" fill="white" text-anchor="middle" font-family="Arial">U</text></svg>`)
 
 // 计算属性：用户头像
 const userAvatar = computed(() => {
@@ -179,7 +190,7 @@ const userAvatar = computed(() => {
   }
   // 没有头像时，生成带首字母的默认头像
   const initial = userStore.userInfo?.nickname?.charAt(0) || userStore.userInfo?.username?.charAt(0)?.toUpperCase() || 'U'
-  return 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#9EC5FF"/><stop offset="100%" style="stop-color:#5A8FD4"/></linearGradient></defs><rect fill="url(#g)" width="100" height="100"/><text x="50" y="62" font-size="42" fill="white" text-anchor="middle" font-family="Arial, sans-serif" font-weight="600">${initial}</text></svg>`)
+  return 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#FFB7D5"/><stop offset="50%" style="stop-color:#C7A3FF"/><stop offset="100%" style="stop-color:#A3D5FF"/></linearGradient></defs><rect fill="url(#g)" width="100" height="100"/><text x="50" y="62" font-size="42" fill="white" text-anchor="middle" font-family="Arial, sans-serif" font-weight="600">${initial}</text></svg>`)
 })
 
 // 判断是否为管理员（用户名为 admin）
@@ -187,7 +198,14 @@ const isAdmin = computed(() => userStore.userInfo?.username === 'admin')
 
 const search = () => { 
   if (query.value.trim()) {
+    // 记录搜索统计
+    searchApi.recordSearch(query.value.trim()).catch(() => {})
+    // 保存搜索历史
+    if (searchDropdownRef.value) {
+      searchDropdownRef.value.saveSearchHistory(query.value.trim())
+    }
     router.push(`/category?q=${encodeURIComponent(query.value.trim())}`)
+    showSearchDropdown.value = false
   } else {
     // 搜索框为空时，跳转到全部商品页面（清除搜索条件）
     router.push('/category')
@@ -202,8 +220,45 @@ const clearSearch = () => {
   }
 }
 
+// 处理搜索下拉选择
+const handleSearchSelect = (keyword: string) => {
+  query.value = keyword
+  showSearchDropdown.value = false
+  // 记录搜索统计
+  searchApi.recordSearch(keyword).catch(() => {})
+  // 保存搜索历史
+  if (searchDropdownRef.value) {
+    searchDropdownRef.value.saveSearchHistory(keyword)
+  }
+  router.push(`/category?q=${encodeURIComponent(keyword)}`)
+}
+
+// 处理搜索框聚焦
+const handleSearchFocus = () => {
+  searchFocused.value = true
+  showSearchDropdown.value = true
+}
+
+// 处理搜索框失焦
+const handleSearchBlur = () => {
+  searchFocused.value = false
+  // 延迟关闭，允许点击下拉项
+  setTimeout(() => {
+    showSearchDropdown.value = false
+  }, 200)
+}
+
+// 关闭搜索下拉
+const closeSearchDropdown = () => {
+  showSearchDropdown.value = false
+}
+
 const handleLogout = async () => {
   await userStore.logout()
+  // 清空购物车状态
+  cartStore.items = []
+  // 清空通知数量
+  notificationStore.clearCount()
   ElMessage.success('已退出登录')
   router.push('/')
 }
@@ -232,11 +287,11 @@ onMounted(() => {
   left: 0;
   right: 0;
   z-index: 100;
-  background: linear-gradient(135deg, rgba(230, 242, 255, 0.95), rgba(240, 248, 255, 0.95));
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(183, 212, 255, 0.4);
-  box-shadow: 0 2px 20px rgba(90, 143, 212, 0.15);
+  border-bottom: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-sm);
 }
 
 .nav-inner {
@@ -254,10 +309,13 @@ onMounted(() => {
 }
 
 .logo-text {
-  font-family: 'Noto Sans JP', sans-serif;
+  font-family: 'Noto Sans SC', sans-serif;
   font-size: 24px;
-  font-weight: 500;
-  color: var(--text-title);
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   letter-spacing: 4px;
 }
 
@@ -268,29 +326,31 @@ onMounted(() => {
 
 .nav-link {
   position: relative;
-  padding: 10px 22px;
-  color: var(--text-body);
+  padding: 10px 16px;
+  color: var(--text-secondary);
   text-decoration: none;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
-  transition: color 0.3s;
+  transition: var(--transition);
+  border-radius: var(--radius-md);
 }
 
 .nav-link::after {
   content: '';
   position: absolute;
-  bottom: 0;
+  bottom: 6px;
   left: 50%;
   transform: translateX(-50%);
   width: 0;
   height: 2px;
-  background: var(--sakura);
+  background: var(--primary);
   border-radius: 1px;
-  transition: width 0.3s;
+  transition: var(--transition);
 }
 
 .nav-link:hover {
-  color: var(--text-title);
+  color: var(--text-primary);
+  background: var(--gray-100);
 }
 
 .nav-link.active::after {
@@ -298,26 +358,25 @@ onMounted(() => {
 }
 
 .nav-link.active {
-  color: var(--text-title);
+  color: var(--primary);
 }
 
 .nav-link.ai-link {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: linear-gradient(135deg, rgba(158, 197, 255, 0.2), rgba(90, 143, 212, 0.15));
-  border-radius: 20px;
-  color: #5A8FD4;
+  background: rgba(155, 135, 245, 0.1);
+  color: var(--primary);
 }
 
 .nav-link.ai-link:hover {
-  background: linear-gradient(135deg, rgba(158, 197, 255, 0.35), rgba(90, 143, 212, 0.25));
-  color: #4A7FC4;
+  background: rgba(155, 135, 245, 0.15);
+  color: var(--primary-dark);
 }
 
 .nav-link.ai-link.active {
-  background: linear-gradient(135deg, #9EC5FF, #5A8FD4);
-  color: #fff;
+  background: var(--primary);
+  color: white;
 }
 
 .nav-link.ai-link.active::after {
@@ -334,27 +393,26 @@ onMounted(() => {
   position: relative;
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(200, 200, 220, 0.2);
-  border-radius: 24px;
-  transition: all 0.3s;
+  background: var(--white);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-full);
+  transition: var(--transition);
 }
 
 .search-box.focused {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(90, 143, 212, 0.4);
-  box-shadow: 0 0 0 3px rgba(90, 143, 212, 0.1);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(155, 135, 245, 0.1);
 }
 
 .search-box .search-icon {
   position: absolute;
   left: 14px;
-  color: #999;
+  color: var(--text-tertiary);
   pointer-events: none;
 }
 
 .search-box.focused .search-icon {
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .search-box input {
@@ -391,36 +449,37 @@ onMounted(() => {
 
 .search-box .search-btn {
   padding: 8px 16px;
-  background: linear-gradient(135deg, #9EC5FF, #5A8FD4);
+  background: var(--primary);
   border: none;
-  border-radius: 20px;
-  color: #fff;
+  border-radius: var(--radius-full);
+  color: white;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   margin-right: 4px;
-  transition: all 0.2s;
+  transition: var(--transition);
 }
 
 .search-box .search-btn:hover {
-  background: linear-gradient(135deg, #8BB8FF, #4A7FC4);
+  background: var(--primary-dark);
+  box-shadow: 0 2px 8px rgba(155, 135, 245, 0.3);
 }
 
 .icon-btn {
   position: relative;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-nav);
+  color: var(--text-secondary);
   border-radius: 50%;
-  transition: all 0.3s;
+  transition: var(--transition);
 }
 
 .icon-btn:hover {
-  background: rgba(230, 242, 255, 0.5);
-  color: var(--text-title);
+  background: var(--gray-100);
+  color: var(--primary);
 }
 
 .badge {
@@ -429,14 +488,15 @@ onMounted(() => {
   right: 2px;
   min-width: 18px;
   height: 18px;
-  background: var(--sakura);
+  background: var(--primary);
   color: white;
   font-size: 11px;
-  font-weight: 500;
-  border-radius: 9px;
+  font-weight: 600;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 4px rgba(155, 135, 245, 0.3);
 }
 
 .user-link {
@@ -448,13 +508,13 @@ onMounted(() => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 2px solid rgba(183, 212, 255, 0.3);
+  border: 2px solid var(--gray-200);
   object-fit: cover;
-  transition: border-color 0.3s;
+  transition: var(--transition);
 }
 
 .avatar:hover {
-  border-color: rgba(183, 212, 255, 0.6);
+  border-color: var(--primary);
 }
 
 /* 用户下拉菜单 */
@@ -467,11 +527,11 @@ onMounted(() => {
   top: calc(100% + 12px);
   right: 0;
   width: 240px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--white);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(183, 212, 255, 0.4);
-  border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(90, 143, 212, 0.2);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   padding: 8px 0;
   z-index: 200;
 }
@@ -487,7 +547,7 @@ onMounted(() => {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 2px solid rgba(183, 212, 255, 0.3);
+  border: 2px solid var(--gray-200);
   object-fit: cover;
 }
 
@@ -499,17 +559,17 @@ onMounted(() => {
 .dropdown-name {
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-title);
+  color: var(--text-primary);
 }
 
 .dropdown-email {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .dropdown-divider {
   height: 1px;
-  background: rgba(200, 200, 220, 0.2);
+  background: var(--gray-200);
   margin: 4px 0;
 }
 
@@ -517,11 +577,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 10px 16px;
   font-size: 14px;
-  color: var(--text-body);
+  color: var(--text-secondary);
   text-decoration: none;
-  transition: all 0.2s;
+  transition: var(--transition);
   cursor: pointer;
   border: none;
   background: none;
@@ -530,16 +590,16 @@ onMounted(() => {
 }
 
 .dropdown-item:hover {
-  background: rgba(230, 242, 255, 0.5);
-  color: var(--text-title);
+  background: var(--gray-100);
+  color: var(--text-primary);
 }
 
 .dropdown-item svg {
-  color: var(--text-muted);
+  color: var(--text-tertiary);
 }
 
 .dropdown-item:hover svg {
-  color: var(--sakura);
+  color: var(--primary);
 }
 
 .dropdown-item.logout {
@@ -588,11 +648,11 @@ onMounted(() => {
 .mobile-btn span::after {
   display: block;
   width: 20px;
-  height: 1.5px;
-  background: var(--text-nav);
+  height: 2px;
+  background: var(--text-secondary);
   position: absolute;
   left: 10px;
-  transition: all 0.3s;
+  transition: var(--transition);
 }
 
 .mobile-btn span { top: 19px; }
@@ -607,16 +667,22 @@ onMounted(() => {
   display: none;
   flex-direction: column;
   padding: 16px 32px 24px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--white);
   backdrop-filter: blur(20px);
+  border-top: 1px solid var(--gray-200);
 }
 
 .mobile-menu a {
-  padding: 14px 0;
-  color: var(--text-nav);
+  padding: 12px 0;
+  color: var(--text-secondary);
   text-decoration: none;
-  font-size: 15px;
-  border-bottom: 1px solid rgba(200, 200, 220, 0.15);
+  font-size: 14px;
+  border-bottom: 1px solid var(--gray-200);
+  transition: var(--transition);
+}
+
+.mobile-menu a:hover {
+  color: var(--primary);
 }
 
 .slide-enter-active, .slide-leave-active { transition: all 0.3s; }

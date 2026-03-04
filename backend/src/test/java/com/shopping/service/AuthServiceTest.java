@@ -163,7 +163,7 @@ class AuthServiceTest {
             ValidationException.class,
             () -> authService.changePassword("testuser", "wrongPassword", "newPassword123", "newPassword123")
         );
-        assertEquals("当前密码错误", exception.getMessage());
+        assertEquals("旧密码输入错误", exception.getMessage());
     }
 
     @Test

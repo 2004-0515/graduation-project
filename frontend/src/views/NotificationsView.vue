@@ -130,7 +130,7 @@
           </el-button>
           <el-button v-if="!isAdmin && getActualType(currentNotification) === 'file_review'" 
                      type="primary" @click="goToSettings">
-            查看设置
+            查看个人中心
           </el-button>
           <el-button v-if="isAdmin && getActualType(currentNotification) === 'product_review'" 
                      type="primary" @click="goToProductReview">
@@ -360,7 +360,8 @@ const goToFileReview = () => {
 
 const goToSettings = () => {
   detailVisible.value = false
-  router.push('/settings')
+  // 头像审核通知应该跳转到个人中心
+  router.push('/profile')
 }
 
 const goToProductReview = () => {
@@ -436,13 +437,11 @@ onMounted(() => {
   right: -10%;
   width: 600px;
   height: 600px;
-  background: linear-gradient(135deg, #D4E8FF, #B7D4FF);
-  opacity: 0.15;
+  background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent);
   filter: blur(80px);
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
-  animation: floatAnim 20s ease-in-out infinite;
 }
 
 .notifications-page::after {
@@ -452,19 +451,11 @@ onMounted(() => {
   left: -10%;
   width: 500px;
   height: 500px;
-  background: linear-gradient(135deg, #E0F0FF, #C5D8FF);
-  opacity: 0.12;
+  background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent);
   filter: blur(80px);
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
-  animation: floatAnim 20s ease-in-out infinite reverse;
-}
-
-@keyframes floatAnim {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -30px) scale(1.05); }
-  66% { transform: translate(-20px, 20px) scale(0.95); }
 }
 
 .main-content {
@@ -501,18 +492,17 @@ onMounted(() => {
   flex: 1;
   max-width: 200px;
   padding: 24px;
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(200, 220, 255, 0.5);
+  background: var(--white);
+  border: 1px solid var(--gray-200);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(90, 143, 212, 0.08);
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-num {
   display: block;
   font-size: 32px;
   font-weight: 600;
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .stat-label {
@@ -522,11 +512,10 @@ onMounted(() => {
 
 /* Card */
 .notifications-card {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(200, 220, 255, 0.5);
+  background: var(--white);
+  border: 1px solid var(--gray-200);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(90, 143, 212, 0.08);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
@@ -535,7 +524,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid rgba(200, 220, 255, 0.3);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .tabs {
@@ -556,11 +545,11 @@ onMounted(() => {
 }
 
 .tab-btn:hover {
-  background: rgba(230, 242, 255, 0.5);
+  background: rgba(155, 135, 245, 0.1);
 }
 
 .tab-btn.active {
-  background: var(--sakura);
+  background: var(--primary);
   color: #fff;
 }
 
@@ -572,17 +561,17 @@ onMounted(() => {
 .action-btn {
   padding: 10px 20px;
   background: transparent;
-  border: 1px solid rgba(90, 143, 212, 0.4);
+  border: 1px solid var(--gray-300);
   border-radius: var(--radius-md);
   font-size: 14px;
-  color: var(--text-body);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .action-btn:hover:not(:disabled) {
-  border-color: var(--sakura);
-  color: var(--sakura);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .action-btn:disabled {
@@ -616,15 +605,15 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.6);
 }
 
-/* 系统通知 - 深蓝色 */
+/* 系统通知 - 优雅薰衣草色 */
 .notification-item.system {
-  border-left-color: #4A7FC4;
-  background: linear-gradient(135deg, rgba(74, 127, 196, 0.08) 0%, rgba(90, 143, 212, 0.04) 100%);
+  border-left-color: var(--primary);
+  background: linear-gradient(135deg, rgba(155, 135, 245, 0.08) 0%, rgba(155, 135, 245, 0.04) 100%);
 }
 
 .notification-item.system:hover {
-  background: linear-gradient(135deg, rgba(74, 127, 196, 0.15) 0%, rgba(90, 143, 212, 0.08) 100%);
-  box-shadow: 0 4px 20px rgba(74, 127, 196, 0.15);
+  background: linear-gradient(135deg, rgba(155, 135, 245, 0.15) 0%, rgba(155, 135, 245, 0.08) 100%);
+  box-shadow: 0 4px 20px rgba(155, 135, 245, 0.15);
 }
 
 /* 订单消息 - 青蓝色 */
@@ -688,7 +677,7 @@ onMounted(() => {
 }
 
 .notification-item.unread.system {
-  background: linear-gradient(135deg, rgba(74, 127, 196, 0.15) 0%, rgba(90, 143, 212, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(155, 135, 245, 0.15) 0%, rgba(155, 135, 245, 0.08) 100%);
 }
 
 .notification-item.unread.order {
@@ -723,7 +712,7 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.item-icon.system { color: #4A7FC4; background: rgba(74, 127, 196, 0.15); }
+.item-icon.system { color: var(--primary); background: rgba(155, 135, 245, 0.15); }
 .item-icon.order { color: #5DADE2; background: rgba(93, 173, 226, 0.15); }
 .item-icon.promotion { color: #8E7CC3; background: rgba(142, 124, 195, 0.15); }
 .item-icon.file_review { color: #E67E22; background: rgba(230, 126, 34, 0.15); }
@@ -742,9 +731,9 @@ onMounted(() => {
 }
 
 .type-tag.system {
-  background: linear-gradient(135deg, #4A7FC4, #5A8FD4);
+  background: linear-gradient(135deg, var(--primary), rgba(155, 135, 245, 0.8));
   color: #fff;
-  box-shadow: 0 2px 8px rgba(74, 127, 196, 0.3);
+  box-shadow: 0 2px 8px rgba(155, 135, 245, 0.3);
 }
 
 .type-tag.order {
@@ -788,7 +777,7 @@ onMounted(() => {
 }
 
 .type-indicator.system {
-  background: linear-gradient(180deg, #4A7FC4, #5A8FD4);
+  background: linear-gradient(180deg, var(--primary), rgba(155, 135, 245, 0.8));
 }
 
 .type-indicator.order {
@@ -850,7 +839,7 @@ onMounted(() => {
 .unread-dot {
   width: 10px;
   height: 10px;
-  background: var(--sakura);
+  background: var(--primary);
   border-radius: 50%;
   flex-shrink: 0;
   margin-top: 8px;
@@ -891,7 +880,7 @@ onMounted(() => {
 .empty-state svg {
   margin-bottom: 16px;
   opacity: 0.4;
-  color: var(--sakura);
+  color: var(--primary);
 }
 
 .empty-state p {
@@ -951,7 +940,7 @@ onMounted(() => {
 }
 
 .detail-type.system {
-  background: linear-gradient(135deg, #4A7FC4, #5A8FD4);
+  background: linear-gradient(135deg, var(--primary), rgba(155, 135, 245, 0.8));
   color: #fff;
 }
 

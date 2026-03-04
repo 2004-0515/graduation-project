@@ -101,13 +101,13 @@ const formatDate = (dateStr: string) => {
 
 // 订单状态文本
 const getOrderStatusText = (status: number) => {
-  const map: Record<number, string> = { 1: '待发货', 2: '待收货', 3: '已完成' }
-  return map[status] || ''
+  const map: Record<number, string> = { 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 5: '退款中', 6: '申请取消中' }
+  return map[status] || '未知'
 }
 
 // 订单状态样式类
 const getOrderStatusClass = (status: number) => {
-  const map: Record<number, string> = { 1: 'pending', 2: 'shipping', 3: 'completed' }
+  const map: Record<number, string> = { 0: 'pending-payment', 1: 'pending', 2: 'shipping', 3: 'completed', 4: 'cancelled', 5: 'refunding', 6: 'cancel-requested' }
   return map[status] || ''
 }
 
@@ -347,7 +347,7 @@ onMounted(() => {
 .product-detail .subtotal {
   font-size: 15px;
   font-weight: 600;
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .address-info {

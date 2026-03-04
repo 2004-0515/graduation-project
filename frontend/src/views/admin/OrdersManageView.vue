@@ -15,6 +15,7 @@
             <el-option label="待收货" :value="2" />
             <el-option label="已完成" :value="3" />
             <el-option label="已取消" :value="4" />
+            <el-option label="退款中" :value="5" />
             <el-option label="申请取消中" :value="6" />
           </el-select>
         </div>
@@ -135,8 +136,8 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
-const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 6: '申请取消中' }[status] || '未知')
-const getStatusType = (status: number) => ({ 0: 'warning', 1: 'primary', 2: 'info', 3: 'success', 4: 'danger', 6: 'warning' }[status] || 'info') as any
+const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 5: '退款中', 6: '申请取消中' }[status] || '未知')
+const getStatusType = (status: number) => ({ 0: 'warning', 1: 'primary', 2: 'info', 3: 'success', 4: 'danger', 5: 'danger', 6: 'warning' }[status] || 'info') as any
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '-'
@@ -327,7 +328,7 @@ onMounted(() => fetchOrders())
 
 .item-info .name { font-size: 14px; color: #333; }
 .item-info .price { font-size: 13px; color: #999; }
-.subtotal { font-size: 15px; font-weight: 600; color: #5A8FD4; }
+.subtotal { font-size: 15px; font-weight: 600; color: var(--primary); }
 
 .address-info p { margin: 0; font-size: 14px; color: #666; line-height: 1.6; }
 
@@ -340,7 +341,7 @@ onMounted(() => fetchOrders())
 }
 
 .total-label { font-size: 14px; color: #666; }
-.total-amount { font-size: 24px; font-weight: 700; color: #5A8FD4; }
+.total-amount { font-size: 24px; font-weight: 700; color: var(--primary); }
 
 :deep(.el-dialog) { border-radius: 12px; }
 :deep(.el-dialog__header) { border-bottom: 1px solid #f0f0f0; padding: 20px 24px; }

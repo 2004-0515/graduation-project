@@ -35,7 +35,6 @@
           <el-table-column prop="phone" label="手机号" width="120">
             <template #default="{ row }">{{ row.phone || '-' }}</template>
           </el-table-column>
-          <el-table-column prop="points" label="积分" width="70" />
           <el-table-column prop="status" label="状态" width="70">
             <template #default="{ row }">
               <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">{{ row.status === 1 ? '正常' : '禁用' }}</el-tag>
@@ -82,18 +81,6 @@
             <div class="detail-item">
               <span class="label">手机号</span>
               <span class="value">{{ currentUser.phone || '未绑定' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">积分</span>
-              <span class="value">{{ currentUser.points }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">成长值</span>
-              <span class="value">{{ currentUser.growthValue }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">会员天数</span>
-              <span class="value">{{ currentUser.memberDays }} 天</span>
             </div>
             <div class="detail-item">
               <span class="label">注册时间</span>

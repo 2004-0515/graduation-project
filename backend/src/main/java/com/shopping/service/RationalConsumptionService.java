@@ -1,5 +1,6 @@
 package com.shopping.service;
 
+import com.shopping.constants.WishlistConstants;
 import com.shopping.dto.ConsumptionReportDto;
 import com.shopping.dto.ConsumptionReportDto.CategoryConsumption;
 import com.shopping.dto.ConsumptionReportDto.MonthlyTrend;
@@ -420,7 +421,9 @@ public class RationalConsumptionService {
         
         // 检查是否已在清单中
         Optional<Wishlist> existing = wishlistRepository.findByUserIdAndProductIdAndStatusIn(
-                user.getId(), productId, Arrays.asList(0, 1));
+                user.getId(), productId, Arrays.asList(
+                    WishlistConstants.WishlistStatus.COOLING, 
+                    WishlistConstants.WishlistStatus.READY));
         if (existing.isPresent()) {
             throw new RuntimeException("该商品已在想要清单中");
         }
@@ -431,7 +434,7 @@ public class RationalConsumptionService {
         wishlist.setAddedPrice(product.getPrice());
         wishlist.setCoolingDays(coolingDays != null ? coolingDays : 3);
         wishlist.setReason(reason);
-        wishlist.setStatus(0); // 冷静中
+        wishlist.setStatus(WishlistConstants.WishlistStatus.COOLING);
         
         Wishlist saved = wishlistRepository.save(wishlist);
         
@@ -451,7 +454,9 @@ public class RationalConsumptionService {
         updateCoolingStatus(user.getId());
         
         List<Wishlist> items = wishlistRepository.findByUserIdAndStatusInOrderByCreatedTimeDesc(
-                user.getId(), Arrays.asList(0, 1));
+                user.getId(), Arrays.asList(
+                    WishlistConstants.WishlistStatus.COOLING, 
+                    WishlistConstants.WishlistStatus.READY));
         
         List<Map<String, Object>> result = new ArrayList<>();
         for (Wishlist item : items) {
@@ -466,7 +471,7 @@ public class RationalConsumptionService {
             map.put("createdTime", item.getCreatedTime());
             
             // 计算剩余冷静时间
-            if (item.getStatus() == 0 && item.getCoolingEndTime() != null) {
+            if (item.getStatus() == WishlistConstants.WishlistStatus.COOLING && item.getCoolingEndTime() != null) {
                 long hoursLeft = ChronoUnit.HOURS.between(LocalDateTime.now(), item.getCoolingEndTime());
                 map.put("hoursLeft", Math.max(0, hoursLeft));
             } else {
@@ -501,7 +506,7 @@ public class RationalConsumptionService {
     public void updateCoolingStatus(Long userId) {
         List<Wishlist> expired = wishlistRepository.findCoolingExpired(userId, LocalDateTime.now());
         for (Wishlist item : expired) {
-            item.setStatus(1); // 可购买
+            item.setStatus(WishlistConstants.WishlistStatus.READY);
             wishlistRepository.save(item);
         }
     }
@@ -519,7 +524,7 @@ public class RationalConsumptionService {
             throw new RuntimeException("无权操作");
         }
         
-        wishlist.setStatus(3); // 已移除
+        wishlist.setStatus(WishlistConstants.WishlistStatus.REMOVED);
         wishlistRepository.save(wishlist);
         
         // 检查成就 - 理性放弃
@@ -542,7 +547,7 @@ public class RationalConsumptionService {
             throw new RuntimeException("无权操作");
         }
         
-        wishlist.setStatus(2); // 已购买
+        wishlist.setStatus(WishlistConstants.WishlistStatus.PURCHASED);
         wishlistRepository.save(wishlist);
         
         // 检查成就 - 延迟满足

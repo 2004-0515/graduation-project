@@ -144,8 +144,8 @@ let salesChart: echarts.ECharts | null = null
 let orderPieChart: echarts.ECharts | null = null
 let categoryBarChart: echarts.ECharts | null = null
 
-const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 6: '申请取消中' }[status] || '未知')
-const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled', 6: 'cancel-requested' }[status] || '')
+const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 5: '退款中', 6: '申请取消中' }[status] || '未知')
+const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled', 5: 'refunding', 6: 'cancel-requested' }[status] || '')
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '-'
@@ -187,7 +187,7 @@ const initSalesChart = () => {
       { type: 'value', name: '订单数', axisLine: { show: false }, splitLine: { show: false }, axisLabel: { color: '#666' } }
     ],
     series: [
-      { name: '销售额', type: 'bar', data: salesData, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#5A8FD4' }, { offset: 1, color: '#9EC5FF' }]), borderRadius: [4, 4, 0, 0] } },
+      { name: '销售额', type: 'bar', data: salesData, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#9b87f5' }, { offset: 1, color: 'rgba(155, 135, 245, 0.6)' }]), borderRadius: [4, 4, 0, 0] } },
       { name: '订单数', type: 'line', yAxisIndex: 1, data: orderCountData, smooth: true, itemStyle: { color: '#f5a623' }, lineStyle: { width: 3 }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(245, 166, 35, 0.3)' }, { offset: 1, color: 'rgba(245, 166, 35, 0.05)' }]) } }
     ]
   })
@@ -219,7 +219,7 @@ const initOrderPieChart = () => {
       label: { show: false },
       emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
       data: statusCount,
-      color: ['#ffc107', '#5A8FD4', '#17a2b8', '#28a745', '#dc3545', '#fd7e14']
+      color: ['#ffc107', '#9b87f5', '#17a2b8', '#28a745', '#dc3545', '#fd7e14']
     }]
   })
 }
@@ -416,7 +416,7 @@ onUnmounted(() => {
 .today-value {
   font-size: 32px;
   font-weight: 700;
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .today-item.warning .today-value {
@@ -455,7 +455,7 @@ onUnmounted(() => {
 
 .view-all {
   font-size: 14px;
-  color: #5A8FD4;
+  color: var(--primary);
   text-decoration: none;
 }
 

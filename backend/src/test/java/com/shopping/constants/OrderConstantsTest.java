@@ -18,17 +18,33 @@ class OrderConstantsTest {
         assertEquals("待收货", OrderConstants.OrderStatus.getName(2));
         assertEquals("已完成", OrderConstants.OrderStatus.getName(3));
         assertEquals("已取消", OrderConstants.OrderStatus.getName(4));
+        assertEquals("退款中", OrderConstants.OrderStatus.getName(5));
+        assertEquals("申请取消中", OrderConstants.OrderStatus.getName(6));
         assertEquals("未知", OrderConstants.OrderStatus.getName(99));
     }
 
     @Test
-    @DisplayName("订单可取消状态判断正确")
+    @DisplayName("订单可直接取消状态判断正确（仅待支付可直接取消）")
     void orderStatus_CanCancel_ShouldReturnCorrectResult() {
-        assertTrue(OrderConstants.OrderStatus.canCancel(0));  // 待支付
-        assertTrue(OrderConstants.OrderStatus.canCancel(1));  // 待发货
+        assertTrue(OrderConstants.OrderStatus.canCancel(0));  // 待支付 - 可直接取消
+        assertFalse(OrderConstants.OrderStatus.canCancel(1)); // 待发货 - 需申请取消
         assertFalse(OrderConstants.OrderStatus.canCancel(2)); // 待收货
         assertFalse(OrderConstants.OrderStatus.canCancel(3)); // 已完成
         assertFalse(OrderConstants.OrderStatus.canCancel(4)); // 已取消
+        assertFalse(OrderConstants.OrderStatus.canCancel(5)); // 退款中
+        assertFalse(OrderConstants.OrderStatus.canCancel(6)); // 申请取消中
+    }
+
+    @Test
+    @DisplayName("订单可申请取消状态判断正确（仅待发货可申请取消）")
+    void orderStatus_CanRequestCancel_ShouldReturnCorrectResult() {
+        assertFalse(OrderConstants.OrderStatus.canRequestCancel(0)); // 待支付 - 应直接取消
+        assertTrue(OrderConstants.OrderStatus.canRequestCancel(1));  // 待发货 - 可申请取消
+        assertFalse(OrderConstants.OrderStatus.canRequestCancel(2)); // 待收货
+        assertFalse(OrderConstants.OrderStatus.canRequestCancel(3)); // 已完成
+        assertFalse(OrderConstants.OrderStatus.canRequestCancel(4)); // 已取消
+        assertFalse(OrderConstants.OrderStatus.canRequestCancel(5)); // 退款中
+        assertFalse(OrderConstants.OrderStatus.canRequestCancel(6)); // 申请取消中
     }
 
     @Test
@@ -39,6 +55,8 @@ class OrderConstantsTest {
         assertTrue(OrderConstants.OrderStatus.canConfirm(2));  // 待收货
         assertFalse(OrderConstants.OrderStatus.canConfirm(3)); // 已完成
         assertFalse(OrderConstants.OrderStatus.canConfirm(4)); // 已取消
+        assertFalse(OrderConstants.OrderStatus.canConfirm(5)); // 退款中
+        assertFalse(OrderConstants.OrderStatus.canConfirm(6)); // 申请取消中
     }
 
     @Test
@@ -49,6 +67,8 @@ class OrderConstantsTest {
         assertFalse(OrderConstants.OrderStatus.canDelete(2)); // 待收货
         assertTrue(OrderConstants.OrderStatus.canDelete(3));  // 已完成
         assertTrue(OrderConstants.OrderStatus.canDelete(4));  // 已取消
+        assertFalse(OrderConstants.OrderStatus.canDelete(5)); // 退款中
+        assertFalse(OrderConstants.OrderStatus.canDelete(6)); // 申请取消中
     }
 
     @Test

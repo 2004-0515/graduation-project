@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.shopping</groupId>
-    <artifactId>shopping-mall-backend</artifactId>
+    <artifactId>shion-fuuen-backend</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
@@ -123,6 +123,13 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- jqwik for Property-Based Testing -->
+        <dependency>
+            <groupId>net.jqwik</groupId>
+            <artifactId>jqwik</artifactId>
+            <version>1.8.2</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

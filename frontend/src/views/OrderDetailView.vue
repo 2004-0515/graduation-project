@@ -91,8 +91,8 @@ const imgErr = (e: Event) => {
   img.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect fill="#f8f8fc" width="80" height="80"/><text fill="#ccc" font-family="Arial" font-size="12" x="50%" y="50%" text-anchor="middle" dy=".3em">商品</text></svg>')
 }
 
-const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 6: '申请取消中' }[status] || '未知')
-const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled', 6: 'cancel-requested' }[status] || '')
+const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 5: '退款中', 6: '申请取消中' }[status] || '未知')
+const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled', 5: 'refunding', 6: 'cancel-requested' }[status] || '')
 const getStatusDesc = (status: number) => ({
   0: '请尽快完成支付，超时订单将自动取消',
   1: '商家正在准备商品，请耐心等待',
@@ -134,7 +134,7 @@ onMounted(async () => {
 
 <style scoped>
 .order-detail-page { min-height: 100vh; background: var(--white); position: relative; }
-.order-detail-page::before { content: ''; position: fixed; top: 5%; right: -10%; width: 600px; height: 600px; background: linear-gradient(135deg, #D4E8FF, #B7D4FF); opacity: 0.15; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
+.order-detail-page::before { content: ''; position: fixed; top: 5%; right: -10%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.15; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
 
 .main-content { position: relative; z-index: 1; padding: 100px 0 80px; }
 .container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
@@ -144,7 +144,7 @@ onMounted(async () => {
 .back-btn:hover { border-color: var(--sakura); color: var(--sakura); }
 .page-header h1 { font-size: 1.5rem; font-weight: 600; color: var(--text-title); margin: 0; }
 
-.glass-card { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(24px); border: 1px solid rgba(200, 220, 255, 0.5); border-radius: var(--radius-lg); box-shadow: 0 8px 32px rgba(90, 143, 212, 0.08); padding: 24px; margin-bottom: 20px; }
+.glass-card { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(24px); border: 1px solid rgba(200, 220, 255, 0.5); border-radius: var(--radius-lg); box-shadow: 0 8px 32px rgba(155, 135, 245, 0.08); padding: 24px; margin-bottom: 20px; }
 .glass-card h3 { font-size: 16px; font-weight: 600; color: var(--text-title); margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(200, 220, 255, 0.3); }
 
 .status-card { display: flex; justify-content: space-between; align-items: center; }
@@ -169,14 +169,14 @@ onMounted(async () => {
 .item-info { flex: 1; }
 .item-info h4 { margin: 0 0 6px; font-size: 15px; font-weight: 600; color: var(--text-title); }
 .item-info p { margin: 0; font-size: 14px; color: var(--text-muted); }
-.item-subtotal { font-size: 17px; font-weight: 600; color: #5A8FD4; }
+.item-subtotal { font-size: 17px; font-weight: 600; color: var(--primary); }
 
 .info-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(200, 220, 255, 0.2); font-size: 14px; }
 .info-row:last-child { border-bottom: none; }
 .info-row span:first-child { color: var(--text-muted); }
 .info-row span:last-child { color: var(--text-body); }
 .info-row.total { padding-top: 16px; margin-top: 8px; border-top: 1px solid rgba(200, 220, 255, 0.3); }
-.info-row.total em { font-style: normal; font-size: 22px; font-weight: 600; color: #5A8FD4; }
+.info-row.total em { font-style: normal; font-size: 22px; font-weight: 600; color: var(--primary); }
 
 .loading { text-align: center; padding: 60px; color: var(--text-muted); }
 

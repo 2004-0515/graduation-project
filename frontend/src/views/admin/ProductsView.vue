@@ -1181,7 +1181,7 @@ onMounted(() => {
 }
 
 .video-cell:hover .video-play-icon {
-  background: rgba(90, 143, 212, 0.6);
+  background: rgba(155, 135, 245, 0.6);
 }
 
 .no-video {
@@ -1411,7 +1411,7 @@ onMounted(() => {
 
 .card-body .info-row .value.price {
   font-size: 18px;
-  color: #5A8FD4;
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -1440,7 +1440,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #5A8FD4;
+  color: var(--primary);
   flex-shrink: 0;
 }
 

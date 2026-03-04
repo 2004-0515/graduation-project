@@ -25,6 +25,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @EntityGraph(attributePaths = {"category"})
     List<Product> findByNameContaining(String name);
     
+    // 根据名称模糊查询已审核通过且上架的商品（用于搜索建议）
+    @EntityGraph(attributePaths = {"category"})
+    List<Product> findByNameContainingAndAuditStatusAndStatus(String name, Integer auditStatus, Integer status);
+    
     // 根据审核状态查询商品
     @EntityGraph(attributePaths = {"category"})
     List<Product> findByAuditStatus(Integer auditStatus);

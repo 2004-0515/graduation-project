@@ -275,17 +275,17 @@ onMounted(() => fetchAlerts())
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: rgba(90, 143, 212, 0.1);
-  border: 1px solid rgba(90, 143, 212, 0.2);
+  background: rgba(155, 135, 245, 0.1);
+  border: 1px solid var(--gray-300);
   border-radius: 8px;
-  color: #5A8FD4;
+  color: var(--primary);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .back-btn:hover {
-  background: #5A8FD4;
+  background: var(--primary);
   color: #fff;
 }
 
@@ -321,7 +321,7 @@ onMounted(() => fetchAlerts())
   display: block;
   font-size: 28px;
   font-weight: 600;
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .stat-label {
@@ -358,11 +358,11 @@ onMounted(() => fetchAlerts())
 }
 
 .tab-btn:hover {
-  background: rgba(90, 143, 212, 0.1);
+  background: rgba(155, 135, 245, 0.1);
 }
 
 .tab-btn.active {
-  background: #5A8FD4;
+  background: var(--primary);
   color: #fff;
 }
 
@@ -423,7 +423,7 @@ onMounted(() => fetchAlerts())
 }
 
 .current-price {
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .target-price {
@@ -445,8 +445,8 @@ onMounted(() => fetchAlerts())
 }
 
 .status-tag.active {
-  background: rgba(90, 143, 212, 0.1);
-  color: #5A8FD4;
+  background: rgba(155, 135, 245, 0.1);
+  color: var(--primary);
 }
 
 .status-tag.triggered {
@@ -478,13 +478,13 @@ onMounted(() => fetchAlerts())
 }
 
 .action-btn.edit {
-  background: rgba(90, 143, 212, 0.1);
-  border: 1px solid rgba(90, 143, 212, 0.2);
-  color: #5A8FD4;
+  background: rgba(155, 135, 245, 0.1);
+  border: 1px solid var(--gray-300);
+  color: var(--primary);
 }
 
 .action-btn.edit:hover {
-  background: #5A8FD4;
+  background: var(--primary);
   color: #fff;
 }
 
@@ -522,16 +522,18 @@ onMounted(() => fetchAlerts())
 .browse-btn {
   margin-top: 20px;
   padding: 10px 32px;
-  background: linear-gradient(135deg, #5A8FD4, #7BA8E8);
+  background: var(--primary);
   border: none;
   border-radius: 8px;
   color: #fff;
   font-size: 14px;
   cursor: pointer;
-  transition: transform 0.3s;
+  transition: all 0.3s;
+  box-shadow: 0 4px 20px rgba(155, 135, 245, 0.3);
 }
 
 .browse-btn:hover {
+  background: var(--primary-light);
   transform: translateY(-2px);
 }
 
@@ -559,7 +561,7 @@ onMounted(() => fetchAlerts())
 }
 
 .form-item .value.price {
-  color: #5A8FD4;
+  color: var(--primary);
   font-weight: 500;
 }
 

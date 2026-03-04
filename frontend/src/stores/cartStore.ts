@@ -70,7 +70,7 @@ export const useCartStore = defineStore('cart', {
     /**
      * 获取用户购物车列表
      */
-    async fetchCart(userId?: number): Promise<CartItem[]> {
+    async fetchCart(_userId?: number): Promise<CartItem[]> {
       this.loading = true
       this.error = null
 
@@ -95,7 +95,7 @@ export const useCartStore = defineStore('cart', {
     /**
      * 添加商品到购物车
      */
-    async addToCart(userId: number | undefined, productId: number, quantity: number = 1): Promise<CartItem> {
+    async addToCart(_userId: number | undefined, productId: number, quantity: number = 1): Promise<CartItem> {
       this.loading = true
       this.error = null
 

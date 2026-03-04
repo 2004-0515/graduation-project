@@ -48,8 +48,8 @@ public class SwaggerConfig {
                 // 设置 API 文档基本信息
                 .info(
                         new Info()
-                                .title("购物商城 API")
-                                .description("购物商城系统的 RESTful API 文档，包括用户管理、商品管理、订单管理、购物车管理等功能")
+                                .title("紫苑风鸢 API")
+                                .description("紫苑风鸢电商系统的 RESTful API 文档，包括用户管理、商品管理、订单管理、购物车管理等功能")
                                 .version("1.0.0")
                                 .contact(
                                         new Contact()

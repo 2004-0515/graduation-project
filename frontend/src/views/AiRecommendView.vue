@@ -130,7 +130,7 @@
               <div v-for="product in recommendProducts" :key="product.id" class="product-card" @click="goToProduct(product.id)">
                 <div class="product-image">
                   <img :src="getImageUrl(product.mainImage)" :alt="product.name" />
-                  <div class="product-badge" v-if="product.sales > 100">热销</div>
+                  <div class="product-badge" v-if="product.sales > 500">热销</div>
                 </div>
                 <div class="product-info">
                   <h4>{{ product.name }}</h4>
@@ -264,8 +264,18 @@ const getCurrentTime = () => {
   return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
 }
 
+// HTML转义函数，防止XSS攻击
+const escapeHtml = (text: string): string => {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
+
 const formatMessage = (text: string) => {
-  return text
+  // 先转义HTML，防止XSS
+  const escaped = escapeHtml(text)
+  // 然后应用安全的格式化
+  return escaped
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\n/g, '<br>')
 }
@@ -335,8 +345,8 @@ const sendQuickQuestion = (question: string) => {
 
 onMounted(async () => {
   const greeting = userStore.isLoggedIn 
-    ? `您好，${userStore.userInfo?.nickname || userStore.userInfo?.username}！我是雅集商城的AI购物助手小雅，有什么可以帮您的吗？\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 订单查询\n• 售后问题`
-    : '您好！我是雅集商城的AI购物助手小雅，很高兴为您服务！\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 购物流程\n• 常见问题'
+    ? `您好，${userStore.userInfo?.nickname || userStore.userInfo?.username}！我是紫苑风鸢的AI购物助手，有什么可以帮您的吗？\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 订单查询\n• 售后问题`
+    : '您好！我是紫苑风鸢的AI购物助手，很高兴为您服务！\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 购物流程\n• 常见问题'
   
   messages.value.push({
     role: 'ai',
@@ -380,10 +390,10 @@ onMounted(async () => {
 .ai-recommend-page {
   min-height: 100vh;
   background: 
-    radial-gradient(ellipse at 20% 0%, rgba(183, 212, 255, 0.4) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(160, 200, 255, 0.3) 0%, transparent 40%),
-    radial-gradient(ellipse at 40% 80%, rgba(200, 220, 255, 0.35) 0%, transparent 45%),
-    linear-gradient(180deg, #FBFCFF 0%, #F5F8FF 30%, #FAFCFF 60%, #FFFFFF 100%);
+    radial-gradient(ellipse at 20% 0%, rgba(155, 135, 245, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(155, 135, 245, 0.12) 0%, transparent 40%),
+    radial-gradient(ellipse at 40% 80%, rgba(155, 135, 245, 0.1) 0%, transparent 45%),
+    linear-gradient(180deg, #FDFCFF 0%, #FAF9FF 30%, #FCFBFF 60%, #FFFFFF 100%);
 }
 
 .main-content {
@@ -403,23 +413,23 @@ onMounted(async () => {
   gap: 14px;
   margin-bottom: 12px;
   padding: 10px 20px;
-  background: linear-gradient(135deg, rgba(252, 254, 255, 0.92) 0%, rgba(248, 252, 255, 0.88) 100%);
+  background: linear-gradient(135deg, rgba(252, 251, 255, 0.92) 0%, rgba(250, 249, 255, 0.88) 100%);
   backdrop-filter: blur(24px);
   border-radius: 12px;
-  border: 2px solid rgba(183, 212, 255, 0.4);
-  box-shadow: 0 4px 16px rgba(90, 143, 212, 0.1);
+  border: 2px solid rgba(155, 135, 245, 0.2);
+  box-shadow: 0 4px 16px rgba(155, 135, 245, 0.1);
 }
 
 .header-icon {
   width: 36px;
   height: 36px;
-  background: linear-gradient(135deg, #9EC5FF 0%, #5A8FD4 100%);
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  box-shadow: 0 4px 16px rgba(90, 143, 212, 0.3);
+  box-shadow: 0 4px 16px rgba(155, 135, 245, 0.3);
 }
 
 .header-icon svg {
@@ -448,13 +458,13 @@ onMounted(async () => {
 
 /* 聊天面板 */
 .chat-panel {
-  background: linear-gradient(135deg, rgba(252, 254, 255, 0.95) 0%, rgba(248, 252, 255, 0.92) 100%);
+  background: linear-gradient(135deg, rgba(252, 251, 255, 0.95) 0%, rgba(250, 249, 255, 0.92) 100%);
   border-radius: 24px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 2px solid rgba(183, 212, 255, 0.4);
-  box-shadow: 0 8px 32px rgba(90, 143, 212, 0.12);
+  border: 2px solid rgba(155, 135, 245, 0.2);
+  box-shadow: 0 8px 32px rgba(155, 135, 245, 0.12);
 }
 
 .chat-header {
@@ -462,7 +472,7 @@ onMounted(async () => {
   align-items: center;
   gap: 14px;
   padding: 14px 20px;
-  background: linear-gradient(135deg, #9EC5FF 0%, #5A8FD4 100%);
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
 }
 
 .chat-header .ai-avatar {
@@ -580,17 +590,17 @@ onMounted(async () => {
 }
 
 .message.ai .message-avatar {
-  background: linear-gradient(135deg, #9EC5FF, #5A8FD4);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
   color: #fff;
-  box-shadow: 0 4px 15px rgba(90, 143, 212, 0.3);
+  box-shadow: 0 4px 15px rgba(155, 135, 245, 0.3);
 }
 
 .message.user .message-avatar {
-  background: linear-gradient(135deg, #B7D4FF, #7BA3D9);
+  background: linear-gradient(135deg, rgba(155, 135, 245, 0.8), var(--primary));
   color: #fff;
   font-size: 15px;
   font-weight: 600;
-  box-shadow: 0 4px 15px rgba(90, 143, 212, 0.3);
+  box-shadow: 0 4px 15px rgba(155, 135, 245, 0.3);
 }
 
 .message-content {
@@ -615,10 +625,10 @@ onMounted(async () => {
 }
 
 .message.user .message-text {
-  background: linear-gradient(135deg, #9EC5FF, #5A8FD4);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
   color: #fff;
   border-bottom-right-radius: 6px;
-  box-shadow: 0 4px 15px rgba(90, 143, 212, 0.3);
+  box-shadow: 0 4px 15px rgba(155, 135, 245, 0.3);
 }
 
 .message-time {
@@ -646,7 +656,7 @@ onMounted(async () => {
 .typing-indicator span:not(.typing-text) {
   width: 8px;
   height: 8px;
-  background: linear-gradient(135deg, #9EC5FF, #5A8FD4);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
   border-radius: 50%;
   animation: bounce 1.4s infinite;
 }
@@ -679,7 +689,7 @@ onMounted(async () => {
   margin-bottom: 10px;
   font-size: 13px;
   font-weight: 500;
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .quick-list {
@@ -700,11 +710,11 @@ onMounted(async () => {
 }
 
 .quick-btn:hover {
-  background: linear-gradient(135deg, #9EC5FF, #5A8FD4);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
   border-color: transparent;
   color: #fff;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(90, 143, 212, 0.3);
+  box-shadow: 0 4px 12px rgba(155, 135, 245, 0.3);
 }
 
 /* 输入框 */
@@ -731,16 +741,16 @@ onMounted(async () => {
 }
 
 .chat-input input:focus {
-  border-color: #5A8FD4;
+  border-color: var(--primary);
   background: #fff;
   outline: none;
-  box-shadow: 0 0 0 4px rgba(90, 143, 212, 0.1);
+  box-shadow: 0 0 0 4px rgba(155, 135, 245, 0.1);
 }
 
 .send-btn {
   width: 42px;
   height: 42px;
-  background: linear-gradient(135deg, #9EC5FF, #5A8FD4);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
   border: none;
   border-radius: 50%;
   color: #fff;
@@ -749,12 +759,12 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   transition: all 0.3s;
-  box-shadow: 0 4px 15px rgba(90, 143, 212, 0.4);
+  box-shadow: 0 4px 15px rgba(155, 135, 245, 0.4);
 }
 
 .send-btn:hover:not(:disabled) {
   transform: scale(1.08);
-  box-shadow: 0 6px 20px rgba(90, 143, 212, 0.5);
+  box-shadow: 0 6px 20px rgba(155, 135, 245, 0.5);
 }
 
 .send-btn:disabled {
@@ -768,13 +778,13 @@ onMounted(async () => {
 
 /* 推荐面板 */
 .recommend-panel {
-  background: linear-gradient(135deg, rgba(252, 254, 255, 0.95) 0%, rgba(248, 252, 255, 0.92) 100%);
+  background: linear-gradient(135deg, rgba(252, 251, 255, 0.95) 0%, rgba(250, 249, 255, 0.92) 100%);
   border-radius: 24px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 2px solid rgba(183, 212, 255, 0.4);
-  box-shadow: 0 8px 32px rgba(90, 143, 212, 0.12);
+  border: 2px solid rgba(155, 135, 245, 0.2);
+  box-shadow: 0 8px 32px rgba(155, 135, 245, 0.12);
 }
 
 .panel-header {
@@ -782,7 +792,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: 14px 20px;
-  background: linear-gradient(135deg, #B7D4FF 0%, #5A8FD4 100%);
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
 }
 
 .panel-title {
@@ -864,7 +874,7 @@ onMounted(async () => {
   top: 8px;
   left: 8px;
   padding: 4px 10px;
-  background: linear-gradient(135deg, #5A8FD4, #9EC5FF);
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -894,7 +904,7 @@ onMounted(async () => {
 .product-bottom .price {
   font-size: 16px;
   font-weight: 700;
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .product-bottom .price small {
@@ -919,7 +929,7 @@ onMounted(async () => {
   gap: 6px;
   width: 100%;
   padding: 10px;
-  background: linear-gradient(135deg, #9EC5FF, #5A8FD4);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
   border: none;
   border-radius: 12px;
   color: #fff;
@@ -931,7 +941,7 @@ onMounted(async () => {
 
 .view-more-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(90, 143, 212, 0.4);
+  box-shadow: 0 8px 25px rgba(155, 135, 245, 0.4);
 }
 
 /* 弹窗动画 */
@@ -981,7 +991,7 @@ onMounted(async () => {
 .modal-icon {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, #9EC5FF, #5A8FD4);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
   border-radius: 14px;
   display: flex;
   align-items: center;
@@ -1003,7 +1013,7 @@ onMounted(async () => {
 }
 
 .modal-steps {
-  background: linear-gradient(135deg, rgba(183, 212, 255, 0.15), rgba(90, 143, 212, 0.1));
+  background: linear-gradient(135deg, rgba(155, 135, 245, 0.08), rgba(155, 135, 245, 0.05));
   border-radius: 14px;
   padding: 18px 20px;
   margin-bottom: 20px;
@@ -1019,7 +1029,7 @@ onMounted(async () => {
 .step-num {
   width: 24px;
   height: 24px;
-  background: linear-gradient(135deg, #9EC5FF, #5A8FD4);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
   color: #fff;
   border-radius: 50%;
   display: flex;
@@ -1030,7 +1040,7 @@ onMounted(async () => {
 }
 
 .step a {
-  color: #5A8FD4;
+  color: var(--primary);
   text-decoration: none;
   font-weight: 500;
 }
@@ -1051,9 +1061,9 @@ onMounted(async () => {
 }
 
 .api-key-input:focus {
-  border-color: #5A8FD4;
+  border-color: var(--primary);
   outline: none;
-  box-shadow: 0 0 0 4px rgba(90, 143, 212, 0.1);
+  box-shadow: 0 0 0 4px rgba(155, 135, 245, 0.1);
 }
 
 .modal-actions {
@@ -1085,15 +1095,15 @@ onMounted(async () => {
 }
 
 .btn-save {
-  background: linear-gradient(135deg, #9EC5FF, #5A8FD4);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
   border: none;
   color: #fff;
-  box-shadow: 0 4px 15px rgba(90, 143, 212, 0.4);
+  box-shadow: 0 4px 15px rgba(155, 135, 245, 0.4);
 }
 
 .btn-save:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(90, 143, 212, 0.5);
+  box-shadow: 0 6px 20px rgba(155, 135, 245, 0.5);
 }
 
 /* 响应式 */

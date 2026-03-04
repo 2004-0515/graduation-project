@@ -301,7 +301,9 @@ const savePhone = async () => {
     const res: any = await axios.put('/auth/me', { phone: phoneForm.phone })
     if (res?.code === 200) {
       ElMessage.success('手机绑定成功')
-      userStore.userInfo!.phone = phoneForm.phone
+      if (userStore.userInfo) {
+        userStore.userInfo.phone = phoneForm.phone
+      }
       phoneDialogVisible.value = false
     } else {
       ElMessage.error(res?.message || '绑定失败')
@@ -327,7 +329,9 @@ const saveEmail = async () => {
     const res: any = await axios.put('/auth/me', { email: emailForm.email })
     if (res?.code === 200) {
       ElMessage.success('邮箱绑定成功')
-      userStore.userInfo!.email = emailForm.email
+      if (userStore.userInfo) {
+        userStore.userInfo.email = emailForm.email
+      }
       emailDialogVisible.value = false
     } else {
       ElMessage.error(res?.message || '绑定失败')
@@ -441,21 +445,50 @@ const setupSystemThemeListener = () => {
 }
 
 const changePassword = async () => {
-  if (!passwordForm.oldPassword || !passwordForm.newPassword) { ElMessage.warning('请填写完整'); return }
-  if (passwordForm.newPassword.length < 6) { ElMessage.warning('新密码至少6位'); return }
-  if (passwordForm.newPassword !== passwordForm.confirmPassword) { ElMessage.warning('两次输入的密码不一致'); return }
+  // 验证表单完整性
+  if (!passwordForm.oldPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) { 
+    ElMessage.warning('请填写完整'); 
+    return 
+  }
+  
+  // 验证新密码长度
+  if (passwordForm.newPassword.length < 6) { 
+    ElMessage.warning('新密码至少6位'); 
+    return 
+  }
+  
+  // 验证两次密码输入一致
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) { 
+    ElMessage.warning('两次输入的密码不一致'); 
+    return 
+  }
+  
+  // 验证新密码与旧密码不同
+  if (passwordForm.oldPassword === passwordForm.newPassword) {
+    ElMessage.warning('新密码不能与当前密码相同')
+    return
+  }
+  
   loading.value = true
   try {
     const res: any = await settingsApi.changePassword({
-      currentPassword: passwordForm.oldPassword, newPassword: passwordForm.newPassword, confirmPassword: passwordForm.confirmPassword
+      currentPassword: passwordForm.oldPassword, 
+      newPassword: passwordForm.newPassword, 
+      confirmPassword: passwordForm.confirmPassword
     })
     if (res?.code === 200) {
       ElMessage.success('密码修改成功')
-      passwordForm.oldPassword = ''; passwordForm.newPassword = ''; passwordForm.confirmPassword = ''
-    } else { ElMessage.error(res?.message || '密码修改失败') }
+      passwordForm.oldPassword = ''
+      passwordForm.newPassword = ''
+      passwordForm.confirmPassword = ''
+    } else { 
+      ElMessage.error(res?.message || '密码修改失败') 
+    }
   } catch (error: any) {
     ElMessage.error(error?.response?.data?.message || error?.message || '密码修改失败')
-  } finally { loading.value = false }
+  } finally { 
+    loading.value = false 
+  }
 }
 
 const handleLogout = () => {
@@ -495,63 +528,63 @@ onMounted(() => { loadNotificationSettings(); loadPrivacySettings(); loadAppeara
 
 <style scoped>
 .settings-page { min-height: 100vh; background: var(--white); position: relative; }
-.settings-page::before { content: ''; position: fixed; top: 5%; right: -10%; width: 600px; height: 600px; background: linear-gradient(135deg, #D4E8FF, #B7D4FF); opacity: 0.15; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; animation: floatAnim 20s ease-in-out infinite; }
-.settings-page::after { content: ''; position: fixed; bottom: 5%; left: -10%; width: 500px; height: 500px; background: linear-gradient(135deg, #E0F0FF, #C5D8FF); opacity: 0.12; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; animation: floatAnim 20s ease-in-out infinite reverse; }
+.settings-page::before { content: ''; position: fixed; top: 5%; right: -10%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.5; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; animation: floatAnim 20s ease-in-out infinite; }
+.settings-page::after { content: ''; position: fixed; bottom: 5%; left: -10%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.5; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; animation: floatAnim 20s ease-in-out infinite reverse; }
 @keyframes floatAnim { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(30px, -30px) scale(1.05); } 66% { transform: translate(-20px, 20px) scale(0.95); } }
 .main-content { position: relative; z-index: 1; padding: 100px 0 80px; }
 .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
 .page-header { margin-bottom: 32px; }
-.page-header h1 { font-size: 2rem; font-weight: 600; color: var(--text-title); margin: 0 0 6px; }
-.page-header p { font-size: 15px; color: var(--text-muted); margin: 0; }
+.page-header h1 { font-size: 2rem; font-weight: 600; color: var(--text-primary); margin: 0 0 6px; }
+.page-header p { font-size: 15px; color: var(--text-tertiary); margin: 0; }
 .settings-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; }
-.settings-nav { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(24px); border: 1px solid rgba(200, 220, 255, 0.5); border-radius: var(--radius-lg); padding: 16px; height: fit-content; position: sticky; top: 88px; }
+.settings-nav { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(24px); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 16px; height: fit-content; position: sticky; top: 88px; }
 .nav-item { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.3s; margin-bottom: 4px; }
 .nav-item:last-child { margin-bottom: 0; }
-.nav-item:hover { background: rgba(230, 242, 255, 0.5); }
-.nav-item.active { background: rgba(230, 242, 255, 0.6); color: #5A8FD4; }
-.nav-icon { font-size: 14px; padding: 4px 8px; background: rgba(90, 143, 212, 0.1); border-radius: 4px; }
-.nav-text { font-size: 15px; font-weight: 500; color: var(--text-body); }
-.nav-item.active .nav-text { color: #5A8FD4; font-weight: 600; }
-.settings-card { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(24px); border: 1px solid rgba(200, 220, 255, 0.5); border-radius: var(--radius-lg); box-shadow: 0 8px 32px rgba(90, 143, 212, 0.08); margin-bottom: 20px; overflow: hidden; }
-.card-header { padding: 24px; border-bottom: 1px solid rgba(200, 220, 255, 0.3); }
-.card-header h3 { font-size: 20px; font-weight: 600; color: var(--text-title); margin: 0 0 4px; }
-.card-header p { font-size: 14px; color: var(--text-muted); margin: 0; }
+.nav-item:hover { background: rgba(155, 135, 245, 0.1); }
+.nav-item.active { background: rgba(155, 135, 245, 0.15); color: var(--primary); }
+.nav-icon { font-size: 14px; padding: 4px 8px; background: rgba(155, 135, 245, 0.1); border-radius: 4px; }
+.nav-text { font-size: 15px; font-weight: 500; color: var(--text-secondary); }
+.nav-item.active .nav-text { color: var(--primary); font-weight: 600; }
+.settings-card { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(24px); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); box-shadow: 0 8px 32px rgba(155, 135, 245, 0.08); margin-bottom: 20px; overflow: hidden; }
+.card-header { padding: 24px; border-bottom: 1px solid var(--gray-200); }
+.card-header h3 { font-size: 20px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
+.card-header p { font-size: 14px; color: var(--text-tertiary); margin: 0; }
 .card-body { padding: 24px; }
-.form-section h4 { font-size: 16px; font-weight: 600; color: var(--text-title); margin: 0 0 16px; }
+.form-section h4 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0 0 16px; }
 .setting-form { max-width: 400px; }
-:deep(.el-form-item__label) { font-size: 14px; color: var(--text-body); font-weight: 500; }
-:deep(.el-input__wrapper) { border-radius: var(--radius-md); background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(200, 220, 255, 0.4); box-shadow: none !important; }
-:deep(.el-input__wrapper:hover), :deep(.el-input__wrapper.is-focus) { border-color: var(--sakura); }
-.primary-btn { padding: 12px 36px; background: linear-gradient(135deg, var(--sakura), #5A8FD4); color: white; border: none; border-radius: var(--radius-xl); font-size: 15px; cursor: pointer; transition: all 0.3s; }
-.primary-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(90, 143, 212, 0.4); }
-.divider { height: 1px; background: rgba(200, 220, 255, 0.3); margin: 24px 0; }
+:deep(.el-form-item__label) { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+:deep(.el-input__wrapper) { border-radius: var(--radius-md); background: var(--white); border: 1px solid var(--gray-300); box-shadow: none !important; }
+:deep(.el-input__wrapper:hover), :deep(.el-input__wrapper.is-focus) { border-color: var(--primary); }
+.primary-btn { padding: 12px 36px; background: var(--primary); color: white; border: none; border-radius: var(--radius-xl); font-size: 15px; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 20px rgba(155, 135, 245, 0.3); }
+.primary-btn:hover { background: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 6px 30px rgba(155, 135, 245, 0.4); }
+.divider { height: 1px; background: var(--gray-200); margin: 24px 0; }
 .security-items { display: flex; flex-direction: column; gap: 12px; }
-.security-item { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: rgba(245, 250, 255, 0.5); border-radius: var(--radius-md); }
+.security-item { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: var(--gray-50); border-radius: var(--radius-md); }
 .item-info { display: flex; align-items: center; gap: 14px; }
-.item-icon { font-size: 14px; padding: 8px 12px; background: rgba(90, 143, 212, 0.1); border-radius: 8px; }
-.item-text h5 { font-size: 15px; font-weight: 600; color: var(--text-title); margin: 0 0 2px; }
-.item-text p { font-size: 14px; color: var(--text-muted); margin: 0; }
-.link-btn { padding: 10px 20px; background: transparent; border: 1px solid var(--sakura); color: var(--sakura); border-radius: 24px; font-size: 14px; cursor: pointer; transition: all 0.3s; }
-.link-btn:hover { background: var(--sakura); color: white; }
-.setting-item { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid rgba(200, 220, 255, 0.3); }
+.item-icon { font-size: 14px; padding: 8px 12px; background: rgba(155, 135, 245, 0.1); border-radius: 8px; }
+.item-text h5 { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 0 0 2px; }
+.item-text p { font-size: 14px; color: var(--text-tertiary); margin: 0; }
+.link-btn { padding: 10px 20px; background: transparent; border: 1px solid var(--primary); color: var(--primary); border-radius: 24px; font-size: 14px; cursor: pointer; transition: all 0.3s; }
+.link-btn:hover { background: var(--primary); color: white; }
+.setting-item { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid var(--gray-200); }
 .setting-item:last-child { border-bottom: none; }
-.theme-section h4 { font-size: 16px; font-weight: 600; color: var(--text-title); margin: 0 0 16px; }
+.theme-section h4 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0 0 16px; }
 .theme-options { display: flex; gap: 16px; }
-.theme-option { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 36px; background: rgba(245, 250, 255, 0.5); border: 2px solid transparent; border-radius: var(--radius-md); cursor: pointer; transition: all 0.3s; }
-.theme-option:hover { border-color: rgba(90, 143, 212, 0.4); }
-.theme-option.active { border-color: var(--sakura); background: rgba(230, 242, 255, 0.5); }
-.theme-icon { font-size: 24px; padding: 8px 12px; background: rgba(90, 143, 212, 0.1); border-radius: 8px; }
-.theme-name { font-size: 14px; color: var(--text-body); }
-.theme-option.active .theme-name { color: #5A8FD4; font-weight: 600; }
+.theme-option { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 36px; background: var(--gray-50); border: 2px solid transparent; border-radius: var(--radius-md); cursor: pointer; transition: all 0.3s; }
+.theme-option:hover { border-color: rgba(155, 135, 245, 0.4); }
+.theme-option.active { border-color: var(--primary); background: rgba(155, 135, 245, 0.1); }
+.theme-icon { font-size: 24px; padding: 8px 12px; background: rgba(155, 135, 245, 0.1); border-radius: 8px; }
+.theme-name { font-size: 14px; color: var(--text-secondary); }
+.theme-option.active .theme-name { color: var(--primary); font-weight: 600; }
 .danger-zone .card-header { background: rgba(255, 240, 240, 0.5); }
 .danger-zone .card-header h3 { color: #e74c3c; }
-.action-item { display: flex; justify-content: space-between; align-items: center; padding: 24px; background: rgba(245, 250, 255, 0.5); border-radius: var(--radius-md); margin-bottom: 12px; }
+.action-item { display: flex; justify-content: space-between; align-items: center; padding: 24px; background: var(--gray-50); border-radius: var(--radius-md); margin-bottom: 12px; }
 .action-item:last-child { margin-bottom: 0; }
 .action-item.danger { background: rgba(255, 240, 240, 0.5); }
-.action-info h5 { font-size: 16px; font-weight: 600; color: var(--text-title); margin: 0 0 4px; }
-.action-info p { font-size: 14px; color: var(--text-muted); margin: 0; }
-.logout-btn { padding: 12px 28px; background: transparent; border: 1px solid var(--text-muted); color: var(--text-body); border-radius: 24px; font-size: 15px; cursor: pointer; transition: all 0.3s; }
-.logout-btn:hover { background: var(--text-muted); color: white; }
+.action-info h5 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
+.action-info p { font-size: 14px; color: var(--text-tertiary); margin: 0; }
+.logout-btn { padding: 12px 28px; background: transparent; border: 1px solid var(--gray-400); color: var(--text-secondary); border-radius: 24px; font-size: 15px; cursor: pointer; transition: all 0.3s; }
+.logout-btn:hover { background: var(--gray-400); color: white; }
 .delete-btn { padding: 12px 28px; background: transparent; border: 1px solid #e74c3c; color: #e74c3c; border-radius: 24px; font-size: 15px; cursor: pointer; transition: all 0.3s; }
 .delete-btn:hover { background: #e74c3c; color: white; }
 @media (max-width: 768px) { .settings-layout { grid-template-columns: 1fr; } .settings-nav { position: static; display: flex; overflow-x: auto; padding: 12px; gap: 8px; } .nav-item { flex-shrink: 0; padding: 10px 16px; margin-bottom: 0; } .theme-options { flex-wrap: wrap; } .theme-option { flex: 1; min-width: 100px; } }

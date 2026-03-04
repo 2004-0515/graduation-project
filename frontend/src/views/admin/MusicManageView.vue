@@ -560,7 +560,7 @@ onMounted(() => { loadMusic() })
   margin: 0 auto 16px;
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(90, 143, 212, 0.3);
+  box-shadow: 0 4px 20px rgba(155, 135, 245, 0.3);
 }
 
 .preview-cover img {
@@ -596,14 +596,14 @@ onMounted(() => { loadMusic() })
   width: 36px;
   height: 36px;
   border: none;
-  background: linear-gradient(135deg, #5A8FD4, #7BA3D9);
+  background: linear-gradient(135deg, var(--primary), rgba(155, 135, 245, 0.8));
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(90, 143, 212, 0.4);
+  box-shadow: 0 2px 8px rgba(155, 135, 245, 0.4);
   transition: transform 0.2s;
 }
 
@@ -629,7 +629,7 @@ onMounted(() => { loadMusic() })
 
 .preview-time {
   font-size: 12px;
-  color: #5A8FD4;
+  color: var(--primary);
   font-weight: 500;
   min-width: 70px;
   flex-shrink: 0;
@@ -658,7 +658,7 @@ onMounted(() => { loadMusic() })
   position: absolute;
   left: 0;
   height: 6px;
-  background: linear-gradient(90deg, #5A8FD4, #7BA8E8);
+  background: linear-gradient(90deg, var(--primary), rgba(155, 135, 245, 0.7));
   border-radius: 3px;
   pointer-events: none;
 }
@@ -670,9 +670,9 @@ onMounted(() => { loadMusic() })
   width: 14px;
   height: 14px;
   background: #fff;
-  border: 3px solid #5A8FD4;
+  border: 3px solid var(--primary);
   border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(90, 143, 212, 0.4);
+  box-shadow: 0 2px 6px rgba(155, 135, 245, 0.4);
   pointer-events: none;
 }
 
@@ -680,8 +680,8 @@ onMounted(() => { loadMusic() })
   width: 28px;
   height: 28px;
   border: none;
-  background: #F0F6FF;
-  color: #5A8FD4;
+  background: rgba(155, 135, 245, 0.1);
+  color: var(--primary);
   border-radius: 50%;
   cursor: pointer;
   font-size: 11px;
@@ -707,8 +707,8 @@ onMounted(() => { loadMusic() })
   backdrop-filter: blur(20px);
   border-radius: 12px;
   padding: 14px 12px;
-  box-shadow: 0 6px 24px rgba(90, 143, 212, 0.3);
-  border: 2px solid rgba(183, 212, 255, 0.5);
+  box-shadow: 0 6px 24px rgba(155, 135, 245, 0.3);
+  border: 2px solid rgba(155, 135, 245, 0.3);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -731,7 +731,7 @@ onMounted(() => { loadMusic() })
   bottom: 0;
   left: 0;
   width: 100%;
-  background: linear-gradient(to top, #5A8FD4, #7BA8E8);
+  background: linear-gradient(to top, var(--primary), rgba(155, 135, 245, 0.7));
   border-radius: 4px;
   pointer-events: none;
 }
@@ -743,16 +743,16 @@ onMounted(() => { loadMusic() })
   width: 16px;
   height: 16px;
   background: #fff;
-  border: 3px solid #5A8FD4;
+  border: 3px solid var(--primary);
   border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(90, 143, 212, 0.4);
+  box-shadow: 0 2px 6px rgba(155, 135, 245, 0.4);
   pointer-events: none;
 }
 
 .preview-volume-value {
   font-size: 12px;
   font-weight: 600;
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .preview-mute-action {
@@ -760,7 +760,7 @@ onMounted(() => { loadMusic() })
   background: #F0F6FF;
   border: none;
   border-radius: 6px;
-  color: #5A8FD4;
+  color: var(--primary);
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;

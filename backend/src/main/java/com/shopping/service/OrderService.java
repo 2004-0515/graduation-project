@@ -1,5 +1,6 @@
 package com.shopping.service;
 
+import com.shopping.constants.CouponConstants;
 import com.shopping.constants.OrderConstants;
 import com.shopping.constants.ProductConstants;
 import com.shopping.dto.*;
@@ -211,6 +212,11 @@ public class OrderService {
                 throw new ValidationException("商品[" + product.getName() + "]库存不足");
             }
             
+            // 验证不能购买自己的商品
+            if (product.getSellerId() != null && product.getSellerId().equals(user.getId())) {
+                throw new ValidationException("不能购买自己的商品[" + product.getName() + "]");
+            }
+            
             // 理性消费检查：冷静期验证
             java.util.Optional<Wishlist> wishlistItem = wishlistRepository
                     .findByUserIdAndProductIdAndStatusIn(user.getId(), product.getId(), java.util.Arrays.asList(0));
@@ -257,7 +263,7 @@ public class OrderService {
             }
             
             // 验证优惠券状态
-            if (userCoupon.getStatus() != 0) {
+            if (userCoupon.getStatus() != CouponConstants.UserCouponStatus.UNUSED) {
                 throw new ValidationException("优惠券已使用或已过期");
             }
             

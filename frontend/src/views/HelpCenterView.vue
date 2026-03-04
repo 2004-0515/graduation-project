@@ -5,7 +5,7 @@
       <div class="container">
         <div class="page-header">
           <h1>帮助中心</h1>
-          <p>常见问题解答，帮助您更好地使用雅集商城</p>
+          <p>常见问题解答，帮助您更好地使用紫苑风鸢</p>
         </div>
 
         <div class="help-layout">
@@ -81,8 +81,8 @@ const filteredFaqs = computed(() => {
 
 <style scoped>
 .help-page { min-height: 100vh; background: var(--white); position: relative; }
-.help-page::before { content: ''; position: fixed; top: 5%; right: -10%; width: 600px; height: 600px; background: linear-gradient(135deg, #D4E8FF, #B7D4FF); opacity: 0.15; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
-.help-page::after { content: ''; position: fixed; bottom: 5%; left: -10%; width: 500px; height: 500px; background: linear-gradient(135deg, #E0F0FF, #C5D8FF); opacity: 0.12; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
+.help-page::before { content: ''; position: fixed; top: 5%; right: -10%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.15; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
+.help-page::after { content: ''; position: fixed; bottom: 5%; left: -10%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.12; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
 .main-content { position: relative; z-index: 1; padding: 100px 0 80px; }
 .page-header { margin-bottom: 32px; }
 .page-header h1 { font-size: 2rem; font-weight: 600; color: var(--text-title); margin: 0 0 8px; }
@@ -92,8 +92,8 @@ const filteredFaqs = computed(() => {
 .sidebar-card h3 { font-size: 16px; font-weight: 600; color: var(--text-title); margin: 0 0 20px; }
 .category-list { list-style: none; margin: 0; padding: 0; }
 .category-list li { padding: 14px 16px; font-size: 15px; color: var(--text-body); cursor: pointer; border-radius: var(--radius-md); transition: all 0.3s; margin-bottom: 4px; }
-.category-list li:hover { background: rgba(90, 143, 212, 0.1); }
-.category-list li.active { background: rgba(90, 143, 212, 0.2); color: var(--text-title); font-weight: 500; }
+.category-list li:hover { background: rgba(155, 135, 245, 0.1); }
+.category-list li.active { background: rgba(155, 135, 245, 0.2); color: var(--text-title); font-weight: 500; }
 .faq-item { margin-bottom: 16px; overflow: hidden; cursor: pointer; }
 .faq-question { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; }
 .faq-question h4 { margin: 0; font-size: 16px; font-weight: 600; color: var(--text-title); }

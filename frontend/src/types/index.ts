@@ -13,6 +13,7 @@ export interface User {
   nickname?: string
   bio?: string
   avatar?: string
+  // 以下字段存在于数据库但未使用（会员系统功能已移除）
   points: number
   growthValue: number
   memberDays: number
@@ -158,7 +159,9 @@ export enum OrderStatus {
   PENDING_SHIPMENT = 1,
   PENDING_RECEIPT = 2,
   COMPLETED = 3,
-  CANCELLED = 4
+  CANCELLED = 4,
+  REFUNDING = 5,
+  CANCEL_REQUESTED = 6
 }
 
 export interface CreateOrderRequest {
@@ -224,3 +227,22 @@ export interface SelectOption {
 }
 
 export type LoadingState = 'idle' | 'loading' | 'success' | 'error'
+
+// ==================== 搜索相关类型 ====================
+
+export interface SearchSuggestion {
+  keyword: string
+  type: 'product' | 'category'
+  highlight: string
+}
+
+export interface HotKeyword {
+  keyword: string
+  searchCount: number
+}
+
+export interface SearchHistory {
+  id: number
+  keyword: string
+  searchTime: string
+}

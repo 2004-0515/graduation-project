@@ -1,5 +1,6 @@
 package com.shopping.service;
 
+import com.shopping.constants.AuditConstants;
 import com.shopping.dto.RegisterRequest;
 import com.shopping.dto.UserUpdateRequest;
 import com.shopping.entity.User;
@@ -67,7 +68,7 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
-        user.setStatus(1); // 默认启用
+        user.setStatus(AuditConstants.UserStatus.ENABLED);
         user.setPoints(0);
         user.setGrowthValue(0);
         user.setMemberDays(0);

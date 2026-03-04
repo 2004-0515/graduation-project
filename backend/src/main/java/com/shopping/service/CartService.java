@@ -1,5 +1,6 @@
 package com.shopping.service;
 
+import com.shopping.constants.AuditConstants;
 import com.shopping.dto.CartDto;
 import com.shopping.dto.UpdateCartRequest;
 import com.shopping.entity.Cart;
@@ -63,8 +64,13 @@ public class CartService {
         Product product = productService.getProductById(productId);
 
         // 检查商品状态
-        if (product.getStatus() != 1) {
+        if (product.getStatus() != AuditConstants.ProductStatus.ON_SHELF) {
             throw new ValidationException("商品已下架");
+        }
+
+        // 检查是否是商家购买自己的商品
+        if (product.getSellerId() != null && product.getSellerId().equals(user.getId())) {
+            throw new ValidationException("不能购买自己的商品");
         }
 
         // 检查库存
@@ -267,6 +273,8 @@ public class CartService {
         dto.setSelected(cart.getSelected());
         dto.setStock(cart.getProduct().getStock());
         dto.setProductStatus(cart.getProduct().getStatus());
+        dto.setSellerId(cart.getProduct().getSellerId());
+        dto.setSellerName(cart.getProduct().getSellerName());
         return dto;
     }
 }

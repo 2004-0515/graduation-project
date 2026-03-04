@@ -50,7 +50,7 @@ describe('CartStore', () => {
 
   describe('初始状态', () => {
     it('应该有正确的初始状态', () => {
-      expect(store.cartItems).toEqual([])
+      expect(store.items).toEqual([])
       expect(store.loading).toBe(false)
       expect(store.error).toBeNull()
     })
@@ -58,14 +58,18 @@ describe('CartStore', () => {
 
   describe('getters', () => {
     beforeEach(() => {
-      store.cartItems = [
+      store.items = [
         { ...mockCartItem, id: 1, quantity: 2, selected: true, price: 100 },
         { ...mockCartItem, id: 2, quantity: 3, selected: false, price: 50 }
       ]
     })
 
-    it('totalItems 应该返回所有商品数量总和', () => {
-      expect(store.totalItems).toBe(5)
+    it('totalItems 应该返回商品种类数', () => {
+      expect(store.totalItems).toBe(2) // 2种商品
+    })
+
+    it('totalQuantity 应该返回所有商品数量总和', () => {
+      expect(store.totalQuantity).toBe(5) // 2 + 3
     })
 
     it('totalAmount 应该只计算选中商品的总金额', () => {
@@ -89,13 +93,13 @@ describe('CartStore', () => {
     it('isAllSelected 应该正确判断是否全选', () => {
       expect(store.isAllSelected).toBe(false)
       
-      store.cartItems.forEach(item => item.selected = true)
+      store.items.forEach(item => item.selected = true)
       expect(store.isAllSelected).toBe(true)
     })
   })
 
   describe('actions', () => {
-    describe('fetchCartItems', () => {
+    describe('fetchCart', () => {
       it('成功获取购物车列表', async () => {
         const mockResponse: ApiResponse<CartItem[]> = {
           code: 200,
@@ -105,20 +109,20 @@ describe('CartStore', () => {
         }
         vi.mocked(cartApi.getCart).mockResolvedValue(mockResponse)
 
-        const result = await store.fetchCartItems()
+        const result = await store.fetchCart()
 
         expect(result).toEqual([mockCartItem])
-        expect(store.cartItems).toEqual([mockCartItem])
+        expect(store.items).toEqual([mockCartItem])
         expect(store.loading).toBe(false)
       })
 
       it('获取失败时应该设置错误状态', async () => {
         vi.mocked(cartApi.getCart).mockRejectedValue(new Error('网络错误'))
 
-        const result = await store.fetchCartItems()
+        const result = await store.fetchCart()
 
         expect(result).toEqual([])
-        expect(store.cartItems).toEqual([])
+        expect(store.items).toEqual([])
         expect(store.error).toBe('网络错误')
       })
     })
@@ -133,14 +137,14 @@ describe('CartStore', () => {
         }
         vi.mocked(cartApi.addToCart).mockResolvedValue(mockResponse)
 
-        const result = await store.addToCart(1, 2)
+        const result = await store.addToCart(1, 1, 2)
 
         expect(result).toEqual(mockCartItem)
-        expect(store.cartItems).toContainEqual(mockCartItem)
+        expect(store.items).toContainEqual(mockCartItem)
       })
 
       it('添加已存在商品时应该更新数量', async () => {
-        store.cartItems = [mockCartItem]
+        store.items = [mockCartItem]
         
         const updatedItem = { ...mockCartItem, quantity: 5 }
         const mockResponse: ApiResponse<CartItem> = {
@@ -151,15 +155,15 @@ describe('CartStore', () => {
         }
         vi.mocked(cartApi.addToCart).mockResolvedValue(mockResponse)
 
-        await store.addToCart(1, 3)
+        await store.addToCart(1, 1, 3)
 
-        expect(store.cartItems[0].quantity).toBe(5)
+        expect(store.items[0].quantity).toBe(5)
       })
     })
 
     describe('updateCartItem', () => {
       beforeEach(() => {
-        store.cartItems = [mockCartItem]
+        store.items = [mockCartItem]
       })
 
       it('成功更新购物车项', async () => {
@@ -175,7 +179,7 @@ describe('CartStore', () => {
         const result = await store.updateCartItem(1, { quantity: 5 })
 
         expect(result?.quantity).toBe(5)
-        expect(store.cartItems[0].quantity).toBe(5)
+        expect(store.items[0].quantity).toBe(5)
       })
 
       it('数量为0时应该删除购物车项', async () => {
@@ -189,13 +193,13 @@ describe('CartStore', () => {
 
         await store.updateCartItem(1, { quantity: 0 })
 
-        expect(store.cartItems).toHaveLength(0)
+        expect(store.items).toHaveLength(0)
       })
     })
 
     describe('selectItem', () => {
       beforeEach(() => {
-        store.cartItems = [mockCartItem]
+        store.items = [mockCartItem]
       })
 
       it('成功选择购物车项', async () => {
@@ -208,13 +212,13 @@ describe('CartStore', () => {
 
         await store.selectItem(1, false)
 
-        expect(store.cartItems[0].selected).toBe(false)
+        expect(store.items[0].selected).toBe(false)
       })
     })
 
     describe('selectAll', () => {
       beforeEach(() => {
-        store.cartItems = [
+        store.items = [
           { ...mockCartItem, id: 1, selected: false },
           { ...mockCartItem, id: 2, selected: false }
         ]
@@ -230,13 +234,13 @@ describe('CartStore', () => {
 
         await store.selectAll(true)
 
-        expect(store.cartItems.every(item => item.selected)).toBe(true)
+        expect(store.items.every(item => item.selected)).toBe(true)
       })
     })
 
     describe('removeFromCart', () => {
       beforeEach(() => {
-        store.cartItems = [mockCartItem]
+        store.items = [mockCartItem]
       })
 
       it('成功删除购物车项', async () => {
@@ -250,13 +254,13 @@ describe('CartStore', () => {
         const result = await store.removeFromCart(1)
 
         expect(result).toBe(true)
-        expect(store.cartItems).toHaveLength(0)
+        expect(store.items).toHaveLength(0)
       })
     })
 
     describe('batchDelete', () => {
       beforeEach(() => {
-        store.cartItems = [
+        store.items = [
           { ...mockCartItem, id: 1 },
           { ...mockCartItem, id: 2 },
           { ...mockCartItem, id: 3 }
@@ -273,14 +277,14 @@ describe('CartStore', () => {
 
         await store.batchDelete([1, 2])
 
-        expect(store.cartItems).toHaveLength(1)
-        expect(store.cartItems[0].id).toBe(3)
+        expect(store.items).toHaveLength(1)
+        expect(store.items[0].id).toBe(3)
       })
     })
 
     describe('clearCart', () => {
       beforeEach(() => {
-        store.cartItems = [mockCartItem]
+        store.items = [mockCartItem]
       })
 
       it('成功清空购物车', async () => {
@@ -294,7 +298,7 @@ describe('CartStore', () => {
         const result = await store.clearCart()
 
         expect(result).toBe(true)
-        expect(store.cartItems).toHaveLength(0)
+        expect(store.items).toHaveLength(0)
       })
     })
 

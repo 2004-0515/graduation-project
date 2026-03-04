@@ -2,7 +2,7 @@
   <div class="admin-layout">
     <aside class="admin-sidebar">
       <div class="sidebar-header">
-        <h1>雅集管理</h1>
+        <h1>紫苑风鸢管理</h1>
         <span class="version">v1.0</span>
       </div>
       
@@ -180,7 +180,7 @@ onMounted(() => {
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, #5A8FD4, #7BA8E8);
+  background: linear-gradient(135deg, var(--primary), rgba(155, 135, 245, 0.8));
   color: #fff;
 }
 

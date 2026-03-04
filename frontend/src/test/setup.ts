@@ -1,4 +1,4 @@
-import { beforeAll } from 'vitest'
+import { beforeAll, vi } from 'vitest'
 
 // Mock localStorage
 const localStorageMock = {

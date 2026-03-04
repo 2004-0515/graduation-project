@@ -1,7 +1,7 @@
 # 雅集商城系统测试报告
 
 **测试日期**: 2025-12-28  
-**最后更新**: 2026-01-11 22:40  
+**最后更新**: 2026-01-15 14:55  
 **测试环境**: Windows 11, Node.js, Java 17, MySQL 9.2  
 **测试人员**: Kiro AI Assistant
 
@@ -162,6 +162,18 @@
 | 检测重复购买 | GET | /rational-consumption/duplicate-check/{productId} | ✅ 通过 | 检测是否重复购买 |
 | 批量检测重复购买 | POST | /rational-consumption/duplicate-check/batch | ✅ 通过 | 购物车场景批量检测 |
 
+### 2.14 搜索模块 (SearchController) - 新增
+
+| 接口 | 方法 | 路径 | 测试结果 | 备注 |
+|------|------|------|----------|------|
+| 获取搜索建议 | GET | /search/suggestions | ✅ 通过 | 根据关键词返回商品/分类建议 |
+| 获取热门搜索词 | GET | /search/hot-keywords | ✅ 通过 | 返回7天内Top8热门词 |
+| 获取搜索历史 | GET | /search/history | ✅ 通过 | 返回用户最近10条搜索历史 |
+| 添加搜索历史 | POST | /search/history | ✅ 通过 | 记录搜索关键词（去重） |
+| 删除搜索历史 | DELETE | /search/history/{id} | ✅ 通过 | 删除单条历史记录 |
+| 清空搜索历史 | DELETE | /search/history | ✅ 通过 | 清空用户所有搜索历史 |
+| 记录搜索统计 | POST | /search/stats | ✅ 通过 | 记录搜索词用于热门统计 |
+
 ---
 
 ## 三、前端页面测试结果
@@ -316,10 +328,23 @@
 
 ### 8.1 测试统计
 
-- **API接口测试**: 74个接口，全部通过
+- **API接口测试**: 81个接口，全部通过
 - **前端页面测试**: 26个页面，全部通过
-- **数据库表测试**: 16张表，全部正常
+- **数据库表测试**: 18张表，全部正常
 - **功能流程测试**: 5个核心流程，全部通过
+- **单元测试**: 112个测试用例，全部通过
+  - 后端测试: 75个测试
+    - OrderConstantsTest: 7个测试
+    - AuthControllerTest: 4个测试
+    - SearchControllerTest: 17个测试 (新增)
+    - AuthServiceTest: 8个测试
+    - CartServiceTest: 12个测试
+    - OrderServiceTest: 13个测试
+    - SearchServiceTest: 14个测试 (新增)
+  - 前端测试: 37个测试
+    - cartStore.test.ts: 20个测试
+    - userStore.test.ts: 4个测试
+    - SearchDropdown.test.ts: 13个测试 (新增)
 
 ### 8.2 总体评价
 
@@ -341,15 +366,21 @@
 12. ✅ 支付模拟（微信/支付宝）
 13. ✅ 订单取消申请与审核
 14. ✅ 理性消费助手（预算管理、消费报告、重复购买检测）
+15. ✅ 商品搜索优化（搜索历史、热门关键词、搜索建议）
 
-### 8.4 建议改进
+### 8.4 本次检查修复的问题
+
+| 问题 | 修复内容 | 状态 |
+|------|----------|------|
+| 搜索建议返回未审核商品 | SearchService.getSuggestions()改用findByNameContainingAndAuditStatusAndStatus方法，只返回已审核通过且上架的商品 | ✅ 已修复 |
+
+### 8.5 建议改进
 
 1. 添加真实支付功能集成（微信/支付宝）
-2. 添加商品评价功能
-3. 添加积分抵扣功能
-4. 添加物流跟踪功能
-5. 添加数据导出功能
+2. 添加积分抵扣功能
+3. 添加物流跟踪功能
+4. 添加数据导出功能
 
 ---
 
-**测试报告生成时间**: 2026-01-11 22:40:00
+**测试报告生成时间**: 2026-01-15 14:55:00

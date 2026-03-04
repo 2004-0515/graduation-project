@@ -261,8 +261,8 @@ const getActualPayAmount = (order: any) => {
   const discount = Number(order.couponDiscount) || 0
   return Math.max(0, total - discount)
 }
-const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 6: '申请取消中' }[status] || '未知')
-const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled', 6: 'cancel-requested' }[status] || '')
+const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 5: '退款中', 6: '申请取消中' }[status] || '未知')
+const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled', 5: 'refunding', 6: 'cancel-requested' }[status] || '')
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return ''
@@ -411,36 +411,36 @@ watch(() => route.query.search, (newSearch) => {
 .header-content p { color: #666; margin: 0; }
 .header-stats { display: flex; gap: 32px; }
 .stat-item { text-align: center; }
-.stat-num { display: block; font-size: 32px; font-weight: 600; color: #5A8FD4; }
+.stat-num { display: block; font-size: 32px; font-weight: 600; color: var(--primary); }
 .stat-label { font-size: 14px; color: #999; }
 .filter-section { display: flex; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
 .filter-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
 .tab-btn { padding: 10px 20px; background: #fff; border: 1px solid #ddd; border-radius: 20px; cursor: pointer; transition: all 0.3s; }
-.tab-btn:hover { border-color: #5A8FD4; color: #5A8FD4; }
-.tab-btn.active { background: #5A8FD4; color: #fff; border-color: #5A8FD4; }
+.tab-btn:hover { border-color: var(--primary); color: var(--primary); }
+.tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 .tab-count { margin-left: 4px; padding: 2px 8px; background: rgba(255,255,255,0.3); border-radius: 10px; font-size: 12px; }
 .search-box input { padding: 10px 16px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
-.search-box input:focus { border-color: #5A8FD4; }
+.search-box input:focus { border-color: var(--primary); }
 .orders-list { display: flex; flex-direction: column; gap: 16px; }
 .order-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden; }
 .order-header { display: flex; justify-content: space-between; padding: 16px 20px; background: linear-gradient(135deg, #f8faff 0%, #f0f5ff 100%); border-bottom: 1px solid #e8f0fe; }
 .header-left { display: flex; gap: 16px; align-items: center; }
 .order-no { 
   font-weight: 600; 
-  color: #5A8FD4;
-  background: linear-gradient(135deg, #e8f2ff 0%, #d4e8ff 100%);
+  color: var(--primary);
+  background: rgba(155, 135, 245, 0.1);
   padding: 4px 12px;
   border-radius: 6px;
   font-size: 14px;
-  border: 1px solid rgba(90, 143, 212, 0.2);
+  border: 1px solid rgba(155, 135, 245, 0.2);
 }
 .order-time { color: #999; }
 .order-status { display: flex; align-items: center; gap: 6px; font-weight: 600; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; }
 .order-status.pending { color: #e67e22; }
 .order-status.pending .status-dot { background: #e67e22; }
-.order-status.processing { color: #5A8FD4; }
-.order-status.processing .status-dot { background: #5A8FD4; }
+.order-status.processing { color: var(--primary); }
+.order-status.processing .status-dot { background: var(--primary); }
 .order-status.shipping { color: #3498db; }
 .order-status.shipping .status-dot { background: #3498db; }
 .order-status.completed { color: #27ae60; }
@@ -458,7 +458,7 @@ watch(() => route.query.search, (newSearch) => {
 .item-info { flex: 1; }
 .item-info h4 { margin: 0 0 8px; font-size: 15px; }
 .item-price { margin: 0; color: #666; }
-.item-subtotal { font-size: 16px; font-weight: 600; color: #5A8FD4; }
+.item-subtotal { font-size: 16px; font-weight: 600; color: var(--primary); }
 .order-footer { 
   display: flex; 
   justify-content: space-between; 
@@ -467,38 +467,79 @@ watch(() => route.query.search, (newSearch) => {
   background: linear-gradient(135deg, #f8faff 0%, #f0f5ff 100%); 
 }
 .footer-right { display: flex; align-items: center; gap: 20px; }
-.order-total em { font-style: normal; font-size: 20px; font-weight: 600; color: #5A8FD4; }
+.order-total em { font-style: normal; font-size: 20px; font-weight: 600; color: var(--primary); }
 .discount-info { color: #e67e22; font-size: 13px; }
 .order-actions { display: flex; gap: 10px; }
 .order-actions button { padding: 8px 20px; border-radius: 20px; cursor: pointer; transition: all 0.3s; }
-.btn-pay { background: #5A8FD4; color: #fff; border: none; }
+.btn-pay { background: var(--primary); color: #fff; border: none; }
 .btn-confirm { background: #27ae60; color: #fff; border: none; }
 .btn-cancel { background: transparent; border: 1px solid #999; color: #999; }
 .empty-state { text-align: center; padding: 80px 20px; background: #fff; border-radius: 12px; }
 .empty-state h3 { font-size: 20px; margin: 0 0 8px; }
 .empty-state p { color: #999; margin: 0 0 24px; }
-.browse-btn { display: inline-block; padding: 12px 32px; background: #5A8FD4; color: #fff; border-radius: 24px; text-decoration: none; }
+.browse-btn { display: inline-block; padding: 12px 32px; background: var(--primary); color: #fff; border-radius: 24px; text-decoration: none; }
 .order-remark { padding: 14px 20px; background: linear-gradient(135deg, #fffbf0, #fff8e6); border-top: 1px dashed #f0e6d0; display: flex; align-items: center; }
 .remark-label { color: #e67e22; font-size: 14px; font-weight: 600; white-space: nowrap; }
 .remark-text { color: #555; font-size: 14px; margin-left: 8px; }
 .order-remark-inline { display: flex; align-items: center; gap: 8px; }
 .remark-tag { 
-  background: linear-gradient(135deg, #e8f2ff 0%, #d4e8ff 100%); 
-  color: #5A8FD4; 
+  background: rgba(155, 135, 245, 0.1); 
+  color: var(--primary); 
   padding: 4px 10px; 
   border-radius: 12px; 
   font-size: 12px; 
   font-weight: 500;
-  border: 1px solid rgba(90, 143, 212, 0.2);
+  border: 1px solid rgba(155, 135, 245, 0.2);
 }
 .remark-content { color: #666; font-size: 14px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pagination-wrapper { display: flex; justify-content: center; margin-top: 32px; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-:deep(.el-pagination) { --el-pagination-button-bg-color: #fff; }
-:deep(.el-pagination .el-pager li.is-active) { background: #5A8FD4; }
+:deep(.el-pagination) { 
+  --el-pagination-button-bg-color: #fff;
+  --el-pagination-hover-color: var(--primary);
+}
+:deep(.el-pagination .el-pager li) {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  color: #666;
+}
+:deep(.el-pagination .el-pager li:hover) {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+:deep(.el-pagination .el-pager li.is-active) { 
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+:deep(.el-pagination button) {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  color: #666;
+}
+:deep(.el-pagination button:hover:not(:disabled)) {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+:deep(.el-pagination button:disabled) {
+  background: #f5f5f5;
+  border-color: #e0e0e0;
+  color: #ccc;
+}
+:deep(.el-pagination .el-pagination__jump) {
+  color: #666;
+}
+:deep(.el-pagination .el-input__wrapper) {
+  border: 1px solid #e0e0e0;
+  box-shadow: none;
+}
+:deep(.el-pagination .el-input__wrapper:hover),
+:deep(.el-pagination .el-input__wrapper.is-focus) {
+  border-color: var(--primary);
+}
 
 /* 评价按钮 */
-.btn-review { padding: 6px 16px; border-radius: 16px; font-size: 13px; cursor: pointer; transition: all 0.3s; background: #5A8FD4; color: #fff; border: none; }
-.btn-review:hover:not(:disabled) { background: #4a7fc4; }
+.btn-review { padding: 6px 16px; border-radius: 16px; font-size: 13px; cursor: pointer; transition: all 0.3s; background: var(--primary); color: #fff; border: none; }
+.btn-review:hover:not(:disabled) { background: var(--primary-dark); }
 .btn-review.reviewed { background: #e0e0e0; color: #999; cursor: default; }
 
 /* 评价弹窗 */

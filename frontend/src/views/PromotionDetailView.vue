@@ -194,13 +194,11 @@ onMounted(() => {
   right: -10%;
   width: 600px;
   height: 600px;
-  background: linear-gradient(135deg, #D4E8FF, #B7D4FF);
-  opacity: 0.15;
+  background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent);
   filter: blur(80px);
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
-  animation: floatAnim 20s ease-in-out infinite;
 }
 
 .promotion-detail-page::after {
@@ -210,19 +208,11 @@ onMounted(() => {
   left: -10%;
   width: 500px;
   height: 500px;
-  background: linear-gradient(135deg, #E0F0FF, #C5D8FF);
-  opacity: 0.12;
+  background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent);
   filter: blur(80px);
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
-  animation: floatAnim 20s ease-in-out infinite reverse;
-}
-
-@keyframes floatAnim {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -30px) scale(1.05); }
-  66% { transform: translate(-20px, 20px) scale(0.95); }
 }
 
 .main-content {
@@ -236,20 +226,19 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 10px 20px;
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(200, 220, 255, 0.5);
+  background: var(--white);
+  border: 1px solid var(--gray-200);
   border-radius: var(--radius-md);
   font-size: 15px;
-  color: var(--text-body);
+  color: var(--text-secondary);
   cursor: pointer;
   margin-bottom: 24px;
   transition: all 0.3s;
 }
 
 .back-btn:hover {
-  border-color: var(--sakura);
-  color: var(--sakura);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 /* Banner */
@@ -258,7 +247,7 @@ onMounted(() => {
   border-radius: var(--radius-lg);
   overflow: hidden;
   margin-bottom: 24px;
-  box-shadow: 0 8px 32px rgba(90, 143, 212, 0.1);
+  box-shadow: 0 8px 32px rgba(155, 135, 245, 0.1);
 }
 
 .banner-img {
@@ -294,17 +283,16 @@ onMounted(() => {
 }
 
 .status-tag.active {
-  background: var(--sakura);
+  background: var(--primary);
   color: #fff;
 }
 
 /* Info Card */
 .info-card {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(200, 220, 255, 0.5);
+  background: var(--white);
+  border: 1px solid var(--gray-200);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(90, 143, 212, 0.08);
+  box-shadow: var(--shadow-sm);
   padding: 36px;
   margin-bottom: 32px;
 }
@@ -320,11 +308,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   font-size: 15px;
   margin-bottom: 28px;
   padding-bottom: 24px;
-  border-bottom: 1px solid rgba(200, 220, 255, 0.3);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .section {
@@ -379,20 +367,19 @@ onMounted(() => {
 }
 
 .product-card {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(200, 220, 255, 0.5);
+  background: var(--white);
+  border: 1px solid var(--gray-200);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(90, 143, 212, 0.08);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.4s;
+  transition: all 0.3s;
 }
 
 .product-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 48px rgba(90, 143, 212, 0.15);
-  border-color: rgba(143, 180, 230, 0.6);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary);
 }
 
 .product-image {
@@ -410,7 +397,7 @@ onMounted(() => {
   top: 10px;
   right: 10px;
   padding: 6px 14px;
-  background: linear-gradient(135deg, var(--sakura), #5A8FD4);
+  background: var(--primary);
   color: #fff;
   font-size: 13px;
   font-weight: 500;
@@ -444,7 +431,7 @@ onMounted(() => {
 .price {
   font-size: 20px;
   font-weight: 600;
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .original {
@@ -470,23 +457,24 @@ onMounted(() => {
 
 .cart-btn {
   background: transparent;
-  border: 1px solid rgba(90, 143, 212, 0.5);
-  color: var(--text-body);
+  border: 1px solid var(--gray-300);
+  color: var(--text-secondary);
 }
 
 .cart-btn:hover {
-  border-color: var(--sakura);
-  color: var(--sakura);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .buy-btn {
-  background: linear-gradient(135deg, var(--sakura), #5A8FD4);
+  background: var(--primary);
   border: none;
   color: #fff;
+  box-shadow: 0 4px 16px rgba(155, 135, 245, 0.3);
 }
 
 .buy-btn:hover {
-  box-shadow: 0 4px 16px rgba(90, 143, 212, 0.4);
+  background: var(--primary-light);
 }
 
 .empty-state {

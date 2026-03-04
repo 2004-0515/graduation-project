@@ -14,6 +14,8 @@ public class CartDto {
     private Boolean selected;
     private Integer stock;
     private Integer productStatus; // 商品状态：0=下架，1=上架
+    private Long sellerId;         // 商品卖家ID
+    private String sellerName;     // 商品卖家名称
 
     public CartDto() {}
 
@@ -96,5 +98,21 @@ public class CartDto {
 
     public void setProductStatus(Integer productStatus) {
         this.productStatus = productStatus;
+    }
+
+    public Long getSellerId() {
+        return sellerId;
+    }
+
+    public void setSellerId(Long sellerId) {
+        this.sellerId = sellerId;
+    }
+
+    public String getSellerName() {
+        return sellerName;
+    }
+
+    public void setSellerName(String sellerName) {
+        this.sellerName = sellerName;
     }
 }

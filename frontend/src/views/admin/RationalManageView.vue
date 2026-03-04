@@ -290,7 +290,7 @@ const getStatusClass = (status: number) => {
   return classes[status] || ''
 }
 
-const getAchievementName = (type: string) => {
+const getAchievementName = (type: string | number) => {
   const names: Record<string, string> = {
     'FIRST_WISHLIST': '理性第一步',
     'DELAYED_GRATIFICATION_3': '延迟满足达人',
@@ -299,7 +299,7 @@ const getAchievementName = (type: string) => {
     'SAVING_STAR': '节约之星',
     'RATIONAL_100': '理性消费达人'
   }
-  return names[type] || type
+  return names[String(type)] || String(type)
 }
 
 const getAchievementIcon = (type: string) => {
@@ -388,7 +388,7 @@ const initTrendChart = () => {
         name: '消费总额',
         type: 'bar',
         data: amounts,
-        itemStyle: { color: '#5A8FD4' }
+        itemStyle: { color: 'var(--primary)' }
       },
       {
         name: '订单数',
@@ -493,7 +493,7 @@ onMounted(() => {
   justify-content: center;
 }
 
-.stat-icon.wishlist { background: rgba(90, 143, 212, 0.15); color: #5A8FD4; }
+.stat-icon.wishlist { background: rgba(155, 135, 245, 0.15); color: var(--primary); }
 .stat-icon.cooling { background: rgba(245, 166, 35, 0.15); color: #f5a623; }
 .stat-icon.conversion { background: rgba(82, 196, 26, 0.15); color: #52c41a; }
 .stat-icon.budget { background: rgba(114, 46, 209, 0.15); color: #722ed1; }
@@ -525,8 +525,8 @@ onMounted(() => {
   transition: all 0.3s;
 }
 
-.tab-btn:hover { background: rgba(90, 143, 212, 0.1); }
-.tab-btn.active { background: #5A8FD4; color: white; }
+.tab-btn:hover { background: rgba(155, 135, 245, 0.1); }
+.tab-btn.active { background: var(--primary); color: white; }
 
 .section-card {
   background: #fff;
@@ -572,7 +572,7 @@ onMounted(() => {
 }
 
 .trend-table td { font-size: 14px; color: #333; }
-.trend-table td.amount { color: #5A8FD4; font-weight: 600; }
+.trend-table td.amount { color: var(--primary); font-weight: 600; }
 
 .wishlist-summary {
   display: flex;
@@ -623,7 +623,7 @@ onMounted(() => {
   margin-bottom: 6px;
 }
 
-.username { font-weight: 600; color: #5A8FD4; }
+.username { font-weight: 600; color: var(--primary); }
 .action { color: #666; margin: 0 4px; }
 .product-name { font-weight: 500; }
 
@@ -642,12 +642,12 @@ onMounted(() => {
 
 .status-tag.cooling { background: rgba(245, 166, 35, 0.15); color: #f5a623; }
 .status-tag.ready { background: rgba(82, 196, 26, 0.15); color: #52c41a; }
-.status-tag.purchased { background: rgba(90, 143, 212, 0.15); color: #5A8FD4; }
+.status-tag.purchased { background: rgba(155, 135, 245, 0.15); color: var(--primary); }
 .status-tag.removed { background: rgba(153, 153, 153, 0.15); color: #999; }
 
 .cooling-days { color: #999; }
 .time { color: #999; }
-.price { font-size: 16px; font-weight: 600; color: #5A8FD4; }
+.price { font-size: 16px; font-weight: 600; color: var(--primary); }
 
 .achievement-stats { display: flex; flex-direction: column; gap: 16px; }
 
@@ -673,7 +673,7 @@ onMounted(() => {
 
 .ach-fill {
   height: 100%;
-  background: linear-gradient(90deg, #5A8FD4, #7BA8E8);
+  background: linear-gradient(90deg, var(--primary), rgba(155, 135, 245, 0.7));
   border-radius: 10px;
   transition: width 0.5s;
 }
@@ -683,7 +683,7 @@ onMounted(() => {
   text-align: right;
   font-size: 14px;
   font-weight: 600;
-  color: #5A8FD4;
+  color: var(--primary);
 }
 
 .achievement-list { display: flex; flex-direction: column; gap: 12px; }
@@ -704,8 +704,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(90, 143, 212, 0.15);
-  color: #5A8FD4;
+  background: rgba(155, 135, 245, 0.15);
+  color: var(--primary);
 }
 
 .ach-info { flex: 1; }

@@ -152,8 +152,8 @@ onMounted(async () => {
 .deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
 .deco-bg { position: absolute; top: -10%; left: -10%; width: 50%; height: 60%; background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800') center/cover; opacity: 0.1; filter: blur(50px); }
 .shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; }
-.s1 { width: 600px; height: 600px; top: 20%; right: -5%; background: linear-gradient(135deg, #D4E8FF, #B7D4FF); opacity: 0.15; }
-.s2 { width: 500px; height: 500px; bottom: 5%; left: -5%; background: linear-gradient(135deg, #E0F0FF, #C5D8FF); opacity: 0.12; animation-delay: -10s; }
+.s1 { width: 600px; height: 600px; top: 20%; right: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.15; }
+.s2 { width: 500px; height: 500px; bottom: 5%; left: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.12; animation-delay: -10s; }
 
 @keyframes float {
   0%, 100% { transform: translate(0, 0) scale(1); }
@@ -208,7 +208,7 @@ onMounted(async () => {
 .top-img img { width: 100%; height: 100%; object-fit: cover; }
 .top-card h4 { font-size: 15px; font-weight: 600; color: var(--text-title); margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .top-sales { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
-.top-price { font-size: 22px; font-weight: 600; color: #5A8FD4; }
+.top-price { font-size: 22px; font-weight: 600; color: var(--primary); }
 
 /* 榜单 */
 .rank-section { padding: 32px; }
@@ -218,7 +218,7 @@ onMounted(async () => {
 
 .rank-list { display: flex; flex-direction: column; gap: 12px; }
 .rank-item { display: flex; align-items: center; gap: 16px; padding: 16px; background: rgba(255,255,255,0.5); border-radius: var(--radius-md); cursor: pointer; transition: all 0.3s; }
-.rank-item:hover { background: rgba(90, 143, 212, 0.1); transform: translateX(4px); }
+.rank-item:hover { background: rgba(155, 135, 245, 0.1); transform: translateX(4px); }
 
 .rank-num { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; color: var(--text-muted); background: rgba(255,255,255,0.8); border-radius: var(--radius-sm); }
 .rank-num.top { background: var(--sakura); color: white; }
@@ -228,7 +228,7 @@ onMounted(async () => {
 .rank-info h4 { font-size: 15px; font-weight: 600; color: var(--text-title); margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rank-info p { font-size: 13px; color: var(--text-muted); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rank-stats { font-size: 14px; color: var(--text-muted); min-width: 80px; }
-.rank-price { font-size: 20px; font-weight: 600; color: #5A8FD4; min-width: 80px; text-align: right; }
+.rank-price { font-size: 20px; font-weight: 600; color: var(--primary); min-width: 80px; text-align: right; }
 .btn-sm { padding: 10px 20px; font-size: 13px; }
 
 .empty { text-align: center; padding: 60px; color: var(--text-muted); }

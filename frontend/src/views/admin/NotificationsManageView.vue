@@ -147,8 +147,8 @@ const form = reactive({
 const templates = {
   welcome: {
     type: 'system',
-    title: '欢迎加入雅集',
-    message: '感谢您注册成为雅集会员！在这里您可以发现各种精选好物，享受优质的购物体验。如有任何问题，请随时联系我们的客服团队。'
+    title: '欢迎加入紫苑风鸢',
+    message: '感谢您注册成为紫苑风鸢会员！在这里您可以发现各种精选好物，享受优质的购物体验。如有任何问题，请随时联系我们的客服团队。'
   },
   promotion: {
     type: 'promotion',
@@ -323,8 +323,8 @@ onMounted(() => {
 }
 
 .template-item:hover {
-  background: #f0f7ff;
-  border-color: #5A8FD4;
+  background: rgba(155, 135, 245, 0.05);
+  border-color: var(--primary);
 }
 
 .template-icon {
@@ -338,7 +338,7 @@ onMounted(() => {
 }
 
 .template-icon.system {
-  background: rgba(90, 143, 212, 0.1);
+  background: rgba(155, 135, 245, 0.1);
 }
 
 .template-icon.promotion {

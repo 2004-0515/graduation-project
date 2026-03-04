@@ -1,5 +1,6 @@
 package com.shopping.service;
 
+import com.shopping.constants.CouponConstants;
 import com.shopping.entity.Coupon;
 import com.shopping.entity.UserCoupon;
 import com.shopping.exception.ValidationException;
@@ -27,7 +28,7 @@ public class CouponService {
      */
     public List<Coupon> getAvailableCoupons() {
         LocalDateTime now = LocalDateTime.now();
-        return couponRepository.findByStatusAndStartTimeBeforeAndEndTimeAfter(1, now, now);
+        return couponRepository.findByStatusAndStartTimeBeforeAndEndTimeAfter(CouponConstants.CouponStatus.ENABLED, now, now);
     }
     
     /**
@@ -90,7 +91,7 @@ public class CouponService {
             .orElseThrow(() -> new ValidationException("优惠券不存在"));
         
         // 检查优惠券状态
-        if (coupon.getStatus() != 1) {
+        if (coupon.getStatus() != CouponConstants.CouponStatus.ENABLED) {
             throw new ValidationException("优惠券已下架");
         }
         
@@ -119,7 +120,7 @@ public class CouponService {
         UserCoupon userCoupon = new UserCoupon();
         userCoupon.setUserId(userId);
         userCoupon.setCouponId(couponId);
-        userCoupon.setStatus(0);
+        userCoupon.setStatus(CouponConstants.UserCouponStatus.UNUSED);
         
         return userCouponRepository.save(userCoupon);
     }
@@ -154,11 +155,11 @@ public class CouponService {
         UserCoupon userCoupon = userCouponRepository.findById(userCouponId)
             .orElseThrow(() -> new ValidationException("优惠券不存在"));
         
-        if (userCoupon.getStatus() != 0) {
+        if (userCoupon.getStatus() != CouponConstants.UserCouponStatus.UNUSED) {
             throw new ValidationException("优惠券已使用或已过期");
         }
         
-        userCoupon.setStatus(1);
+        userCoupon.setStatus(CouponConstants.UserCouponStatus.USED);
         userCoupon.setOrderId(orderId);
         userCoupon.setUsedTime(LocalDateTime.now());
         userCouponRepository.save(userCoupon);
@@ -170,8 +171,8 @@ public class CouponService {
     @Transactional
     public void markCouponUsed(Long userCouponId, Long orderId) {
         UserCoupon userCoupon = userCouponRepository.findById(userCouponId).orElse(null);
-        if (userCoupon != null && userCoupon.getStatus() == 0) {
-            userCoupon.setStatus(1);
+        if (userCoupon != null && userCoupon.getStatus() == CouponConstants.UserCouponStatus.UNUSED) {
+            userCoupon.setStatus(CouponConstants.UserCouponStatus.USED);
             userCoupon.setOrderId(orderId);
             userCoupon.setUsedTime(LocalDateTime.now());
             userCouponRepository.save(userCoupon);
@@ -184,18 +185,18 @@ public class CouponService {
     @Transactional
     public void returnCoupon(Long userCouponId) {
         UserCoupon userCoupon = userCouponRepository.findById(userCouponId).orElse(null);
-        if (userCoupon != null && userCoupon.getStatus() == 1) {
+        if (userCoupon != null && userCoupon.getStatus() == CouponConstants.UserCouponStatus.USED) {
             // 检查优惠券是否还在有效期内
             Coupon coupon = userCoupon.getCoupon();
             LocalDateTime now = LocalDateTime.now();
             if (coupon != null && now.isBefore(coupon.getEndTime())) {
-                userCoupon.setStatus(0);
+                userCoupon.setStatus(CouponConstants.UserCouponStatus.UNUSED);
                 userCoupon.setOrderId(null);
                 userCoupon.setUsedTime(null);
                 userCouponRepository.save(userCoupon);
             } else {
                 // 优惠券已过期，标记为过期状态
-                userCoupon.setStatus(2);
+                userCoupon.setStatus(CouponConstants.UserCouponStatus.EXPIRED);
                 userCouponRepository.save(userCoupon);
             }
         }

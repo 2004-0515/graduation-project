@@ -8,7 +8,7 @@
 
     <div class="register-card glass-card">
       <div class="card-header">
-        <span class="logo text-title">雅集商城</span>
+        <span class="logo text-title">紫苑风鸢</span>
         <h2>创建账号</h2>
         <p>加入我们，开启品质生活</p>
       </div>
@@ -107,20 +107,20 @@ const handleRegister = async () => {
 .deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
 .deco-bg { position: absolute; bottom: -20%; left: -10%; width: 60%; height: 70%; background: url('https://images.unsplash.com/photo-1513407030348-c983a97b98d8?w=800') center/cover; opacity: 0.1; filter: blur(50px) saturate(1.2); }
 .shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; }
-.s1 { width: 600px; height: 600px; top: 5%; right: -5%; background: linear-gradient(135deg, #E0F0FF, #C5D8FF); opacity: 0.12; }
-.s2 { width: 500px; height: 500px; bottom: 5%; left: -5%; background: linear-gradient(135deg, #D4E8FF, #B7D4FF); opacity: 0.15; animation-delay: -10s; }
+.s1 { width: 600px; height: 600px; top: 5%; right: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.5; }
+.s2 { width: 500px; height: 500px; bottom: 5%; left: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.5; animation-delay: -10s; }
 @keyframes float { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(30px, -30px) scale(1.05); } 66% { transform: translate(-20px, 20px) scale(0.95); } }
 .register-card { width: 100%; max-width: 420px; position: relative; z-index: 1; }
 .card-header { padding: 40px 32px 20px; text-align: center; }
 .logo { font-size: 28px; font-weight: 600; letter-spacing: 4px; display: block; margin-bottom: 20px; }
-.card-header h2 { font-size: 24px; font-weight: 600; color: var(--text-title); margin: 0 0 8px; }
-.card-header p { font-size: 16px; color: var(--text-muted); margin: 0; }
+.card-header h2 { font-size: 24px; font-weight: 600; color: var(--text-primary); margin: 0 0 8px; }
+.card-header p { font-size: 16px; color: var(--text-tertiary); margin: 0; }
 .card-body { padding: 0 32px 40px; }
 :deep(.el-form-item) { margin-bottom: 18px; }
-:deep(.el-form-item__label) { font-size: 15px; color: var(--text-body); font-weight: 500; }
-:deep(.el-input__wrapper) { background: rgba(255,255,255,0.6); border-radius: var(--radius-md); box-shadow: none !important; border: 1px solid rgba(200,200,220,0.3); }
-:deep(.el-input__wrapper:hover), :deep(.el-input__wrapper.is-focus) { border-color: var(--sakura); }
+:deep(.el-form-item__label) { font-size: 15px; color: var(--text-secondary); font-weight: 500; }
+:deep(.el-input__wrapper) { background: var(--white); border-radius: var(--radius-md); box-shadow: none !important; border: 1px solid var(--gray-300); }
+:deep(.el-input__wrapper:hover), :deep(.el-input__wrapper.is-focus) { border-color: var(--primary); }
 .btn-full { width: 100%; }
-.form-footer { text-align: center; margin-top: 20px; font-size: 15px; color: var(--text-muted); }
-.form-footer a { color: var(--sakura); text-decoration: none; margin-left: 4px; }
+.form-footer { text-align: center; margin-top: 20px; font-size: 15px; color: var(--text-tertiary); }
+.form-footer a { color: var(--primary); text-decoration: none; margin-left: 4px; }
 </style>

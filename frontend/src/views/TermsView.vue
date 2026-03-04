@@ -11,7 +11,7 @@
         <div class="terms-card glass-card">
           <section class="terms-section">
             <h2>1. 服务协议的确认</h2>
-            <p>欢迎使用雅集商城。在使用本平台服务之前，请您仔细阅读本服务条款。当您注册成为本平台用户或使用本平台服务时，即表示您已阅读、理解并同意接受本服务条款的全部内容。</p>
+            <p>欢迎使用紫苑风鸢。在使用本平台服务之前，请您仔细阅读本服务条款。当您注册成为本平台用户或使用本平台服务时，即表示您已阅读、理解并同意接受本服务条款的全部内容。</p>
           </section>
 
           <section class="terms-section">
@@ -86,8 +86,8 @@ import Footer from '../components/Footer.vue'
 
 <style scoped>
 .terms-page { min-height: 100vh; background: var(--white); position: relative; }
-.terms-page::before { content: ''; position: fixed; top: 5%; right: -10%; width: 600px; height: 600px; background: linear-gradient(135deg, #D4E8FF, #B7D4FF); opacity: 0.15; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
-.terms-page::after { content: ''; position: fixed; bottom: 5%; left: -10%; width: 500px; height: 500px; background: linear-gradient(135deg, #E0F0FF, #C5D8FF); opacity: 0.12; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
+.terms-page::before { content: ''; position: fixed; top: 5%; right: -10%; width: 600px; height: 600px; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.15; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
+.terms-page::after { content: ''; position: fixed; bottom: 5%; left: -10%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.12; filter: blur(80px); border-radius: 50%; pointer-events: none; z-index: 0; }
 .main-content { position: relative; z-index: 1; padding: 100px 0 80px; }
 .page-header { margin-bottom: 32px; }
 .page-header h1 { font-size: 2rem; font-weight: 600; color: var(--text-title); margin: 0 0 8px; }

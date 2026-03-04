@@ -222,7 +222,7 @@ onMounted(() => {
   right: -10%;
   width: 600px;
   height: 600px;
-  background: linear-gradient(135deg, #D4E8FF, #B7D4FF);
+  background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent);
   opacity: 0.15;
   filter: blur(80px);
   border-radius: 50%;
@@ -262,7 +262,7 @@ onMounted(() => {
   backdrop-filter: blur(24px);
   border: 1px solid rgba(200, 220, 255, 0.5);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(90, 143, 212, 0.08);
+  box-shadow: 0 8px 32px rgba(155, 135, 245, 0.08);
   overflow: hidden;
 }
 
@@ -271,7 +271,7 @@ onMounted(() => {
   display: flex;
   align-items: stretch;
   padding: 32px;
-  background: linear-gradient(135deg, #5A8FD4 0%, #7BA8E0 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, rgba(155, 135, 245, 0.8) 100%);
   position: relative;
   color: #fff;
 }
@@ -457,7 +457,7 @@ onMounted(() => {
 .claim-btn {
   flex: 1;
   padding: 16px 32px;
-  background: linear-gradient(135deg, var(--sakura), #5A8FD4);
+  background: linear-gradient(135deg, var(--sakura), var(--primary));
   border: none;
   border-radius: var(--radius-md);
   font-size: 16px;
@@ -468,7 +468,7 @@ onMounted(() => {
 }
 
 .claim-btn:hover:not(.disabled) {
-  box-shadow: 0 8px 24px rgba(90, 143, 212, 0.4);
+  box-shadow: 0 8px 24px rgba(155, 135, 245, 0.4);
   transform: translateY(-2px);
 }
 
@@ -480,7 +480,7 @@ onMounted(() => {
 .browse-btn {
   padding: 16px 32px;
   background: transparent;
-  border: 2px solid rgba(90, 143, 212, 0.4);
+  border: 2px solid rgba(155, 135, 245, 0.4);
   border-radius: var(--radius-md);
   font-size: 16px;
   font-weight: 500;

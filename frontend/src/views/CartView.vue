@@ -15,6 +15,24 @@
         </div>
 
         <div class="cart-layout" v-if="cartItems.length > 0">
+          <!-- 商家自购警告 -->
+          <div v-if="ownProductsInCart.length > 0" class="own-product-warning glass-card">
+            <div class="warning-header">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <span>购物车中有您自己的商品</span>
+            </div>
+            <p class="warning-desc">以下商品是您发布的，无法购买：</p>
+            <ul class="own-product-list">
+              <li v-for="item in ownProductsInCart" :key="item.id">
+                <span class="product-name">{{ item.productName }}</span>
+                <button class="remove-btn" @click="removeItem(item)">移除</button>
+              </li>
+            </ul>
+          </div>
+
           <div class="cart-list glass-card">
             <div class="list-header">
               <label class="checkbox-wrap">
@@ -28,9 +46,17 @@
               <span>操作</span>
             </div>
 
-            <div v-for="item in cartItems" :key="item.id" :class="['cart-item', { 'item-unavailable': item.productStatus !== 1 }]">
+            <div v-for="item in cartItems" :key="item.id" :class="['cart-item', { 
+              'item-unavailable': item.productStatus !== 1,
+              'item-own-product': item.sellerId && userId && item.sellerId === userId
+            }]">
               <label class="checkbox-wrap">
-                <input type="checkbox" :checked="item.selected !== false && item.productStatus === 1" @change="item.selected = ($event.target as HTMLInputElement).checked" :disabled="item.productStatus !== 1" />
+                <input 
+                  type="checkbox" 
+                  :checked="item.selected !== false && item.productStatus === 1 && !(item.sellerId && userId && item.sellerId === userId)" 
+                  @change="item.selected = ($event.target as HTMLInputElement).checked" 
+                  :disabled="item.productStatus !== 1 || (item.sellerId && userId && item.sellerId === userId)" 
+                />
               </label>
               <div class="item-info">
                 <img :src="getImageUrl(item.productImage)" class="item-img" @error="imgErr" />
@@ -38,6 +64,7 @@
                   <h4 @click="$router.push(`/product/${item.productId}`)">{{ item.productName }}</h4>
                   <p>商品编号: {{ item.productId }}</p>
                   <p v-if="item.productStatus !== 1" class="item-warning">商品已下架</p>
+                  <p v-else-if="item.sellerId && userId && item.sellerId === userId" class="item-warning own-warning">这是您自己的商品，无法购买</p>
                   <p v-else-if="item.stock !== undefined && item.stock < item.quantity" class="item-warning">库存不足（剩余{{ item.stock }}件）</p>
                 </div>
               </div>
@@ -97,6 +124,16 @@ const userStore = useUserStore()
 const cartItems = computed(() => cartStore.items)
 const selectAll = ref(true)
 
+// 当前用户ID
+const userId = computed(() => userStore.userInfo?.id)
+
+// 检测购物车中是否有自己的商品
+const ownProductsInCart = computed(() => 
+  cartItems.value.filter(item => 
+    item.sellerId && userId.value && item.sellerId === userId.value
+  )
+)
+
 // 预算状态
 const budgetStatus = ref<any>({})
 const showBudgetWarning = computed(() => {
@@ -105,9 +142,22 @@ const showBudgetWarning = computed(() => {
   return newTotal > budgetStatus.value.budget
 })
 
-// 只计算可用且选中的商品
-const selectedCount = computed(() => cartItems.value.filter(i => i.selected !== false && i.productStatus === 1).length)
-const totalPrice = computed(() => cartItems.value.filter(i => i.selected !== false && i.productStatus === 1).reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0))
+// 只计算可用且选中的商品（排除自己的商品）
+const selectedCount = computed(() => 
+  cartItems.value.filter(i => 
+    i.selected !== false && 
+    i.productStatus === 1 &&
+    !(i.sellerId && userId.value && i.sellerId === userId.value)
+  ).length
+)
+
+const totalPrice = computed(() => 
+  cartItems.value.filter(i => 
+    i.selected !== false && 
+    i.productStatus === 1 &&
+    !(i.sellerId && userId.value && i.sellerId === userId.value)
+  ).reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0)
+)
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 const imgErr = (e: Event) => { 
@@ -115,9 +165,9 @@ const imgErr = (e: Event) => {
   img.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect fill="#f8f8fc" width="80" height="80"/><text fill="#ccc" font-family="Arial" font-size="12" x="50%" y="50%" text-anchor="middle" dy=".3em">商品</text></svg>')
 }
 const toggleSelectAll = () => { 
-  // 只选中可用的商品
+  // 只选中可用且不是自己的商品
   cartStore.items.forEach(item => {
-    if (item.productStatus === 1) {
+    if (item.productStatus === 1 && !(item.sellerId && userId.value && item.sellerId === userId.value)) {
       item.selected = selectAll.value
     }
   }) 
@@ -182,8 +232,8 @@ onMounted(async () => {
 
 .deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
 .shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; }
-.s1 { width: 600px; height: 600px; top: 5%; right: -10%; background: linear-gradient(135deg, #D4E8FF, #B7D4FF); opacity: 0.15; }
-.s2 { width: 500px; height: 500px; bottom: 10%; left: -10%; background: linear-gradient(135deg, #E0F0FF, #C5D8FF); opacity: 0.12; animation-delay: -10s; }
+.s1 { width: 600px; height: 600px; top: 5%; right: -10%; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.5; }
+.s2 { width: 500px; height: 500px; bottom: 10%; left: -10%; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.5; animation-delay: -10s; }
 
 @keyframes float {
   0%, 100% { transform: translate(0, 0) scale(1); }
@@ -193,26 +243,95 @@ onMounted(async () => {
 
 .main { position: relative; z-index: 1; padding: 100px 0 140px; }
 
-.page-header h1 { font-size: 2.25rem; font-weight: 600; margin: 0 0 8px; }
-.page-header p { font-size: 16px; color: var(--text-body); margin: 0; }
+.page-header h1 { font-size: 2.25rem; font-weight: 600; margin: 0 0 8px; color: var(--text-primary); }
+.page-header p { font-size: 16px; color: var(--text-secondary); margin: 0; }
 
 .cart-list { overflow: hidden; margin-bottom: 24px; }
+
+/* 商家自购警告框 */
+.own-product-warning {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.08), rgba(245, 166, 35, 0.12));
+  border: 1px solid rgba(245, 166, 35, 0.3);
+}
+
+.warning-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: #e67e22;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.warning-header svg {
+  flex-shrink: 0;
+  stroke: #e67e22;
+}
+
+.warning-desc {
+  margin: 0 0 10px 28px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.own-product-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0 28px;
+}
+
+.own-product-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.own-product-list .product-name {
+  flex: 1;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.own-product-list .remove-btn {
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid #e67e22;
+  border-radius: 4px;
+  color: #e67e22;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.own-product-list .remove-btn:hover {
+  background: #e67e22;
+  color: white;
+}
+
 
 .list-header {
   display: grid;
   grid-template-columns: 50px 2fr 1fr 1fr 1fr 80px;
   gap: 16px;
   padding: 16px 24px;
-  background: rgba(255,255,255,0.5);
+  background: var(--gray-50);
   font-size: 15px;
   font-weight: 500;
-  color: var(--text-muted);
+  color: var(--text-tertiary);
   align-items: center;
-  border-bottom: 1px solid rgba(200,200,220,0.2);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .checkbox-wrap { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.checkbox-wrap input { width: 16px; height: 16px; accent-color: var(--sakura); }
+.checkbox-wrap input { width: 16px; height: 16px; accent-color: var(--primary); }
 
 .cart-item {
   display: grid;
@@ -220,27 +339,33 @@ onMounted(async () => {
   gap: 16px;
   padding: 20px 24px;
   align-items: center;
-  border-bottom: 1px solid rgba(200,200,220,0.15);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .item-info { display: flex; gap: 16px; }
 .item-img { width: 80px; height: 80px; border-radius: var(--radius-md); object-fit: cover; }
-.item-detail h4 { margin: 0 0 8px; font-size: 16px; font-weight: 600; color: var(--text-title); cursor: pointer; }
-.item-detail h4:hover { color: var(--sakura); }
-.item-detail p { margin: 0; font-size: 14px; color: var(--text-muted); }
+.item-detail h4 { margin: 0 0 8px; font-size: 16px; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+.item-detail h4:hover { color: var(--primary); }
+.item-detail p { margin: 0; font-size: 14px; color: var(--text-tertiary); }
 
 /* 不可用商品样式 */
 .cart-item.item-unavailable { background: rgba(200, 200, 200, 0.1); opacity: 0.7; }
 .cart-item.item-unavailable .item-img { filter: grayscale(50%); }
-.item-warning { color: #e74c3c; font-size: 13px; margin-top: 4px; }.item-price, .item-subtotal { font-size: 16px; color: var(--text-body); }
-.item-subtotal { font-weight: 600; color: #5A8FD4; }
+
+/* 自己的商品样式 */
+.cart-item.item-own-product { background: rgba(245, 166, 35, 0.08); opacity: 0.85; }
+.cart-item.item-own-product .item-img { filter: grayscale(30%); opacity: 0.8; }
+
+.item-warning { color: #e74c3c; font-size: 13px; margin-top: 4px; }
+.item-warning.own-warning { color: #e67e22; font-weight: 500; }.item-price, .item-subtotal { font-size: 16px; color: var(--text-secondary); }
+.item-subtotal { font-weight: 600; color: var(--primary); }
 
 .item-qty { display: flex; align-items: center; gap: 8px; }
-.item-qty button { width: 28px; height: 28px; border: 1px solid rgba(200,200,220,0.3); background: rgba(255,255,255,0.6); border-radius: var(--radius-sm); cursor: pointer; }
-.item-qty button:hover:not(:disabled) { border-color: var(--sakura); color: var(--sakura); }
+.item-qty button { width: 28px; height: 28px; border: 1px solid var(--gray-300); background: var(--white); border-radius: var(--radius-sm); cursor: pointer; }
+.item-qty button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
 .item-qty button:disabled { opacity: 0.5; }
 
-.delete-btn { padding: 6px 12px; background: none; border: 1px solid rgba(200,200,220,0.3); border-radius: var(--radius-sm); font-size: 14px; color: var(--text-muted); cursor: pointer; }
+.delete-btn { padding: 6px 12px; background: none; border: 1px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 14px; color: var(--text-tertiary); cursor: pointer; }
 .delete-btn:hover { border-color: #e74c3c; color: #e74c3c; }
 
 .checkout-bar {
@@ -257,12 +382,12 @@ onMounted(async () => {
   z-index: 50;
 }
 
-.clear-btn { padding: 8px 16px; background: none; border: 1px solid rgba(200,200,220,0.3); border-radius: var(--radius-md); font-size: 15px; color: var(--text-muted); cursor: pointer; }
+.clear-btn { padding: 8px 16px; background: none; border: 1px solid var(--gray-300); border-radius: var(--radius-md); font-size: 15px; color: var(--text-tertiary); cursor: pointer; }
 .bar-right { display: flex; align-items: center; gap: 24px; }
 .total-info { text-align: right; }
-.total-info span { display: block; font-size: 15px; color: var(--text-muted); }
+.total-info span { display: block; font-size: 15px; color: var(--text-tertiary); }
 .total { margin-top: 4px; }
-.total em { font-style: normal; font-size: 26px; font-weight: 600; color: #5A8FD4; }
+.total em { font-style: normal; font-size: 26px; font-weight: 600; color: var(--primary); }
 
 .budget-warning-tip {
   display: block;
@@ -275,7 +400,7 @@ onMounted(async () => {
 }
 
 .empty { text-align: center; padding: 80px; }
-.empty p { margin: 0 0 24px; font-size: 16px; color: var(--text-muted); }
+.empty p { margin: 0 0 24px; font-size: 16px; color: var(--text-tertiary); }
 
 @media (max-width: 768px) {
   .list-header { display: none; }
