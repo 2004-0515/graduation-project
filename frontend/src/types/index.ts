@@ -1,10 +1,3 @@
-/**
- * 前端类型定义文件
- * 统一管理所有 TypeScript 类型
- */
-
-// ==================== 用户相关类型 ====================
-
 export interface User {
   id: number
   username: string
@@ -13,7 +6,6 @@ export interface User {
   nickname?: string
   bio?: string
   avatar?: string
-  // 以下字段存在于数据库但未使用（会员系统功能已移除）
   points: number
   growthValue: number
   memberDays: number
@@ -47,8 +39,6 @@ export interface UserUpdateData {
   bio?: string
   avatar?: string
 }
-
-// ==================== 商品相关类型 ====================
 
 export interface Product {
   id: number
@@ -85,8 +75,6 @@ export interface Category {
   updatedTime: string
 }
 
-// ==================== 购物车相关类型 ====================
-
 export interface CartItem {
   id: number
   userId: number
@@ -97,7 +85,9 @@ export interface CartItem {
   quantity: number
   selected: boolean
   stock: number
-  productStatus?: number // 商品状态：0=下架，1=上架
+  productStatus?: number
+  sellerId?: number
+  sellerName?: string
 }
 
 export interface AddToCartRequest {
@@ -109,8 +99,6 @@ export interface UpdateCartRequest {
   quantity?: number
   selected?: boolean
 }
-
-// ==================== 订单相关类型 ====================
 
 export interface Order {
   id: number
@@ -129,6 +117,10 @@ export interface Order {
   shippingTime?: string
   endTime?: string
   items: OrderItem[]
+  remark?: string
+  couponId?: number
+  couponDiscount?: number
+  payAmount?: number
   createdTime: string
   updatedTime: string
 }
@@ -141,6 +133,7 @@ export interface OrderItem {
   productImage?: string
   price: number
   quantity: number
+  reviewed?: boolean
 }
 
 export enum PaymentMethod {
@@ -168,6 +161,8 @@ export interface CreateOrderRequest {
   addressId: number
   paymentMethod: PaymentMethod
   items: CreateOrderItemRequest[]
+  remark?: string | null
+  userCouponId?: number
 }
 
 export interface CreateOrderItemRequest {
@@ -175,12 +170,11 @@ export interface CreateOrderItemRequest {
   quantity: number
 }
 
-// ==================== 地址相关类型 ====================
-
 export interface Address {
   id: number
   userId: number
   name: string
+  receiver?: string
   phone: string
   province: string
   city: string
@@ -200,8 +194,6 @@ export interface AddressFormData {
   isDefault?: boolean
 }
 
-// ==================== API 响应类型 ====================
-
 export interface ApiResponse<T = unknown> {
   code: number
   message: string
@@ -219,16 +211,12 @@ export interface PageResponse<T> {
   last: boolean
 }
 
-// ==================== 通用类型 ====================
-
 export interface SelectOption {
   label: string
   value: string | number
 }
 
 export type LoadingState = 'idle' | 'loading' | 'success' | 'error'
-
-// ==================== 搜索相关类型 ====================
 
 export interface SearchSuggestion {
   keyword: string

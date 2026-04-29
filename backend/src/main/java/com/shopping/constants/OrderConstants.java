@@ -2,12 +2,12 @@ package com.shopping.constants;
 
 /**
  * 订单相关常量定义
- * 消除魔法数字，提高代码可维护性
+ * 统一维护订单、支付等状态值，避免魔法数字散落在业务代码中。
  */
 public final class OrderConstants {
     
     private OrderConstants() {
-        throw new UnsupportedOperationException("常量类不能实例化");
+        throw new UnsupportedOperationException("常量类不能被实例化");
     }
     
     // ==================== 订单状态 ====================

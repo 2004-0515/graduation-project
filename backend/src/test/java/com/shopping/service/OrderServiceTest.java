@@ -1,17 +1,20 @@
 package com.shopping.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shopping.constants.OrderConstants;
 import com.shopping.dto.CreateOrderRequest;
 import com.shopping.dto.OrderDto;
-import com.shopping.entity.*;
+import com.shopping.entity.Address;
+import com.shopping.entity.Order;
+import com.shopping.entity.Product;
+import com.shopping.entity.User;
 import com.shopping.exception.ResourceNotFoundException;
 import com.shopping.exception.ValidationException;
-import com.shopping.repository.OrderRepository;
 import com.shopping.repository.OrderItemRepository;
-import com.shopping.repository.UserCouponRepository;
+import com.shopping.repository.OrderRepository;
 import com.shopping.repository.ReviewRepository;
+import com.shopping.repository.UserCouponRepository;
 import com.shopping.repository.WishlistRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,14 +28,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-/**
- * OrderService 单元测试
- */
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
 
@@ -91,7 +94,7 @@ class OrderServiceTest {
 
         testProduct = new Product();
         testProduct.setId(1L);
-        testProduct.setName("测试商品");
+        testProduct.setName("Test Product");
         testProduct.setPrice(BigDecimal.valueOf(99.99));
         testProduct.setStock(100);
         testProduct.setStatus(1);
@@ -100,12 +103,12 @@ class OrderServiceTest {
         testAddress = new Address();
         testAddress.setId(1L);
         testAddress.setUser(testUser);
-        testAddress.setName("张三");
+        testAddress.setName("Test User");
         testAddress.setPhone("13800138000");
-        testAddress.setProvince("广东省");
-        testAddress.setCity("深圳市");
-        testAddress.setDistrict("南山区");
-        testAddress.setDetail("科技园路1号");
+        testAddress.setProvince("Guangdong");
+        testAddress.setCity("Shenzhen");
+        testAddress.setDistrict("Nanshan");
+        testAddress.setDetail("Science Park Road 1");
 
         testOrder = new Order();
         testOrder.setId(1L);
@@ -119,70 +122,59 @@ class OrderServiceTest {
     }
 
     @Test
-    @DisplayName("获取用户订单列表")
+    @DisplayName("Returns user order list")
     void getUserOrders_ShouldReturnOrderList() {
-        // Arrange
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
-        when(orderRepository.findByUserIdOrderByCreatedTimeDesc(1L)).thenReturn(new ArrayList<>(List.of(testOrder)));
+        when(orderRepository.findByUserIdOrderByCreatedTimeDesc(1L))
+                .thenReturn(new ArrayList<>(List.of(testOrder)));
 
-        // Act
         List<OrderDto> result = orderService.getUserOrders("testuser", null, 0, 10);
 
-        // Assert
         assertNotNull(result);
         assertEquals(1, result.size());
         assertEquals("ORD123456789", result.get(0).getOrderNo());
     }
 
     @Test
-    @DisplayName("获取用户订单列表 - 按状态筛选")
+    @DisplayName("Returns filtered user order list")
     void getUserOrders_WithStatusFilter_ShouldReturnFilteredList() {
-        // Arrange
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
         when(orderRepository.findByUserIdAndOrderStatusOrderByCreatedTimeDesc(1L, 0))
-            .thenReturn(new ArrayList<>(List.of(testOrder)));
+                .thenReturn(new ArrayList<>(List.of(testOrder)));
 
-        // Act
         List<OrderDto> result = orderService.getUserOrders("testuser", 0, 0, 10);
 
-        // Assert
         assertNotNull(result);
         assertEquals(1, result.size());
     }
 
     @Test
-    @DisplayName("根据ID获取订单详情")
+    @DisplayName("Returns order details by id")
     void getOrderByIdAndUser_ShouldReturnOrder() {
-        // Arrange
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
         when(orderRepository.findByIdWithDetails(1L)).thenReturn(testOrder);
 
-        // Act
         OrderDto result = orderService.getOrderByIdAndUser(1L, "testuser");
 
-        // Assert
         assertNotNull(result);
         assertEquals("ORD123456789", result.getOrderNo());
     }
 
     @Test
-    @DisplayName("根据ID获取订单详情 - 订单不存在")
+    @DisplayName("Throws when order does not exist")
     void getOrderByIdAndUser_NotFound_ShouldThrowException() {
-        // Arrange
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
         when(orderRepository.findByIdWithDetails(999L)).thenReturn(null);
 
-        // Act & Assert
         assertThrows(
-            ResourceNotFoundException.class,
-            () -> orderService.getOrderByIdAndUser(999L, "testuser")
+                ResourceNotFoundException.class,
+                () -> orderService.getOrderByIdAndUser(999L, "testuser")
         );
     }
 
     @Test
-    @DisplayName("根据ID获取订单详情 - 无权访问")
+    @DisplayName("Throws when accessing another user's order")
     void getOrderByIdAndUser_Unauthorized_ShouldThrowException() {
-        // Arrange
         User otherUser = new User();
         otherUser.setId(2L);
         otherUser.setUsername("otheruser");
@@ -190,22 +182,20 @@ class OrderServiceTest {
         when(userService.getUserByUsername("otheruser")).thenReturn(otherUser);
         when(orderRepository.findByIdWithDetails(1L)).thenReturn(testOrder);
 
-        // Act & Assert
         ValidationException exception = assertThrows(
-            ValidationException.class,
-            () -> orderService.getOrderByIdAndUser(1L, "otheruser")
+                ValidationException.class,
+                () -> orderService.getOrderByIdAndUser(1L, "otheruser")
         );
         assertEquals("无权访问此订单", exception.getMessage());
     }
 
     @Test
-    @DisplayName("创建订单成功")
+    @DisplayName("Creates order successfully")
     void createOrder_ShouldSucceed() {
-        // Arrange
         CreateOrderRequest request = new CreateOrderRequest();
         request.setAddressId(1L);
         request.setPaymentMethod(1);
-        
+
         CreateOrderRequest.OrderItemRequest itemRequest = new CreateOrderRequest.OrderItemRequest();
         itemRequest.setProductId(1L);
         itemRequest.setQuantity(2);
@@ -221,25 +211,21 @@ class OrderServiceTest {
             return order;
         });
 
-        // Act
         OrderDto result = orderService.createOrder("testuser", request);
 
-        // Assert
         assertNotNull(result);
-        // Note: reduceStock is called inside the order creation process
         verify(productService).getProductById(1L);
     }
 
     @Test
-    @DisplayName("创建订单失败 - 商品已下架")
+    @DisplayName("Rejects unavailable product during order creation")
     void createOrder_ProductOffShelf_ShouldThrowException() {
-        // Arrange
         testProduct.setStatus(0);
-        
+
         CreateOrderRequest request = new CreateOrderRequest();
         request.setAddressId(1L);
         request.setPaymentMethod(1);
-        
+
         CreateOrderRequest.OrderItemRequest itemRequest = new CreateOrderRequest.OrderItemRequest();
         itemRequest.setProductId(1L);
         itemRequest.setQuantity(2);
@@ -249,114 +235,98 @@ class OrderServiceTest {
         when(addressService.getAddressById(1L)).thenReturn(testAddress);
         when(productService.getProductById(1L)).thenReturn(testProduct);
 
-        // Act & Assert
         ValidationException exception = assertThrows(
-            ValidationException.class,
-            () -> orderService.createOrder("testuser", request)
+                ValidationException.class,
+                () -> orderService.createOrder("testuser", request)
         );
-        assertTrue(exception.getMessage().contains("已下架"));
+        assertTrue(exception.getMessage().contains("不可购买"));
     }
 
     @Test
-    @DisplayName("取消订单成功 - 待支付状态")
+    @DisplayName("Cancels pending payment order")
     void cancelOrder_PendingPayment_ShouldSucceed() {
-        // Arrange
         testOrder.setOrderStatus(OrderConstants.OrderStatus.PENDING_PAYMENT);
         testOrder.setItems(new ArrayList<>());
 
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
         when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
 
-        // Act
         orderService.cancelOrder(1L, "testuser");
 
-        // Assert
         assertEquals(OrderConstants.OrderStatus.CANCELLED, testOrder.getOrderStatus());
         verify(orderRepository).save(testOrder);
     }
 
     @Test
-    @DisplayName("取消订单失败 - 已完成状态")
+    @DisplayName("Rejects cancelling completed order")
     void cancelOrder_Completed_ShouldThrowException() {
-        // Arrange
         testOrder.setOrderStatus(OrderConstants.OrderStatus.COMPLETED);
 
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
         when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
 
-        // Act & Assert
         ValidationException exception = assertThrows(
-            ValidationException.class,
-            () -> orderService.cancelOrder(1L, "testuser")
+                ValidationException.class,
+                () -> orderService.cancelOrder(1L, "testuser")
         );
-        assertEquals("该订单无法直接取消，请申请取消", exception.getMessage());
+        assertEquals("只有待支付订单才可直接取消", exception.getMessage());
     }
 
     @Test
-    @DisplayName("确认收货成功")
+    @DisplayName("Confirms receipt successfully")
     void confirmOrder_ShouldSucceed() {
-        // Arrange
         testOrder.setOrderStatus(OrderConstants.OrderStatus.PENDING_RECEIPT);
 
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
         when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
 
-        // Act
         orderService.confirmOrder(1L, "testuser");
 
-        // Assert
         assertEquals(OrderConstants.OrderStatus.COMPLETED, testOrder.getOrderStatus());
         assertNotNull(testOrder.getEndTime());
         verify(orderRepository).save(testOrder);
     }
 
     @Test
-    @DisplayName("确认收货失败 - 非待收货状态")
+    @DisplayName("Rejects confirming non-receivable order")
     void confirmOrder_NotPendingReceipt_ShouldThrowException() {
-        // Arrange
         testOrder.setOrderStatus(OrderConstants.OrderStatus.PENDING_PAYMENT);
 
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
         when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
 
-        // Act & Assert
         ValidationException exception = assertThrows(
-            ValidationException.class,
-            () -> orderService.confirmOrder(1L, "testuser")
+                ValidationException.class,
+                () -> orderService.confirmOrder(1L, "testuser")
         );
-        assertEquals("订单状态不允许确认收货", exception.getMessage());
+        assertEquals("只有待收货订单才可确认收货", exception.getMessage());
     }
 
     @Test
-    @DisplayName("删除订单成功 - 已完成状态")
+    @DisplayName("Deletes completed order")
     void deleteOrder_Completed_ShouldSucceed() {
-        // Arrange
         testOrder.setOrderStatus(OrderConstants.OrderStatus.COMPLETED);
 
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
         when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
 
-        // Act
         orderService.deleteOrder(1L, "testuser");
 
-        // Assert
         verify(orderRepository).delete(testOrder);
     }
 
     @Test
-    @DisplayName("删除订单失败 - 待支付状态")
+    @DisplayName("Rejects deleting pending payment order")
     void deleteOrder_PendingPayment_ShouldThrowException() {
-        // Arrange
         testOrder.setOrderStatus(OrderConstants.OrderStatus.PENDING_PAYMENT);
 
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
         when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
 
-        // Act & Assert
         ValidationException exception = assertThrows(
-            ValidationException.class,
-            () -> orderService.deleteOrder(1L, "testuser")
+                ValidationException.class,
+                () -> orderService.deleteOrder(1L, "testuser")
         );
-        assertEquals("订单无法删除", exception.getMessage());
+        assertEquals("只有已完成或已取消的订单才可删除", exception.getMessage());
     }
 }

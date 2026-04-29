@@ -172,7 +172,7 @@
             <h3>配置AI服务</h3>
           </div>
           <p class="modal-desc">
-            使用硅基流动(SiliconFlow)提供的AI服务，新用户注册可获得免费额度
+            使用硅基流动(SiliconFlow)提供的 AI 服务，新用户注册可获得免费额度。
           </p>
           <div class="modal-steps">
             <div class="step">
@@ -221,6 +221,7 @@ import adminApi from '@/api/adminApi'
 import couponApi from '@/api/couponApi'
 import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
+import { debugError } from '@/utils/debug'
 
 interface Message {
   role: 'user' | 'ai'
@@ -316,7 +317,7 @@ const sendMessage = async () => {
     isTyping.value = false
     messages.value.push({
       role: 'ai',
-      content: '抱歉，AI服务暂时不可用，请稍后再试。',
+      content: '抱歉，AI 服务暂时不可用，请稍后再试。',
       time: getCurrentTime()
     })
     scrollToBottom()
@@ -333,7 +334,7 @@ const saveApiKey = () => {
   showApiKeyModal.value = false
   messages.value.push({
     role: 'ai',
-    content: 'API密钥已保存，现在可以开始对话了！',
+    content: 'API 密钥已保存，现在可以开始对话了。',
     time: getCurrentTime()
   })
 }
@@ -345,8 +346,8 @@ const sendQuickQuestion = (question: string) => {
 
 onMounted(async () => {
   const greeting = userStore.isLoggedIn 
-    ? `您好，${userStore.userInfo?.nickname || userStore.userInfo?.username}！我是紫苑风鸢的AI购物助手，有什么可以帮您的吗？\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 订单查询\n• 售后问题`
-    : '您好！我是紫苑风鸢的AI购物助手，很高兴为您服务！\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 购物流程\n• 常见问题'
+    ? `您好，${userStore.userInfo?.nickname || userStore.userInfo?.username}！我是紫苑风鸢的 AI 购物助手，有什么可以帮您的吗？\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 订单查询\n• 售后问题`
+    : '您好！我是紫苑风鸢的 AI 购物助手，很高兴为您服务！\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 购物流程\n• 常见问题'
   
   messages.value.push({
     role: 'ai',
@@ -357,7 +358,7 @@ onMounted(async () => {
   // 并行加载所有数据
   try {
     const [productsRes, categoriesRes, couponsRes] = await Promise.all([
-      productApi.getProducts(1, 100),
+      productApi.getProducts({ page: 1, size: 100 }),
       adminApi.getCategories().catch(() => ({ data: [] })),
       couponApi.getAvailableCoupons().catch(() => ({ data: [] }))
     ])
@@ -374,13 +375,8 @@ onMounted(async () => {
       coupons: (couponsRes as any)?.data || []
     })
 
-    console.log('AI数据加载完成:', {
-      products: allProducts.value.length,
-      categories: ((categoriesRes as any)?.data || []).length,
-      coupons: ((couponsRes as any)?.data || []).length
-    })
   } catch (e) {
-    console.error('获取数据失败:', e)
+    debugError('获取 AI 页面数据失败:', e)
   }
 })
 </script>

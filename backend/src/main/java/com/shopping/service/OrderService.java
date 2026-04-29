@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 订单服务类，处理订单相关业务逻辑
+ * 鐠併垹宕熼張宥呭缁紮绱濇径鍕倞鐠併垹宕熼惄绋垮彠娑撴艾濮熼柅鏄忕�?
  */
 @Service
 public class OrderService {
@@ -71,28 +71,28 @@ public class OrderService {
     private WishlistRepository wishlistRepository;
     
     /**
-     * 获取待发货订单数量（状态=1，已支付待发货）
-     * @return 待发货订单数量
+     * 閼惧嘲褰囧鍛絺鐠愌嗩吂閸楁洘鏆熼柌蹇ョ礄閻樿埖鈧?1閿涘苯鍑￠弨顖欑帛瀵板懎褰傜拹褝绱?
+     * @return 瀵板懎褰傜拹褑顓归崡鏇熸殶闁?
      */
     public long getPendingOrderCount() {
         return orderRepository.countByOrderStatus(OrderConstants.OrderStatus.PENDING_SHIPMENT);
     }
     
     /**
-     * 获取待审核取消申请数量（状态=6，申请取消中）
-     * @return 待审核取消申请数量
+     * 閼惧嘲褰囧鍛吀閺嶇褰囧☉鍫㈡暤鐠囬攱鏆熼柌蹇ョ礄閻樿埖鈧?6閿涘瞼鏁电拠宄板絿濞戝牅鑵戦�?
+     * @return 瀵板懎顓搁弽绋垮絿濞戝牏鏁电拠閿嬫殶�?
      */
     public long getCancelRequestCount() {
         return orderRepository.countByOrderStatus(OrderConstants.OrderStatus.CANCEL_REQUESTED);
     }
     
     /**
-     * 获取用户订单列表
-     * @param username 用户名
-     * @param status 订单状态过滤（可选）
-     * @param page 页码
-     * @param size 每页大小
-     * @return 订单DTO列表
+     * 閼惧嘲褰囬悽銊﹀煕鐠併垹宕熼崚妤勩€?
+     * @param username 閻劍鍩涢崥?
+     * @param status 鐠併垹宕熼悩鑸碘偓浣界箖濠娿倧绱欓崣顖炩偓澶涚礆
+     * @param page 妞ょ數鐖?
+     * @param size 濮ｅ繘銆夋径褍鐨?
+     * @return 鐠併垹宕烡TO閸掓銆?
      */
     public List<OrderDto> getUserOrders(String username, Integer status, int page, int size) {
         User user = userService.getUserByUsername(username);
@@ -105,7 +105,7 @@ public class OrderService {
             orders = orderRepository.findByUserIdOrderByCreatedTimeDesc(user.getId());
         }
         
-        // 在内存中按创建时间倒序排序
+        // 閸︺劌鍞寸€涙ü鑵戦幐澶婂灡瀵ょ儤妞傞梻鏉戔偓鎺戠碍閹烘帒绨?
         orders.sort((o1, o2) -> {
             if (o1.getCreatedTime() == null) return 1;
             if (o2.getCreatedTime() == null) return -1;
@@ -114,7 +114,7 @@ public class OrderService {
 
         logger.info("Found {} orders for user {}", orders.size(), username);
 
-        // 简单的分页实现
+        // 缁犫偓閸楁洜娈戦崚鍡涖€夌€圭偟�?
         int start = page * size;
         int end = Math.min(start + size, orders.size());
         if (start >= orders.size()) {
@@ -127,20 +127,20 @@ public class OrderService {
     }
     
     /**
-     * 根据ID和用户获取订单详情
-     * @param id 订单ID
-     * @param username 用户名
-     * @return 订单DTO
+     * 閺嶈宓両D閸滃瞼鏁ら幋鐤箯閸欐牞顓归崡鏇☆嚊�?
+     * @param id 鐠併垹宕烮D
+     * @param username 閻劍鍩涢崥?
+     * @return 鐠併垹宕烡TO
      */
     public OrderDto getOrderByIdAndUser(Long id, String username) {
         User user = userService.getUserByUsername(username);
         Order order = orderRepository.findByIdWithDetails(id);
         
         if (order == null) {
-            throw new ResourceNotFoundException("订单", id);
+            throw new ResourceNotFoundException("Order", id);
         }
 
-        // 验证订单属于当前用户
+        // 妤犲矁鐦夌拋銏犲礋鐏炵偘绨ぐ鎾冲閻劍鍩?
         if (!order.getUser().getId().equals(user.getId())) {
             throw new ValidationException("无权访问此订单");
         }
@@ -149,20 +149,20 @@ public class OrderService {
     }
     
     /**
-     * 根据订单号和用户获取订单详情
-     * @param orderNo 订单号
-     * @param username 用户名
-     * @return 订单DTO
+     * 閺嶈宓佺拋銏犲礋閸欏嘲鎷伴悽銊﹀煕閼惧嘲褰囩拋銏犲礋鐠囷附鍎?
+     * @param orderNo 鐠併垹宕熼崣?
+     * @param username 閻劍鍩涢崥?
+     * @return 鐠併垹宕烡TO
      */
     public OrderDto getOrderByOrderNoAndUser(String orderNo, String username) {
         User user = userService.getUserByUsername(username);
         Order order = orderRepository.findByOrderNo(orderNo);
 
         if (order == null) {
-            throw new ResourceNotFoundException("订单", orderNo);
+            throw new ResourceNotFoundException("Order", orderNo);
         }
 
-        // 验证订单属于当前用户
+        // 妤犲矁鐦夌拋銏犲礋鐏炵偘绨ぐ鎾冲閻劍鍩?
         if (!order.getUser().getId().equals(user.getId())) {
             throw new ValidationException("无权访问此订单");
         }
@@ -171,10 +171,10 @@ public class OrderService {
     }
     
     /**
-     * 创建订单
-     * @param username 用户名
-     * @param request 创建订单请求
-     * @return 创建的订单DTO
+     * 閸掓稑缂撶拋銏犲�?
+     * @param username 閻劍鍩涢崥?
+     * @param request 閸掓稑缂撶拋銏犲礋鐠囬攱�?
+     * @return 閸掓稑缂撻惃鍕吂閸楁椄TO
      */
     @Transactional
     public OrderDto createOrder(String username, CreateOrderRequest request) {
@@ -183,12 +183,12 @@ public class OrderService {
         User user = userService.getUserByUsername(username);
         Address address = addressService.getAddressById(request.getAddressId());
 
-        // 验证地址属于当前用户
+        // 妤犲矁鐦夐崷鏉挎絻鐏炵偘绨ぐ鎾冲閻劍鍩?
         if (!address.getUser().getId().equals(user.getId())) {
             throw new ValidationException("收货地址无效");
         }
 
-        // 创建订单
+        // 閸掓稑缂撶拋銏犲�?
         Order order = new Order();
         order.setOrderNo(generateOrderNo());
         order.setUser(user);
@@ -199,39 +199,39 @@ public class OrderService {
         order.setShippingAddress(convertAddressToJson(address));
         order.setRemark(request.getRemark());
 
-        // 计算总金额并创建订单项
+        // 鐠侊紕鐣婚幀濠氬櫨妫版繂鑻熼崚娑樼紦鐠併垹宕熸い?
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (CreateOrderRequest.OrderItemRequest itemRequest : request.getItems()) {
             Product product = productService.getProductById(itemRequest.getProductId());
 
-            // 验证商品状态和库存
+            // 妤犲矁鐦夐崯鍡楁惂閻樿埖鈧礁鎷版惔鎾崇�?
             if (!ProductConstants.Status.isAvailable(product.getStatus())) {
-                throw new ValidationException("商品[" + product.getName() + "]已下架");
+                throw new ValidationException("商品[" + product.getName() + "]不可购买");
             }
             if (itemRequest.getQuantity() > product.getStock()) {
                 throw new ValidationException("商品[" + product.getName() + "]库存不足");
             }
             
-            // 验证不能购买自己的商品
+            // 妤犲矁鐦夋稉宥堝厴鐠愵厺鎷遍懛顏勭箒閻ㄥ嫬鏅㈤崫?
             if (product.getSellerId() != null && product.getSellerId().equals(user.getId())) {
-                throw new ValidationException("不能购买自己的商品[" + product.getName() + "]");
+                throw new ValidationException("不能购买自己发布的商品[" + product.getName() + "]");
             }
             
-            // 理性消费检查：冷静期验证
+            // 閻炲棙鈧勭Х鐠愯顥呴弻銉窗閸愮兘娼ら張鐔肩崣�?
             java.util.Optional<Wishlist> wishlistItem = wishlistRepository
                     .findByUserIdAndProductIdAndStatusIn(user.getId(), product.getId(), java.util.Arrays.asList(0));
             if (wishlistItem.isPresent()) {
                 Wishlist wl = wishlistItem.get();
                 if (wl.getCoolingEndTime() != null && wl.getCoolingEndTime().isAfter(LocalDateTime.now())) {
                     long hoursLeft = java.time.temporal.ChronoUnit.HOURS.between(LocalDateTime.now(), wl.getCoolingEndTime());
-                    throw new ValidationException("商品[" + product.getName() + "]仍在冷静期内（剩余" + hoursLeft + "小时），请等待冷静期结束后再购买");
+                    throw new ValidationException("商品[" + product.getName() + "]仍处于冷静期，还需等待" + hoursLeft + "小时");
                 }
             }
 
-            // 计算订单项小计
+            // 鐠侊紕鐣荤拋銏犲礋妞ょ懓鐨�?
             BigDecimal itemTotalPrice = product.getPrice().multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
 
-            // 创建订单项
+            // 閸掓稑缂撶拋銏犲礋妞?
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
             orderItem.setProduct(product);
@@ -240,10 +240,10 @@ public class OrderService {
             orderItem.setPrice(product.getPrice());
             orderItem.setQuantity(itemRequest.getQuantity());
             orderItem.setTotalPrice(itemTotalPrice);
-            // 保存卖家信息
+            // 娣囨繂鐡ㄩ崡鏍ь啀娣団剝浼?
             orderItem.setSellerId(product.getSellerId());
             orderItem.setSellerName(product.getSellerName());
-            orderItem.setShipStatus(0); // 未发货
+            orderItem.setShipStatus(0); // 閺堫亜褰傜拹?
 
             order.getItems().add(orderItem);
             totalAmount = totalAmount.add(itemTotalPrice);
@@ -251,23 +251,23 @@ public class OrderService {
 
         order.setTotalAmount(totalAmount);
         
-        // 处理优惠券
+        // 婢跺嫮鎮婃导妯诲劕閸?
         BigDecimal couponDiscount = BigDecimal.ZERO;
         if (request.getUserCouponId() != null) {
             UserCoupon userCoupon = userCouponRepository.findById(request.getUserCouponId())
                 .orElseThrow(() -> new ValidationException("优惠券不存在"));
             
-            // 验证优惠券属于当前用户
+            // 妤犲矁鐦夋导妯诲劕閸掔鐫樻禍搴＄秼閸撳秶鏁ら幋?
             if (!userCoupon.getUserId().equals(user.getId())) {
-                throw new ValidationException("优惠券无效");
+                throw new ValidationException("该优惠券不属于当前用户");
             }
             
-            // 验证优惠券状态
+            // 妤犲矁鐦夋导妯诲劕閸掑摜濮搁幀?
             if (userCoupon.getStatus() != CouponConstants.UserCouponStatus.UNUSED) {
-                throw new ValidationException("优惠券已使用或已过期");
+                throw new ValidationException("该优惠券已使用或已过期");
             }
             
-            // 计算优惠金额
+            // 鐠侊紕鐣绘导妯诲劕闁叉垿�?
             couponDiscount = couponService.calculateDiscount(userCoupon, totalAmount);
             
             if (couponDiscount.compareTo(BigDecimal.ZERO) > 0) {
@@ -276,7 +276,7 @@ public class OrderService {
             }
         }
         
-        // 设置实付金额
+        // 鐠佸墽鐤嗙€圭偘绮柌鎴︻杺
         BigDecimal payAmount = totalAmount.subtract(couponDiscount);
         if (payAmount.compareTo(BigDecimal.ZERO) < 0) {
             payAmount = BigDecimal.ZERO;
@@ -285,38 +285,33 @@ public class OrderService {
         
         Order savedOrder = orderRepository.save(order);
         
-        // 注意：优惠券在支付成功后才标记为已使用，这里只记录优惠券ID
+        // 濞夈劍鍓伴敍姘喘閹姴鍩滈崷銊︽暜娴犳ɑ鍨氶崝鐔锋倵閹靛秵鐖ｇ拋棰佽礋瀹歌弓濞囬悽顭掔礉鏉╂瑩鍣烽崣顏囶唶瑜版洑绱幆鐘插煖ID
 
-        // 扣减库存
-        for (OrderItem item : savedOrder.getItems()) {
-            productService.reduceStock(item.getProduct().getId(), item.getQuantity());
-        }
-
-        // 发送订单创建通知
+        // 閸欐垿鈧浇顓归崡鏇炲灡瀵ゆ椽鈧氨�?
         notificationService.sendOrderNotification(user.getId(), savedOrder.getId(), 
-                savedOrder.getOrderNo(), "已创建，请尽快支付");
+                savedOrder.getOrderNo(), "订单创建成功");
 
         logger.info("Order created successfully: {}", savedOrder.getOrderNo());
         return convertToDto(savedOrder);
     }
     
     /**
-     * 支付订单
-     * @param orderId 订单ID
-     * @param username 用户名
-     * @param paymentMethod 支付方式
-     * @return 支付后的订单DTO
+     * 閺€顖欑帛鐠併垹�?
+     * @param orderId 鐠併垹宕烮D
+     * @param username 閻劍鍩涢崥?
+     * @param paymentMethod 閺€顖欑帛閺傜懓�?
+     * @return 閺€顖欑帛閸氬海娈戠拋銏犲礋DTO
      */
     @Transactional
     public OrderDto payOrder(Long orderId, String username, Integer paymentMethod) {
         Order order = getOrderEntityByIdAndUser(orderId, username);
 
-        // 只能支付待付款的订单
+        // 閸欘亣鍏橀弨顖欑帛瀵板懍绮▎鍓ф畱鐠併垹宕?
         if (order.getOrderStatus() != OrderConstants.OrderStatus.PENDING_PAYMENT) {
-            throw new ValidationException("订单状态不允许支付");
+            throw new ValidationException("当前订单状态不允许支付");
         }
         
-        // 理性消费检查：预算验证（记录但不阻止）
+        // 閻炲棙鈧勭Х鐠愯顥呴弻銉窗妫板嫮鐣绘宀冪槈閿涘牐顔囪ぐ鏇氱稻娑撳秹妯嗗顫礆
         try {
             BigDecimal currentSpending = rationalConsumptionService.getCurrentMonthSpending(order.getUser().getId());
             ConsumptionBudget budget = rationalConsumptionService.getCurrentBudget(username);
@@ -325,13 +320,17 @@ public class OrderService {
             if (currentSpending.add(payAmount).compareTo(budget.getMonthlyBudget()) > 0) {
                 logger.warn("Order {} would exceed budget for user {}. Current: {}, Order: {}, Budget: {}", 
                         order.getOrderNo(), username, currentSpending, payAmount, budget.getMonthlyBudget());
-                // 记录冲动消费拦截次数（用户选择继续购买）
+                // 鐠佹澘缍嶉崘鎻掑З濞戝牐鍨傞幏锔藉焻濞嗏剝鏆熼敍鍫㈡暏閹寸兘鈧瀚ㄧ紒褏鐢荤拹顓濇嫳�?
             }
         } catch (Exception e) {
             logger.warn("Failed to check budget for user {}: {}", username, e.getMessage());
         }
 
-        // 更新订单状态
+        for (OrderItem item : order.getItems()) {
+            productService.reduceStock(item.getProduct().getId(), item.getQuantity());
+        }
+
+        // 閺囧瓨鏌婄拋銏犲礋閻樿埖�?
         order.setPaymentMethod(paymentMethod);
         order.setPaymentStatus(OrderConstants.PaymentStatus.PAID);
         order.setOrderStatus(OrderConstants.OrderStatus.PENDING_SHIPMENT);
@@ -339,16 +338,16 @@ public class OrderService {
         
         Order savedOrder = orderRepository.save(order);
         
-        // 支付成功后标记优惠券为已使用
+        // 閺€顖欑帛閹存劕濮涢崥搴㈢垼鐠侀绱幆鐘插煖娑撳搫鍑℃担璺ㄦ暏
         if (order.getCouponId() != null) {
             couponService.markCouponUsed(order.getCouponId(), savedOrder.getId());
         }
         
-        // 更新商品销量
+        // 閺囧瓨鏌婇崯鍡楁惂闁库偓�?
         for (OrderItem item : order.getItems()) {
             productService.increaseSales(item.getProduct().getId(), item.getQuantity());
             
-            // 检查并更新想要清单状态
+            // 濡偓閺屻儱鑻熼弴瀛樻煀閹疇顩﹀〒鍛礋閻樿埖鈧?
             try {
                 java.util.Optional<Wishlist> wishlistItem = wishlistRepository
                         .findByUserIdAndProductIdAndStatusIn(order.getUser().getId(), item.getProduct().getId(), java.util.Arrays.asList(1));
@@ -360,19 +359,19 @@ public class OrderService {
             }
         }
         
-        // 检查预算相关成就
+        // 濡偓閺屻儵顣╃粻妤冩祲閸忚櫕鍨氱亸?
         try {
             rationalConsumptionService.checkBudgetAchievements(username);
         } catch (Exception e) {
             logger.warn("Failed to check budget achievements for user {}: {}", username, e.getMessage());
         }
         
-        // 发送支付成功通知
+        // 閸欐垿鈧焦鏁禒妯诲灇閸旂喖鈧氨�?
         notificationService.sendOrderNotification(order.getUser().getId(), savedOrder.getId(),
-                savedOrder.getOrderNo(), "支付成功，等待发货");
+                savedOrder.getOrderNo(), "支付成功");
         
-        // 发送通知给对应的卖家：有新订单待发货
-        // 按卖家分组发送通知，每个卖家只收到一条通知
+        // 閸欐垿鈧線鈧氨鐓＄紒娆忣嚠鎼存梻娈戦崡鏍ь啀閿涙碍婀侀弬鎷岊吂閸楁洖绶熼崣鎴ｆ�?
+        // 閹稿宕犵€硅泛鍨庣紒鍕絺闁線鈧氨鐓￠敍灞剧槨娑擃亜宕犵€硅泛褰ч弨璺哄煂娑撯偓閺夛繝鈧氨�?
         java.util.Map<Long, java.util.List<OrderItem>> sellerItemsMap = new java.util.HashMap<>();
         for (OrderItem item : order.getItems()) {
             if (item.getSellerId() != null) {
@@ -383,16 +382,16 @@ public class OrderService {
         for (java.util.Map.Entry<Long, java.util.List<OrderItem>> entry : sellerItemsMap.entrySet()) {
             Long sellerId = entry.getKey();
             java.util.List<OrderItem> items = entry.getValue();
-            // 构建商品名称列表
+            // 閺嬪嫬缂撻崯鍡楁惂閸氬秶袨閸掓�?
             String productNames = items.stream()
                     .map(OrderItem::getProductName)
                     .limit(3)
-                    .collect(Collectors.joining("、"));
+                    .collect(Collectors.joining(", "));
             if (items.size() > 3) {
-                productNames += "等" + items.size() + "件商品";
+                productNames += " and " + (items.size() - 3) + " more item(s)";
             }
-            notificationService.sendToUser(sellerId, "order", "新订单待发货", 
-                    "用户 " + order.getUser().getUsername() + " 购买了您的商品：" + productNames + "，请尽快发货", 
+            notificationService.sendToUser(sellerId, "order", "New order awaiting shipment", 
+                    "User " + order.getUser().getUsername() + " purchased: " + productNames + ". Please ship as soon as possible.", 
                     savedOrder.getId());
         }
         
@@ -402,138 +401,134 @@ public class OrderService {
     }
     
     /**
-     * 取消订单（仅限待支付订单直接取消）
-     * @param orderId 订单ID
-     * @param username 用户名
+     * 閸欐牗绉风拋銏犲礋閿涘牅绮庨梽鎰窡閺€顖欑帛鐠併垹宕熼惄瀛樺复閸欐牗绉烽�?
+     * @param orderId 鐠併垹宕烮D
+     * @param username 閻劍鍩涢崥?
      */
     @Transactional
     public void cancelOrder(Long orderId, String username) {
         Order order = getOrderEntityByIdAndUser(orderId, username);
 
-        // 只能直接取消待支付的订单
+        // 閸欘亣鍏橀惄瀛樺复閸欐牗绉峰鍛暜娴犳娈戠拋銏犲�?
         if (!OrderConstants.OrderStatus.canCancel(order.getOrderStatus())) {
-            throw new ValidationException("该订单无法直接取消，请申请取消");
+            throw new ValidationException("只有待支付订单才可直接取消");
         }
 
         order.setOrderStatus(OrderConstants.OrderStatus.CANCELLED);
         orderRepository.save(order);
 
-        // 恢复库存
-        for (OrderItem item : order.getItems()) {
-            productService.increaseStock(item.getProduct().getId(), item.getQuantity());
-        }
     }
     
     /**
-     * 申请取消订单（待发货订单需要申请）
-     * @param orderId 订单ID
-     * @param username 用户名
+     * 閻㈠疇顕崣鏍ㄧХ鐠併垹宕熼敍鍫濈窡閸欐垼鎻ｇ拋銏犲礋闂団偓鐟曚胶鏁电拠鍑ょ礆
+     * @param orderId 鐠併垹宕烮D
+     * @param username 閻劍鍩涢崥?
      */
     @Transactional
     public void requestCancelOrder(Long orderId, String username) {
         Order order = getOrderEntityByIdAndUser(orderId, username);
 
-        // 只有待发货的订单才能申请取消
+        // 閸欘亝婀佸鍛絺鐠愌呮畱鐠併垹宕熼幍宥堝厴閻㈠疇顕崣鏍ㄧХ
         if (!OrderConstants.OrderStatus.canRequestCancel(order.getOrderStatus())) {
-            throw new ValidationException("该订单状态不支持申请取消");
+            throw new ValidationException("The current order status does not support cancellation requests");
         }
 
         order.setOrderStatus(OrderConstants.OrderStatus.CANCEL_REQUESTED);
         orderRepository.save(order);
         
-        // 发送通知
+        // 閸欐垿鈧線鈧氨鐓?
         notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
-                order.getOrderNo(), "取消申请已提交，等待管理员审核");
+                order.getOrderNo(), "Cancellation request submitted");
     }
     
     /**
-     * 【管理员】审核取消申请
-     * @param orderId 订单ID
-     * @param approved 是否同意
+     * 閵嗘劗顓搁悶鍡楁喅閵嗘垵顓搁弽绋垮絿濞戝牏鏁电拠?
+     * @param orderId 鐠併垹宕烮D
+     * @param approved 閺勵垰鎯侀崥灞惧壈
      */
     @Transactional
     public void reviewCancelRequest(Long orderId, boolean approved) {
         Order order = orderRepository.findById(orderId).orElseThrow(
-            () -> new ResourceNotFoundException("订单", orderId));
+            () -> new ResourceNotFoundException("Order", orderId));
         
         if (order.getOrderStatus() != OrderConstants.OrderStatus.CANCEL_REQUESTED) {
-            throw new ValidationException("该订单没有待审核的取消申请");
+            throw new ValidationException("The order is not in cancel requested status");
         }
         
         if (approved) {
             order.setOrderStatus(OrderConstants.OrderStatus.CANCELLED);
             orderRepository.save(order);
             
-            // 恢复库存
+            // 閹垹顦叉惔鎾崇�?
             for (OrderItem item : order.getItems()) {
                 productService.increaseStock(item.getProduct().getId(), item.getQuantity());
             }
             
-            // 归还优惠券
+            // 瑜版帟绻曟导妯诲劕閸?
             if (order.getCouponId() != null) {
                 couponService.returnCoupon(order.getCouponId());
             }
             
-            // 发送通知
+            // 閸欐垿鈧線鈧氨鐓?
             notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
-                    order.getOrderNo(), "取消申请已通过，订单已取消");
+                    order.getOrderNo(), "Cancellation approved. The order has been cancelled");
         } else {
-            // 拒绝取消，恢复为待发货状态
+            // 閹锋帞绮烽崣鏍ㄧХ閿涘本浠径宥勮礋瀵板懎褰傜拹褏濮搁幀?
             order.setOrderStatus(OrderConstants.OrderStatus.PENDING_SHIPMENT);
             orderRepository.save(order);
             
-            // 发送通知
+            // 閸欐垿鈧線鈧氨鐓?
             notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
-                    order.getOrderNo(), "取消申请被拒绝，订单将继续处理");
+                    order.getOrderNo(), "取消申请已被拒绝");
         }
     }
 
     /**
-     * 确认收货
-     * @param orderId 订单ID
-     * @param username 用户名
+     * 绾喛顓婚弨鎯版�?
+     * @param orderId 鐠併垹宕烮D
+     * @param username 閻劍鍩涢崥?
      */
     @Transactional
     public void confirmOrder(Long orderId, String username) {
         Order order = getOrderEntityByIdAndUser(orderId, username);
 
-        // 只能确认待收货的订单
+        // 閸欘亣鍏樼涵顔款吇瀵板懏鏁圭拹褏娈戠拋銏犲�?
         if (!OrderConstants.OrderStatus.canConfirm(order.getOrderStatus())) {
-            throw new ValidationException("订单状态不允许确认收货");
+            throw new ValidationException("只有待收货订单才可确认收货");
         }
 
         order.setOrderStatus(OrderConstants.OrderStatus.COMPLETED);
         order.setEndTime(LocalDateTime.now());
         orderRepository.save(order);
         
-        // 发送确认收货通知
+        // 閸欐垿鈧胶鈥樼拋銈嗘暪鐠愌団偓姘辩叀
         notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
-                order.getOrderNo(), "已确认收货，订单完成");
+                order.getOrderNo(), "订单已确认收货");
     }
     
     /**
-     * 删除订单
-     * @param orderId 订单ID
-     * @param username 用户名
+     * 閸掔娀娅庣拋銏犲礋
+     * @param orderId 鐠併垹宕烮D
+     * @param username 閻劍鍩涢崥?
      */
     @Transactional
     public void deleteOrder(Long orderId, String username) {
         Order order = getOrderEntityByIdAndUser(orderId, username);
 
-        // 只能删除已取消或已完成的订单
+        // 閸欘亣鍏橀崚鐘绘珟瀹告彃褰囧☉鍫熷灗瀹告彃鐣幋鎰畱鐠併垹�?
         if (!OrderConstants.OrderStatus.canDelete(order.getOrderStatus())) {
-            throw new ValidationException("订单无法删除");
+            throw new ValidationException("只有已完成或已取消的订单才可删除");
         }
 
         orderRepository.delete(order);
     }
 
     /**
-     * 【管理员】获取所有订单列表
-     * @param status 订单状态过滤（可选）
-     * @param page 页码
-     * @param size 每页大小
-     * @return 订单DTO列表
+     * 閵嗘劗顓搁悶鍡楁喅閵嗘垼骞忛崣鏍ㄥ閺堝顓归崡鏇炲灙鐞?
+     * @param status 鐠併垹宕熼悩鑸碘偓浣界箖濠娿倧绱欓崣顖炩偓澶涚礆
+     * @param page 妞ょ數鐖?
+     * @param size 濮ｅ繘銆夋径褍鐨?
+     * @return 鐠併垹宕烡TO閸掓銆?
      */
     public List<OrderDto> getAllOrders(Integer status, int page, int size) {
         List<Order> orders;
@@ -545,7 +540,7 @@ public class OrderService {
             logger.info("Admin: Fetching ALL orders, found {} orders", orders.size());
         }
         
-        // 打印每个订单的状态
+        // 閹垫挸宓冨В蹇庨嚋鐠併垹宕熼惃鍕Ц�?
         for (Order o : orders) {
             logger.info("Order {} status: {}", o.getOrderNo(), o.getOrderStatus());
         }
@@ -562,33 +557,33 @@ public class OrderService {
     }
 
     /**
-     * 【管理员】发货（整单发货，已废弃，改用卖家发货）
-     * @param orderId 订单ID
+     * 閵嗘劗顓搁悶鍡楁喅閵嗘垵褰傜拹褝绱欓弫鏉戝礋閸欐垼鎻ｉ敍灞藉嚒鎼寸喎绱旈敍灞炬暭閻劌宕犵€硅泛褰傜拹褝�?
+     * @param orderId 鐠併垹宕烮D
      */
     @Transactional
     public void shipOrder(Long orderId) {
         Order order = orderRepository.findById(orderId).orElseThrow(
-            () -> new ResourceNotFoundException("订单", orderId));
+            () -> new ResourceNotFoundException("Order", orderId));
 
-        // 只能对待发货的订单进行发货
+        // 閸欘亣鍏樼€电懓绶熼崣鎴ｆ彛閻ㄥ嫯顓归崡鏇＄箻鐞涘苯褰傜�?
         if (order.getOrderStatus() != OrderConstants.OrderStatus.PENDING_SHIPMENT) {
-            throw new ValidationException("订单状态不允许发货");
+            throw new ValidationException("当前订单状态不允许发货");
         }
 
         order.setOrderStatus(OrderConstants.OrderStatus.PENDING_RECEIPT);
         order.setShippingTime(LocalDateTime.now());
         orderRepository.save(order);
         
-        // 发送发货通知
+        // 閸欐垿鈧礁褰傜拹褔鈧氨鐓?
         notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
-                order.getOrderNo(), "已发货，请注意查收");
+                order.getOrderNo(), "订单已发货");
     }
     
     /**
-     * 【卖家】获取自己的订单项列表
-     * @param username 卖家用户名
-     * @param shipStatus 发货状态过滤（可选）：0-未发货，1-已发货
-     * @return 订单项列表
+     * 閵嗘劕宕犵€硅翰鈧垼骞忛崣鏍殰瀹歌京娈戠拋銏犲礋妞ょ懓鍨�?
+     * @param username 閸楁牕顔嶉悽銊﹀煕閸?
+     * @param shipStatus 閸欐垼鎻ｉ悩鑸碘偓浣界箖濠娿倧绱欓崣顖炩偓澶涚礆�?-閺堫亜褰傜拹褝绱?-瀹告彃褰傜拹?
+     * @return 鐠併垹宕熸い鐟板灙鐞?
      */
     public List<OrderItemDto> getSellerOrderItems(String username, Integer shipStatus) {
         User seller = userService.getUserByUsername(username);
@@ -606,63 +601,63 @@ public class OrderService {
     }
     
     /**
-     * 【卖家】发货
-     * @param itemId 订单项ID
-     * @param username 卖家用户名
+     * 閵嗘劕宕犵€硅翰鈧垵褰傜拹?
+     * @param itemId 鐠併垹宕熸い绗紻
+     * @param username 閸楁牕顔嶉悽銊﹀煕閸?
      */
     @Transactional
     public void sellerShipItem(Long itemId, String username) {
         User seller = userService.getUserByUsername(username);
         OrderItem item = orderItemRepository.findById(itemId)
-                .orElseThrow(() -> new ResourceNotFoundException("订单项", itemId));
+                .orElseThrow(() -> new ResourceNotFoundException("Order item", itemId));
         
-        // 验证是否是该卖家的商品
+        // 妤犲矁鐦夐弰顖氭儊閺勵垵顕氶崡鏍ь啀閻ㄥ嫬鏅㈤崫?
         if (item.getSellerId() == null || !item.getSellerId().equals(seller.getId())) {
             throw new ValidationException("无权操作此订单项");
         }
         
-        // 验证订单状态
+        // 妤犲矁鐦夌拋銏犲礋閻樿埖�?
         Order order = item.getOrder();
         if (order.getOrderStatus() != OrderConstants.OrderStatus.PENDING_SHIPMENT) {
-            throw new ValidationException("订单状态不允许发货");
+            throw new ValidationException("当前订单状态不允许发货");
         }
         
-        // 验证发货状态
+        // 妤犲矁鐦夐崣鎴ｆ彛閻樿埖�?
         if (item.getShipStatus() != null && item.getShipStatus() == 1) {
-            throw new ValidationException("该商品已发货");
+            throw new ValidationException("该订单项已发货");
         }
         
-        // 更新订单项发货状态
+        // 閺囧瓨鏌婄拋銏犲礋妞ょ懓褰傜拹褏濮搁幀?
         item.setShipStatus(1);
         item.setShipTime(LocalDateTime.now());
         orderItemRepository.save(item);
         
-        // 检查该订单的所有商品是否都已发货
+        // 濡偓閺屻儴顕氱拋銏犲礋閻ㄥ嫭澧嶉張澶婃櫌閸濅焦妲搁崥锕傚厴瀹告彃褰傜拹?
         boolean allShipped = order.getItems().stream()
                 .allMatch(i -> i.getShipStatus() != null && i.getShipStatus() == 1);
         
         if (allShipped) {
-            // 所有商品都已发货，更新订单状态
+            // 閹碘偓閺堝鏅㈤崫渚€鍏樺鎻掑絺鐠愌嶇礉閺囧瓨鏌婄拋銏犲礋閻樿埖鈧?
             order.setOrderStatus(OrderConstants.OrderStatus.PENDING_RECEIPT);
             order.setShippingTime(LocalDateTime.now());
             orderRepository.save(order);
             
-            // 发送发货通知给买家
+            // 閸欐垿鈧礁褰傜拹褔鈧氨鐓＄紒娆庢嫳鐎?
             notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
-                    order.getOrderNo(), "已全部发货，请注意查收");
+                    order.getOrderNo(), "订单商品已全部发货");
         } else {
-            // 部分发货通知
+            // 闁劌鍨庨崣鎴ｆ彛闁氨�?
             notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
-                    order.getOrderNo(), "部分商品已发货");
+                    order.getOrderNo(), "订单部分商品已发货");
         }
         
         logger.info("Seller {} shipped item {} for order {}", username, itemId, order.getOrderNo());
     }
     
     /**
-     * 【卖家】获取待发货订单项数量
-     * @param username 卖家用户名
-     * @return 待发货数量
+     * 閵嗘劕宕犵€硅翰鈧垼骞忛崣鏍х窡閸欐垼鎻ｇ拋銏犲礋妞よ鏆熼�?
+     * @param username 閸楁牕顔嶉悽銊﹀煕閸?
+     * @return 瀵板懎褰傜拹褎鏆熼柌?
      */
     public long getSellerPendingShipCount(String username) {
         User seller = userService.getUserByUsername(username);
@@ -670,7 +665,7 @@ public class OrderService {
     }
     
     /**
-     * 将OrderItem转换为卖家视角的DTO（包含订单信息）
+     * 鐏忓搵rderItem鏉烆剚宕叉稉鍝勫礌鐎规儼顫嬬憴鎺旀畱DTO閿涘牆瀵橀崥顐ヮ吂閸楁洑淇婇幁顖ょ�?
      */
     private OrderItemDto convertSellerOrderItemToDto(OrderItem item) {
         OrderItemDto dto = new OrderItemDto();
@@ -683,12 +678,12 @@ public class OrderService {
         dto.setQuantity(item.getQuantity());
         dto.setShipStatus(item.getShipStatus());
         dto.setShipTime(item.getShipTime());
-        // 添加订单相关信息
+        // 濞ｈ濮炵拋銏犲礋閻╃鍙ф穱鈩冧�?
         dto.setOrderNo(item.getOrder().getOrderNo());
         dto.setOrderStatus(item.getOrder().getOrderStatus());
         dto.setBuyerName(item.getOrder().getUser().getUsername());
         dto.setCreatedTime(item.getCreatedTime());
-        // 解析收货地址
+        // 鐟欙絾鐎介弨鎯版彛閸︽澘�?
         if (item.getOrder().getShippingAddress() != null) {
             dto.setShippingAddress(parseAddressJson(item.getOrder().getShippingAddress()));
         }
@@ -696,83 +691,85 @@ public class OrderService {
     }
 
     /**
-     * 【管理员】更新订单状态
-     * @param orderId 订单ID
-     * @param status 新状态
+     * 閵嗘劗顓搁悶鍡楁喅閵嗘垶娲块弬鎷岊吂閸楁洜濮搁幀?
+     * @param orderId 鐠併垹宕烮D
+     * @param status 閺傛壆濮搁幀?
      */
     @Transactional
     public void updateOrderStatus(Long orderId, Integer status) {
         Order order = orderRepository.findById(orderId).orElseThrow(
-            () -> new ResourceNotFoundException("订单", orderId));
+            () -> new ResourceNotFoundException("Order", orderId));
         
         int oldStatus = order.getOrderStatus();
         order.setOrderStatus(status);
         
-        // 处理状态变更的业务逻辑
+        // 婢跺嫮鎮婇悩鑸碘偓浣稿綁閺囧娈戞稉姘闁槒�?
         if (status == OrderConstants.OrderStatus.CANCELLED && oldStatus != OrderConstants.OrderStatus.CANCELLED) {
-            // 取消订单：恢复库存
-            for (OrderItem item : order.getItems()) {
-                productService.increaseStock(item.getProduct().getId(), item.getQuantity());
+            if (oldStatus != OrderConstants.OrderStatus.PENDING_PAYMENT
+                    && order.getPaymentStatus() == OrderConstants.PaymentStatus.PAID) {
+                for (OrderItem item : order.getItems()) {
+                    productService.increaseStock(item.getProduct().getId(), item.getQuantity());
+                }
             }
-            // 归还优惠券（如果已支付过）
+            // 瑜版帟绻曟导妯诲劕閸掗潻绱欐俊鍌涚亯瀹稿弶鏁禒妯跨箖閿?
             if (order.getCouponId() != null && order.getPaymentStatus() == OrderConstants.PaymentStatus.PAID) {
                 couponService.returnCoupon(order.getCouponId());
             }
         } else if (status == OrderConstants.OrderStatus.COMPLETED && oldStatus != OrderConstants.OrderStatus.COMPLETED) {
-            // 完成订单：设置完成时间
+            // 鐎瑰本鍨氱拋銏犲礋閿涙俺顔曠純顔肩暚閹存劖妞傞梻?
             order.setEndTime(LocalDateTime.now());
         }
         
         orderRepository.save(order);
         
-        // 发送状态变更通知
+        // 閸欐垿鈧胶濮搁幀浣稿綁閺囨挳鈧氨鐓?
         String statusName = OrderConstants.OrderStatus.getName(status);
         notificationService.sendOrderNotification(order.getUser().getId(), order.getId(),
                 order.getOrderNo(), statusName);
     }
 
     /**
-     * 获取订单实体并验证权限
-     * @param orderId 订单ID
-     * @param username 用户名
-     * @return 订单实体
+     * 閼惧嘲褰囩拋銏犲礋鐎圭偘缍嬮獮鍫曠崣鐠囦焦娼堥梽?
+     * @param orderId 鐠併垹宕烮D
+     * @param username 閻劍鍩涢崥?
+     * @return 鐠併垹宕熺€圭偘�?
      */
     private Order getOrderEntityByIdAndUser(Long orderId, String username) {
         User user = userService.getUserByUsername(username);
         Order order = orderRepository.findById(orderId).orElseThrow(
-            () -> new ResourceNotFoundException("订单", orderId));
+            () -> new ResourceNotFoundException("Order", orderId));
 
         if (!order.getUser().getId().equals(user.getId())) {
-            throw new ValidationException("无权操作此订单");
+            throw new ValidationException("无权访问此订单");
         }
 
         return order;
     }
 
     /**
-     * 生成订单号
-     * @return 订单号
+     * 閻㈢喐鍨氱拋銏犲礋閸?
+     * @return 鐠併垹宕熼崣?
      */
     private String generateOrderNo() {
         return "ORD" + System.currentTimeMillis() + (int)(Math.random() * 1000);
     }
 
     /**
-     * 将地址转换为JSON字符串
-     * @param address 地址实体
-     * @return JSON字符串
+     * 鐏忓棗婀撮崸鈧潪顒佸床娑撶瘮SON鐎涙顑佹稉?
+     * @param address 閸︽澘娼冪€圭偘�?
+     * @return JSON鐎涙顑佹稉?
      */
     private String convertAddressToJson(Address address) {
-        // 简化的地址JSON转换，实际项目中可以使用Jackson
+        // 缁犫偓閸栨牜娈戦崷鏉挎絻JSON鏉烆剚宕查敍灞界杽闂勫懘銆嶉惄顔昏厬閸欘垯浜掓担璺ㄦ暏Jackson
         return String.format("{\"receiver\":\"%s\",\"phone\":\"%s\",\"province\":\"%s\",\"city\":\"%s\",\"district\":\"%s\",\"detail\":\"%s\"}",
             address.getName(), address.getPhone(), address.getProvince(),
             address.getCity(), address.getDistrict(), address.getDetail());
     }
 
     /**
-     * 解析地址JSON字符串
-     * @param json 地址JSON字符串
-     * @return 地址DTO
+     * 鐟欙絾鐎介崷鏉挎絻JSON鐎涙顑佹稉?
+     * @param json 閸︽澘娼僇SON鐎涙顑佹稉?
+     * @return 閸︽澘娼僁TO
      */
     private AddressDto parseAddressJson(String json) {
         try {
@@ -784,9 +781,9 @@ public class OrderService {
     }
 
     /**
-     * 将Order实体转换为OrderDto
-     * @param order 订单实体
-     * @return 订单DTO
+     * 鐏忓搵rder鐎圭偘缍嬫潪顒佸床娑撶瘺rderDto
+     * @param order 鐠併垹宕熺€圭偘�?
+     * @return 鐠併垹宕烡TO
      */
     private OrderDto convertToDto(Order order) {
         OrderDto dto = new OrderDto();
@@ -802,7 +799,7 @@ public class OrderService {
         dto.setOrderStatus(order.getOrderStatus());
         dto.setOrderStatusName(getOrderStatusName(order.getOrderStatus()));
         
-        // 解析地址JSON（简化处理，实际应使用Jackson）
+        // 鐟欙絾鐎介崷鏉挎絻JSON閿涘牏鐣濋崠鏍ь槱閻炲棴绱濈€圭偤妾惔鏂惧▏閻⑩啑ackson�?
         if (order.getShippingAddress() != null) {
             AddressDto addressDto = parseAddressJson(order.getShippingAddress());
             dto.setShippingAddress(addressDto);
@@ -818,7 +815,7 @@ public class OrderService {
         dto.setCouponDiscount(order.getCouponDiscount());
         dto.setPayAmount(order.getPayAmount());
 
-        // 转换订单项
+        // 鏉烆剚宕茬拋銏犲礋妞?
         if (order.getItems() != null) {
             dto.setItems(order.getItems().stream()
                 .map(this::convertOrderItemToDto)
@@ -829,9 +826,9 @@ public class OrderService {
     }
 
     /**
-     * 将OrderItem实体转换为OrderItemDto
-     * @param item 订单项实体
-     * @return 订单项DTO
+     * 鐏忓搵rderItem鐎圭偘缍嬫潪顒佸床娑撶瘺rderItemDto
+     * @param item 鐠併垹宕熸い鐟扮杽娴?
+     * @return 鐠併垹宕熸い绗礣O
      */
     private OrderItemDto convertOrderItemToDto(OrderItem item) {
         OrderItemDto dto = new OrderItemDto();
@@ -842,33 +839,33 @@ public class OrderService {
         dto.setProductImage(item.getProductImage());
         dto.setPrice(item.getPrice());
         dto.setQuantity(item.getQuantity());
-        // 检查该订单项是否已评价
+        // 濡偓閺屻儴顕氱拋銏犲礋妞よ妲搁崥锕€鍑＄拠鍕幆
         dto.setReviewed(reviewRepository.existsByOrderItemId(item.getId()));
         return dto;
     }
 
     /**
-     * 获取支付方式名称
-     * @param paymentMethod 支付方式代码
-     * @return 支付方式名称
+     * 閼惧嘲褰囬弨顖欑帛閺傜懓绱￠崥宥�?
+     * @param paymentMethod 閺€顖欑帛閺傜懓绱℃禒锝囩垳
+     * @return 閺€顖欑帛閺傜懓绱￠崥宥�?
      */
     private String getPaymentMethodName(Integer paymentMethod) {
         return OrderConstants.PaymentMethod.getName(paymentMethod);
     }
 
     /**
-     * 获取支付状态名称
-     * @param paymentStatus 支付状态代码
-     * @return 支付状态名称
+     * 閼惧嘲褰囬弨顖欑帛閻樿埖鈧礁鎮曠粔?
+     * @param paymentStatus 閺€顖欑帛閻樿埖鈧椒鍞惍?
+     * @return 閺€顖欑帛閻樿埖鈧礁鎮曠粔?
      */
     private String getPaymentStatusName(Integer paymentStatus) {
         return OrderConstants.PaymentStatus.getName(paymentStatus);
     }
 
     /**
-     * 获取订单状态名称
-     * @param orderStatus 订单状态代码
-     * @return 订单状态名称
+     * 閼惧嘲褰囩拋銏犲礋閻樿埖鈧礁鎮曠粔?
+     * @param orderStatus 鐠併垹宕熼悩鑸碘偓浣峰敩�?
+     * @return 鐠併垹宕熼悩鑸碘偓浣告倳缁?
      */
     private String getOrderStatusName(Integer orderStatus) {
         return OrderConstants.OrderStatus.getName(orderStatus);

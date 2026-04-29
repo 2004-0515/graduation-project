@@ -26,6 +26,7 @@
           <input 
             type="text" 
             placeholder="搜索商品..." 
+            data-testid="navbar-search-input"
             v-model="query" 
             @keyup.enter="search"
             @focus="handleSearchFocus"
@@ -36,7 +37,7 @@
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
-          <button class="search-btn" @click="search">
+          <button class="search-btn" data-testid="navbar-search-button" @click="search">
             搜索
           </button>
           <SearchDropdown 
@@ -158,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/userStore'
@@ -178,6 +179,7 @@ const showDropdown = ref(false)
 const searchFocused = ref(false)
 const showSearchDropdown = ref(false)
 const searchDropdownRef = ref<InstanceType<typeof SearchDropdown> | null>(null)
+let unreadTimer: ReturnType<typeof setInterval> | null = null
 
 // 默认头像 - 使用本地SVG或用户首字母
 const defaultAvatarUrl = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="#9b87f5" width="100" height="100"/><text x="50" y="60" font-size="40" fill="white" text-anchor="middle" font-family="Arial">U</text></svg>`)
@@ -266,17 +268,27 @@ const handleLogout = async () => {
 // 监听登录状态变化
 watch(() => userStore.isLoggedIn, (loggedIn) => {
   if (loggedIn) {
+    cartStore.fetchCart()
     notificationStore.fetchUnreadCount()
   } else {
+    cartStore.items = []
     notificationStore.clearCount()
   }
 })
 
 onMounted(() => {
-  cartStore.fetchCart()
-  notificationStore.fetchUnreadCount()
-  // 每60秒刷新一次未读数量
-  setInterval(() => notificationStore.fetchUnreadCount(), 60000)
+  if (userStore.isLoggedIn) {
+    cartStore.fetchCart()
+    notificationStore.fetchUnreadCount()
+    unreadTimer = setInterval(() => notificationStore.fetchUnreadCount(), 60000)
+  }
+})
+
+onUnmounted(() => {
+  if (unreadTimer) {
+    clearInterval(unreadTimer)
+    unreadTimer = null
+  }
 })
 </script>
 

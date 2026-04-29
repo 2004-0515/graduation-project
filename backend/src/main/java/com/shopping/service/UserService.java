@@ -157,7 +157,11 @@ public class UserService {
         if (!userRepository.existsById(userId)) {
             throw new com.shopping.exception.ResourceNotFoundException("用户", userId);
         }
-        userRepository.deleteById(userId);
+        try {
+            userRepository.deleteById(userId);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new com.shopping.exception.ValidationException("该用户有关联数据，无法删除");
+        }
     }
     
     /**

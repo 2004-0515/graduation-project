@@ -8,6 +8,8 @@ import com.shopping.service.NotificationService;
 import com.shopping.service.ProductService;
 import com.shopping.service.UploadFileService;
 import com.shopping.service.UserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -41,6 +43,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/files")
 public class FileController {
+
+    private static final Logger log = LoggerFactory.getLogger(FileController.class);
 
     @Value("${file.upload-dir:uploads}")
     private String uploadDir;
@@ -226,26 +230,25 @@ public class FileController {
                     // 更新用户头像
                     User user = userService.findById(file.getUserId());
                     if (user != null) {
-                        System.out.println("更新用户头像: userId=" + user.getId() + ", avatar=" + file.getFilePath());
+                        log.info("更新用户头像: userId={}, avatar={}", user.getId(), file.getFilePath());
                         user.setAvatar(file.getFilePath());
                         userService.saveUser(user);
-                        System.out.println("用户头像更新成功");
+                        log.info("用户头像更新成功: userId={}", user.getId());
                     } else {
-                        System.err.println("未找到用户: userId=" + file.getUserId());
+                        log.warn("更新头像时未找到用户: userId={}", file.getUserId());
                     }
                 } else if ("PRODUCT".equals(file.getFileType()) && file.getRelatedId() != null) {
                     // 更新商品图片
                     Product product = productService.findById(file.getRelatedId());
                     if (product != null) {
-                        System.out.println("更新商品图片: productId=" + product.getId() + ", image=" + file.getFilePath());
+                        log.info("更新商品图片: productId={}, image={}", product.getId(), file.getFilePath());
                         product.setMainImage(file.getFilePath());
                         productService.saveProduct(product);
-                        System.out.println("商品图片更新成功");
+                        log.info("商品图片更新成功: productId={}", product.getId());
                     }
                 }
             } catch (Exception e) {
-                System.err.println("更新关联记录失败: " + e.getMessage());
-                e.printStackTrace();
+                log.error("更新关联记录失败: fileId={}", file.getId(), e);
             }
         }
 
@@ -413,7 +416,7 @@ public class FileController {
                     }
                 } catch (Exception e) {
                     // 通知发送失败不影响上传
-                    System.err.println("发送审核通知给管理员失败: " + e.getMessage());
+                    log.warn("发送审核通知给管理员失败: fileType={}, username={}", fileType.name(), username, e);
                 }
             }
 
@@ -498,7 +501,7 @@ public class FileController {
                         productService.saveProduct(product);
                     }
                 } catch (Exception e) {
-                    System.err.println("更新商品图片失败: " + e.getMessage());
+                    log.warn("管理员上传后更新商品图片失败: productId={}", productId, e);
                 }
             }
 

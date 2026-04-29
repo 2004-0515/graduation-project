@@ -106,7 +106,6 @@ const adminApi = {
     if (typeof params?.status === 'number') {
       queryParams.status = params.status
     }
-    console.log('adminApi.getAllOrders 请求参数:', queryParams)
     return axios.get('/orders/admin', { params: queryParams })
   },
 

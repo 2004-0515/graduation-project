@@ -14,26 +14,56 @@
       </div>
 
       <div class="card-body">
-        <el-form :model="loginForm" :rules="loginRules" ref="loginFormRef" label-position="top" @keyup.enter="handleLogin">
+        <el-form
+          :model="loginForm"
+          :rules="loginRules"
+          ref="loginFormRef"
+          label-position="top"
+          data-testid="login-form"
+          @keyup.enter="handleLogin"
+        >
           <el-form-item label="用户名" prop="username">
-            <el-input v-model="loginForm.username" placeholder="请输入用户名" prefix-icon="User" />
+            <el-input
+              v-model="loginForm.username"
+              placeholder="请输入用户名"
+              prefix-icon="User"
+              data-testid="login-username"
+            />
           </el-form-item>
 
           <el-form-item label="密码" prop="password">
-            <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" prefix-icon="Lock" show-password />
+            <el-input
+              v-model="loginForm.password"
+              type="password"
+              placeholder="请输入密码"
+              prefix-icon="Lock"
+              show-password
+              data-testid="login-password"
+            />
           </el-form-item>
 
           <el-form-item label="验证码" prop="captcha">
             <div class="captcha-row">
-              <el-input v-model="loginForm.captcha" placeholder="请输入验证码" />
-              <div class="captcha-box" @click="refreshCaptcha">
-                <img :src="captchaUrl" alt="验证码" />
+              <el-input v-model="loginForm.captcha" placeholder="请输入验证码" data-testid="login-captcha" />
+              <div class="captcha-box" data-testid="login-captcha-box" @click="refreshCaptcha">
+                <img
+                  :src="captchaUrl"
+                  :data-captcha-code="captchaExposeCode"
+                  alt="验证码"
+                  data-testid="login-captcha-image"
+                />
               </div>
             </div>
           </el-form-item>
 
           <el-form-item>
-            <button type="button" class="btn btn-primary btn-full" @click="handleLogin" :disabled="loading">
+            <button
+              type="button"
+              class="btn btn-primary btn-full"
+              data-testid="login-submit"
+              @click="handleLogin"
+              :disabled="loading"
+            >
               {{ loading ? '登录中...' : '登录' }}
             </button>
           </el-form-item>
@@ -85,6 +115,9 @@ const generateCaptcha = () => {
 
 const captchaData = ref(generateCaptcha())
 const captchaUrl = computed(() => captchaData.value.url)
+const captchaExposeCode = computed(() =>
+  import.meta.env.DEV || import.meta.env.VITE_E2E === 'true' ? captchaData.value.code : undefined
+)
 const refreshCaptcha = () => { captchaData.value = generateCaptcha(); loginForm.captcha = '' }
 
 const loginRules = {

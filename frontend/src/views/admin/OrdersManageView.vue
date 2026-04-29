@@ -118,6 +118,7 @@ import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
 import fileApi from '@/api/fileApi'
 import { useAdminStore } from '@/stores/adminStore'
+import { debugError } from '@/utils/debug'
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
@@ -161,9 +162,7 @@ const fetchOrders = async () => {
       params.status = filterStatus.value
     }
     
-    console.log('请求参数:', params)
     const res: any = await adminApi.getAllOrders(params)
-    console.log('响应数据:', res)
     if (res?.code === 200) {
       let list = res.data || []
       if (searchKeyword.value) {
@@ -174,7 +173,10 @@ const fetchOrders = async () => {
       // 计算当前页数据
       updatePageData()
     }
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    debugError('获取订单列表失败:', e)
+    ElMessage.error('获取订单列表失败')
+  }
   finally { loading.value = false }
 }
 

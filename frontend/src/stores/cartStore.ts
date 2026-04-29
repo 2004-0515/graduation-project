@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import cartApi from '@/api/cartApi'
 import { ElMessage } from 'element-plus'
 import type { CartItem, ApiResponse } from '@/types'
+import { debugError } from '@/utils/debug'
 
 interface CartState {
   items: CartItem[]
@@ -76,7 +77,6 @@ export const useCartStore = defineStore('cart', {
 
       try {
         const response = await cartApi.getCart() as ApiResponse<CartItem[]>
-        console.log('Cart API response:', response)
         if (response.success || response.code === 200) {
           this.items = response.data || []
         }
@@ -84,7 +84,7 @@ export const useCartStore = defineStore('cart', {
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : '获取购物车列表失败'
         this.error = errorMessage
-        console.error('获取购物车列表失败:', error)
+        debugError('获取购物车列表失败:', error)
         this.items = []
         return []
       } finally {
@@ -101,7 +101,6 @@ export const useCartStore = defineStore('cart', {
 
       try {
         const response = await cartApi.addToCart({ productId, quantity }) as ApiResponse<CartItem>
-        console.log('Add to cart response:', response)
         if (response.success || response.code === 200) {
           const cartItem = response.data
 
@@ -120,7 +119,7 @@ export const useCartStore = defineStore('cart', {
         const errorMessage = error instanceof Error ? error.message : '添加商品到购物车失败'
         this.error = errorMessage
         ElMessage.error(this.error)
-        console.error('添加商品到购物车失败:', error)
+        debugError('添加商品到购物车失败:', error)
         throw error
       } finally {
         this.loading = false
@@ -159,7 +158,7 @@ export const useCartStore = defineStore('cart', {
         const errorMessage = error instanceof Error ? error.message : '更新购物车失败'
         this.error = errorMessage
         ElMessage.error(this.error)
-        console.error('更新购物车失败:', error)
+        debugError('更新购物车失败:', error)
         throw error
       } finally {
         this.loading = false
@@ -226,7 +225,7 @@ export const useCartStore = defineStore('cart', {
         const errorMessage = error instanceof Error ? error.message : '从购物车中移除商品失败'
         this.error = errorMessage
         ElMessage.error(this.error)
-        console.error('从购物车中移除商品失败:', error)
+        debugError('从购物车中移除商品失败:', error)
         throw error
       } finally {
         this.loading = false
@@ -250,7 +249,7 @@ export const useCartStore = defineStore('cart', {
         const errorMessage = error instanceof Error ? error.message : '批量删除失败'
         this.error = errorMessage
         ElMessage.error(this.error)
-        console.error('批量删除失败:', error)
+        debugError('批量删除失败:', error)
         throw error
       } finally {
         this.loading = false
@@ -274,7 +273,7 @@ export const useCartStore = defineStore('cart', {
         const errorMessage = error instanceof Error ? error.message : '清空购物车失败'
         this.error = errorMessage
         ElMessage.error(this.error)
-        console.error('清空购物车失败:', error)
+        debugError('清空购物车失败:', error)
         throw error
       } finally {
         this.loading = false

@@ -17,6 +17,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import static org.springframework.http.HttpMethod.GET;
 
 @Configuration
 @EnableWebSecurity
@@ -52,10 +53,14 @@ public class SecurityConfig {
                 // 允许访问上传的文件
                 .requestMatchers("/uploads/**").permitAll()
                 // 允许匿名查看商品评价
-                .requestMatchers(org.springframework.http.HttpMethod.GET, "/reviews/product/**").permitAll()
+                .requestMatchers(GET, "/reviews/product/**").permitAll()
+                // 优惠券公开信息允许匿名查看，领取和我的优惠券仍然需要登录
+                .requestMatchers(GET, "/coupons", "/coupons/*").permitAll()
                 // 搜索相关API - 建议和热词允许匿名访问，历史记录需要登录
                 .requestMatchers("/search/suggestions", "/search/hot-keywords", "/search/stats").permitAll()
                 .requestMatchers("/search/history/**").authenticated()
+                // 音乐播放器 - 允许匿名访问启用的音乐列表
+                .requestMatchers("/music/enabled").permitAll()
                 // 用户信息API需要认证访问
                 .requestMatchers("/auth/me", "/auth/change-password").authenticated()
                 // 文件上传需要认证

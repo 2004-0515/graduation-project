@@ -135,7 +135,7 @@ public class PriceAlertService {
             priceAlertRepository.save(alert);
             
             // 发送通知
-            if (!alert.getNotified()) {
+            if (alert.getNotified() == null || !alert.getNotified()) {
                 sendPriceAlertNotification(alert, newPrice);
                 alert.setNotified(true);
                 priceAlertRepository.save(alert);

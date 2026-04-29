@@ -1,5 +1,8 @@
 package com.shopping.utils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -13,6 +16,8 @@ import java.util.Random;
  * 验证码工具类
  */
 public class CaptchaUtil {
+
+    private static final Logger log = LoggerFactory.getLogger(CaptchaUtil.class);
 
     // 验证码宽度
     private static final int WIDTH = 120;
@@ -155,7 +160,7 @@ public class CaptchaUtil {
         try {
             javax.imageio.ImageIO.write(image, "png", outputStream);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("验证码图片编码失败", e);
         }
         
         String base64Image = Base64.getEncoder().encodeToString(outputStream.toByteArray());
@@ -164,7 +169,7 @@ public class CaptchaUtil {
         try {
             outputStream.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            log.warn("关闭验证码输出流失败", e);
         }
         
         return base64Image;

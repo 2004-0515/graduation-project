@@ -1,6 +1,7 @@
 <template>
   <div 
     class="music-player" 
+    data-testid="global-music-player"
     :class="{ expanded: isExpanded, minimized: isMinimized, dragging: isDragging }"
     :style="{ left: position.x + 'px', top: position.y + 'px' }"
     ref="playerRef"
@@ -122,6 +123,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import musicApi, { type Music } from '@/api/musicApi'
+import { debugError, debugLog } from '@/utils/debug'
 
 const defaultCover = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%239b87f5" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="white" font-size="30">♪</text></svg>'
 
@@ -139,10 +141,13 @@ const duration = ref(0)
 const volume = ref(80)
 const isMuted = ref(false)
 const loopMode = ref<'none' | 'list' | 'single'>('list')
-const isLoading = ref(true) // 添加加载状态
+const isLoading = ref(false) // 添加加载状态
 const loadError = ref(false) // 添加错误状态
 const retryCount = ref(0) // 重试次数
 const MAX_RETRY = 3 // 最大重试次数
+const hasLoadedMusic = ref(false)
+const hasAttemptedLoad = ref(false)
+let deferredLoadTimer: ReturnType<typeof setTimeout> | null = null
 
 // 播放状态持久化的key
 const STORAGE_KEY = 'musicPlayerState'
@@ -177,7 +182,7 @@ const restorePlayerState = () => {
       isExpanded.value = state.isExpanded ?? false
       return state
     } catch (e) {
-      console.error('恢复播放状态失败', e)
+      debugError('恢复播放状态失败', e)
     }
   }
   return null
@@ -317,7 +322,7 @@ const onProgressMouseUp = () => {
         isPlaying.value = true
         savePlayerState()
       }).catch(e => {
-        console.error('播放失败', e)
+        debugError('播放失败', e)
       })
     } else {
       savePlayerState()
@@ -344,6 +349,7 @@ const toggleVolumePanel = () => {
 const onResize = () => constrainPosition()
 
 const loadMusic = async (isRetry = false) => {
+  hasAttemptedLoad.value = true
   isLoading.value = true
   loadError.value = false
   
@@ -351,6 +357,7 @@ const loadMusic = async (isRetry = false) => {
     const res: any = await musicApi.getEnabledMusic()
     if (res?.code === 200) {
       musicList.value = res.data || []
+      hasLoadedMusic.value = true
       retryCount.value = 0 // 重置重试次数
       
       if (musicList.value.length > 0 && audioRef.value) {
@@ -391,13 +398,13 @@ const loadMusic = async (isRetry = false) => {
       throw new Error('API返回错误')
     }
   } catch (e) { 
-    console.error('加载音乐失败', e)
+    debugError('加载音乐失败', e)
     loadError.value = true
     
     // 自动重试机制
     if (!isRetry && retryCount.value < MAX_RETRY) {
       retryCount.value++
-      console.log(`自动重试加载音乐 (${retryCount.value}/${MAX_RETRY})...`)
+      debugLog(`自动重试加载音乐 (${retryCount.value}/${MAX_RETRY})...`)
       setTimeout(() => {
         loadMusic(true)
       }, 2000 * retryCount.value) // 递增延迟: 2s, 4s, 6s
@@ -410,7 +417,30 @@ const loadMusic = async (isRetry = false) => {
 // 手动重试加载
 const retryLoad = () => {
   retryCount.value = 0
-  loadMusic()
+  void loadMusic()
+}
+
+const ensureMusicLoaded = async () => {
+  if (hasLoadedMusic.value || (isLoading.value && hasAttemptedLoad.value)) return
+  await loadMusic()
+}
+
+const scheduleInitialLoad = () => {
+  if (hasAttemptedLoad.value) return
+
+  const deferredStart = () => {
+    if (!hasAttemptedLoad.value) {
+      void loadMusic()
+    }
+  }
+
+  if ('requestIdleCallback' in window) {
+    ;(window as Window & {
+      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+    }).requestIdleCallback?.(() => deferredStart(), { timeout: 1500 })
+  } else {
+    deferredLoadTimer = window.setTimeout(deferredStart, 600)
+  }
 }
 
 // 尝试自动播放，如果被阻止则等待用户交互
@@ -460,7 +490,8 @@ const removeInteractionListeners = () => {
   document.removeEventListener('touchstart', onUserInteraction)
 }
 
-const togglePlay = () => {
+const togglePlay = async () => {
+  await ensureMusicLoaded()
   if (!audioRef.value || musicList.value.length === 0) return
   
   // 移除交互监听，因为用户已经点击了播放按钮
@@ -474,7 +505,7 @@ const togglePlay = () => {
     audioRef.value.play().then(() => {
       isPlaying.value = true
     }).catch(e => {
-      console.error('播放失败', e)
+      debugError('播放失败', e)
     })
   }
   savePlayerState()
@@ -493,7 +524,7 @@ const playAt = (index: number) => {
     isPlaying.value = true
     savePlayerState()
   }).catch(e => {
-    console.error('播放失败', e)
+    debugError('播放失败', e)
   })
 }
 
@@ -594,16 +625,25 @@ const handleBeforeUnload = () => {
 // 监听最小化和展开状态变化
 watch(isMinimized, () => savePlayerState())
 watch(isExpanded, () => savePlayerState())
+watch(isExpanded, (expanded) => {
+  if (expanded && !hasLoadedMusic.value) {
+    void ensureMusicLoaded()
+  }
+})
 
 onMounted(() => {
-  loadMusic()
+  restorePlayerState()
   initPosition()
+  scheduleInitialLoad()
   window.addEventListener('resize', onResize)
   window.addEventListener('beforeunload', handleBeforeUnload)
   document.addEventListener('click', closeVolumePanel)
 })
 
 onUnmounted(() => {
+  if (deferredLoadTimer) {
+    window.clearTimeout(deferredLoadTimer)
+  }
   savePlayerState()
   removeInteractionListeners()
   window.removeEventListener('resize', onResize)

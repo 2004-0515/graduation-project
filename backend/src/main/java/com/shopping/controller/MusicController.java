@@ -4,6 +4,8 @@ import com.shopping.dto.Response;
 import com.shopping.entity.Music;
 import com.shopping.service.MusicService;
 import com.shopping.utils.AdminUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +27,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/music")
 public class MusicController {
+
+    private static final Logger log = LoggerFactory.getLogger(MusicController.class);
     
     @Autowired
     private MusicService musicService;
@@ -93,7 +97,7 @@ public class MusicController {
             String url = "/uploads/" + relativePath + "/" + newFilename;
             return Response.success("上传成功", url);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("上传音乐文件失败: filename={}", originalFilename, e);
             return Response.fail(500, "上传失败: " + e.getMessage());
         }
     }
@@ -134,7 +138,7 @@ public class MusicController {
             String url = "/uploads/" + relativePath + "/" + newFilename;
             return Response.success("上传成功", url);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("上传音乐封面失败: filename={}", originalFilename, e);
             return Response.fail(500, "上传失败: " + e.getMessage());
         }
     }

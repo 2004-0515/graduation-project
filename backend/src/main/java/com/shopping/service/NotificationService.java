@@ -4,6 +4,8 @@ import com.shopping.dto.NotificationDto;
 import com.shopping.entity.Notification;
 import com.shopping.entity.User;
 import com.shopping.repository.NotificationRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class NotificationService {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
     @Autowired
     private NotificationRepository notificationRepository;
@@ -79,12 +83,11 @@ public class NotificationService {
     }
 
     /**
-     * 创建通知（供其他服务调用）
+     * 创建通知，供其他服务调用。
      */
     @Transactional
     public void createNotification(Long userId, String type, String title, String message, Long relatedId) {
         Notification notification = new Notification();
-        // 直接设置用户引用
         User user = new User();
         user.setId(userId);
         notification.setUser(user);
@@ -96,16 +99,16 @@ public class NotificationService {
     }
 
     /**
-     * 发送订单状态变更通知
+     * 发送订单状态变更通知。
      */
     @Transactional
     public void sendOrderNotification(Long userId, Long orderId, String orderNo, String statusName) {
-        createNotification(userId, "order", "订单状态更新", 
+        createNotification(userId, "order", "订单状态更新",
                 "您的订单 " + orderNo + " " + statusName, orderId);
     }
 
     /**
-     * 【管理员】发送通知给指定用户
+     * 发送通知给指定用户。
      */
     @Transactional
     public void sendToUser(Long userId, String type, String title, String message, Long relatedId) {
@@ -113,7 +116,7 @@ public class NotificationService {
     }
 
     /**
-     * 【管理员】发送通知给所有用户
+     * 发送通知给所有指定用户。
      */
     @Transactional
     public void sendToAllUsers(String type, String title, String message, List<Long> userIds, Long relatedId) {
@@ -123,14 +126,14 @@ public class NotificationService {
     }
 
     /**
-     * 发送通知给所有管理员
+     * 发送通知给所有管理员。
      */
     @Transactional
     public void sendToAllAdmins(String type, String title, String message, Long relatedId) {
         List<User> admins = userService.getAdminUsers();
-        System.out.println("=== sendToAllAdmins: found " + admins.size() + " admins ===");
+        log.info("向所有管理员发送通知: adminCount={}, type={}", admins.size(), type);
         for (User admin : admins) {
-            System.out.println("=== Sending notification to admin: " + admin.getUsername() + " (id=" + admin.getId() + ") ===");
+            log.debug("发送管理员通知: username={}, id={}", admin.getUsername(), admin.getId());
             createNotification(admin.getId(), type, title, message, relatedId);
         }
     }

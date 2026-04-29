@@ -155,7 +155,7 @@ public class ProductService {
     }
     
     /**
-     * 获取卖家的商品列表（兼容旧数据，同时查询sellerId和sellerName）
+     * 获取卖家的商品列表（兼容旧数据，同时查询sellerId和sellerName�?
      */
     public List<Product> getProductsBySellerIdOrName(Long sellerId, String sellerName) {
         return productRepository.findBySellerIdOrSellerName(sellerId, sellerName);
@@ -178,7 +178,7 @@ public class ProductService {
     /**
      * 审核商品
      * @param productId 商品ID
-     * @param auditStatus 审核状态 1=通过 2=拒绝
+     * @param auditStatus 审核状态1=通过 2=拒绝
      * @param remark 审核备注
      */
     public Product auditProduct(Long productId, Integer auditStatus, String remark) {
@@ -317,7 +317,7 @@ public class ProductService {
     
     /**
      * 批量更新所有商品状态
-     * @param status 状态 1=上架 0=下架
+     * @param status 状态1=上架 0=下架
      */
     public void updateAllProductsStatus(Integer status) {
         List<Product> products = productRepository.findAll();

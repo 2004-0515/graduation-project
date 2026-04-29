@@ -73,6 +73,11 @@ public class ReviewService {
             throw new ValidationException("评分必须在1-5之间");
         }
         
+        // 验证评价内容
+        if (review.getContent() == null || review.getContent().trim().isEmpty()) {
+            throw new ValidationException("请填写评价内容");
+        }
+        
         review.setUserId(userId);
         Review savedReview = reviewRepository.save(review);
         

@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 认证控制器，处理登录注册请求
+ * 认证控制器，处理登录、注册和用户资料相关请求。
  */
 @RestController
 @RequestMapping("/auth")
@@ -30,9 +30,7 @@ public class AuthController {
     private UserService userService;
 
     /**
-     * 用户注册
-     * @param request 注册信息
-     * @return 注册结果
+     * 用户注册。
      */
     @PostMapping("/register")
     public Response<UserDto> register(@RequestBody @Valid RegisterRequest request) {
@@ -44,9 +42,7 @@ public class AuthController {
     }
 
     /**
-     * 用户登录
-     * @param request 登录信息
-     * @return 登录结果，包含JWT令牌和用户信息
+     * 用户登录。
      */
     @PostMapping("/login")
     public Response<Map<String, Object>> login(@RequestBody @Valid LoginRequest request) {
@@ -63,8 +59,7 @@ public class AuthController {
     }
 
     /**
-     * 获取当前登录用户信息
-     * @return 当前登录用户信息
+     * 获取当前登录用户信息。
      */
     @GetMapping("/me")
     public Response<UserDto> getCurrentUser() {
@@ -76,9 +71,7 @@ public class AuthController {
     }
 
     /**
-     * 更新当前登录用户信息
-     * @param request 更新的用户信息
-     * @return 更新后的用户信息
+     * 更新当前登录用户信息。
      */
     @PutMapping("/me")
     public Response<UserDto> updateCurrentUser(@RequestBody @Valid UserUpdateRequest request) {
@@ -91,9 +84,7 @@ public class AuthController {
     }
 
     /**
-     * 修改当前登录用户密码
-     * @param request 密码更新请求
-     * @return 修改结果
+     * 修改当前登录用户密码。
      */
     @PostMapping("/change-password")
     public Response<String> changePassword(@RequestBody @Valid PasswordChangeDto request) {
@@ -112,23 +103,18 @@ public class AuthController {
     }
 
     /**
-     * 用户退出登录
-     * @return 退出结果
+     * 用户退出登录。
      */
     @PostMapping("/logout")
     public Response<String> logout() {
         String username = SecurityUtils.getCurrentUsername();
         logger.info("User logout: {}", username);
 
-        // 在JWT认证机制中，logout主要是在客户端完成的
-        // 这里可以进行一些清理工作，如记录登出日志等
         return Response.success("退出登录成功");
     }
 
     /**
-     * 将User实体转换为UserDto
-     * @param user 用户实体
-     * @return 用户DTO
+     * 将 User 实体转换为 UserDto。
      */
     private UserDto convertToDto(User user) {
         UserDto dto = new UserDto();

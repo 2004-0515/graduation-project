@@ -1,12 +1,12 @@
 <template>
-  <div class="orders-page">
+  <div class="orders-page" data-testid="orders-view">
     <Navbar />
     <main class="main-content">
       <div class="container">
         <div class="page-header">
           <div class="header-content">
             <h1>我的订单</h1>
-            <p>查看和管理您的所有订单</p>
+            <p>在这里查看、筛选并管理你的全部订单。</p>
           </div>
           <div class="header-stats">
             <div class="stat-item">
@@ -15,37 +15,48 @@
             </div>
             <div class="stat-item">
               <span class="stat-num">{{ pendingCount }}</span>
-              <span class="stat-label">待处理</span>
+              <span class="stat-label">进行中</span>
             </div>
           </div>
         </div>
 
         <div class="filter-section">
           <div class="filter-tabs">
-            <button v-for="tab in tabs" :key="tab.value" :class="['tab-btn', { active: activeTab === tab.value }]" @click="activeTab = tab.value; currentPage = 1">
+            <button
+              v-for="tab in tabs"
+              :key="tab.value"
+              :class="['tab-btn', { active: activeTab === tab.value }]"
+              @click="switchTab(tab.value)"
+            >
               {{ tab.label }}
-              <span class="tab-count" v-if="getTabCount(tab.value) > 0">{{ getTabCount(tab.value) }}</span>
+              <span v-if="getTabCount(tab.value) > 0" class="tab-count">
+                {{ getTabCount(tab.value) }}
+              </span>
             </button>
           </div>
           <div class="filter-actions">
             <div class="search-box">
-              <input type="text" v-model="searchKeyword" placeholder="搜索订单号/商品名" />
+              <input
+                v-model="searchKeyword"
+                type="text"
+                placeholder="搜索订单号或商品名称"
+              />
             </div>
           </div>
         </div>
 
         <div v-if="loading" class="empty-state">
           <h3>加载中...</h3>
-          <p>正在获取订单数据</p>
+          <p>正在获取你的最新订单。</p>
         </div>
 
         <div v-else-if="errorMsg" class="empty-state">
           <h3>加载失败</h3>
-          <p style="color: #e74c3c;">{{ errorMsg }}</p>
-          <button @click="fetchOrders" class="browse-btn">重试</button>
+          <p class="error-text">{{ errorMsg }}</p>
+          <button class="browse-btn" @click="fetchOrders">重试</button>
         </div>
 
-        <div class="orders-list" v-else-if="filteredOrders.length > 0">
+        <div v-else-if="filteredOrders.length > 0" class="orders-list">
           <div v-for="order in paginatedOrders" :key="order.id" class="order-card">
             <div class="order-header">
               <div class="header-left">
@@ -59,6 +70,7 @@
                 </span>
               </div>
             </div>
+
             <div class="order-items">
               <div v-for="item in order.items" :key="item.id" class="order-item">
                 <div class="item-image">
@@ -66,43 +78,69 @@
                 </div>
                 <div class="item-info">
                   <h4>{{ item.productName }}</h4>
-                  <p class="item-price">¥{{ item.price }} x {{ item.quantity }}</p>
+                  <p class="item-price">¥{{ formatMoney(item.price) }} x {{ item.quantity }}</p>
                 </div>
-                <div class="item-subtotal">¥{{ (item.price * item.quantity).toFixed(2) }}</div>
-                <!-- 评价按钮 -->
-                <button 
-                  v-if="order.orderStatus === 3" 
+                <div class="item-subtotal">¥{{ formatMoney(item.price * item.quantity) }}</div>
+                <button
+                  v-if="order.orderStatus === 3"
                   class="btn-review"
                   :class="{ reviewed: item.reviewed }"
-                  @click="openReviewDialog(order, item)"
                   :disabled="item.reviewed"
+                  @click="openReviewDialog(order, item)"
                 >
-                  {{ item.reviewed ? '已评价' : '评价' }}
+                  {{ item.reviewed ? '已评价' : '去评价' }}
                 </button>
               </div>
             </div>
+
             <div class="order-footer">
               <div class="footer-left">
-                <!-- 备注显示 -->
-                <div class="order-remark-inline" v-if="order.remark">
-                  <span class="remark-tag">📝 备注</span>
+                <div v-if="order.remark" class="order-remark-inline">
+                  <span class="remark-tag">备注</span>
                   <span class="remark-content">{{ order.remark }}</span>
                 </div>
               </div>
               <div class="footer-right">
                 <div class="order-total">
-                  共 {{ getTotalQuantity(order) }} 件，
-                  <span v-if="order.couponDiscount && order.couponDiscount > 0" class="discount-info">
-                    原价 ¥{{ order.totalAmount?.toFixed(2) }}，优惠 ¥{{ order.couponDiscount?.toFixed(2) }}，
+                  共 {{ getTotalQuantity(order) }} 件商品，
+                  <span v-if="Number(order.couponDiscount || 0) > 0" class="discount-info">
+                    原价 ¥{{ formatMoney(order.totalAmount || 0) }}，
+                    优惠 ¥{{ formatMoney(order.couponDiscount || 0) }}
                   </span>
-                  实付 <em>¥{{ getActualPayAmount(order).toFixed(2) }}</em>
+                  实付 <em>¥{{ formatMoney(getActualPayAmount(order)) }}</em>
                 </div>
                 <div class="order-actions">
-                  <button v-if="order.orderStatus === 0" class="btn-cancel" @click="cancelOrder(order)">取消订单</button>
-                  <button v-if="order.orderStatus === 1" class="btn-cancel" @click="requestCancelOrder(order)">申请取消</button>
-                  <button v-if="order.orderStatus === 0" class="btn-pay" @click="payOrder(order)">立即支付</button>
-                  <button v-if="order.orderStatus === 2" class="btn-confirm" @click="confirmReceive(order)">确认收货</button>
-                  <span v-if="order.orderStatus === 6" class="status-tip">等待管理员审核</span>
+                  <button
+                    v-if="order.orderStatus === 0"
+                    class="btn-cancel"
+                    @click="cancelOrder(order)"
+                  >
+                    取消订单
+                  </button>
+                  <button
+                    v-if="order.orderStatus === 1"
+                    class="btn-cancel"
+                    @click="requestCancelOrder(order)"
+                  >
+                    申请取消
+                  </button>
+                  <button
+                    v-if="order.orderStatus === 0"
+                    class="btn-pay"
+                    @click="payOrder(order)"
+                  >
+                    立即支付
+                  </button>
+                  <button
+                    v-if="order.orderStatus === 2"
+                    class="btn-confirm"
+                    @click="confirmReceive(order)"
+                  >
+                    确认收货
+                  </button>
+                  <span v-if="order.orderStatus === 6" class="status-tip">
+                    等待管理员审核
+                  </span>
                 </div>
               </div>
             </div>
@@ -110,13 +148,12 @@
         </div>
 
         <div v-else class="empty-state">
-          <h3>暂无订单</h3>
-          <p>快去挑选心仪的商品吧</p>
-          <router-link to="/category" class="browse-btn">去逛逛</router-link>
+          <h3>还没有订单</h3>
+          <p>去逛逛商品，完成你的第一笔下单吧。</p>
+          <router-link to="/category" class="browse-btn">去浏览商品</router-link>
         </div>
 
-        <!-- 分页 -->
-        <div class="pagination-wrapper" v-if="!loading && !errorMsg && filteredOrders.length > 0">
+        <div v-if="!loading && !errorMsg && filteredOrders.length > 0" class="pagination-wrapper">
           <el-pagination
             v-model:current-page="currentPage"
             v-model:page-size="pageSize"
@@ -128,9 +165,8 @@
           />
         </div>
 
-        <!-- 评价弹窗 -->
         <el-dialog v-model="reviewDialogVisible" title="发表评价" width="500px" class="review-dialog">
-          <div class="review-form" v-if="currentReviewItem">
+          <div v-if="currentReviewItem" class="review-form">
             <div class="review-product">
               <img :src="getImageUrl(currentReviewItem.productImage)" class="product-thumb" />
               <span>{{ currentReviewItem.productName }}</span>
@@ -138,12 +174,14 @@
             <div class="form-item">
               <label>评分</label>
               <div class="rating-select">
-                <span 
-                  v-for="i in 5" 
-                  :key="i" 
+                <span
+                  v-for="i in 5"
+                  :key="i"
                   :class="['star', { filled: i <= reviewForm.rating }]"
                   @click="reviewForm.rating = i"
-                >★</span>
+                >
+                  *
+                </span>
                 <span class="rating-text">{{ ratingTexts[reviewForm.rating - 1] }}</span>
               </div>
             </div>
@@ -153,18 +191,20 @@
                 v-model="reviewForm.content"
                 type="textarea"
                 :rows="4"
-                placeholder="分享您的使用体验，帮助其他买家做出选择"
+                placeholder="分享你对这件商品的真实体验"
                 maxlength="500"
                 show-word-limit
               />
             </div>
             <div class="form-item">
-              <el-checkbox v-model="reviewForm.anonymous">匿名评价</el-checkbox>
+              <el-checkbox v-model="reviewForm.anonymous">匿名发表</el-checkbox>
             </div>
           </div>
           <template #footer>
             <el-button @click="reviewDialogVisible = false">取消</el-button>
-            <el-button type="primary" @click="submitReview" :loading="submittingReview">提交评价</el-button>
+            <el-button type="primary" :loading="submittingReview" @click="submitReview">
+              提交评价
+            </el-button>
           </template>
         </el-dialog>
       </div>
@@ -174,10 +214,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useUserStore } from '../stores/userStore'
 import orderApi from '../api/orderApi'
 import reviewApi from '../api/reviewApi'
 import fileApi from '../api/fileApi'
@@ -186,13 +225,29 @@ import Footer from '../components/Footer.vue'
 
 const route = useRoute()
 const router = useRouter()
-const userStore = useUserStore()
 
-const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const orders = ref<any[]>([])
+const activeTab = ref(-1)
+const searchKeyword = ref('')
+const loading = ref(true)
+const errorMsg = ref('')
+const currentPage = ref(1)
+const pageSize = ref(5)
+
+const reviewDialogVisible = ref(false)
+const currentReviewOrder = ref<any>(null)
+const currentReviewItem = ref<any>(null)
+const submittingReview = ref(false)
+const ratingTexts = ['很差', '较差', '一般', '不错', '非常好']
+const reviewForm = reactive({
+  rating: 5,
+  content: '',
+  anonymous: false
+})
 
 const tabs = [
   { label: '全部', value: -1 },
-  { label: '待付款', value: 0 },
+  { label: '待支付', value: 0 },
   { label: '待发货', value: 1 },
   { label: '待收货', value: 2 },
   { label: '已完成', value: 3 },
@@ -200,108 +255,166 @@ const tabs = [
   { label: '申请取消中', value: 6 }
 ]
 
-const activeTab = ref(-1)
-const orders = ref<any[]>([])
-const searchKeyword = ref('')
-const loading = ref(true)
-const errorMsg = ref('')
-const currentPage = ref(1)
-const pageSize = ref(5)
+const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const formatMoney = (amount: number | string) => Number(amount || 0).toFixed(2)
 
-// 评价相关
-const reviewDialogVisible = ref(false)
-const currentReviewOrder = ref<any>(null)
-const currentReviewItem = ref<any>(null)
-const submittingReview = ref(false)
-const ratingTexts = ['非常差', '差', '一般', '好', '非常好']
-const reviewForm = reactive({
-  rating: 5,
-  content: '',
-  anonymous: false
-})
-
-const pendingCount = computed(() => orders.value.filter(o => o.orderStatus === 0 || o.orderStatus === 1 || o.orderStatus === 2).length)
+const pendingCount = computed(() =>
+  orders.value.filter((item) => [0, 1, 2, 6].includes(item.orderStatus)).length
+)
 
 const filteredOrders = computed(() => {
-  let result = orders.value
-  if (activeTab.value !== -1) result = result.filter(o => o.orderStatus === activeTab.value)
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase()
-    result = result.filter(o => o.orderNo?.toLowerCase().includes(keyword) || o.items?.some((item: any) => item.productName?.toLowerCase().includes(keyword)))
+  let result = [...orders.value]
+
+  if (activeTab.value !== -1) {
+    result = result.filter((item) => item.orderStatus === activeTab.value)
   }
+
+  if (searchKeyword.value.trim()) {
+    const keyword = searchKeyword.value.trim().toLowerCase()
+    result = result.filter((order) => {
+      const orderNoMatched = String(order.orderNo || '').toLowerCase().includes(keyword)
+      const productMatched = (order.items || []).some((item: any) =>
+        String(item.productName || '').toLowerCase().includes(keyword)
+      )
+      return orderNoMatched || productMatched
+    })
+  }
+
   return result
 })
 
-// 分页后的订单
 const paginatedOrders = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredOrders.value.slice(start, end)
+  return filteredOrders.value.slice(start, start + pageSize.value)
 })
 
-// 分页变化时重置到第一页
+const switchTab = (value: number) => {
+  activeTab.value = value
+  currentPage.value = 1
+}
+
 const handleSizeChange = () => {
   currentPage.value = 1
 }
 
 const handlePageChange = () => {
-  // 滚动到顶部
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-// 搜索时重置页码
-watch(searchKeyword, () => {
-  currentPage.value = 1
-})
+const getTabCount = (value: number) =>
+  value === -1
+    ? orders.value.length
+    : orders.value.filter((item) => item.orderStatus === value).length
 
-const getTabCount = (value: number) => value === -1 ? orders.value.length : orders.value.filter(o => o.orderStatus === value).length
-const getTotalQuantity = (order: any) => order.items?.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) || 0
+const getTotalQuantity = (order: any) =>
+  (order.items || []).reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0)
+
 const getActualPayAmount = (order: any) => {
-  const total = Number(order.totalAmount) || 0
-  const discount = Number(order.couponDiscount) || 0
-  return Math.max(0, total - discount)
+  if (order.payAmount != null) {
+    return Math.max(0, Number(order.payAmount))
+  }
+  return Math.max(0, Number(order.totalAmount || 0) - Number(order.couponDiscount || 0))
 }
-const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 5: '退款中', 6: '申请取消中' }[status] || '未知')
-const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled', 5: 'refunding', 6: 'cancel-requested' }[status] || '')
+
+const getStatusText = (status: number) =>
+  (
+    {
+      0: '待支付',
+      1: '待发货',
+      2: '待收货',
+      3: '已完成',
+      4: '已取消',
+      5: '退款中',
+      6: '申请取消中'
+    } as Record<number, string>
+  )[status] || '未知状态'
+
+const getStatusClass = (status: number) =>
+  (
+    {
+      0: 'pending',
+      1: 'processing',
+      2: 'shipping',
+      3: 'completed',
+      4: 'cancelled',
+      5: 'refunding',
+      6: 'cancel-requested'
+    } as Record<number, string>
+  )[status] || ''
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return ''
   const date = new Date(dateStr)
-  return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate()
+  ).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(
+    date.getMinutes()
+  ).padStart(2, '0')}`
 }
 
-const payOrder = (order: any) => router.push(`/payment/${order.id}`)
-const cancelOrder = async (order: any) => { 
-  try { 
-    await orderApi.cancelOrder(order.id)
-    ElMessage.success('订单已取消')
-    await fetchOrders()
-  } catch { 
-    ElMessage.error('取消失败') 
-  } 
+const fetchOrders = async () => {
+  loading.value = true
+  errorMsg.value = ''
+  try {
+    const res: any = await orderApi.getUserOrders()
+    if (res?.code === 200) {
+      orders.value = Array.isArray(res.data) ? res.data : []
+    } else {
+      errorMsg.value = res?.message || '获取订单失败'
+    }
+  } catch (error: any) {
+    errorMsg.value = error?.response?.data?.message || error?.message || '获取订单失败'
+  } finally {
+    loading.value = false
+  }
 }
 
-const requestCancelOrder = async (order: any) => { 
-  try { 
-    await orderApi.requestCancelOrder(order.id)
-    ElMessage.success('取消申请已提交，等待管理员审核')
-    await fetchOrders()
-  } catch { 
-    ElMessage.error('申请失败') 
-  } 
-}
-const confirmReceive = async (order: any) => { 
-  try { 
-    await orderApi.confirmReceive(order.id)
-    ElMessage.success('已确认收货')
-    // 重新获取订单列表，确保数据同步
-    await fetchOrders()
-  } catch { 
-    ElMessage.error('操作失败') 
-  } 
+const payOrder = (order: any) => {
+  router.push(`/payment/${order.id}`)
 }
 
-// 评价相关方法
+const cancelOrder = async (order: any) => {
+  try {
+    const res: any = await orderApi.cancelOrder(order.id)
+    if (res?.code === 200) {
+      ElMessage.success('订单已取消')
+      await fetchOrders()
+      return
+    }
+    ElMessage.error(res?.message || '取消订单失败')
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || '取消订单失败')
+  }
+}
+
+const requestCancelOrder = async (order: any) => {
+  try {
+    const res: any = await orderApi.requestCancelOrder(order.id)
+    if (res?.code === 200) {
+      ElMessage.success('取消申请已提交')
+      await fetchOrders()
+      return
+    }
+    ElMessage.error(res?.message || '提交申请失败')
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || '提交申请失败')
+  }
+}
+
+const confirmReceive = async (order: any) => {
+  try {
+    const res: any = await orderApi.confirmReceive(order.id)
+    if (res?.code === 200) {
+      ElMessage.success('已确认收货')
+      await fetchOrders()
+      return
+    }
+    ElMessage.error(res?.message || '操作失败')
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || '操作失败')
+  }
+}
+
 const openReviewDialog = (order: any, item: any) => {
   if (item.reviewed) return
   currentReviewOrder.value = order
@@ -313,11 +426,12 @@ const openReviewDialog = (order: any, item: any) => {
 }
 
 const submitReview = async () => {
+  if (!currentReviewItem.value || !currentReviewOrder.value) return
   if (reviewForm.rating < 1) {
     ElMessage.warning('请选择评分')
     return
   }
-  
+
   submittingReview.value = true
   try {
     const res: any = await reviewApi.createReview({
@@ -328,77 +442,44 @@ const submitReview = async () => {
       content: reviewForm.content,
       anonymous: reviewForm.anonymous
     })
-    
+
     if (res?.code === 200) {
-      ElMessage.success('评价成功')
+      ElMessage.success('评价提交成功')
       currentReviewItem.value.reviewed = true
       reviewDialogVisible.value = false
     } else {
-      ElMessage.error(res?.message || '评价失败')
+      ElMessage.error(res?.message || '评价提交失败')
     }
-  } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '评价失败')
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || '评价提交失败')
   } finally {
     submittingReview.value = false
   }
 }
 
-const fetchOrders = async () => {
-  console.log('开始获取订单...')
-  loading.value = true
-  errorMsg.value = ''
-  try {
-    const res: any = await orderApi.getUserOrders()
-    console.log('获取订单响应:', res)
-    if (res?.code === 200) {
-      orders.value = res.data || []
-      console.log('订单列表:', orders.value)
-      // 调试：打印每个订单的备注
-      orders.value.forEach((o: any) => {
-        console.log(`订单 ${o.orderNo} 备注:`, o.remark)
-      })
-    } else {
-      errorMsg.value = res?.message || '获取订单失败'
-      console.log('获取订单失败，响应码:', res?.code, '消息:', res?.message)
-    }
-  } catch (error: any) { 
-    errorMsg.value = error?.message || '获取订单异常'
-    console.error('获取订单异常:', error) 
-  } finally {
-    loading.value = false
+watch(searchKeyword, () => {
+  currentPage.value = 1
+})
+
+watch(
+  () => route.query.status,
+  (value) => {
+    activeTab.value = value !== undefined ? Number(value) : -1
+    currentPage.value = 1
   }
-}
+)
+
+watch(
+  () => route.query.search,
+  (value) => {
+    searchKeyword.value = value ? String(value) : ''
+  }
+)
 
 onMounted(async () => {
-  console.log('=== OrdersView onMounted 开始 ===')
-  // 从URL参数读取状态筛选
-  const statusParam = route.query.status
-  if (statusParam !== undefined) {
-    activeTab.value = Number(statusParam)
-  }
-  // 从URL参数读取搜索关键词
-  const searchParam = route.query.search
-  if (searchParam) {
-    searchKeyword.value = String(searchParam)
-  }
+  activeTab.value = route.query.status !== undefined ? Number(route.query.status) : -1
+  searchKeyword.value = route.query.search ? String(route.query.search) : ''
   await fetchOrders()
-  console.log('=== OrdersView onMounted 完成 ===')
-})
-
-// 监听路由参数变化
-watch(() => route.query.status, (newStatus) => {
-  if (newStatus !== undefined) {
-    activeTab.value = Number(newStatus)
-  } else {
-    activeTab.value = -1
-  }
-})
-
-// 监听搜索参数变化
-watch(() => route.query.search, (newSearch) => {
-  if (newSearch) {
-    searchKeyword.value = String(newSearch)
-  }
 })
 </script>
 
@@ -425,15 +506,7 @@ watch(() => route.query.search, (newSearch) => {
 .order-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden; }
 .order-header { display: flex; justify-content: space-between; padding: 16px 20px; background: linear-gradient(135deg, #f8faff 0%, #f0f5ff 100%); border-bottom: 1px solid #e8f0fe; }
 .header-left { display: flex; gap: 16px; align-items: center; }
-.order-no { 
-  font-weight: 600; 
-  color: var(--primary);
-  background: rgba(155, 135, 245, 0.1);
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 14px;
-  border: 1px solid rgba(155, 135, 245, 0.2);
-}
+.order-no { font-weight: 600; color: var(--primary); background: rgba(155, 135, 245, 0.1); padding: 4px 12px; border-radius: 6px; font-size: 14px; border: 1px solid rgba(155, 135, 245, 0.2); }
 .order-time { color: #999; }
 .order-status { display: flex; align-items: center; gap: 6px; font-weight: 600; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; }
@@ -447,6 +520,8 @@ watch(() => route.query.search, (newSearch) => {
 .order-status.completed .status-dot { background: #27ae60; }
 .order-status.cancelled { color: #999; }
 .order-status.cancelled .status-dot { background: #999; }
+.order-status.refunding { color: #f56c6c; }
+.order-status.refunding .status-dot { background: #f56c6c; }
 .order-status.cancel-requested { color: #e67e22; }
 .order-status.cancel-requested .status-dot { background: #e67e22; }
 .status-tip { font-size: 13px; color: #e67e22; font-weight: 500; }
@@ -459,13 +534,7 @@ watch(() => route.query.search, (newSearch) => {
 .item-info h4 { margin: 0 0 8px; font-size: 15px; }
 .item-price { margin: 0; color: #666; }
 .item-subtotal { font-size: 16px; font-weight: 600; color: var(--primary); }
-.order-footer { 
-  display: flex; 
-  justify-content: space-between; 
-  padding: 16px 20px; 
-  border-top: 1px solid #e8f0fe; 
-  background: linear-gradient(135deg, #f8faff 0%, #f0f5ff 100%); 
-}
+.order-footer { display: flex; justify-content: space-between; padding: 16px 20px; border-top: 1px solid #e8f0fe; background: linear-gradient(135deg, #f8faff 0%, #f0f5ff 100%); }
 .footer-right { display: flex; align-items: center; gap: 20px; }
 .order-total em { font-style: normal; font-size: 20px; font-weight: 600; color: var(--primary); }
 .discount-info { color: #e67e22; font-size: 13px; }
@@ -477,78 +546,46 @@ watch(() => route.query.search, (newSearch) => {
 .empty-state { text-align: center; padding: 80px 20px; background: #fff; border-radius: 12px; }
 .empty-state h3 { font-size: 20px; margin: 0 0 8px; }
 .empty-state p { color: #999; margin: 0 0 24px; }
-.browse-btn { display: inline-block; padding: 12px 32px; background: var(--primary); color: #fff; border-radius: 24px; text-decoration: none; }
-.order-remark { padding: 14px 20px; background: linear-gradient(135deg, #fffbf0, #fff8e6); border-top: 1px dashed #f0e6d0; display: flex; align-items: center; }
-.remark-label { color: #e67e22; font-size: 14px; font-weight: 600; white-space: nowrap; }
-.remark-text { color: #555; font-size: 14px; margin-left: 8px; }
+.error-text { color: #e74c3c !important; }
+.browse-btn { display: inline-block; padding: 12px 32px; background: var(--primary); color: #fff; border-radius: 24px; text-decoration: none; border: none; cursor: pointer; }
 .order-remark-inline { display: flex; align-items: center; gap: 8px; }
-.remark-tag { 
-  background: rgba(155, 135, 245, 0.1); 
-  color: var(--primary); 
-  padding: 4px 10px; 
-  border-radius: 12px; 
-  font-size: 12px; 
-  font-weight: 500;
-  border: 1px solid rgba(155, 135, 245, 0.2);
-}
+.remark-tag { background: rgba(155, 135, 245, 0.1); color: var(--primary); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; border: 1px solid rgba(155, 135, 245, 0.2); }
 .remark-content { color: #666; font-size: 14px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pagination-wrapper { display: flex; justify-content: center; margin-top: 32px; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-:deep(.el-pagination) { 
-  --el-pagination-button-bg-color: #fff;
-  --el-pagination-hover-color: var(--primary);
-}
-:deep(.el-pagination .el-pager li) {
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  color: #666;
-}
-:deep(.el-pagination .el-pager li:hover) {
-  color: var(--primary);
-  border-color: var(--primary);
-}
-:deep(.el-pagination .el-pager li.is-active) { 
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
-:deep(.el-pagination button) {
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  color: #666;
-}
-:deep(.el-pagination button:hover:not(:disabled)) {
-  color: var(--primary);
-  border-color: var(--primary);
-}
-:deep(.el-pagination button:disabled) {
-  background: #f5f5f5;
-  border-color: #e0e0e0;
-  color: #ccc;
-}
-:deep(.el-pagination .el-pagination__jump) {
-  color: #666;
-}
-:deep(.el-pagination .el-input__wrapper) {
-  border: 1px solid #e0e0e0;
-  box-shadow: none;
-}
+:deep(.el-pagination) { --el-pagination-button-bg-color: #fff; --el-pagination-hover-color: var(--primary); }
+:deep(.el-pagination .el-pager li) { background: #fff; border: 1px solid #e0e0e0; color: #666; }
+:deep(.el-pagination .el-pager li:hover) { color: var(--primary); border-color: var(--primary); }
+:deep(.el-pagination .el-pager li.is-active) { background: var(--primary); border-color: var(--primary); color: #fff; }
+:deep(.el-pagination button) { background: #fff; border: 1px solid #e0e0e0; color: #666; }
+:deep(.el-pagination button:hover:not(:disabled)) { color: var(--primary); border-color: var(--primary); }
+:deep(.el-pagination button:disabled) { background: #f5f5f5; border-color: #e0e0e0; color: #ccc; }
+:deep(.el-pagination .el-pagination__jump) { color: #666; }
+:deep(.el-pagination .el-input__wrapper) { border: 1px solid #e0e0e0; box-shadow: none; }
 :deep(.el-pagination .el-input__wrapper:hover),
-:deep(.el-pagination .el-input__wrapper.is-focus) {
-  border-color: var(--primary);
-}
-
-/* 评价按钮 */
+:deep(.el-pagination .el-input__wrapper.is-focus) { border-color: var(--primary); }
 .btn-review { padding: 6px 16px; border-radius: 16px; font-size: 13px; cursor: pointer; transition: all 0.3s; background: var(--primary); color: #fff; border: none; }
 .btn-review:hover:not(:disabled) { background: var(--primary-dark); }
 .btn-review.reviewed { background: #e0e0e0; color: #999; cursor: default; }
-
-/* 评价弹窗 */
 .review-dialog .review-product { display: flex; align-items: center; gap: 12px; padding: 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px; }
 .review-dialog .product-thumb { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
 .review-dialog .form-item { margin-bottom: 20px; }
 .review-dialog .form-item label { display: block; margin-bottom: 8px; font-weight: 500; color: #333; }
 .review-dialog .rating-select { display: flex; align-items: center; gap: 8px; }
 .review-dialog .rating-select .star { font-size: 28px; color: #ddd; cursor: pointer; transition: all 0.2s; }
-.review-dialog .rating-select .star:hover, .review-dialog .rating-select .star.filled { color: #ffc107; }
+.review-dialog .rating-select .star:hover,
+.review-dialog .rating-select .star.filled { color: #ffc107; }
 .review-dialog .rating-text { margin-left: 12px; color: #666; font-size: 14px; }
+@media (max-width: 768px) {
+  .page-header,
+  .order-footer {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .footer-right {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
 </style>

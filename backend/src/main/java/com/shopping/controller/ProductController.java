@@ -9,6 +9,8 @@ import com.shopping.service.UserService;
 import com.shopping.service.NotificationService;
 import com.shopping.repository.CategoryRepository;
 import com.shopping.utils.SecurityUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +24,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/products")
 public class ProductController {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductController.class);
     
     @Autowired
     private ProductService productService;
@@ -224,7 +228,7 @@ public class ProductController {
             return Response.fail(401, "用户未登录");
         }
         
-        System.out.println("Creating product, user: " + username + ", data: " + data);
+        log.info("创建商品请求: user={}, name={}", username, data.get("name"));
         
         Product product = new Product();
         product.setName((String) data.get("name"));
@@ -280,7 +284,7 @@ public class ProductController {
         }
         
         Product createdProduct = productService.saveProduct(product);
-        System.out.println("Product created with ID: " + createdProduct.getId());
+        log.info("商品创建成功: id={}, user={}", createdProduct.getId(), username);
         return Response.success("商品创建成功", createdProduct);
     }
     
@@ -306,7 +310,7 @@ public class ProductController {
         }
         boolean isAdmin = "admin".equals(username);
         
-        // 检查是否是商品所有者或管理员
+        // 检查是否是商品所有者或管理�?
         if (!isAdmin && product.getSellerId() != null) {
             User user = userService.findByUsername(username);
             if (user == null || !product.getSellerId().equals(user.getId())) {
@@ -321,14 +325,29 @@ public class ProductController {
             product.setDescription((String) data.get("description"));
         }
         
-        // 价格处理：普通用户修改价格保存到待审核字段，管理员直接修改
-        if (data.get("price") != null) {
-            java.math.BigDecimal newPrice = new java.math.BigDecimal(data.get("price").toString());
-            if (isAdmin) {
-                product.setPrice(newPrice);
-            } else {
-                // 普通用户：保存到待审核价格字段
-                product.setPendingPrice(newPrice);
+        // 价格处理：普通用户修改价格保存到待审核字段，管理员直接修�?
+        if (data.containsKey("price")) {
+            Object priceObj = data.get("price");
+            if (priceObj == null) {
+                return Response.fail(400, "价格不能为空");
+            }
+            String priceStr = priceObj.toString();
+            if (priceStr.trim().isEmpty() || "null".equals(priceStr)) {
+                return Response.fail(400, "价格不能为空");
+            }
+            try {
+                java.math.BigDecimal newPrice = new java.math.BigDecimal(priceStr);
+                if (newPrice.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                    return Response.fail(400, "价格必须大于0");
+                }
+                if (isAdmin) {
+                    product.setPrice(newPrice);
+                } else {
+                    // 普通用户：保存到待审核价格字段
+                    product.setPendingPrice(newPrice);
+                }
+            } catch (NumberFormatException e) {
+                return Response.fail(400, "价格格式不正确");
             }
         }
         if (data.get("originalPrice") != null) {
@@ -432,7 +451,7 @@ public class ProductController {
             return Response.fail(404, "商品不存在");
         }
         
-        // 检查权限：管理员或商品所有者
+        // 检查权限：管理员或商品所有�?
         boolean isAdmin = "admin".equals(username);
         if (!isAdmin) {
             User user = userService.findByUsername(username);
@@ -550,7 +569,7 @@ public class ProductController {
     }
     
     /**
-     * 审核商品（管理员）
+     * 审核商品（管理员�?
      */
     @PostMapping("/{id}/audit")
     public Response<Product> auditProduct(

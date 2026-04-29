@@ -237,10 +237,21 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import * as echarts from 'echarts'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { BarChart, LineChart } from 'echarts/charts'
+import {
+  GridComponent,
+  LegendComponent,
+  TooltipComponent
+} from 'echarts/components'
+import { init, type ECharts, type EChartsOption } from 'echarts/core'
 import AdminLayout from '@/components/AdminLayout.vue'
 import rationalApi from '@/api/rationalApi'
 import fileApi from '@/api/fileApi'
+import { debugError } from '@/utils/debug'
+
+use([CanvasRenderer, BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent])
 
 const tabs = [
   { key: 'trend', label: '消费趋势' },
@@ -255,7 +266,7 @@ const wishlistActivity = ref<any[]>([])
 const recentAchievements = ref<any[]>([])
 
 const trendChartRef = ref<HTMLDivElement>()
-let trendChart: echarts.ECharts | null = null
+let trendChart: ECharts | null = null
 
 const grantForm = ref({ userId: null as number | null, type: '' })
 const granting = ref(false)
@@ -326,7 +337,7 @@ const fetchStats = async () => {
       stats.value = res.data || {}
     }
   } catch (e) {
-    console.error('获取统计数据失败', e)
+    debugError('获取理性消费统计数据失败', e)
   }
 }
 
@@ -338,7 +349,7 @@ const fetchConsumptionTrend = async () => {
       nextTick(() => initTrendChart())
     }
   } catch (e) {
-    console.error('获取消费趋势失败', e)
+    debugError('获取消费趋势失败', e)
   }
 }
 
@@ -349,7 +360,7 @@ const fetchWishlistActivity = async () => {
       wishlistActivity.value = res.data || []
     }
   } catch (e) {
-    console.error('获取想要清单活动失败', e)
+    debugError('获取想要清单活动失败', e)
   }
 }
 
@@ -360,7 +371,7 @@ const fetchRecentAchievements = async () => {
       recentAchievements.value = res.data || []
     }
   } catch (e) {
-    console.error('获取成就记录失败', e)
+    debugError('获取成就记录失败', e)
   }
 }
 
@@ -368,13 +379,13 @@ const initTrendChart = () => {
   if (!trendChartRef.value || consumptionTrend.value.length === 0) return
   
   if (trendChart) trendChart.dispose()
-  trendChart = echarts.init(trendChartRef.value)
+  trendChart = init(trendChartRef.value)
   
   const months = consumptionTrend.value.map(t => t.month)
   const amounts = consumptionTrend.value.map(t => t.totalAmount || 0)
   const orders = consumptionTrend.value.map(t => t.orderCount || 0)
   
-  const option: echarts.EChartsOption = {
+  const option: EChartsOption = {
     tooltip: { trigger: 'axis' },
     legend: { data: ['消费总额', '订单数'], bottom: 0 },
     grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },

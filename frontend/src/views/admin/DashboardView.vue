@@ -118,7 +118,18 @@
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
-import * as echarts from 'echarts'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { BarChart, LineChart, PieChart } from 'echarts/charts'
+import {
+  GridComponent,
+  LegendComponent,
+  TooltipComponent
+} from 'echarts/components'
+import { graphic, init, type ECharts } from 'echarts/core'
+import { debugError } from '@/utils/debug'
+
+use([CanvasRenderer, BarChart, LineChart, PieChart, GridComponent, LegendComponent, TooltipComponent])
 
 const stats = reactive({
   totalUsers: 0,
@@ -140,9 +151,9 @@ const salesChartRef = ref<HTMLElement | null>(null)
 const orderPieRef = ref<HTMLElement | null>(null)
 const categoryBarRef = ref<HTMLElement | null>(null)
 
-let salesChart: echarts.ECharts | null = null
-let orderPieChart: echarts.ECharts | null = null
-let categoryBarChart: echarts.ECharts | null = null
+let salesChart: ECharts | null = null
+let orderPieChart: ECharts | null = null
+let categoryBarChart: ECharts | null = null
 
 const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 5: '退款中', 6: '申请取消中' }[status] || '未知')
 const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled', 5: 'refunding', 6: 'cancel-requested' }[status] || '')
@@ -156,7 +167,7 @@ const formatDate = (dateStr: string) => {
 // 初始化销售趋势图
 const initSalesChart = () => {
   if (!salesChartRef.value) return
-  salesChart = echarts.init(salesChartRef.value)
+  salesChart = init(salesChartRef.value)
   
   // 计算近7天数据
   const days: string[] = []
@@ -187,8 +198,8 @@ const initSalesChart = () => {
       { type: 'value', name: '订单数', axisLine: { show: false }, splitLine: { show: false }, axisLabel: { color: '#666' } }
     ],
     series: [
-      { name: '销售额', type: 'bar', data: salesData, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#9b87f5' }, { offset: 1, color: 'rgba(155, 135, 245, 0.6)' }]), borderRadius: [4, 4, 0, 0] } },
-      { name: '订单数', type: 'line', yAxisIndex: 1, data: orderCountData, smooth: true, itemStyle: { color: '#f5a623' }, lineStyle: { width: 3 }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(245, 166, 35, 0.3)' }, { offset: 1, color: 'rgba(245, 166, 35, 0.05)' }]) } }
+      { name: '销售额', type: 'bar', data: salesData, itemStyle: { color: new graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#9b87f5' }, { offset: 1, color: 'rgba(155, 135, 245, 0.6)' }]), borderRadius: [4, 4, 0, 0] } },
+      { name: '订单数', type: 'line', yAxisIndex: 1, data: orderCountData, smooth: true, itemStyle: { color: '#f5a623' }, lineStyle: { width: 3 }, areaStyle: { color: new graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(245, 166, 35, 0.3)' }, { offset: 1, color: 'rgba(245, 166, 35, 0.05)' }]) } }
     ]
   })
 }
@@ -196,7 +207,7 @@ const initSalesChart = () => {
 // 初始化订单状态饼图
 const initOrderPieChart = () => {
   if (!orderPieRef.value) return
-  orderPieChart = echarts.init(orderPieRef.value)
+  orderPieChart = init(orderPieRef.value)
   
   const statusCount = [
     { value: allOrders.value.filter(o => o.orderStatus === 0).length, name: '待付款' },
@@ -227,7 +238,7 @@ const initOrderPieChart = () => {
 // 初始化分类销量柱状图
 const initCategoryBarChart = () => {
   if (!categoryBarRef.value) return
-  categoryBarChart = echarts.init(categoryBarRef.value)
+  categoryBarChart = init(categoryBarRef.value)
   
   // 统计各分类销量
   const categoryMap = new Map<string, number>()
@@ -249,7 +260,7 @@ const initCategoryBarChart = () => {
       type: 'bar',
       data: sortedCategories.map(c => c[1]).reverse(),
       itemStyle: { 
-        color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+        color: new graphic.LinearGradient(0, 0, 1, 0, [
           { offset: 0, color: '#667eea' },
           { offset: 1, color: '#764ba2' }
         ]),
@@ -300,7 +311,7 @@ const fetchStats = async () => {
     initOrderPieChart()
     initCategoryBarChart()
   } catch (e) {
-    console.error('获取统计数据失败:', e)
+    debugError('获取仪表盘统计数据失败:', e)
   }
 }
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="detail-page">
+  <div class="detail-page" data-testid="product-detail-view">
     <div class="deco-layer">
       <div class="shape s1"></div>
       <div class="shape s2"></div>
@@ -132,6 +132,7 @@
             <div class="action-row">
               <button 
                 class="btn btn-glass" 
+                data-testid="product-add-to-cart"
                 @click.prevent.stop="addToCart"
                 :disabled="!canAddToCart || addingToCart"
               >
@@ -139,6 +140,7 @@
               </button>
               <button 
                 class="btn btn-primary" 
+                data-testid="product-buy-now"
                 @click.prevent.stop="buyNow"
                 :disabled="!canBuyNow"
               >
@@ -381,7 +383,15 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import * as echarts from 'echarts'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { LineChart } from 'echarts/charts'
+import {
+  GridComponent,
+  LegendComponent,
+  TooltipComponent
+} from 'echarts/components'
+import { graphic, init, type ECharts, type EChartsOption } from 'echarts/core'
 import productApi from '../api/productApi'
 import reviewApi from '../api/reviewApi'
 import fileApi from '../api/fileApi'
@@ -392,6 +402,9 @@ import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import { debugError, debugLog } from '@/utils/debug'
+
+use([CanvasRenderer, LineChart, GridComponent, LegendComponent, TooltipComponent])
 
 const route = useRoute()
 const router = useRouter()
@@ -411,7 +424,7 @@ const priceStats = ref<PriceStats | null>(null)
 const priceAlert = ref<PriceAlert | null>(null)
 const showPriceChart = ref(false)
 const priceChartRef = ref<HTMLDivElement>()
-let priceChart: echarts.ECharts | null = null
+let priceChart: ECharts | null = null
 const targetPrice = ref<number>(0)
 const showAlertDialog = ref(false)
 
@@ -567,20 +580,20 @@ const fetchReviews = async () => {
       reviewStats.value = statsRes.data || { total: 0, avgRating: 0, goodRate: 100 }
     }
   } catch (e) {
-    console.error('获取评价失败', e)
+    debugError('获取评价失败', e)
   }
 }
 
 const addToCart = async () => {
   // 双重锁：先检查非响应式锁（更快）
   if (isAddingToCart) {
-    console.log('防止并发：非响应式锁生效')
+    debugLog('防止并发：非响应式锁生效')
     return
   }
   
   // 再检查响应式锁
   if (addingToCart.value) {
-    console.log('防止并发：响应式锁生效')
+    debugLog('防止并发：响应式锁生效')
     return
   }
   
@@ -685,7 +698,7 @@ const fetchPriceHistory = async () => {
       priceStats.value = statsRes.data
     }
   } catch (e) {
-    console.error('获取价格历史失败', e)
+    debugError('获取价格历史失败', e)
   }
 }
 
@@ -699,7 +712,7 @@ const fetchPriceAlert = async () => {
       priceAlert.value = res.data
     }
   } catch (e) {
-    console.error('获取降价提醒失败', e)
+    debugError('获取降价提醒失败', e)
   }
 }
 
@@ -713,7 +726,7 @@ const checkDuplicatePurchase = async () => {
       duplicateWarnings.value = res.data || []
     }
   } catch (e) {
-    console.error('检测重复购买失败', e)
+    debugError('检测重复购买失败', e)
   }
 }
 
@@ -725,12 +738,12 @@ const initPriceChart = () => {
     priceChart.dispose()
   }
   
-  priceChart = echarts.init(priceChartRef.value)
+  priceChart = init(priceChartRef.value)
   
   const dates = priceHistory.value.map(h => h.recordedTime.substring(0, 10))
   const prices = priceHistory.value.map(h => h.price)
   
-  const option: echarts.EChartsOption = {
+  const option: EChartsOption = {
     tooltip: {
       trigger: 'axis',
       backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -806,7 +819,7 @@ const initPriceChart = () => {
           width: 2
         },
         areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          color: new graphic.LinearGradient(0, 0, 0, 1, [
             { offset: 0, color: 'rgba(155, 135, 245, 0.3)' },
             { offset: 1, color: 'rgba(155, 135, 245, 0.05)' }
           ])
@@ -952,7 +965,7 @@ const checkWishlistStatus = async () => {
       isInWishlist.value = res.data?.inWishlist || false
     }
   } catch (e) {
-    console.error('检查想要清单状态失败', e)
+    debugError('检查想要清单状态失败', e)
   }
 }
 

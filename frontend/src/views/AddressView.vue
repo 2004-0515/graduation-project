@@ -85,6 +85,7 @@ import { useUserStore } from '../stores/userStore'
 import addressApi from '../api/addressApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import { debugError } from '@/utils/debug'
 
 const userStore = useUserStore()
 const addresses = ref<any[]>([])
@@ -251,24 +252,20 @@ const fetchAddresses = async () => {
   if (!userStore.userInfo?.id) return
   try {
     const res: any = await addressApi.getUserAddresses(userStore.userInfo.id)
-    console.log('获取地址列表响应:', res)
     if (res?.code === 200 || res?.success) {
       addresses.value = res.data || []
-      console.log('地址列表:', addresses.value)
     }
   } catch (error) {
-    console.error('获取地址失败:', error)
+    debugError('获取地址失败:', error)
   }
 }
 
 const saveAddress = async () => {
   try {
     const data = { ...addressForm, userId: userStore.userInfo?.id }
-    console.log('保存地址请求数据:', data)
     let res: any
     if (isEdit.value && editId.value) {
       res = await addressApi.updateAddress(editId.value, data)
-      console.log('更新地址响应:', res)
       if (res?.code === 200 || res?.success) {
         ElMessage.success('修改成功')
       } else {
@@ -277,7 +274,6 @@ const saveAddress = async () => {
       }
     } else {
       res = await addressApi.addAddress(data)
-      console.log('添加地址响应:', res)
       if (res?.code === 200 || res?.success) {
         ElMessage.success('添加成功')
       } else {
@@ -288,7 +284,7 @@ const saveAddress = async () => {
     dialogVisible.value = false
     fetchAddresses()
   } catch (error: any) {
-    console.error('保存地址失败:', error)
+    debugError('保存地址失败:', error)
     ElMessage.error(error?.message || '保存失败')
   }
 }

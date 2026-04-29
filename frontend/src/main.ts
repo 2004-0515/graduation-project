@@ -1,8 +1,5 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
-import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import './style.css'
 import App from './App.vue'
 import router from './router'
@@ -17,7 +14,6 @@ const pinia = createPinia()
 // 注册插件
 app.use(router)
 app.use(pinia)
-app.use(ElementPlus, { locale: zhCn })
 
 // 初始化用户信息
 const userStore = useUserStore()

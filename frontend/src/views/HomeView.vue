@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="home">
+  <div class="home" data-testid="home-view">
     <div class="deco-layer">
       <div class="deco-bg"></div>
       <div class="deco-shapes">
@@ -63,7 +63,13 @@
             <button class="hot-arrow prev" @click="prevHot" :disabled="hotIndex === 0"><span>&lt;</span></button>
             <div class="hot-track-wrapper">
               <div class="hot-track" :style="{ transform: `translateX(-${hotIndex * 25}%)` }">
-                <div v-for="g in hotGames" :key="g.id" class="game-card glass-card" @click="toGame(g.id)">
+                <div
+                  v-for="g in hotGames"
+                  :key="g.id"
+                  class="game-card glass-card"
+                  data-testid="home-product-card"
+                  @click="toGame(g.id)"
+                >
                   <div class="game-cover">
                     <img :src="getImageUrl(g.mainImage)" :alt="g.name" @error="imgErr" />
                     <div class="cover-overlay">
@@ -294,10 +300,10 @@ const claimQuickCoupon = async (coupon: any) => {
     const res: any = await couponApi.claimCoupon(coupon.id)
     if (res?.code === 200) {
       coupon.claimed = true
-      import('element-plus').then(({ ElMessage }) => ElMessage.success('领取成功'))
+      ElMessage.success('领取成功')
     }
   } catch (e: any) {
-    import('element-plus').then(({ ElMessage }) => ElMessage.error(e?.response?.data?.message || '领取失败'))
+    ElMessage.error(e?.response?.data?.message || '领取失败')
   }
 }
 

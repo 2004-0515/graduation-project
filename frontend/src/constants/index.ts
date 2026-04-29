@@ -1,10 +1,3 @@
-/**
- * 前端常量定义文件
- * 消除魔法数字，提高代码可维护性
- */
-
-// ==================== 订单状态 ====================
-
 export const ORDER_STATUS = {
   PENDING_PAYMENT: 0,
   PENDING_SHIPMENT: 1,
@@ -35,8 +28,6 @@ export const ORDER_STATUS_OPTIONS = [
   { label: '申请取消中', value: ORDER_STATUS.CANCEL_REQUESTED }
 ]
 
-// ==================== 支付状态 ====================
-
 export const PAYMENT_STATUS = {
   UNPAID: 0,
   PAID: 1,
@@ -48,8 +39,6 @@ export const PAYMENT_STATUS_MAP: Record<number, string> = {
   [PAYMENT_STATUS.PAID]: '已支付',
   [PAYMENT_STATUS.FAILED]: '支付失败'
 }
-
-// ==================== 支付方式 ====================
 
 export const PAYMENT_METHOD = {
   WECHAT: 1,
@@ -66,8 +55,6 @@ export const PAYMENT_METHOD_OPTIONS = [
   { label: '支付宝', value: PAYMENT_METHOD.ALIPAY }
 ]
 
-// ==================== 商品状态 ====================
-
 export const PRODUCT_STATUS = {
   OFF_SHELF: 0,
   ON_SHELF: 1
@@ -77,8 +64,6 @@ export const PRODUCT_STATUS_MAP: Record<number, string> = {
   [PRODUCT_STATUS.OFF_SHELF]: '已下架',
   [PRODUCT_STATUS.ON_SHELF]: '在售'
 }
-
-// ==================== 商品审核状态 ====================
 
 export const AUDIT_STATUS = {
   PENDING: 0,
@@ -92,8 +77,6 @@ export const AUDIT_STATUS_MAP: Record<number, string> = {
   [AUDIT_STATUS.REJECTED]: '已拒绝'
 }
 
-// ==================== 文件审核状态 ====================
-
 export const FILE_REVIEW_STATUS = {
   PENDING: 0,
   APPROVED: 1,
@@ -106,8 +89,6 @@ export const FILE_REVIEW_STATUS_MAP: Record<number, string> = {
   [FILE_REVIEW_STATUS.REJECTED]: '已拒绝'
 }
 
-// ==================== 卖家发货状态 ====================
-
 export const SHIP_STATUS = {
   PENDING: 0,
   SHIPPED: 1
@@ -118,22 +99,16 @@ export const SHIP_STATUS_MAP: Record<number, string> = {
   [SHIP_STATUS.SHIPPED]: '已发货'
 }
 
-// ==================== 用户状态 ====================
-
 export const USER_STATUS = {
   DISABLED: 0,
   ENABLED: 1
 } as const
 
-// ==================== 分页配置 ====================
-
 export const PAGINATION = {
-  DEFAULT_PAGE: 0,
+  DEFAULT_PAGE: 1,
   DEFAULT_SIZE: 10,
   PAGE_SIZES: [10, 20, 50, 100]
 } as const
-
-// ==================== 表单验证规则 ====================
 
 export const VALIDATION = {
   USERNAME: {
@@ -156,8 +131,6 @@ export const VALIDATION = {
   }
 } as const
 
-// ==================== 本地存储键 ====================
-
 export const STORAGE_KEYS = {
   TOKEN: 'token',
   USER_INFO: 'userInfo',
@@ -165,8 +138,6 @@ export const STORAGE_KEYS = {
   THEME: 'theme',
   LANGUAGE: 'language'
 } as const
-
-// ==================== HTTP 状态码 ====================
 
 export const HTTP_STATUS = {
   OK: 200,
@@ -177,8 +148,6 @@ export const HTTP_STATUS = {
   UNPROCESSABLE_ENTITY: 422,
   INTERNAL_SERVER_ERROR: 500
 } as const
-
-// ==================== API 路径 ====================
 
 export const API_PATHS = {
   AUTH: {
@@ -218,13 +187,10 @@ export const API_PATHS = {
   }
 } as const
 
-
-// ==================== 优惠券类型 ====================
-
 export const COUPON_TYPE = {
-  REDUCE: 1,      // 满减券
-  DISCOUNT: 2,    // 折扣券
-  NO_THRESHOLD: 3 // 无门槛券
+  REDUCE: 1,
+  DISCOUNT: 2,
+  NO_THRESHOLD: 3
 } as const
 
 export const COUPON_TYPE_MAP: Record<number, string> = {
@@ -233,19 +199,15 @@ export const COUPON_TYPE_MAP: Record<number, string> = {
   [COUPON_TYPE.NO_THRESHOLD]: '无门槛券'
 }
 
-// ==================== 优惠券状态 ====================
-
 export const COUPON_STATUS = {
   DISABLED: 0,
   ENABLED: 1
 } as const
 
 export const COUPON_STATUS_MAP: Record<number, string> = {
-  [COUPON_STATUS.DISABLED]: '禁用',
-  [COUPON_STATUS.ENABLED]: '启用'
+  [COUPON_STATUS.DISABLED]: '已停用',
+  [COUPON_STATUS.ENABLED]: '可用'
 }
-
-// ==================== 用户优惠券状态 ====================
 
 export const USER_COUPON_STATUS = {
   UNUSED: 0,
@@ -259,8 +221,6 @@ export const USER_COUPON_STATUS_MAP: Record<number, string> = {
   [USER_COUPON_STATUS.EXPIRED]: '已过期'
 }
 
-// ==================== 价格提醒状态 ====================
-
 export const PRICE_ALERT_STATUS = {
   MONITORING: 0,
   TRIGGERED: 1,
@@ -273,9 +233,6 @@ export const PRICE_ALERT_STATUS_MAP: Record<number, string> = {
   [PRICE_ALERT_STATUS.CANCELLED]: '已取消'
 }
 
-
-// ==================== 通知类型 ====================
-
 export const NOTIFICATION_TYPE = {
   SYSTEM: 'system',
   PROMOTION: 'promotion',
@@ -285,22 +242,17 @@ export const NOTIFICATION_TYPE = {
 } as const
 
 export const NOTIFICATION_TYPE_MAP: Record<string, string> = {
-  [NOTIFICATION_TYPE.SYSTEM]: '系统通知',
-  [NOTIFICATION_TYPE.PROMOTION]: '促销通知',
-  [NOTIFICATION_TYPE.ORDER]: '订单通知',
+  [NOTIFICATION_TYPE.SYSTEM]: '系统',
+  [NOTIFICATION_TYPE.PROMOTION]: '促销',
+  [NOTIFICATION_TYPE.ORDER]: '订单',
   [NOTIFICATION_TYPE.FILE_REVIEW]: '文件审核',
-  [NOTIFICATION_TYPE.PRODUCT]: '商品通知'
+  [NOTIFICATION_TYPE.PRODUCT]: '商品'
 }
-
-// ==================== 通知状态 ====================
 
 export const NOTIFICATION_STATUS = {
   UNREAD: 0,
   READ: 1
 } as const
-
-
-// ==================== 文件类型 ====================
 
 export const FILE_TYPE = {
   AVATAR: 'AVATAR',
@@ -311,24 +263,22 @@ export const FILE_TYPE = {
 } as const
 
 export const FILE_TYPE_MAP: Record<string, string> = {
-  [FILE_TYPE.AVATAR]: '用户头像',
+  [FILE_TYPE.AVATAR]: '头像',
   [FILE_TYPE.PRODUCT]: '商品图片',
   [FILE_TYPE.REVIEW]: '评价图片',
   [FILE_TYPE.CATEGORY]: '分类图片',
-  [FILE_TYPE.PROMOTION]: '促销图片'
+  [FILE_TYPE.PROMOTION]: '活动图片'
 }
 
-// ==================== 心愿单状态 ====================
-
 export const WISHLIST_STATUS = {
-  COOLING: 0,    // 冷静中
-  READY: 1,      // 可购买
-  PURCHASED: 2,  // 已购买
-  REMOVED: 3     // 已移除
+  COOLING: 0,
+  READY: 1,
+  PURCHASED: 2,
+  REMOVED: 3
 } as const
 
 export const WISHLIST_STATUS_MAP: Record<number, string> = {
-  [WISHLIST_STATUS.COOLING]: '冷静中',
+  [WISHLIST_STATUS.COOLING]: '冷静期中',
   [WISHLIST_STATUS.READY]: '可购买',
   [WISHLIST_STATUS.PURCHASED]: '已购买',
   [WISHLIST_STATUS.REMOVED]: '已移除'

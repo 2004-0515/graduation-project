@@ -5,35 +5,26 @@
     <main class="main-content">
       <div class="container">
         <div class="profile-layout">
-          <!-- 侧边栏 -->
           <aside class="sidebar">
             <div class="user-card">
               <div class="avatar-wrapper">
-                <div class="avatar" @click="previewAvatar" title="点击查看大图">
+                <div class="avatar" @click="previewAvatar" title="预览头像">
                   <img :src="getAvatarUrl(userInfo?.avatar)" alt="头像" />
-                  <div class="avatar-zoom-hint">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
-                    </svg>
-                  </div>
+                  <div class="avatar-zoom-hint">查看</div>
                 </div>
                 <label class="avatar-upload" title="更换头像">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
-                    <circle cx="12" cy="13" r="4"/>
-                  </svg>
+                  修改
                   <input type="file" accept="image/*" @change="handleAvatarChange" />
                 </label>
               </div>
               <h3>{{ userInfo?.nickname || userInfo?.username }}</h3>
               <p class="user-email">{{ userInfo?.email }}</p>
             </div>
-            
-            <!-- 用户统计 -->
+
             <div class="member-stats">
               <div class="stat-item">
                 <span class="stat-num">{{ orderCount }}</span>
-                <span class="stat-label">订单数</span>
+                <span class="stat-label">订单</span>
               </div>
               <div class="stat-item">
                 <span class="stat-num">{{ cartCount }}</span>
@@ -41,64 +32,31 @@
               </div>
               <div class="stat-item">
                 <span class="stat-num">{{ priceAlertCount }}</span>
-                <span class="stat-label">降价提醒</span>
+                <span class="stat-label">提醒</span>
               </div>
             </div>
 
             <nav class="sidebar-nav">
-              <router-link to="/profile" class="nav-item active">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                </svg>
-                个人信息
-              </router-link>
-              <router-link to="/orders" class="nav-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                </svg>
-                我的订单
-              </router-link>
-              <router-link to="/my-products" class="nav-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
-                </svg>
-                我的商品
-              </router-link>
+              <router-link to="/profile" class="nav-item active">个人资料</router-link>
+              <router-link to="/orders" class="nav-item">我的订单</router-link>
+              <router-link to="/my-products" class="nav-item">我的商品</router-link>
               <router-link to="/seller-orders" class="nav-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
-                </svg>
-                卖家发货
+                卖家订单
                 <span v-if="sellerPendingCount > 0" class="nav-badge">{{ sellerPendingCount }}</span>
               </router-link>
               <router-link to="/price-alerts" class="nav-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="12" y1="2" x2="12" y2="4"/>
-                </svg>
                 降价提醒
                 <span v-if="priceAlertCount > 0" class="nav-badge">{{ priceAlertCount }}</span>
               </router-link>
-              <router-link to="/address" class="nav-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
-                </svg>
-                收货地址
-              </router-link>
-              <router-link to="/settings" class="nav-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-                </svg>
-                账户设置
-              </router-link>
+              <router-link to="/address" class="nav-item">收货地址</router-link>
+              <router-link to="/settings" class="nav-item">设置</router-link>
             </nav>
           </aside>
 
-          <!-- 主内容 -->
           <div class="main-panel">
-            <!-- 快捷入口 -->
             <div class="quick-actions">
               <div class="action-item" @click="$router.push('/orders?status=0')">
-                <span class="action-label">待付款</span>
+                <span class="action-label">待支付</span>
                 <span class="action-count">{{ pendingPayment }}</span>
               </div>
               <div class="action-item" @click="$router.push('/orders?status=1')">
@@ -119,20 +77,19 @@
               </div>
             </div>
 
-            <!-- 个人信息表单 -->
             <div class="panel-section">
               <div class="section-header">
-                <h2>个人信息</h2>
-                <span class="edit-tip">修改后请点击保存</span>
+                <h2>个人资料</h2>
+                <span class="edit-tip">修改后记得保存。</span>
               </div>
               <div class="section-body">
                 <el-form :model="profileForm" label-position="top" class="profile-form">
                   <div class="form-row">
                     <el-form-item label="用户名">
-                      <el-input v-model="profileForm.username" disabled prefix-icon="User" />
+                      <el-input v-model="profileForm.username" disabled />
                     </el-form-item>
                     <el-form-item label="昵称">
-                      <el-input v-model="profileForm.nickname" placeholder="设置一个昵称" />
+                      <el-input v-model="profileForm.nickname" placeholder="设置展示昵称" />
                     </el-form-item>
                   </div>
                   <div class="form-row">
@@ -140,38 +97,42 @@
                       <el-input v-model="profileForm.email" placeholder="用于接收通知" />
                     </el-form-item>
                     <el-form-item label="手机号">
-                      <el-input v-model="profileForm.phone" placeholder="用于接收短信" />
+                      <el-input v-model="profileForm.phone" placeholder="用于联系沟通" />
                     </el-form-item>
                   </div>
                   <el-form-item label="个人简介">
-                    <el-input v-model="profileForm.bio" type="textarea" :rows="3" placeholder="介绍一下自己吧" />
+                    <el-input
+                      v-model="profileForm.bio"
+                      type="textarea"
+                      :rows="3"
+                      placeholder="简单介绍一下自己"
+                    />
                   </el-form-item>
                   <el-form-item>
-                    <button type="button" class="save-btn" @click="saveProfile">保存修改</button>
+                    <button type="button" class="save-btn" @click="saveProfile">保存资料</button>
                   </el-form-item>
                 </el-form>
               </div>
             </div>
 
-            <!-- 安全设置 -->
             <div class="panel-section">
               <div class="section-header">
-                <h2>安全设置</h2>
+                <h2>账号安全</h2>
               </div>
               <div class="section-body">
                 <div class="security-item">
                   <div class="security-info">
                     <h4>登录密码</h4>
-                    <p>定期更换密码可以保护账户安全</p>
+                    <p>建议定期修改密码，保障账号安全。</p>
                   </div>
                   <button class="link-btn" @click="showPasswordDialog = true">修改密码</button>
                 </div>
                 <div class="security-item">
                   <div class="security-info">
-                    <h4>绑定手机</h4>
-                    <p>{{ userInfo?.phone ? `已绑定 ${maskPhone(userInfo.phone)}` : '未绑定手机号' }}</p>
+                    <h4>绑定手机号</h4>
+                    <p>{{ userInfo?.phone ? `已绑定：${maskPhone(userInfo.phone)}` : '暂未绑定手机号' }}</p>
                   </div>
-                  <button class="link-btn">{{ userInfo?.phone ? '更换' : '绑定' }}</button>
+                  <button class="link-btn" disabled>{{ userInfo?.phone ? '已绑定' : '暂不可用' }}</button>
                 </div>
               </div>
             </div>
@@ -180,7 +141,6 @@
       </div>
     </main>
 
-    <!-- 修改密码弹窗 -->
     <el-dialog v-model="showPasswordDialog" title="修改密码" width="400px">
       <el-form :model="passwordForm" label-position="top">
         <el-form-item label="当前密码">
@@ -195,11 +155,10 @@
       </el-form>
       <template #footer>
         <button class="btn-cancel" @click="showPasswordDialog = false">取消</button>
-        <button class="btn-confirm" @click="changePassword">确认修改</button>
+        <button class="btn-confirm" @click="changePassword">确认</button>
       </template>
     </el-dialog>
 
-    <!-- 头像预览弹窗 -->
     <Transition name="preview">
       <div v-if="showAvatarPreview" class="avatar-preview-overlay" @click="showAvatarPreview = false">
         <div class="avatar-preview-content" @click.stop>
@@ -207,11 +166,7 @@
           <div class="preview-info">
             <span>{{ userInfo?.nickname || userInfo?.username }}</span>
           </div>
-          <button class="preview-close" @click="showAvatarPreview = false">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+          <button class="preview-close" @click="showAvatarPreview = false">x</button>
         </div>
       </div>
     </Transition>
@@ -221,7 +176,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import { useCartStore } from '../stores/cartStore'
@@ -233,75 +188,22 @@ import Footer from '../components/Footer.vue'
 
 const userStore = useUserStore()
 const cartStore = useCartStore()
+
 const userInfo = computed(() => userStore.userInfo)
-const userInitial = computed(() => userInfo.value?.nickname?.charAt(0) || userInfo.value?.username?.charAt(0).toUpperCase() || 'U')
+const userInitial = computed(
+  () => userInfo.value?.nickname?.charAt(0) || userInfo.value?.username?.charAt(0)?.toUpperCase() || 'U'
+)
+
 const showAvatarPreview = ref(false)
-
-const previewAvatar = () => {
-  showAvatarPreview.value = true
-}
-
-// 生成默认头像URL（与导航栏保持一致）
-const getDefaultAvatarUrl = (initial: string) => {
-  return 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#FFB7D5"/><stop offset="50%" style="stop-color:#C7A3FF"/><stop offset="100%" style="stop-color:#A3D5FF"/></linearGradient></defs><rect fill="url(#g)" width="100" height="100"/><text x="50" y="62" font-size="42" fill="white" text-anchor="middle" font-family="Arial, sans-serif" font-weight="600">${initial}</text></svg>`)
-}
-
-const getAvatarUrl = (avatar: string | undefined | null) => {
-  if (avatar) {
-    return fileApi.getImageUrl(avatar)
-  }
-  return getDefaultAvatarUrl(userInitial.value)
-}
-
-const handleAvatarChange = async (e: Event) => {
-  const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-
-  // 验证文件类型
-  if (!file.type.startsWith('image/')) {
-    ElMessage.warning('请选择图片文件')
-    return
-  }
-
-  // 验证文件大小 (2MB)
-  if (file.size > 2 * 1024 * 1024) {
-    ElMessage.warning('图片大小不能超过2MB')
-    return
-  }
-
-  try {
-    const res: any = await fileApi.uploadAvatar(file)
-    if (res?.code === 200) {
-      // 刷新用户信息
-      await userStore.fetchCurrentUser()
-      // 检查返回消息是否包含审核提示
-      const msg = res.message || ''
-      if (msg.includes('审核')) {
-        ElMessage.success('头像上传成功，等待管理员审核后生效')
-      } else {
-        ElMessage.success('头像更换成功')
-      }
-    } else {
-      ElMessage.error(res?.message || '上传失败')
-    }
-  } catch (error: any) {
-    console.error('头像上传失败:', error)
-    ElMessage.error(error.response?.data?.message || error.message || '上传失败')
-  }
-
-  input.value = ''
-}
-
 const orderCount = ref(0)
 const pendingPayment = ref(0)
 const pendingShipment = ref(0)
 const pendingReceive = ref(0)
-const cartCount = computed(() => cartStore.items.length)
 const priceAlertCount = ref(0)
 const sellerPendingCount = ref(0)
-
 const showPasswordDialog = ref(false)
+
+const cartCount = computed(() => cartStore.items.length)
 
 const profileForm = reactive({
   username: '',
@@ -317,9 +219,59 @@ const passwordForm = reactive({
   confirmPassword: ''
 })
 
+const previewAvatar = () => {
+  showAvatarPreview.value = true
+}
+
+const getDefaultAvatarUrl = (initial: string) =>
+  'data:image/svg+xml,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#FFB7D5"/><stop offset="50%" style="stop-color:#C7A3FF"/><stop offset="100%" style="stop-color:#A3D5FF"/></linearGradient></defs><rect fill="url(#g)" width="100" height="100"/><text x="50" y="62" font-size="42" fill="white" text-anchor="middle" font-family="Arial, sans-serif" font-weight="600">${initial}</text></svg>`
+  )
+
+const getAvatarUrl = (avatar: string | undefined | null) => {
+  if (avatar) {
+    return fileApi.getImageUrl(avatar)
+  }
+  return getDefaultAvatarUrl(userInitial.value)
+}
+
+const handleAvatarChange = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning('请选择图片文件')
+    input.value = ''
+    return
+  }
+
+  if (file.size > 2 * 1024 * 1024) {
+    ElMessage.warning('头像大小不能超过 2MB')
+    input.value = ''
+    return
+  }
+
+  try {
+    const res: any = await fileApi.uploadAvatar(file)
+    if (res?.code === 200) {
+      await userStore.fetchCurrentUser()
+      ElMessage.success(res?.message || '头像更新成功')
+    } else {
+      ElMessage.error(res?.message || '上传失败')
+    }
+  } catch (error: any) {
+    console.error('头像上传失败:', error)
+    ElMessage.error(error?.response?.data?.message || error?.message || '上传失败')
+  }
+
+  input.value = ''
+}
+
 const maskPhone = (phone: string) => {
   if (!phone || phone.length < 7) return phone
-  return phone.slice(0, 3) + '****' + phone.slice(-4)
+  return `${phone.slice(0, 3)}****${phone.slice(-4)}`
 }
 
 const saveProfile = async () => {
@@ -330,17 +282,23 @@ const saveProfile = async () => {
       nickname: profileForm.nickname,
       bio: profileForm.bio
     })
-    ElMessage.success('保存成功')
-  } catch (error) {
-    ElMessage.error('保存失败')
+    ElMessage.success('个人资料已保存')
+  } catch (error: any) {
+    ElMessage.error(error?.message || '保存失败')
   }
 }
 
 const changePassword = async () => {
-  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-    ElMessage.warning('两次密码输入不一致')
+  if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+    ElMessage.warning('请完整填写密码信息')
     return
   }
+
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    ElMessage.warning('两次输入的新密码不一致')
+    return
+  }
+
   try {
     await userStore.changePassword({
       currentPassword: passwordForm.currentPassword,
@@ -349,8 +307,49 @@ const changePassword = async () => {
     })
     ElMessage.success('密码修改成功')
     showPasswordDialog.value = false
+    passwordForm.currentPassword = ''
+    passwordForm.newPassword = ''
+    passwordForm.confirmPassword = ''
   } catch (error: any) {
-    ElMessage.error(error.message || '修改失败')
+    ElMessage.error(error?.message || '密码修改失败')
+  }
+}
+
+const loadOrderStats = async () => {
+  try {
+    const res: any = await orderApi.getUserOrders()
+    if (res?.code === 200) {
+      const orders = Array.isArray(res.data) ? res.data : []
+      orderCount.value = orders.length
+      pendingPayment.value = orders.filter((item: any) => item.orderStatus === 0).length
+      pendingShipment.value = orders.filter((item: any) => item.orderStatus === 1).length
+      pendingReceive.value = orders.filter((item: any) => item.orderStatus === 2).length
+    }
+  } catch (error) {
+    console.error('获取订单统计失败:', error)
+  }
+}
+
+const loadPriceAlertCount = async () => {
+  try {
+    const res: any = await axios.get('/price/alerts')
+    if (res?.code === 200) {
+      const alerts = Array.isArray(res.data) ? res.data : []
+      priceAlertCount.value = alerts.filter((item: any) => item.status === 0).length
+    }
+  } catch (error) {
+    console.error('获取降价提醒失败:', error)
+  }
+}
+
+const loadSellerPendingCount = async () => {
+  try {
+    const res: any = await axios.get('/orders/seller/pending/count')
+    if (res?.code === 200) {
+      sellerPendingCount.value = Number(res.data || 0)
+    }
+  } catch (error) {
+    console.error('获取卖家待处理数量失败:', error)
   }
 }
 
@@ -362,90 +361,24 @@ onMounted(async () => {
     profileForm.nickname = userInfo.value.nickname || ''
     profileForm.bio = userInfo.value.bio || ''
   }
-  
-  // 获取订单统计
-  try {
-    const res: any = await orderApi.getOrders(1, 100)
-    if (res?.code === 200) {
-      const orders = res.data?.content || res.data?.records || res.data || []
-      orderCount.value = orders.length
-      pendingPayment.value = orders.filter((o: any) => o.orderStatus === 0).length
-      pendingShipment.value = orders.filter((o: any) => o.orderStatus === 1).length
-      pendingReceive.value = orders.filter((o: any) => o.orderStatus === 2).length
+
+  if (cartStore.items.length === 0) {
+    try {
+      await cartStore.fetchCart()
+    } catch (error) {
+      console.error('获取购物车失败:', error)
     }
-  } catch (e) {
-    console.error('获取订单统计失败:', e)
   }
-  
-  // 获取降价提醒数量
-  try {
-    const res: any = await axios.get('/price/alerts')
-    if (res?.code === 200) {
-      const alerts = res.data || []
-      priceAlertCount.value = alerts.filter((a: any) => a.status === 0).length
-    }
-  } catch (e) {
-    console.error('获取降价提醒数量失败:', e)
-  }
-  
-  // 获取卖家待发货数量
-  try {
-    const res: any = await axios.get('/orders/seller/pending/count')
-    if (res?.code === 200) {
-      sellerPendingCount.value = res.data || 0
-    }
-  } catch (e) {
-    console.error('获取卖家待发货数量失败:', e)
-  }
+
+  await Promise.all([loadOrderStats(), loadPriceAlertCount(), loadSellerPendingCount()])
 })
 </script>
 
 <style scoped>
 .profile-page { min-height: 100vh; background: var(--white); position: relative; }
-
-.profile-page::before {
-  content: '';
-  position: fixed;
-  top: 5%;
-  right: -5%;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent);
-  opacity: 0.5;
-  filter: blur(80px);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 0;
-  animation: float 20s ease-in-out infinite;
-}
-
-.profile-page::after {
-  content: '';
-  position: fixed;
-  bottom: 10%;
-  left: -5%;
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent);
-  opacity: 0.5;
-  filter: blur(80px);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 0;
-  animation: float 20s ease-in-out infinite reverse;
-}
-
-@keyframes float {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -30px) scale(1.05); }
-  66% { transform: translate(-20px, 20px) scale(0.95); }
-}
-
 .main-content { position: relative; z-index: 1; padding: 100px 0 80px; }
 .profile-layout { display: grid; grid-template-columns: 280px 1fr; gap: 24px; }
-
-/* Sidebar */
-.sidebar { 
+.sidebar {
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(24px);
   border: 1px solid var(--gray-200);
@@ -456,221 +389,67 @@ onMounted(async () => {
   position: sticky;
   top: 88px;
 }
-
 .user-card { padding: 32px 24px 24px; text-align: center; background: linear-gradient(180deg, rgba(155, 135, 245, 0.05) 0%, transparent 100%); }
 .avatar-wrapper { position: relative; width: 80px; height: 80px; margin: 0 auto 16px; }
-.avatar { width: 80px; height: 80px; background: var(--primary); color: var(--white); font-size: 32px; font-weight: 600; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(155, 135, 245, 0.4); overflow: hidden; }
+.avatar { width: 80px; height: 80px; background: var(--primary); color: var(--white); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(155, 135, 245, 0.4); overflow: hidden; cursor: pointer; position: relative; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
-.avatar-upload { position: absolute; bottom: 0; right: 0; width: 28px; height: 28px; background: var(--white); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15); transition: all 0.3s; }
-.avatar-upload:hover { background: var(--primary); color: var(--white); transform: scale(1.1); }
+.avatar-zoom-hint { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; color: #fff; opacity: 0; transition: opacity 0.3s; }
+.avatar:hover .avatar-zoom-hint { opacity: 1; }
+.avatar-upload { position: absolute; bottom: 0; right: 0; min-width: 36px; height: 28px; background: var(--white); border-radius: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15); transition: all 0.3s; font-size: 12px; padding: 0 8px; }
+.avatar-upload:hover { background: var(--primary); color: var(--white); }
 .avatar-upload input { display: none; }
 .user-card h3 { margin: 0 0 8px; font-size: 20px; font-weight: 600; color: var(--text-primary); }
 .user-email { margin: 0; font-size: 14px; color: var(--text-tertiary); }
-.user-level { margin: 0; font-size: 14px; color: var(--text-tertiary); display: flex; flex-direction: column; gap: 6px; align-items: center; }
-.level-badge { display: inline-block; padding: 4px 14px; background: var(--primary); color: var(--white); border-radius: 12px; font-size: 12px; font-weight: 500; }
-
 .member-stats { display: grid; grid-template-columns: repeat(3, 1fr); padding: 20px; border-bottom: 1px solid var(--gray-200); }
 .stat-item { text-align: center; }
 .stat-num { display: block; font-size: 22px; font-weight: 600; color: var(--primary); }
 .stat-label { font-size: 13px; color: var(--text-tertiary); }
-
 .sidebar-nav { padding: 12px; }
 .nav-item { display: flex; align-items: center; gap: 12px; padding: 14px 18px; color: var(--text-secondary); text-decoration: none; border-radius: var(--radius-md); transition: all 0.3s; margin-bottom: 4px; font-size: 15px; }
 .nav-item:hover { background: rgba(155, 135, 245, 0.1); color: var(--primary); }
 .nav-item.active { background: rgba(155, 135, 245, 0.15); color: var(--primary); font-weight: 500; }
-.nav-badge { 
-  display: inline-block; 
-  min-width: 18px; 
-  height: 18px; 
-  line-height: 18px; 
-  padding: 0 6px; 
-  margin-left: auto; 
-  font-size: 12px; 
-  background: #f56c6c; 
-  color: #fff; 
-  border-radius: 9px; 
-  text-align: center;
-}
-
-/* Main Panel */
+.nav-badge { display: inline-block; min-width: 18px; height: 18px; line-height: 18px; padding: 0 6px; margin-left: auto; font-size: 12px; background: #f56c6c; color: #fff; border-radius: 9px; text-align: center; }
 .quick-actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
-.action-item { 
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(24px);
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-lg);
-  padding: 28px 20px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.4s;
-  box-shadow: 0 4px 20px rgba(155, 135, 245, 0.08);
-}
+.action-item { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(24px); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 28px 20px; text-align: center; cursor: pointer; transition: all 0.4s; box-shadow: 0 4px 20px rgba(155, 135, 245, 0.08); }
 .action-item:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(155, 135, 245, 0.15); border-color: var(--primary); }
 .action-label { display: block; font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
 .action-count { display: block; font-size: 32px; font-weight: 600; color: var(--primary); }
-
-.panel-section { 
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(24px);
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 4px 24px rgba(155, 135, 245, 0.08);
-  margin-bottom: 24px;
-}
+.panel-section { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(24px); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); box-shadow: 0 4px 24px rgba(155, 135, 245, 0.08); margin-bottom: 24px; }
 .section-header { display: flex; justify-content: space-between; align-items: center; padding: 24px; border-bottom: 1px solid var(--gray-200); }
 .section-header h2 { margin: 0; font-size: 18px; font-weight: 600; color: var(--text-primary); }
 .edit-tip { font-size: 13px; color: var(--text-tertiary); }
 .section-body { padding: 24px; }
-
-.profile-form { max-width: 100%; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 :deep(.el-form-item__label) { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
 :deep(.el-input__wrapper) { border-radius: var(--radius-md); background: var(--white); border: 1px solid var(--gray-300); box-shadow: none !important; }
 :deep(.el-input__wrapper:hover), :deep(.el-input__wrapper.is-focus) { border-color: var(--primary); }
-
-.save-btn { 
-  padding: 12px 36px; 
-  background: var(--primary);
-  color: var(--white); 
-  border: none; 
-  border-radius: var(--radius-xl); 
-  font-size: 15px; 
-  font-weight: 500; 
-  cursor: pointer; 
-  transition: all 0.3s;
-  box-shadow: 0 4px 20px rgba(155, 135, 245, 0.3);
-}
-.save-btn:hover { 
-  background: var(--primary-light);
-  box-shadow: 0 6px 30px rgba(155, 135, 245, 0.4);
-  transform: translateY(-2px); 
-}
-
+.save-btn { padding: 12px 36px; background: var(--primary); color: var(--white); border: none; border-radius: var(--radius-xl); font-size: 15px; font-weight: 500; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 20px rgba(155, 135, 245, 0.3); }
+.save-btn:hover { transform: translateY(-2px); }
 .security-item { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid var(--gray-200); }
 .security-item:last-child { border-bottom: none; }
 .security-info h4 { margin: 0 0 4px; font-size: 15px; font-weight: 600; color: var(--text-primary); }
 .security-info p { margin: 0; font-size: 14px; color: var(--text-tertiary); }
 .link-btn { background: none; border: none; color: var(--primary); font-size: 14px; cursor: pointer; font-weight: 500; }
-.link-btn:hover { text-decoration: underline; }
-
+.link-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 :deep(.el-dialog) { border-radius: var(--radius-lg); }
 :deep(.el-dialog__header) { border-bottom: 1px solid var(--gray-200); padding: 20px 24px; }
 :deep(.el-dialog__body) { padding: 24px; }
 :deep(.el-dialog__footer) { border-top: 1px solid var(--gray-200); padding: 16px 24px; display: flex; justify-content: flex-end; gap: 12px; }
 .btn-cancel, .btn-confirm { padding: 12px 28px; border-radius: var(--radius-xl); font-size: 15px; cursor: pointer; transition: all 0.3s; }
 .btn-cancel { background: transparent; border: 1px solid var(--gray-300); color: var(--text-secondary); }
-.btn-confirm { 
-  background: var(--primary);
-  border: none; 
-  color: var(--white);
-  box-shadow: 0 4px 20px rgba(155, 135, 245, 0.3);
-}
-.btn-confirm:hover {
-  background: var(--primary-light);
-  box-shadow: 0 6px 30px rgba(155, 135, 245, 0.4);
-  transform: translateY(-2px);
-}
-
+.btn-confirm { background: var(--primary); border: none; color: var(--white); }
+.avatar-preview-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); display: flex; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(8px); }
+.avatar-preview-content { position: relative; max-width: 90vw; max-height: 90vh; }
+.avatar-preview-content img { width: 300px; height: 300px; object-fit: cover; border-radius: 50%; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); border: 4px solid rgba(255, 255, 255, 0.2); }
+.preview-info { text-align: center; margin-top: 20px; color: #fff; font-size: 18px; font-weight: 500; }
+.preview-close { position: absolute; top: -50px; right: -50px; width: 44px; height: 44px; background: rgba(255, 255, 255, 0.15); border: none; border-radius: 50%; color: #fff; cursor: pointer; }
+.preview-enter-active, .preview-leave-active { transition: all 0.3s ease; }
+.preview-enter-from, .preview-leave-to { opacity: 0; }
+.preview-enter-from .avatar-preview-content, .preview-leave-to .avatar-preview-content { transform: scale(0.8); }
 @media (max-width: 768px) {
   .profile-layout { grid-template-columns: 1fr; }
   .sidebar { position: static; }
   .quick-actions { grid-template-columns: repeat(2, 1fr); }
   .form-row { grid-template-columns: 1fr; }
-}
-
-/* 头像可点击样式 */
-.avatar {
-  cursor: pointer;
-  position: relative;
-}
-
-.avatar:hover .avatar-zoom-hint {
-  opacity: 1;
-}
-
-.avatar-zoom-hint {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  opacity: 0;
-  transition: opacity 0.3s;
-  border-radius: 50%;
-}
-
-/* 头像预览弹窗 */
-.avatar-preview-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-  backdrop-filter: blur(8px);
-}
-
-.avatar-preview-content {
-  position: relative;
-  max-width: 90vw;
-  max-height: 90vh;
-}
-
-.avatar-preview-content img {
-  width: 300px;
-  height: 300px;
-  object-fit: cover;
-  border-radius: 50%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  border: 4px solid rgba(255, 255, 255, 0.2);
-}
-
-.preview-info {
-  text-align: center;
-  margin-top: 20px;
-  color: #fff;
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.preview-close {
-  position: absolute;
-  top: -50px;
-  right: -50px;
-  width: 44px;
-  height: 44px;
-  background: rgba(255, 255, 255, 0.15);
-  border: none;
-  border-radius: 50%;
-  color: #fff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s;
-}
-
-.preview-close:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: rotate(90deg);
-}
-
-/* 预览动画 */
-.preview-enter-active,
-.preview-leave-active {
-  transition: all 0.3s ease;
-}
-
-.preview-enter-from,
-.preview-leave-to {
-  opacity: 0;
-}
-
-.preview-enter-from .avatar-preview-content,
-.preview-leave-to .avatar-preview-content {
-  transform: scale(0.8);
 }
 </style>
