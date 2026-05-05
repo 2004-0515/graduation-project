@@ -66,6 +66,10 @@ public class Product {
     @Column(name = "stock", nullable = false, columnDefinition = "int default 0")
     private Integer stock;
     
+    @Version
+    @Column(name = "version")
+    private Long version;
+    
     @Column(name = "sales", nullable = false, columnDefinition = "int default 0")
     private Integer sales;
     

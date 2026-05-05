@@ -3,6 +3,9 @@ package com.shopping.repository;
 import com.shopping.entity.Product;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -55,4 +58,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     
     // 统计待审核商品数量
     long countByAuditStatus(Integer auditStatus);
+    
+    // 原子性扣减库存（用于防止并发超卖）
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Product p SET p.stock = p.stock - :quantity WHERE p.id = :id AND p.stock >= :quantity")
+    int reduceStockAtomic(@Param("id") Long id, @Param("quantity") Integer quantity);
 }

@@ -271,21 +271,27 @@ public class ProductService {
     }
 
     /**
-     * 减少商品库存
+     * 减少商品库存（使用原子操作防止并发超卖）
      * @param productId 商品ID
      * @param quantity 减少的数量
      * @throws com.shopping.exception.ValidationException 如果库存不足
      */
+    @org.springframework.transaction.annotation.Transactional
     public void reduceStock(Long productId, Integer quantity) {
-        Product product = productRepository.findById(productId).orElseThrow(
-            () -> new com.shopping.exception.ResourceNotFoundException("商品", productId));
-
-        if (product.getStock() < quantity) {
-            throw new com.shopping.exception.ValidationException("商品库存不足");
+        int rowsUpdated = productRepository.reduceStockAtomic(productId, quantity);
+        
+        if (rowsUpdated == 0) {
+            // Either product doesn't exist or insufficient stock
+            Product product = productRepository.findById(productId).orElseThrow(
+                () -> new com.shopping.exception.ResourceNotFoundException("商品", productId));
+            
+            if (product.getStock() < quantity) {
+                throw new com.shopping.exception.ValidationException("商品库存不足");
+            }
+            
+            // If we reach here, it was a concurrent modification conflict
+            throw new com.shopping.exception.ValidationException("库存更新失败，请重试");
         }
-
-        product.setStock(product.getStock() - quantity);
-        productRepository.save(product);
     }
 
     /**

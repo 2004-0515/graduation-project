@@ -1,0 +1,50 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# Unix-style newlines with a newline ending every file
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+
+# Java files
+[*.java]
+charset = utf-8
+indent_style = space
+indent_size = 4
+
+# XML files (pom.xml, etc.)
+[*.xml]
+charset = utf-8
+indent_style = space
+indent_size = 4
+
+# JavaScript/TypeScript files
+[*.{js,ts,jsx,tsx,vue}]
+charset = utf-8
+indent_style = space
+indent_size = 2
+
+# JSON files
+[*.json]
+charset = utf-8
+indent_style = space
+indent_size = 2
+
+# YAML files
+[*.{yml,yaml}]
+charset = utf-8
+indent_style = space
+indent_size = 2
+
+# Markdown files
+[*.md]
+charset = utf-8
+trim_trailing_whitespace = false
+
+# Properties files
+[*.properties]
+charset = utf-8
