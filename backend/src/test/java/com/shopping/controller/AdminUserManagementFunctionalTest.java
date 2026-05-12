@@ -8,6 +8,7 @@ import com.shopping.service.AuthService;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.*;
 
@@ -20,6 +21,7 @@ import java.util.Map;
  * 表6-8 管理员用户管理功能测试用例
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class AdminUserManagementFunctionalTest {
 
@@ -37,6 +39,7 @@ public class AdminUserManagementFunctionalTest {
 
     private static String adminToken;
     private static Long testUserId;
+    private static String managedUsername;
 
     private static class TestResult {
         String testNo;
@@ -60,6 +63,7 @@ public class AdminUserManagementFunctionalTest {
     static void setupAll(@Autowired AuthService authService) {
         // 获取管理员token
         adminToken = authService.login("admin", "123456");
+        managedUsername = "testuser";
     }
 
     @Test
@@ -69,8 +73,7 @@ public class AdminUserManagementFunctionalTest {
         headers.set("Authorization", "Bearer " + adminToken);
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        // 查找用户zhangsan
-        User user = userRepository.findByUsername("zhangsan");
+        User user = userRepository.findByUsername(managedUsername);
         if (user != null) {
             testUserId = user.getId();
         }
@@ -100,7 +103,7 @@ public class AdminUserManagementFunctionalTest {
 
             results.add(new TestResult(
                     "1",
-                    "禁用用户\"zhangsan\"",
+                    "禁用用户\"" + managedUsername + "\"",
                     "用户状态更新为禁用,该用户无法登录",
                     "用户状态更新为禁用,该用户无法登录",
                     passed
@@ -108,7 +111,7 @@ public class AdminUserManagementFunctionalTest {
         } catch (Exception e) {
             results.add(new TestResult(
                     "1",
-                    "禁用用户\"zhangsan\"",
+                    "禁用用户\"" + managedUsername + "\"",
                     "用户状态更新为禁用,该用户无法登录",
                     "异常: " + e.getMessage(),
                     "否"

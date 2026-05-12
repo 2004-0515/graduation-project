@@ -178,11 +178,11 @@ class CartServiceTest {
         when(cartRepository.save(any(Cart.class))).thenReturn(updatedCart);
 
         // Act
-        CartDto result = cartService.updateCartItem("testuser", 1L, request);
+        Optional<CartDto> result = cartService.updateCartItem("testuser", 1L, request);
 
         // Assert
-        assertNotNull(result);
-        assertEquals(5, result.getQuantity());
+        assertTrue(result.isPresent());
+        assertEquals(5, result.get().getQuantity());
     }
 
     @Test
@@ -196,10 +196,10 @@ class CartServiceTest {
         when(cartRepository.findByIdWithProduct(1L)).thenReturn(Optional.of(testCart));
 
         // Act
-        CartDto result = cartService.updateCartItem("testuser", 1L, request);
+        Optional<CartDto> result = cartService.updateCartItem("testuser", 1L, request);
 
         // Assert
-        assertNull(result);
+        assertTrue(result.isEmpty());
         verify(cartRepository).delete(testCart);
     }
 

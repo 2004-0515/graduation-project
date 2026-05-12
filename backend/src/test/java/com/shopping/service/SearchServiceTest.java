@@ -79,7 +79,11 @@ public class SearchServiceTest {
         // 准备测试数据
         Product product = new Product();
         product.setName("iPhone 15 Pro");
-        when(productRepository.findByNameContainingAndAuditStatusAndStatus(anyString(), eq(1), eq(1))).thenReturn(List.of(product));
+        when(productRepository
+            .findByAuditStatusAndStatusAndNameContainingIgnoreCaseOrAuditStatusAndStatusAndDescriptionContainingIgnoreCase(
+                anyInt(), anyInt(), anyString(), anyInt(), anyInt(), anyString()
+            ))
+            .thenReturn(List.of(product));
         when(categoryRepository.findByStatus(1)).thenReturn(new ArrayList<>());
         
         List<SearchSuggestionDto> result = searchService.getSuggestions("iphone");
@@ -259,7 +263,11 @@ public class SearchServiceTest {
                 })
                 .collect(Collectors.toList());
             
-            when(productRepository.findByNameContainingAndAuditStatusAndStatus(anyString(), eq(1), eq(1))).thenReturn(products);
+            when(productRepository
+                .findByAuditStatusAndStatusAndNameContainingIgnoreCaseOrAuditStatusAndStatusAndDescriptionContainingIgnoreCase(
+                    anyInt(), anyInt(), anyString(), anyInt(), anyInt(), anyString()
+                ))
+                .thenReturn(products);
             // 只在需要时mock分类查询
             when(categoryRepository.findByStatus(1)).thenReturn(categories);
             
@@ -273,6 +281,46 @@ public class SearchServiceTest {
             // 重置mock以避免状态污染
             reset(productRepository, categoryRepository);
         }
+    }
+
+    @Test
+    void testGetSuggestions_UsesCaseInsensitiveProductLookup() {
+        Product product = new Product();
+        product.setName("iPhone 15 Pro");
+        when(productRepository
+            .findByAuditStatusAndStatusAndNameContainingIgnoreCaseOrAuditStatusAndStatusAndDescriptionContainingIgnoreCase(
+                1, 1, "iphone", 1, 1, "iphone"
+            ))
+            .thenReturn(List.of(product));
+        when(categoryRepository.findByStatus(1)).thenReturn(new ArrayList<>());
+
+        List<SearchSuggestionDto> result = searchService.getSuggestions("iPhone");
+
+        assertFalse(result.isEmpty());
+        verify(productRepository)
+            .findByAuditStatusAndStatusAndNameContainingIgnoreCaseOrAuditStatusAndStatusAndDescriptionContainingIgnoreCase(
+                1, 1, "iphone", 1, 1, "iphone"
+            );
+    }
+
+    @Test
+    void testGetSuggestions_DescriptionMatch_ReturnsProductNameSuggestion() {
+        Product product = new Product();
+        product.setName("iPhone 15 Pro Max 256GB");
+        product.setDescription("苹果最新旗舰手机，A17 Pro芯片，钛金属边框");
+        when(productRepository
+            .findByAuditStatusAndStatusAndNameContainingIgnoreCaseOrAuditStatusAndStatusAndDescriptionContainingIgnoreCase(
+                1, 1, "手机", 1, 1, "手机"
+            ))
+            .thenReturn(List.of(product));
+        when(categoryRepository.findByStatus(1)).thenReturn(new ArrayList<>());
+
+        List<SearchSuggestionDto> result = searchService.getSuggestions("手机");
+
+        assertEquals(1, result.size());
+        assertEquals("product", result.get(0).getType());
+        assertEquals("iPhone 15 Pro Max 256GB", result.get(0).getKeyword());
+        assertTrue(result.get(0).getHighlight().contains("<em>手机</em>"));
     }
     
     /**

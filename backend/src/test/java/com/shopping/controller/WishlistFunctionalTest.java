@@ -4,6 +4,7 @@ import com.shopping.dto.Response;
 import com.shopping.entity.Product;
 import com.shopping.entity.Wishlist;
 import com.shopping.repository.ProductRepository;
+import com.shopping.repository.UserRepository;
 import com.shopping.repository.WishlistRepository;
 import com.shopping.service.AuthService;
 import org.junit.jupiter.api.*;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.*;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -22,6 +24,7 @@ import java.util.Map;
  * 表6-6 心愿单冷静期功能测试用例
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class WishlistFunctionalTest {
 
@@ -37,10 +40,14 @@ public class WishlistFunctionalTest {
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private UserRepository userRepository;
+
     private static String userToken;
     private static Long testProductId;
     private static Long wishlistId1;
     private static Long wishlistId2;
+    private static Long testUserId;
 
     private static class TestResult {
         String testNo;
@@ -62,13 +69,13 @@ public class WishlistFunctionalTest {
 
     @BeforeAll
     static void setupAll(@Autowired AuthService authService, @Autowired ProductRepository productRepository,
-                         @Autowired WishlistRepository wishlistRepository) {
+                         @Autowired WishlistRepository wishlistRepository, @Autowired UserRepository userRepository) {
         // 获取普通用户token
-        userToken = authService.login("zhangsan", "123456");
+        userToken = authService.login("testuser", "123456");
+        testUserId = userRepository.findByUsername("testuser").getId();
         
-        // 清理测试用户的心愿单（用户ID=2是zhangsan）
         List<Wishlist> userWishlists = wishlistRepository.findByUserIdAndStatusInOrderByCreatedTimeDesc(
-            2L, List.of(0, 1, 2, 3)
+            testUserId, List.of(0, 1, 2, 3)
         );
         wishlistRepository.deleteAll(userWishlists);
         

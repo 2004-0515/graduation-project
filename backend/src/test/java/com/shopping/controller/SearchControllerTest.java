@@ -85,7 +85,7 @@ public class SearchControllerTest {
         );
         when(searchService.getSuggestions("iphone")).thenReturn(suggestions);
         
-        mockMvc.perform(get("/api/search/suggestions")
+        mockMvc.perform(get("/search/suggestions")
                 .param("keyword", "iphone"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(200))
@@ -95,7 +95,7 @@ public class SearchControllerTest {
     
     @Test
     void getSuggestions_EmptyKeyword_ReturnsBadRequest() throws Exception {
-        mockMvc.perform(get("/api/search/suggestions")
+        mockMvc.perform(get("/search/suggestions")
                 .param("keyword", ""))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(400))
@@ -106,7 +106,7 @@ public class SearchControllerTest {
     void getSuggestions_TooLongKeyword_ReturnsBadRequest() throws Exception {
         String longKeyword = "a".repeat(101);
         
-        mockMvc.perform(get("/api/search/suggestions")
+        mockMvc.perform(get("/search/suggestions")
                 .param("keyword", longKeyword))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(400))
@@ -123,7 +123,7 @@ public class SearchControllerTest {
         );
         when(searchService.getHotKeywords()).thenReturn(hotKeywords);
         
-        mockMvc.perform(get("/api/search/hot-keywords"))
+        mockMvc.perform(get("/search/hot-keywords"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(200))
             .andExpect(jsonPath("$.data").isArray())
@@ -135,7 +135,7 @@ public class SearchControllerTest {
     @Test
     void getSearchHistory_NotLoggedIn_ReturnsUnauthorized() throws Exception {
         // 不设置认证用户
-        mockMvc.perform(get("/api/search/history"))
+        mockMvc.perform(get("/search/history"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(401))
             .andExpect(jsonPath("$.message").value("请先登录"));
@@ -152,22 +152,52 @@ public class SearchControllerTest {
         );
         when(searchService.getUserSearchHistory(1L)).thenReturn(history);
         
-        mockMvc.perform(get("/api/search/history"))
+        mockMvc.perform(get("/search/history"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(200))
             .andExpect(jsonPath("$.data").isArray())
             .andExpect(jsonPath("$.data.length()").value(2));
+    }
+
+    @Test
+    void getSearchHistory_AuthenticatedButUserMissing_ReturnsUnauthorized() throws Exception {
+        setAuthenticatedUser("ghost");
+        when(userService.findByUsername("ghost")).thenReturn(null);
+
+        mockMvc.perform(get("/search/history"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value(401))
+            .andExpect(jsonPath("$.message").value("请先登录"));
+
+        verify(searchService, never()).getUserSearchHistory(anyLong());
     }
     
     @Test
     void addSearchHistory_NotLoggedIn_ReturnsUnauthorized() throws Exception {
         SearchHistoryRequest request = new SearchHistoryRequest("手机");
         
-        mockMvc.perform(post("/api/search/history")
+        mockMvc.perform(post("/search/history")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(401));
+    }
+
+    @Test
+    void addSearchHistory_AuthenticatedButUserMissing_ReturnsUnauthorized() throws Exception {
+        setAuthenticatedUser("ghost");
+        when(userService.findByUsername("ghost")).thenReturn(null);
+
+        SearchHistoryRequest request = new SearchHistoryRequest("手机");
+
+        mockMvc.perform(post("/search/history")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("请先登录"));
+
+        verify(searchService, never()).addSearchHistory(anyLong(), anyString());
     }
     
     @Test
@@ -178,7 +208,7 @@ public class SearchControllerTest {
         
         SearchHistoryRequest request = new SearchHistoryRequest("手机");
         
-        mockMvc.perform(post("/api/search/history")
+        mockMvc.perform(post("/search/history")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
@@ -196,7 +226,7 @@ public class SearchControllerTest {
         
         SearchHistoryRequest request = new SearchHistoryRequest("");
         
-        mockMvc.perform(post("/api/search/history")
+        mockMvc.perform(post("/search/history")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
@@ -206,7 +236,7 @@ public class SearchControllerTest {
     
     @Test
     void deleteSearchHistory_NotLoggedIn_ReturnsUnauthorized() throws Exception {
-        mockMvc.perform(delete("/api/search/history/1"))
+        mockMvc.perform(delete("/search/history/1"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(401));
     }
@@ -217,7 +247,7 @@ public class SearchControllerTest {
         when(userService.findByUsername("testuser")).thenReturn(testUser);
         when(searchService.deleteSearchHistory(1L, 1L)).thenReturn(true);
         
-        mockMvc.perform(delete("/api/search/history/1"))
+        mockMvc.perform(delete("/search/history/1"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(200))
             .andExpect(jsonPath("$.message").value("删除成功"));
@@ -229,15 +259,28 @@ public class SearchControllerTest {
         when(userService.findByUsername("testuser")).thenReturn(testUser);
         when(searchService.deleteSearchHistory(1L, 999L)).thenReturn(false);
         
-        mockMvc.perform(delete("/api/search/history/999"))
+        mockMvc.perform(delete("/search/history/999"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(404))
             .andExpect(jsonPath("$.message").value("搜索历史不存在"));
     }
+
+    @Test
+    void deleteSearchHistory_AuthenticatedButUserMissing_ReturnsUnauthorized() throws Exception {
+        setAuthenticatedUser("ghost");
+        when(userService.findByUsername("ghost")).thenReturn(null);
+
+        mockMvc.perform(delete("/search/history/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("请先登录"));
+
+        verify(searchService, never()).deleteSearchHistory(anyLong(), anyLong());
+    }
     
     @Test
     void clearSearchHistory_NotLoggedIn_ReturnsUnauthorized() throws Exception {
-        mockMvc.perform(delete("/api/search/history"))
+        mockMvc.perform(delete("/search/history"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(401));
     }
@@ -247,12 +290,25 @@ public class SearchControllerTest {
         setAuthenticatedUser("testuser");
         when(userService.findByUsername("testuser")).thenReturn(testUser);
         
-        mockMvc.perform(delete("/api/search/history"))
+        mockMvc.perform(delete("/search/history"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(200))
             .andExpect(jsonPath("$.message").value("清空成功"));
-        
+
         verify(searchService).clearSearchHistory(1L);
+    }
+
+    @Test
+    void clearSearchHistory_AuthenticatedButUserMissing_ReturnsUnauthorized() throws Exception {
+        setAuthenticatedUser("ghost");
+        when(userService.findByUsername("ghost")).thenReturn(null);
+
+        mockMvc.perform(delete("/search/history"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("请先登录"));
+
+        verify(searchService, never()).clearSearchHistory(anyLong());
     }
     
     // ==================== 搜索统计测试 ====================
@@ -263,7 +319,7 @@ public class SearchControllerTest {
         
         SearchStatsRequest request = new SearchStatsRequest("手机");
         
-        mockMvc.perform(post("/api/search/stats")
+        mockMvc.perform(post("/search/stats")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
@@ -278,7 +334,7 @@ public class SearchControllerTest {
         
         SearchStatsRequest request = new SearchStatsRequest("");
         
-        mockMvc.perform(post("/api/search/stats")
+        mockMvc.perform(post("/search/stats")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
@@ -295,7 +351,7 @@ public class SearchControllerTest {
         
         SearchStatsRequest request = new SearchStatsRequest(longKeyword);
         
-        mockMvc.perform(post("/api/search/stats")
+        mockMvc.perform(post("/search/stats")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
@@ -303,3 +359,4 @@ public class SearchControllerTest {
             .andExpect(jsonPath("$.message").value("搜索关键词过长"));
     }
 }
+

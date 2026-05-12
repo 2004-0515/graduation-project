@@ -2,6 +2,7 @@ package com.shopping.service;
 
 import com.shopping.dto.RegisterRequest;
 import com.shopping.entity.User;
+import com.shopping.exception.BusinessException;
 import com.shopping.exception.ValidationException;
 import com.shopping.repository.UserRepository;
 import com.shopping.utils.JwtUtil;
@@ -88,6 +89,26 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("注册成功 - 初始化用户设置失败时不回滚主流程")
+    void register_WhenInitializeSettingsFails_ShouldStillSucceed() {
+        when(userRepository.findByUsername(anyString())).thenReturn(null);
+        when(userRepository.findByEmail(anyString())).thenReturn(null);
+        when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+        doThrow(new RuntimeException("settings failed"))
+                .when(securitySettingsService)
+                .initializeSecuritySettings(any(User.class));
+
+        User result = authService.register(validRegisterRequest);
+
+        assertNotNull(result);
+        assertEquals("testuser", result.getUsername());
+        verify(userRepository).save(any(User.class));
+        verify(privacySettingsService, never()).initializePrivacySettings(any(User.class));
+        verify(notificationSettingsService, never()).initializeNotificationSettings(any(User.class));
+    }
+
+    @Test
     @DisplayName("注册失败 - 用户名已存在")
     void register_WithExistingUsername_ShouldThrowException() {
         // Arrange
@@ -135,6 +156,21 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("登录失败 - 认证失败时返回统一认证异常")
+    void login_WithInvalidCredentials_ShouldThrowAuthenticationException() {
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenThrow(new org.springframework.security.authentication.BadCredentialsException("bad credentials"));
+
+        com.shopping.exception.AuthenticationException exception = assertThrows(
+                com.shopping.exception.AuthenticationException.class,
+                () -> authService.login("testuser", "wrongPassword")
+        );
+
+        assertEquals("用户名或密码错误", exception.getMessage());
+        verify(jwtUtil, never()).generateToken(anyString());
+    }
+
+    @Test
     @DisplayName("修改密码成功")
     void changePassword_WithValidData_ShouldSucceed() {
         // Arrange
@@ -147,6 +183,23 @@ class AuthServiceTest {
         // Act & Assert
         assertDoesNotThrow(() -> 
             authService.changePassword("testuser", "oldPassword", "newPassword123", "newPassword123")
+        );
+    }
+
+    @Test
+    @DisplayName("修改密码成功 - 记录密码修改时间失败时不影响主流程")
+    void changePassword_WhenRecordPasswordChangeFails_ShouldStillSucceed() {
+        testUser.setPassword("encodedOldPassword");
+        when(userRepository.findByUsername("testuser")).thenReturn(testUser);
+        when(passwordEncoder.matches("oldPassword", "encodedOldPassword")).thenReturn(true);
+        when(passwordEncoder.encode("newPassword123")).thenReturn("encodedNewPassword");
+        when(userRepository.updatePasswordById(1L, "encodedNewPassword")).thenReturn(1);
+        doThrow(new RuntimeException("record failed"))
+                .when(securitySettingsService)
+                .recordPasswordChange(1L);
+
+        assertDoesNotThrow(() ->
+                authService.changePassword("testuser", "oldPassword", "newPassword123", "newPassword123")
         );
     }
 
@@ -196,5 +249,22 @@ class AuthServiceTest {
             () -> authService.changePassword("testuser", "samePassword", "samePassword", "samePassword")
         );
         assertEquals("新密码不能与当前密码相同", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("修改密码失败 - 数据库未更新任何记录")
+    void changePassword_WhenUpdateRowsIsZero_ShouldThrowBusinessException() {
+        testUser.setPassword("encodedOldPassword");
+        when(userRepository.findByUsername("testuser")).thenReturn(testUser);
+        when(passwordEncoder.matches("oldPassword", "encodedOldPassword")).thenReturn(true);
+        when(passwordEncoder.encode("newPassword123")).thenReturn("encodedNewPassword");
+        when(userRepository.updatePasswordById(1L, "encodedNewPassword")).thenReturn(0);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> authService.changePassword("testuser", "oldPassword", "newPassword123", "newPassword123")
+        );
+        assertEquals(500, exception.getCode());
+        assertEquals("密码更新失败，请稍后重试", exception.getMessage());
     }
 }

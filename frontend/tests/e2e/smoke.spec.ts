@@ -1,70 +1,141 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+import {
+  E2E_PASSWORD,
+  E2E_PRODUCTS,
+  E2E_USERS,
+  attachPageWatchers,
+  expectNoBlockingBrowserIssues,
+  login,
+  neutralizeFloatingUi,
+  resolveProductId
+} from './helpers/session'
 
-const username = process.env.E2E_USERNAME || 'zhangsan'
-const password = process.env.E2E_PASSWORD || '123456'
+async function enterCheckoutFromProduct(page: Page, productId: number) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.goto(`/product/${productId}`)
+    await page.waitForURL(new RegExp(`/product/${productId}$`))
+    await expect(page.getByTestId('product-detail-view')).toBeVisible()
+    await expect(page.getByTestId('global-music-player')).toBeVisible()
+
+    const buyNowButton = page.getByTestId('product-buy-now')
+    await expect(buyNowButton).toBeVisible()
+    await buyNowButton.click()
+
+    const checkoutView = page.getByTestId('checkout-view')
+    const checkoutHeading = page.getByRole('heading', { name: '确认订单' })
+    const reachedCheckout = await Promise.all([
+      checkoutView
+        .waitFor({ state: 'visible', timeout: 15_000 })
+        .then(() => true)
+        .catch(() => false),
+      checkoutHeading
+        .waitFor({ state: 'visible', timeout: 15_000 })
+        .then(() => true)
+        .catch(() => false)
+    ]).then(([viewReady, headingReady]) => viewReady || headingReady)
+
+    if (reachedCheckout) {
+      return
+    }
+
+    if (page.url().includes('/login')) {
+      await login(page, E2E_USERS.buyer, E2E_PASSWORD)
+      continue
+    }
+
+    if (page.url().includes('/checkout')) {
+      await expect(checkoutView).toBeVisible({ timeout: 15_000 })
+      return
+    }
+
+    await page.waitForTimeout(1_000)
+  }
+
+  throw new Error('无法从商品详情页稳定进入结算页')
+}
+
+async function waitForOrderCardWithRecovery(page: Page, orderId: number, orderNo: string) {
+  const paidOrderCard = page.getByTestId(`order-card-${orderId}`)
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await expect(page.getByTestId('orders-view')).toBeVisible()
+    await page.getByTestId('orders-search-input').fill(orderNo)
+
+    const cardVisible = await paidOrderCard
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .then(() => true)
+      .catch(() => false)
+
+    if (cardVisible) {
+      return paidOrderCard
+    }
+
+    const retryButton = page.getByRole('button', { name: '重试' })
+    if (await retryButton.isVisible({ timeout: 1_500 }).catch(() => false)) {
+      await retryButton.click()
+      await page.waitForLoadState('networkidle').catch(() => {})
+      continue
+    }
+
+    await page.reload()
+    await page.waitForURL(/\/orders/)
+    await neutralizeFloatingUi(page)
+  }
+
+  throw new Error(`订单页未能稳定加载目标订单: ${orderId} / ${orderNo}`)
+}
 
 test('普通用户主链路冒烟', async ({ page }) => {
-  const consoleErrors: string[] = []
-  const failedRequests: string[] = []
-
-  page.on('console', (message) => {
-    if (message.type() === 'error') {
-      consoleErrors.push(message.text())
-    }
-  })
-
-  page.on('response', (response) => {
-    const status = response.status()
-    const url = response.url()
-    if (status >= 400 && !url.includes('/favicon.ico')) {
-      failedRequests.push(`${status} ${url}`)
-    }
-  })
+  const { consoleErrors, failedRequests } = attachPageWatchers(page)
 
   await page.goto('/')
   await expect(page.getByTestId('global-music-player')).toBeVisible()
   await expect(page.getByTestId('home-view')).toBeVisible()
-
-  await page.goto('/login')
-  await expect(page.getByTestId('login-form')).toBeVisible()
-
-  await page.getByPlaceholder('请输入用户名').fill(username)
-  await page.getByPlaceholder('请输入密码').fill(password)
-
-  const captchaCode = await page.getByAltText('验证码').getAttribute('data-captcha-code')
-  expect(captchaCode).toBeTruthy()
-  await page.getByPlaceholder('请输入验证码').fill(captchaCode!)
-  await page.getByRole('button', { name: '登录' }).click()
-
-  await page.waitForURL(/\/$/)
+  await login(page, E2E_USERS.buyer, E2E_PASSWORD)
   await expect(page.getByTestId('home-view')).toBeVisible()
 
-  const viewDetailButtons = page.getByRole('button', { name: '查看详情' })
-  await expect(viewDetailButtons.first()).toBeVisible()
-  await viewDetailButtons.first().click()
-
-  await page.waitForURL(/\/product\/\d+/)
-  await expect(page.getByTestId('product-detail-view')).toBeVisible()
-  await expect(page.getByTestId('global-music-player')).toBeVisible()
-
-  const buyNowButton = page.getByTestId('product-buy-now')
-  await expect(buyNowButton).toBeVisible()
-  await buyNowButton.click()
-
-  await page.waitForURL(/\/checkout/)
-  await expect(page.getByTestId('checkout-view')).toBeVisible()
-  await expect(page.getByTestId('checkout-submit')).toBeVisible()
-
-  await page.goto('/orders')
-  await expect(page.getByTestId('orders-view')).toBeVisible()
-
-  const blockingResponses = failedRequests.filter((entry) => {
-    if (entry.includes('/api/notifications/unread/count') && entry.startsWith('401 ')) {
-      return false
-    }
-    return true
+  const smokeProductId = await resolveProductId(page, 'smoke', {
+    explicitId: E2E_PRODUCTS.smoke,
+    excludeSellerUsername: E2E_USERS.buyer
   })
 
-  expect(blockingResponses, `Unexpected failing requests:\n${blockingResponses.join('\n')}`).toEqual([])
-  expect(consoleErrors, `Unexpected console errors:\n${consoleErrors.join('\n')}`).toEqual([])
+  await enterCheckoutFromProduct(page, smokeProductId)
+  const submitButton = page.getByTestId('checkout-submit')
+  await expect(submitButton).toBeVisible()
+  await expect(submitButton).toBeEnabled()
+  const createOrderResponse = page.waitForResponse((response) =>
+    response.url().includes('/api/orders') &&
+    response.request().method() === 'POST'
+  )
+  await submitButton.click()
+  const continueSubmitButton = page.getByRole('button', { name: '继续提交' })
+  if (await continueSubmitButton.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await continueSubmitButton.click()
+  }
+  await createOrderResponse
+
+  await page.waitForURL(/\/payment\/\d+/)
+  await expect(page.getByTestId('payment-view')).toBeVisible()
+
+  const orderNoText = (await page.locator('.order-no').textContent()) || ''
+  const orderNo = orderNoText.replace('订单号：', '').trim()
+  expect(orderNo).toBeTruthy()
+  const orderIdMatch = page.url().match(/\/payment\/(\d+)/)
+  const orderId = Number(orderIdMatch?.[1] || 0)
+  expect(orderId).toBeGreaterThan(0)
+
+  await page.getByTestId('payment-open').click()
+  await expect(page.getByTestId('payment-simulate')).toBeVisible()
+  await page.getByTestId('payment-simulate').click()
+  await expect(page.getByTestId('payment-view-orders')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('heading', { name: '支付成功' })).toBeVisible()
+  await page.getByTestId('payment-view-orders').click()
+
+  await page.waitForURL(/\/orders/)
+  await neutralizeFloatingUi(page)
+  const paidOrderCard = await waitForOrderCardWithRecovery(page, orderId, orderNo)
+  await expect(paidOrderCard).toBeVisible({ timeout: 15_000 })
+  await expect(paidOrderCard).toContainText('待发货')
+
+  expectNoBlockingBrowserIssues(consoleErrors, failedRequests)
 })

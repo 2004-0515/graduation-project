@@ -6,12 +6,14 @@ import com.shopping.entity.OrderItem;
 import com.shopping.entity.Review;
 import com.shopping.repository.OrderRepository;
 import com.shopping.repository.ReviewRepository;
+import com.shopping.repository.UserRepository;
 import com.shopping.service.AuthService;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.*;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,6 +24,7 @@ import java.util.Map;
  * 表6-7 用户评价功能测试用例
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class ReviewFunctionalTest {
 
@@ -37,10 +40,14 @@ public class ReviewFunctionalTest {
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private UserRepository userRepository;
+
     private static String userToken;
     private static Long completedOrderId;
     private static Long productId;
     private static Long reviewId;
+    private static Long testUserId;
 
     private static class TestResult {
         String testNo;
@@ -62,16 +69,15 @@ public class ReviewFunctionalTest {
 
     @BeforeAll
     static void setupAll(@Autowired AuthService authService, @Autowired OrderRepository orderRepository,
-                         @Autowired ReviewRepository reviewRepository) {
+                         @Autowired ReviewRepository reviewRepository, @Autowired UserRepository userRepository) {
         // 获取普通用户token
-        userToken = authService.login("zhangsan", "123456");
+        userToken = authService.login("testuser", "123456");
+        testUserId = userRepository.findByUsername("testuser").getId();
         
-        // 清理测试用户的所有评价（用户ID=2是zhangsan）
-        List<Review> userReviews = reviewRepository.findByUserIdOrderByCreatedTimeDesc(2L);
+        List<Review> userReviews = reviewRepository.findByUserIdOrderByCreatedTimeDesc(testUserId);
         reviewRepository.deleteAll(userReviews);
         
-        // 查找一个已完成的订单（用户ID=2是zhangsan）
-        List<Order> completedOrders = orderRepository.findByUserIdAndOrderStatusOrderByCreatedTimeDesc(2L, 3);
+        List<Order> completedOrders = orderRepository.findByUserIdAndOrderStatusOrderByCreatedTimeDesc(testUserId, 3);
         if (!completedOrders.isEmpty()) {
             completedOrderId = completedOrders.get(0).getId();
             // 获取订单中的第一个商品ID
@@ -146,7 +152,7 @@ public class ReviewFunctionalTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         // 使用另一个已完成订单
-        List<Order> completedOrders = orderRepository.findByUserIdAndOrderStatusOrderByCreatedTimeDesc(2L, 3);
+        List<Order> completedOrders = orderRepository.findByUserIdAndOrderStatusOrderByCreatedTimeDesc(testUserId, 3);
         Long anotherOrderId = null;
         Long anotherProductId = null;
         
@@ -216,7 +222,7 @@ public class ReviewFunctionalTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         // 查找一个未完成的订单
-        List<Order> pendingOrders = orderRepository.findByUserIdAndOrderStatusOrderByCreatedTimeDesc(2L, 0);
+        List<Order> pendingOrders = orderRepository.findByUserIdAndOrderStatusOrderByCreatedTimeDesc(testUserId, 0);
         if (pendingOrders.isEmpty()) {
             pendingOrders = orderRepository.findByUserIdAndOrderStatusOrderByCreatedTimeDesc(2L, 1);
         }

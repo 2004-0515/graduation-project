@@ -76,7 +76,7 @@ class SearchFunctionalTest {
         );
         when(searchService.getSuggestions("手机")).thenReturn(suggestions);
 
-        mockMvc.perform(get("/api/search/suggestions").param("keyword", "手机"))
+        mockMvc.perform(get("/search/suggestions").param("keyword", "手机"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data[0].keyword").value("手机"));
@@ -93,7 +93,7 @@ class SearchFunctionalTest {
         );
         when(searchService.getSuggestions("相机")).thenReturn(suggestions);
 
-        mockMvc.perform(get("/api/search/suggestions").param("keyword", "相机"))
+        mockMvc.perform(get("/search/suggestions").param("keyword", "相机"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data[0].keyword").value("相机"));
@@ -107,7 +107,7 @@ class SearchFunctionalTest {
     void testCase3_SearchNonExistent() throws Exception {
         when(searchService.getSuggestions("不存在的商品xyz")).thenReturn(new ArrayList<>());
 
-        mockMvc.perform(get("/api/search/suggestions").param("keyword", "不存在的商品xyz"))
+        mockMvc.perform(get("/search/suggestions").param("keyword", "不存在的商品xyz"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data").isArray());
@@ -119,7 +119,7 @@ class SearchFunctionalTest {
     @Order(4)
     @DisplayName("测试用例4: 搜索关键词为空")
     void testCase4_EmptyKeyword() throws Exception {
-        mockMvc.perform(get("/api/search/suggestions").param("keyword", ""))
+        mockMvc.perform(get("/search/suggestions").param("keyword", ""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("搜索关键词不能为空"));
@@ -136,7 +136,7 @@ class SearchFunctionalTest {
         );
         when(searchService.getSuggestions("电脑")).thenReturn(suggestions);
 
-        mockMvc.perform(get("/api/search/suggestions").param("keyword", "电脑"))
+        mockMvc.perform(get("/search/suggestions").param("keyword", "电脑"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data[0].keyword").value("电脑"));
@@ -153,7 +153,7 @@ class SearchFunctionalTest {
         );
         when(searchService.getSuggestions("富士")).thenReturn(suggestions);
 
-        mockMvc.perform(get("/api/search/suggestions").param("keyword", "富士"))
+        mockMvc.perform(get("/search/suggestions").param("keyword", "富士"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data[0].keyword").value("富士"));
@@ -167,7 +167,7 @@ class SearchFunctionalTest {
     void testCase7_SpecialCharacters() throws Exception {
         when(searchService.getSuggestions("特殊字符@#$")).thenReturn(new ArrayList<>());
 
-        mockMvc.perform(get("/api/search/suggestions").param("keyword", "特殊字符@#$"))
+        mockMvc.perform(get("/search/suggestions").param("keyword", "特殊字符@#$"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data").isArray());

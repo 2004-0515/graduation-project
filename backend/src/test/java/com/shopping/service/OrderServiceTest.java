@@ -1,11 +1,13 @@
 package com.shopping.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.shopping.constants.OrderConstants;
 import com.shopping.dto.CreateOrderRequest;
 import com.shopping.dto.OrderDto;
 import com.shopping.entity.Address;
 import com.shopping.entity.Order;
+import com.shopping.entity.OrderItem;
 import com.shopping.entity.Product;
 import com.shopping.entity.User;
 import com.shopping.exception.ResourceNotFoundException;
@@ -24,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -151,6 +154,18 @@ class OrderServiceTest {
     @Test
     @DisplayName("Returns order details by id")
     void getOrderByIdAndUser_ShouldReturnOrder() {
+        OrderItem item = new OrderItem();
+        item.setId(11L);
+        item.setOrder(testOrder);
+        item.setProduct(testProduct);
+        item.setProductName(testProduct.getName());
+        item.setProductImage(testProduct.getMainImage());
+        item.setPrice(testProduct.getPrice());
+        item.setQuantity(1);
+        item.setShipStatus(1);
+        item.setShipTime(LocalDateTime.of(2026, 5, 8, 1, 40));
+        testOrder.setItems(new ArrayList<>(List.of(item)));
+
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
         when(orderRepository.findByIdWithDetails(1L)).thenReturn(testOrder);
 
@@ -158,6 +173,27 @@ class OrderServiceTest {
 
         assertNotNull(result);
         assertEquals("ORD123456789", result.getOrderNo());
+        assertNotNull(result.getItems());
+        assertEquals(1, result.getItems().size());
+        assertEquals(1, result.getItems().get(0).getShipStatus());
+        assertEquals(LocalDateTime.of(2026, 5, 8, 1, 40), result.getItems().get(0).getShipTime());
+    }
+
+    @Test
+    @DisplayName("Falls back to empty address dto when shipping address json is invalid")
+    void getOrderByIdAndUser_InvalidAddressJson_ShouldFallbackToEmptyAddressDto() throws Exception {
+        testOrder.setShippingAddress("{bad-json}");
+        testOrder.setItems(new ArrayList<>());
+
+        when(userService.getUserByUsername("testuser")).thenReturn(testUser);
+        when(orderRepository.findByIdWithDetails(1L)).thenReturn(testOrder);
+        when(objectMapper.readValue("{bad-json}", com.shopping.dto.AddressDto.class))
+                .thenThrow(new JsonProcessingException("bad json") {});
+
+        OrderDto result = orderService.getOrderByIdAndUser(1L, "testuser");
+
+        assertNotNull(result.getShippingAddress());
+        assertEquals(null, result.getShippingAddress().getReceiver());
     }
 
     @Test
@@ -192,6 +228,10 @@ class OrderServiceTest {
     @Test
     @DisplayName("Creates order successfully")
     void createOrder_ShouldSucceed() {
+        testProduct.setSellerId(9L);
+        testProduct.setSellerName("seller-nine");
+        final Order[] savedOrderRef = new Order[1];
+
         CreateOrderRequest request = new CreateOrderRequest();
         request.setAddressId(1L);
         request.setPaymentMethod(1);
@@ -206,6 +246,7 @@ class OrderServiceTest {
         when(productService.getProductById(1L)).thenReturn(testProduct);
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
             Order order = invocation.getArgument(0);
+            savedOrderRef[0] = order;
             order.setId(1L);
             order.setOrderNo("ORD123456789");
             return order;
@@ -214,6 +255,11 @@ class OrderServiceTest {
         OrderDto result = orderService.createOrder("testuser", request);
 
         assertNotNull(result);
+        assertEquals(1, result.getItems().size());
+        assertNotNull(savedOrderRef[0]);
+        OrderItem savedItem = savedOrderRef[0].getItems().get(0);
+        assertEquals(9L, savedItem.getSellerId());
+        assertEquals("seller-nine", savedItem.getSellerName());
         verify(productService).getProductById(1L);
     }
 
@@ -328,5 +374,173 @@ class OrderServiceTest {
                 () -> orderService.deleteOrder(1L, "testuser")
         );
         assertEquals("只有已完成或已取消的订单才可删除", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("管理员可删除已取消订单")
+    void adminDeleteOrder_Cancelled_ShouldSucceed() {
+        testOrder.setOrderStatus(OrderConstants.OrderStatus.CANCELLED);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+
+        orderService.adminDeleteOrder(1L);
+
+        verify(orderRepository).delete(testOrder);
+    }
+
+    @Test
+    @DisplayName("管理员删除非终态订单时拒绝")
+    void adminDeleteOrder_PendingPayment_ShouldThrowException() {
+        testOrder.setOrderStatus(OrderConstants.OrderStatus.PENDING_PAYMENT);
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> orderService.adminDeleteOrder(1L)
+        );
+        assertEquals("只有已完成或已取消的订单才可删除", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Requests cancel for paid pending shipment order")
+    void requestCancelOrder_PaidPendingShipment_ShouldSucceed() {
+        testOrder.setOrderStatus(OrderConstants.OrderStatus.PENDING_SHIPMENT);
+        testOrder.setPaymentStatus(OrderConstants.PaymentStatus.PAID);
+
+        when(userService.getUserByUsername("testuser")).thenReturn(testUser);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+
+        orderService.requestCancelOrder(1L, "testuser");
+
+        assertEquals(OrderConstants.OrderStatus.CANCEL_REQUESTED, testOrder.getOrderStatus());
+        verify(orderRepository).save(testOrder);
+    }
+
+    @Test
+    @DisplayName("Rejects cancel request for unpaid order")
+    void requestCancelOrder_Unpaid_ShouldThrowException() {
+        testOrder.setOrderStatus(OrderConstants.OrderStatus.PENDING_PAYMENT);
+        testOrder.setPaymentStatus(OrderConstants.PaymentStatus.UNPAID);
+
+        when(userService.getUserByUsername("testuser")).thenReturn(testUser);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> orderService.requestCancelOrder(1L, "testuser")
+        );
+        assertEquals("仅已支付订单可申请取消", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Approves cancel request and restores stock")
+    void reviewCancelRequest_Approved_ShouldRestoreStockAndCancel() {
+        OrderItem item = new OrderItem();
+        item.setId(1L);
+        item.setOrder(testOrder);
+        item.setProduct(testProduct);
+        item.setQuantity(2);
+        testOrder.setOrderStatus(OrderConstants.OrderStatus.CANCEL_REQUESTED);
+        testOrder.setItems(new ArrayList<>(List.of(item)));
+
+        when(orderRepository.findByIdWithDetails(1L)).thenReturn(testOrder);
+
+        orderService.reviewCancelRequest(1L, true);
+
+        assertEquals(OrderConstants.OrderStatus.CANCELLED, testOrder.getOrderStatus());
+        verify(productService).increaseStock(1L, 2);
+        verify(productService).decreaseSales(1L, 2);
+        verify(orderRepository).save(testOrder);
+    }
+
+    @Test
+    @DisplayName("Rejects cancel request and restores pending shipment status")
+    void reviewCancelRequest_Rejected_ShouldRestorePendingShipment() {
+        testOrder.setOrderStatus(OrderConstants.OrderStatus.CANCEL_REQUESTED);
+        testOrder.setItems(new ArrayList<>());
+
+        when(orderRepository.findByIdWithDetails(1L)).thenReturn(testOrder);
+
+        orderService.reviewCancelRequest(1L, false);
+
+        assertEquals(OrderConstants.OrderStatus.PENDING_SHIPMENT, testOrder.getOrderStatus());
+        verify(orderRepository).save(testOrder);
+    }
+
+    @Test
+    @DisplayName("Returns seller order items")
+    void getSellerOrderItems_ShouldReturnSellerItems() {
+        testUser.setId(9L);
+        OrderItem item = new OrderItem();
+        item.setId(11L);
+        item.setOrder(testOrder);
+        item.setProduct(testProduct);
+        item.setProductName("Test Product");
+        item.setProductImage("http://example.com/image.jpg");
+        item.setPrice(BigDecimal.valueOf(99.99));
+        item.setQuantity(1);
+        item.setSellerId(9L);
+        item.setShipStatus(0);
+        item.setCreatedTime(LocalDateTime.now());
+        testOrder.setCreatedTime(LocalDateTime.now());
+
+        when(userService.getUserByUsername("testuser")).thenReturn(testUser);
+        when(orderItemRepository.findBySellerIdOrderByCreatedTimeDesc(9L))
+                .thenReturn(List.of(item));
+
+        List<com.shopping.dto.OrderItemDto> result = orderService.getSellerOrderItems("testuser", null);
+
+        assertEquals(1, result.size());
+        assertEquals("ORD123456789", result.get(0).getOrderNo());
+        assertEquals("testuser", result.get(0).getBuyerName());
+    }
+
+    @Test
+    @DisplayName("Ships seller item and advances order when all items shipped")
+    void sellerShipItem_ShouldShipAndAdvanceOrder() {
+        testUser.setId(9L);
+        testOrder.setOrderStatus(OrderConstants.OrderStatus.PENDING_SHIPMENT);
+        OrderItem item = new OrderItem();
+        item.setId(11L);
+        item.setOrder(testOrder);
+        item.setProduct(testProduct);
+        item.setSellerId(9L);
+        item.setShipStatus(0);
+
+        when(userService.getUserByUsername("testuser")).thenReturn(testUser);
+        when(orderItemRepository.findById(11L)).thenReturn(Optional.of(item));
+        when(orderItemRepository.countByOrderIdAndShipStatus(1L, 0)).thenReturn(0L);
+
+        orderService.sellerShipItem(11L, "testuser");
+
+        assertEquals(1, item.getShipStatus());
+        assertEquals(OrderConstants.OrderStatus.PENDING_RECEIPT, testOrder.getOrderStatus());
+        assertNotNull(item.getShipTime());
+        assertNotNull(testOrder.getShippingTime());
+        verify(orderItemRepository).save(item);
+        verify(orderRepository).save(testOrder);
+    }
+
+    @Test
+    @DisplayName("Rejects shipping seller item without permission")
+    void sellerShipItem_Unauthorized_ShouldThrowException() {
+        testUser.setId(9L);
+        testOrder.setOrderStatus(OrderConstants.OrderStatus.PENDING_SHIPMENT);
+        OrderItem item = new OrderItem();
+        item.setId(11L);
+        item.setOrder(testOrder);
+        item.setProduct(testProduct);
+        item.setSellerId(8L);
+        item.setShipStatus(0);
+
+        when(userService.getUserByUsername("testuser")).thenReturn(testUser);
+        when(orderItemRepository.findById(11L)).thenReturn(Optional.of(item));
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> orderService.sellerShipItem(11L, "testuser")
+        );
+        assertEquals("无权操作此订单项", exception.getMessage());
     }
 }

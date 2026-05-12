@@ -2,7 +2,9 @@ package com.shopping.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shopping.dto.LoginRequest;
+import com.shopping.dto.PasswordChangeDto;
 import com.shopping.dto.RegisterRequest;
+import com.shopping.dto.UserUpdateRequest;
 import com.shopping.entity.User;
 import com.shopping.service.AuthService;
 import com.shopping.service.UserService;
@@ -140,5 +142,50 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("退出登录成功"));
+    }
+
+    @Test
+    @DisplayName("更新当前用户信息 - 已认证")
+    void updateCurrentUser_WhenAuthenticated_ShouldReturnUpdatedUser() throws Exception {
+        setAuthenticatedUser("testuser");
+
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setNickname("新昵称");
+        request.setBio("新的简介");
+
+        User updatedUser = new User();
+        updatedUser.setId(1L);
+        updatedUser.setUsername("testuser");
+        updatedUser.setNickname("新昵称");
+        updatedUser.setBio("新的简介");
+        updatedUser.setEmail("test@example.com");
+
+        when(authService.updateUserProfile(anyString(), any(UserUpdateRequest.class))).thenReturn(updatedUser);
+
+        mockMvc.perform(put("/auth/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("用户信息更新成功"))
+                .andExpect(jsonPath("$.data.nickname").value("新昵称"));
+    }
+
+    @Test
+    @DisplayName("修改密码 - 已认证")
+    void changePassword_WhenAuthenticated_ShouldReturnSuccessMessage() throws Exception {
+        setAuthenticatedUser("testuser");
+
+        PasswordChangeDto request = new PasswordChangeDto();
+        request.setCurrentPassword("Old123456");
+        request.setNewPassword("New123456");
+        request.setConfirmPassword("New123456");
+
+        mockMvc.perform(post("/auth/change-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("密码修改成功"));
     }
 }

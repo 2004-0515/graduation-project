@@ -1,327 +1,1152 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import ProductDetailView from '@/views/ProductDetailView.vue'
+import { flushPromises, mount } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCartStore } from '@/stores/cartStore'
 import { useUserStore } from '@/stores/userStore'
 
-// Mock router
-const mockRouter = {
-  push: vi.fn(),
-  back: vi.fn()
-}
+const { mockRouter, mockRoute, productApi, reviewApi, priceApi, rationalApi, messages, messageBox, debugError } = vi.hoisted(() => ({
+  mockRouter: {
+    push: vi.fn(),
+    back: vi.fn()
+  },
+  mockRoute: {
+    params: { id: '1' }
+  },
+  productApi: {
+    getProductById: vi.fn()
+  },
+  reviewApi: {
+    getAllProductReviews: vi.fn(),
+    getProductReviewStats: vi.fn(),
+    deleteReview: vi.fn()
+  },
+  priceApi: {
+    getPriceHistory: vi.fn(),
+    getPriceStats: vi.fn(),
+    getUserProductAlert: vi.fn(),
+    createAlert: vi.fn(),
+    cancelAlert: vi.fn()
+  },
+  rationalApi: {
+    checkDuplicate: vi.fn(),
+    checkInWishlist: vi.fn(),
+    addToWishlist: vi.fn()
+  },
+  messages: {
+    warning: vi.fn(),
+    error: vi.fn(),
+    success: vi.fn()
+  },
+  messageBox: {
+    confirm: vi.fn()
+  },
+  debugError: vi.fn()
+}))
 
-const mockRoute = {
-  params: { id: '1' }
-}
+const windowEvents = vi.hoisted(() => ({
+  add: vi.fn(),
+  remove: vi.fn()
+}))
 
 vi.mock('vue-router', () => ({
   useRouter: () => mockRouter,
   useRoute: () => mockRoute
 }))
 
-// Mock Element Plus
 vi.mock('element-plus', () => ({
-  ElMessage: {
-    warning: vi.fn(),
-    error: vi.fn(),
-    success: vi.fn()
-  },
-  ElMessageBox: {
-    confirm: vi.fn()
+  ElMessage: messages,
+  ElMessageBox: messageBox
+}))
+
+vi.mock('echarts/core', () => ({
+  use: vi.fn(),
+  init: vi.fn(() => ({
+    setOption: vi.fn(),
+    resize: vi.fn(),
+    dispose: vi.fn()
+  })),
+  graphic: {
+    LinearGradient: vi.fn()
   }
 }))
 
-// Mock APIs
+vi.mock('echarts/renderers', () => ({
+  CanvasRenderer: {}
+}))
+
+vi.mock('echarts/charts', () => ({
+  LineChart: {}
+}))
+
+vi.mock('echarts/components', () => ({
+  GridComponent: {},
+  LegendComponent: {},
+  TooltipComponent: {}
+}))
+
 vi.mock('@/api/productApi', () => ({
-  default: {
-    getProductById: vi.fn()
-  }
+  default: productApi
 }))
 
 vi.mock('@/api/reviewApi', () => ({
-  default: {
-    getAllProductReviews: vi.fn(),
-    getProductReviewStats: vi.fn()
-  }
+  default: reviewApi
 }))
 
 vi.mock('@/api/priceApi', () => ({
-  default: {
-    getPriceHistory: vi.fn(),
-    getPriceStats: vi.fn(),
-    getUserProductAlert: vi.fn()
-  }
+  default: priceApi
 }))
 
 vi.mock('@/api/rationalApi', () => ({
+  default: rationalApi
+}))
+
+vi.mock('@/api/fileApi', () => ({
   default: {
-    checkDuplicate: vi.fn(),
-    checkInWishlist: vi.fn()
+    getImageUrl: vi.fn((path: string) => path || '/placeholder.png')
   }
 }))
 
-describe('ProductDetailView - Stock Validation', () => {
-  let wrapper: any
-  let cartStore: any
-  let userStore: any
+vi.mock('@/utils/debug', () => ({
+  debugError,
+  debugLog: vi.fn()
+}))
 
+import ProductDetailView from '@/views/ProductDetailView.vue'
+
+const deferred = <T>() => {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+function buildProduct(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 1,
+    name: '测试商品',
+    description: '描述',
+    price: 99,
+    originalPrice: 129,
+    stock: 5,
+    sales: 3,
+    mainImage: '/a.png',
+    images: '',
+    sellerId: 2,
+    adVideoEnabled: 0,
+    ...overrides
+  }
+}
+
+describe('ProductDetailView', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
+    mockRoute.params.id = '1'
     setActivePinia(createPinia())
-    cartStore = useCartStore()
-    userStore = useUserStore()
-    
-    // Set user as logged in
-    userStore.userInfo = { id: 1, username: 'testuser' }
+    messageBox.confirm.mockResolvedValue('confirm')
+    Object.defineProperty(window, 'addEventListener', { value: windowEvents.add, configurable: true })
+    Object.defineProperty(window, 'removeEventListener', { value: windowEvents.remove, configurable: true })
+
+    const userStore = useUserStore()
+    userStore.token = 'token'
+    userStore.userInfo = {
+      id: 1,
+      username: 'buyer',
+      email: 'buyer@example.com',
+      points: 0,
+      growthValue: 0,
+      memberDays: 0,
+      createdTime: '2026-05-07T10:00:00',
+      updatedTime: '2026-05-07T10:00:00'
+    }
+
+    const cartStore = useCartStore()
+    cartStore.addToCart = vi.fn().mockResolvedValue({})
+
+    productApi.getProductById.mockResolvedValue({ code: 200, data: buildProduct() })
+    reviewApi.getAllProductReviews.mockResolvedValue({ code: 200, data: [] })
+    reviewApi.getProductReviewStats.mockResolvedValue({
+      code: 200,
+      data: { total: 0, avgRating: 0, goodRate: 100 }
+    })
+    priceApi.getPriceHistory.mockResolvedValue({ code: 200, data: [] })
+    priceApi.getPriceStats.mockResolvedValue({
+      code: 200,
+      data: {
+        currentPrice: 99,
+        lowestPrice: 88,
+        highestPrice: 129,
+        avgPrice: 103,
+        recordCount: 1,
+        pricePosition: 30,
+        isLowestPrice: false
+      }
+    })
+    priceApi.getUserProductAlert.mockResolvedValue({ code: 200, data: null })
+    rationalApi.checkDuplicate.mockResolvedValue({ code: 200, data: [] })
+    rationalApi.checkInWishlist.mockResolvedValue({ code: 200, data: { inWishlist: false } })
   })
 
-  describe('validateQuantityInput function', () => {
-    it('should handle decimal numbers by rounding down', async () => {
-      // Test will fail - decimal handling not implemented yet
-      const testCases = [
-        { input: 5.7, expected: 5 },
-        { input: 2.3, expected: 2 },
-        { input: 9.9, expected: 9 }
+  it('disables quantity and purchase actions when stock is zero', async () => {
+    productApi.getProductById.mockResolvedValue({ code: 200, data: buildProduct({ stock: 0 }) })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="product-add-to-cart"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="product-buy-now"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('input[type="number"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('normalizes decimal quantity and caps it at stock on blur', async () => {
+    productApi.getProductById.mockResolvedValue({ code: 200, data: buildProduct({ stock: 3 }) })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    const quantityInput = wrapper.get('input[type="number"]')
+    await quantityInput.setValue('5.7')
+    await quantityInput.trigger('blur')
+
+    expect((quantityInput.element as HTMLInputElement).value).toBe('3')
+    expect(messages.warning).toHaveBeenCalledWith('数量已调整为最大库存 3 件')
+  })
+
+  it('navigates to checkout with normalized quantity when buying now', async () => {
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    const quantityInput = wrapper.get('input[type="number"]')
+    await quantityInput.setValue('2')
+    await wrapper.get('[data-testid="product-buy-now"]').trigger('click')
+
+    expect(mockRouter.push).toHaveBeenCalledWith('/checkout?productId=1&quantity=2')
+  })
+
+  it('does not show an error when cancelling review deletion', async () => {
+    messageBox.confirm.mockRejectedValueOnce('cancel')
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await (wrapper.vm as any).deleteReview({ id: 9, userId: 1 })
+
+    expect(reviewApi.deleteReview).not.toHaveBeenCalled()
+    expect(messages.error).not.toHaveBeenCalled()
+  })
+
+  it('shows backend chinese message when creating alert fails', async () => {
+    priceApi.createAlert.mockRejectedValueOnce({
+      response: { data: { message: '已存在提醒' } }
+    })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    ;(wrapper.vm as any).targetPrice = 80
+    await (wrapper.vm as any).setAlert()
+
+    expect(messages.error).toHaveBeenCalledWith('已存在提醒')
+    expect(debugError).toHaveBeenCalled()
+  })
+
+  it('refreshes real alert state after cancelling a price alert', async () => {
+    priceApi.getUserProductAlert
+      .mockResolvedValueOnce({ code: 200, data: { id: 1, productId: 1, targetPrice: 80, currentPrice: 99, status: 0 } })
+      .mockResolvedValueOnce({ code: 200, data: null })
+    priceApi.cancelAlert.mockResolvedValueOnce({ code: 200 })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await (wrapper.vm as any).cancelAlert()
+    await flushPromises()
+
+    expect(priceApi.cancelAlert).toHaveBeenCalledWith(1)
+    expect(priceApi.getUserProductAlert).toHaveBeenCalledTimes(2)
+    expect(messages.success).toHaveBeenCalledWith('已取消降价提醒')
+  })
+
+  it('keeps alert creation successful when alert refresh fails afterward', async () => {
+    priceApi.createAlert.mockResolvedValueOnce({ code: 200 })
+    priceApi.getUserProductAlert
+      .mockResolvedValueOnce({ code: 200, data: null })
+      .mockRejectedValueOnce(new Error('refresh failed'))
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    ;(wrapper.vm as any).targetPrice = 80
+    await (wrapper.vm as any).setAlert()
+    await flushPromises()
+
+    expect(messages.success).toHaveBeenCalledWith('降价提醒设置成功')
+    expect(messages.error).not.toHaveBeenCalled()
+    expect(debugError).toHaveBeenCalledWith('获取降价提醒失败', expect.any(Error))
+  })
+
+  it('shows backend chinese message when adding to wishlist fails', async () => {
+    rationalApi.addToWishlist.mockRejectedValueOnce({
+      response: { data: { message: '商品已在清单中' } }
+    })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await (wrapper.vm as any).addToWishlist()
+
+    expect(messages.error).toHaveBeenCalledWith('商品已在清单中')
+    expect(debugError).toHaveBeenCalled()
+  })
+
+  it('refreshes real wishlist state after adding successfully', async () => {
+    rationalApi.checkInWishlist
+      .mockResolvedValueOnce({ code: 200, data: { inWishlist: false } })
+      .mockResolvedValueOnce({ code: 200, data: { inWishlist: true } })
+    rationalApi.addToWishlist.mockResolvedValueOnce({ code: 200 })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await (wrapper.vm as any).addToWishlist()
+    await flushPromises()
+
+    expect(rationalApi.addToWishlist).toHaveBeenCalled()
+    expect(rationalApi.checkInWishlist).toHaveBeenCalledTimes(2)
+    expect(messages.success).toHaveBeenCalledWith('已加入想要清单，冷静期3天')
+  })
+
+  it('keeps wishlist add successful when wishlist status refresh fails afterward', async () => {
+    rationalApi.checkInWishlist
+      .mockResolvedValueOnce({ code: 200, data: { inWishlist: false } })
+      .mockRejectedValueOnce(new Error('refresh failed'))
+    rationalApi.addToWishlist.mockResolvedValueOnce({ code: 200 })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await (wrapper.vm as any).addToWishlist()
+    await flushPromises()
+
+    expect(messages.success).toHaveBeenCalledWith('已加入想要清单，冷静期3天')
+    expect(messages.error).not.toHaveBeenCalled()
+    expect(debugError).toHaveBeenCalledWith('检查想要清单状态失败', expect.any(Error))
+  })
+
+  it('logs backend message when deleting review returns non-200', async () => {
+    reviewApi.getAllProductReviews.mockResolvedValue({
+      code: 200,
+      data: [{ id: 9, userId: 1, username: 'buyer', rating: 5, content: '好评' }]
+    })
+    reviewApi.deleteReview.mockResolvedValueOnce({ code: 500, message: '评价删除失败' })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await (wrapper.vm as any).deleteReview({ id: 9, userId: 1 })
+    await flushPromises()
+
+    expect(messages.error).toHaveBeenCalledWith('评价删除失败')
+    expect(debugError).toHaveBeenCalledWith('删除评价失败', '评价删除失败')
+  })
+
+  it('removes review locally and keeps deletion success when review refresh fails afterward', async () => {
+    reviewApi.getAllProductReviews.mockResolvedValueOnce({
+      code: 200,
+      data: [
+        { id: 9, userId: 1, username: 'buyer', rating: 5, content: '好评' },
+        { id: 10, userId: 2, username: 'other', rating: 3, content: '一般' }
       ]
-      
-      // This test documents the expected behavior
-      // Implementation needed: Math.floor(quantity.value) in validateQuantityInput
-      testCases.forEach(({ input, expected }) => {
-        expect(Math.floor(input)).toBe(expected)
-      })
+    })
+    reviewApi.getProductReviewStats.mockResolvedValueOnce({
+      code: 200,
+      data: { total: 2, avgRating: 4, goodRate: 50, ratingCounts: { 5: 1, 3: 1 } }
+    })
+    reviewApi.deleteReview.mockResolvedValueOnce({ code: 200 })
+    reviewApi.getAllProductReviews.mockRejectedValueOnce(new Error('refresh failed'))
+    reviewApi.getProductReviewStats.mockRejectedValueOnce(new Error('refresh failed'))
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
     })
 
-    it('should handle negative numbers by resetting to 1', async () => {
-      // Test will fail - negative number handling exists but needs verification
-      const testCases = [-5, -999, -1, -0.5]
-      
-      testCases.forEach(input => {
-        // Current implementation: if (quantity.value < 1) quantity.value = 1
-        const result = input < 1 ? 1 : input
-        expect(result).toBe(1)
-      })
+    await flushPromises()
+    await (wrapper.vm as any).deleteReview({ id: 9, userId: 1, rating: 5, content: '好评' })
+    await flushPromises()
+
+    expect(messages.success).toHaveBeenCalledWith('评价已删除')
+    expect(messages.error).not.toHaveBeenCalled()
+    expect((wrapper.vm as any).reviews).toEqual([
+      expect.objectContaining({ id: 10, content: '一般' })
+    ])
+    expect((wrapper.vm as any).reviewStats).toMatchObject({
+      total: 1,
+      avgRating: 3,
+      goodRate: 0,
+      ratingCounts: { 3: 1 }
+    })
+    expect(debugError).toHaveBeenCalledWith('获取评价失败', expect.any(Error))
+  })
+
+  it('logs backend message when creating alert returns non-200', async () => {
+    priceApi.createAlert.mockResolvedValueOnce({ code: 500, message: '降价提醒已存在' })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
     })
 
-    it('should handle NaN and empty values by resetting to 1', async () => {
-      // Test will fail - NaN handling not implemented yet
-      const testCases = [NaN, null, undefined, '']
-      
-      testCases.forEach(input => {
-        const isInvalid = isNaN(input as any) || input === null || input === undefined || input === ''
-        expect(isInvalid).toBe(true)
-        // Expected behavior: reset to 1
-      })
+    await flushPromises()
+    ;(wrapper.vm as any).targetPrice = 80
+    await (wrapper.vm as any).setAlert()
+
+    expect(messages.error).toHaveBeenCalledWith('降价提醒已存在')
+    expect(debugError).toHaveBeenCalledWith('设置降价提醒失败', '降价提醒已存在')
+  })
+
+  it('logs backend message when cancelling alert returns non-200', async () => {
+    priceApi.getUserProductAlert
+      .mockResolvedValueOnce({ code: 200, data: { id: 1, productId: 1, targetPrice: 80, currentPrice: 99, status: 0 } })
+      .mockResolvedValueOnce({ code: 200, data: { id: 1, productId: 1, targetPrice: 80, currentPrice: 99, status: 0 } })
+    priceApi.cancelAlert.mockResolvedValueOnce({ code: 500, message: '当前提醒无法取消' })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
     })
 
-    it('should cap quantity at stock value', async () => {
-      // Test should pass - current implementation handles this
-      const stock = 5
-      const testCases = [
-        { input: 10, expected: 5 },
-        { input: 999, expected: 5 },
-        { input: 6, expected: 5 }
+    await flushPromises()
+    await (wrapper.vm as any).cancelAlert()
+    await flushPromises()
+
+    expect(messages.error).toHaveBeenCalledWith('当前提醒无法取消')
+    expect(debugError).toHaveBeenCalledWith('取消降价提醒失败', '当前提醒无法取消')
+  })
+
+  it('logs backend message when adding to wishlist returns non-200', async () => {
+    rationalApi.addToWishlist.mockResolvedValueOnce({ code: 500, message: '想要清单已存在该商品' })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await (wrapper.vm as any).addToWishlist()
+
+    expect(messages.error).toHaveBeenCalledWith('想要清单已存在该商品')
+    expect(debugError).toHaveBeenCalledWith('添加想要清单失败', '想要清单已存在该商品')
+  })
+
+  it('logs when adding to cart fails', async () => {
+    const cartStore = useCartStore()
+    cartStore.addToCart = vi.fn().mockRejectedValue(new Error('加入购物车失败'))
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await (wrapper.vm as any).addToCart()
+
+    expect(messages.error).toHaveBeenCalledWith('加入购物车失败')
+    expect(debugError).toHaveBeenCalledWith('加入购物车失败', expect.any(Error))
+  })
+
+  it('logs backend message when price history payload returns non-200', async () => {
+    priceApi.getPriceHistory.mockResolvedValueOnce({ code: 500, message: '价格历史读取失败' })
+    priceApi.getPriceStats.mockResolvedValueOnce({ code: 500, message: '价格统计读取失败' })
+
+    mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(debugError).toHaveBeenCalledWith('获取价格历史失败', '价格历史读取失败')
+    expect(debugError).toHaveBeenCalledWith('获取价格历史失败', '价格统计读取失败')
+  })
+
+  it('logs backend message when price alert payload returns non-200', async () => {
+    priceApi.getUserProductAlert.mockResolvedValueOnce({ code: 500, message: '提醒状态读取失败' })
+
+    mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(debugError).toHaveBeenCalledWith('获取降价提醒失败', '提醒状态读取失败')
+  })
+
+  it('logs backend message when wishlist and duplicate checks return non-200', async () => {
+    rationalApi.checkDuplicate.mockResolvedValueOnce({ code: 500, message: '重复购买检测失败' })
+    rationalApi.checkInWishlist.mockResolvedValueOnce({ code: 500, message: '想要清单状态读取失败' })
+
+    mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(debugError).toHaveBeenCalledWith('检测重复购买失败', '重复购买检测失败')
+    expect(debugError).toHaveBeenCalledWith('检查想要清单状态失败', '想要清单状态读取失败')
+  })
+
+  it('falls back to comma-separated review images and logs when review image json is broken', async () => {
+    reviewApi.getAllProductReviews.mockResolvedValue({
+      code: 200,
+      data: [{
+        id: 41,
+        userId: 2,
+        username: 'buyer-2',
+        rating: 5,
+        content: '带图片评价',
+        images: 'broken-json,/img-a.png,/img-b.png'
+      }]
+    })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await wrapper.findAll('button').find((button) => button.text() === '用户评价')?.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('.review-images img')).toHaveLength(3)
+    expect(debugError).toHaveBeenCalledWith('解析评价图片失败', expect.any(Error))
+  })
+
+  it('falls back when parsed review images payload is not an array', async () => {
+    reviewApi.getAllProductReviews.mockResolvedValue({
+      code: 200,
+      data: [{
+        id: 42,
+        userId: 2,
+        username: 'buyer-2',
+        rating: 4,
+        content: '对象格式图片',
+        images: '{"a":"/img-a.png","b":"/img-b.png"}'
+      }]
+    })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await wrapper.findAll('button').find((button) => button.text() === '用户评价')?.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('.review-images img')).toHaveLength(2)
+    expect(debugError).not.toHaveBeenCalledWith('解析评价图片失败', expect.anything())
+  })
+
+  it('shows unavailable hint instead of empty history when price history data fails', async () => {
+    priceApi.getPriceHistory.mockResolvedValueOnce({ code: 500, message: 'history failed' })
+    priceApi.getPriceStats.mockResolvedValueOnce({ code: 500, message: 'stats failed' })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    expect(wrapper.text()).toContain('价格历史数据暂未同步，请稍后刷新重试。')
+
+    await wrapper.get('.price-chart-btn').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('价格走势暂未同步')
+    expect(wrapper.text()).not.toContain('暂无价格历史记录')
+  })
+
+  it('shows backend chinese message when fetching product fails', async () => {
+    productApi.getProductById.mockRejectedValueOnce({
+      response: { data: { message: '商品不存在' } }
+    })
+
+    mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(messages.error).toHaveBeenCalledWith('商品不存在')
+    expect(debugError).toHaveBeenCalled()
+  })
+
+  it('keeps newer product detail when older request resolves later', async () => {
+    const first = deferred<any>()
+    const second = deferred<any>()
+    productApi.getProductById
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise)
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    const secondFetch = vm.fetchProduct()
+    await flushPromises()
+
+    second.resolve({ code: 200, data: buildProduct({ name: '新商品', mainImage: '/new.png' }) })
+    await secondFetch
+    await flushPromises()
+
+    expect(vm.product.name).toBe('新商品')
+
+    first.resolve({ code: 200, data: buildProduct({ name: '旧商品', mainImage: '/old.png' }) })
+    await flushPromises()
+
+    expect(vm.product.name).toBe('新商品')
+  })
+
+  it('keeps newer price alert state when older request resolves later', async () => {
+    const first = deferred<any>()
+    const second = deferred<any>()
+    priceApi.getUserProductAlert
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise)
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    const secondFetch = vm.fetchPriceAlert()
+    await flushPromises()
+
+    second.resolve({ code: 200, data: { id: 2, productId: 1, targetPrice: 70, currentPrice: 99, status: 0 } })
+    await secondFetch
+    await flushPromises()
+
+    expect(vm.priceAlert).toEqual({ id: 2, productId: 1, targetPrice: 70, currentPrice: 99, status: 0 })
+
+    first.resolve({ code: 200, data: { id: 1, productId: 1, targetPrice: 80, currentPrice: 99, status: 0 } })
+    await flushPromises()
+
+    expect(vm.priceAlert).toEqual({ id: 2, productId: 1, targetPrice: 70, currentPrice: 99, status: 0 })
+  })
+
+  it('does not let an in-flight alert request overwrite alert creation success', async () => {
+    const first = deferred<any>()
+    const second = deferred<any>()
+    priceApi.getUserProductAlert
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise)
+    priceApi.createAlert.mockResolvedValueOnce({ code: 200 })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    ;(wrapper.vm as any).targetPrice = 80
+    const setPromise = (wrapper.vm as any).setAlert()
+    await flushPromises()
+
+    expect((wrapper.vm as any).priceAlert).toMatchObject({ targetPrice: 80, currentPrice: 99, status: 0 })
+
+    second.resolve({ code: 200, data: { id: 2, productId: 1, targetPrice: 80, currentPrice: 99, status: 0 } })
+    await setPromise
+    await flushPromises()
+
+    first.resolve({ code: 200, data: { id: 1, productId: 1, targetPrice: 70, currentPrice: 99, status: 0 } })
+    await flushPromises()
+
+    expect((wrapper.vm as any).priceAlert).toEqual({ id: 2, productId: 1, targetPrice: 80, currentPrice: 99, status: 0 })
+  })
+
+  it('does not let an in-flight alert request restore cancelled alert state', async () => {
+    const first = deferred<any>()
+    const second = deferred<any>()
+    priceApi.getUserProductAlert
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise)
+    priceApi.cancelAlert.mockResolvedValueOnce({ code: 200 })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    const cancelPromise = (wrapper.vm as any).cancelAlert()
+    await flushPromises()
+
+    expect((wrapper.vm as any).priceAlert).toBeNull()
+
+    second.resolve({ code: 200, data: null })
+    await cancelPromise
+    await flushPromises()
+
+    first.resolve({ code: 200, data: { id: 1, productId: 1, targetPrice: 80, currentPrice: 99, status: 0 } })
+    await flushPromises()
+
+    expect((wrapper.vm as any).priceAlert).toBeNull()
+  })
+
+  it('does not let an in-flight wishlist request overwrite wishlist add success', async () => {
+    const first = deferred<any>()
+    const second = deferred<any>()
+    rationalApi.checkInWishlist
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise)
+    rationalApi.addToWishlist.mockResolvedValueOnce({ code: 200 })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    const addPromise = (wrapper.vm as any).addToWishlist()
+    await flushPromises()
+
+    expect((wrapper.vm as any).isInWishlist).toBe(true)
+
+    second.resolve({ code: 200, data: { inWishlist: true } })
+    await addPromise
+    await flushPromises()
+
+    first.resolve({ code: 200, data: { inWishlist: false } })
+    await flushPromises()
+
+    expect((wrapper.vm as any).isInWishlist).toBe(true)
+  })
+
+  it('does not let an in-flight review request overwrite review deletion success', async () => {
+    const firstReviews = deferred<any>()
+    const firstStats = deferred<any>()
+    const secondReviews = deferred<any>()
+    const secondStats = deferred<any>()
+
+    reviewApi.getAllProductReviews
+      .mockImplementationOnce(() => firstReviews.promise)
+      .mockImplementationOnce(() => secondReviews.promise)
+    reviewApi.getProductReviewStats
+      .mockImplementationOnce(() => firstStats.promise)
+      .mockImplementationOnce(() => secondStats.promise)
+    reviewApi.deleteReview.mockResolvedValueOnce({ code: 200 })
+
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
+    })
+
+    await flushPromises()
+    ;(wrapper.vm as any).reviews = [
+      { id: 9, userId: 1, username: 'buyer', rating: 5, content: '旧评价' },
+      { id: 10, userId: 2, username: 'other', rating: 4, content: '保留评价' }
+    ]
+    ;(wrapper.vm as any).reviewStats = {
+      total: 2,
+      avgRating: 4.5,
+      goodRate: 100,
+      ratingCounts: { 5: 1, 4: 1 }
+    }
+
+    const deletePromise = (wrapper.vm as any).deleteReview({ id: 9, userId: 1, rating: 5, content: '旧评价' })
+    await flushPromises()
+
+    expect((wrapper.vm as any).reviews).toEqual([
+      expect.objectContaining({ id: 10, content: '保留评价' })
+    ])
+    expect((wrapper.vm as any).reviewStats).toMatchObject({
+      total: 1,
+      avgRating: 4,
+      goodRate: 100,
+      ratingCounts: { 4: 1 }
+    })
+
+    secondReviews.resolve({
+      code: 200,
+      data: [{ id: 10, userId: 2, username: 'other', rating: 4, content: '保留评价' }]
+    })
+    secondStats.resolve({
+      code: 200,
+      data: { total: 1, avgRating: 4, goodRate: 100, ratingCounts: { 4: 1 } }
+    })
+    await deletePromise
+    await flushPromises()
+
+    firstReviews.resolve({
+      code: 200,
+      data: [
+        { id: 9, userId: 1, username: 'buyer', rating: 5, content: '旧评价' },
+        { id: 10, userId: 2, username: 'other', rating: 4, content: '保留评价' }
       ]
-      
-      testCases.forEach(({ input, expected }) => {
-        const result = input > stock ? stock : input
-        expect(result).toBe(expected)
+    })
+    firstStats.resolve({
+      code: 200,
+      data: { total: 2, avgRating: 4.5, goodRate: 100, ratingCounts: { 5: 1, 4: 1 } }
+    })
+    await flushPromises()
+
+    expect((wrapper.vm as any).reviews).toEqual([
+      expect.objectContaining({ id: 10, content: '保留评价' })
+    ])
+    expect((wrapper.vm as any).reviewStats).toMatchObject({
+      total: 1,
+      avgRating: 4,
+      goodRate: 100,
+      ratingCounts: { 4: 1 }
+    })
+  })
+
+  it('reloads product detail and clears page-local state when route product id changes', async () => {
+    productApi.getProductById
+      .mockResolvedValueOnce({
+        code: 200,
+        data: buildProduct({ id: 1, name: '商品一', mainImage: '/a.png', images: '' })
       })
-    })
-
-    it('should not allow quantity below 1', async () => {
-      // Test should pass - current implementation handles this
-      const testCases = [
-        { input: 0, expected: 1 },
-        { input: -1, expected: 1 },
-        { input: -10, expected: 1 }
-      ]
-      
-      testCases.forEach(({ input, expected }) => {
-        const result = input < 1 ? 1 : input
-        expect(result).toBe(expected)
+      .mockResolvedValueOnce({
+        code: 200,
+        data: buildProduct({ id: 2, name: '商品二', mainImage: '/b.png', images: '' })
       })
-    })
-  })
+    reviewApi.getAllProductReviews
+      .mockResolvedValueOnce({ code: 200, data: [{ id: 1, userId: 2, username: 'u1', rating: 5, content: '旧评价' }] })
+      .mockResolvedValueOnce({ code: 200, data: [] })
+    reviewApi.getProductReviewStats
+      .mockResolvedValueOnce({ code: 200, data: { total: 1, avgRating: 5, goodRate: 100 } })
+      .mockResolvedValueOnce({ code: 200, data: { total: 0, avgRating: 0, goodRate: 100 } })
+    priceApi.getPriceHistory
+      .mockResolvedValueOnce({ code: 200, data: [{ price: 99, recordedTime: '2026-05-01T10:00:00' }] })
+      .mockResolvedValueOnce({ code: 200, data: [] })
+    priceApi.getPriceStats
+      .mockResolvedValueOnce({
+        code: 200,
+        data: {
+          currentPrice: 99,
+          lowestPrice: 88,
+          highestPrice: 129,
+          avgPrice: 103,
+          recordCount: 1,
+          pricePosition: 30,
+          isLowestPrice: false
+        }
+      })
+      .mockResolvedValueOnce({
+        code: 200,
+        data: {
+          currentPrice: 199,
+          lowestPrice: 180,
+          highestPrice: 229,
+          avgPrice: 200,
+          recordCount: 1,
+          pricePosition: 20,
+          isLowestPrice: false
+        }
+      })
+    priceApi.getUserProductAlert
+      .mockResolvedValueOnce({ code: 200, data: { id: 1, productId: 1, targetPrice: 80, currentPrice: 99, status: 0 } })
+      .mockResolvedValueOnce({ code: 200, data: null })
+    rationalApi.checkDuplicate
+      .mockResolvedValueOnce({ code: 200, data: [{ type: 'same', message: '旧提醒' }] })
+      .mockResolvedValueOnce({ code: 200, data: [] })
+    rationalApi.checkInWishlist
+      .mockResolvedValueOnce({ code: 200, data: { inWishlist: true } })
+      .mockResolvedValueOnce({ code: 200, data: { inWishlist: false } })
 
-  describe('canAddToCart computed property', () => {
-    it('should be false when stock is 0', () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 0, price: 100 }
-      
-      // TODO: Test that canAddToCart is false
-      expect(true).toBe(true) // Placeholder
-    })
-
-    it('should be false when product is not loaded', () => {
-      // This test will fail until we add null safety
-      // TODO: Test that canAddToCart is false when product.value is empty
-      expect(true).toBe(true) // Placeholder
-    })
-
-    it('should be true when stock > 0 and user is logged in', () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 5, price: 100 }
-      
-      // TODO: Test that canAddToCart is true
-      expect(true).toBe(true) // Placeholder
-    })
-
-    it('should handle undefined stock gracefully', () => {
-      // This test will fail until we add null safety
-      const product = { id: 1, name: 'Test Product', price: 100 }
-      
-      // TODO: Test that canAddToCart is false when stock is undefined
-      expect(true).toBe(true) // Placeholder
-    })
-  })
-
-  describe('canBuyNow computed property', () => {
-    it('should be false when stock is 0', () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 0, price: 100 }
-      
-      // TODO: Test that canBuyNow is false
-      expect(true).toBe(true) // Placeholder
-    })
-
-    it('should be false when product is not loaded', () => {
-      // This test will fail until we add null safety
-      // TODO: Test that canBuyNow is false when product.value is empty
-      expect(true).toBe(true) // Placeholder
-    })
-
-    it('should be true when stock > 0 and user is logged in', () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 5, price: 100 }
-      
-      // TODO: Test that canBuyNow is true
-      expect(true).toBe(true) // Placeholder
-    })
-  })
-
-  describe('addToCart function', () => {
-    it('should prevent concurrent requests', async () => {
-      // This test will fail until we implement loading state
-      const product = { id: 1, name: 'Test Product', stock: 10, price: 100 }
-      
-      // TODO: Test that clicking addToCart multiple times only sends one request
-      expect(true).toBe(true) // Placeholder
+    const wrapper = mount(ProductDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElInput: true,
+          ElCheckbox: true
+        }
+      }
     })
 
-    it('should validate quantity before API call', async () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 5, price: 100 }
-      
-      // TODO: Test that quantity > stock shows error and doesn't call API
-      expect(true).toBe(true) // Placeholder
-    })
+    await flushPromises()
 
-    it('should handle backend errors gracefully', async () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 10, price: 100 }
-      
-      // TODO: Test that backend error is caught and displayed
-      expect(true).toBe(true) // Placeholder
-    })
+    const vm = wrapper.vm as any
+    vm.quantity = 4
+    vm.tab = 'review'
+    vm.showPriceChart = true
+    vm.showAlertDialog = true
+    vm.showWishlistDialog = true
+    vm.targetPrice = 66
+    vm.currentImage = '/custom-old.png'
 
-    it('should extract error message from response', async () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 10, price: 100 }
-      
-      // TODO: Test that error.response.data.message is extracted
-      expect(true).toBe(true) // Placeholder
-    })
+    mockRoute.params.id = '2'
+    vm.reloadProductDetailFromRoute()
+    await flushPromises()
 
-    it('should show warning when stock is 0', async () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 0, price: 100 }
-      
-      // TODO: Test that "商品已售罄" message is shown
-      expect(true).toBe(true) // Placeholder
-    })
-
-    it('should show warning when quantity exceeds stock', async () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 3, price: 100 }
-      
-      // TODO: Test that "库存不足" message is shown when quantity = 5
-      expect(true).toBe(true) // Placeholder
-    })
-  })
-
-  describe('buyNow function', () => {
-    it('should validate quantity before navigation', async () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 5, price: 100 }
-      
-      // TODO: Test that quantity > stock shows error and doesn't navigate
-      expect(true).toBe(true) // Placeholder
-    })
-
-    it('should not navigate when stock is 0', async () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 0, price: 100 }
-      
-      // TODO: Test that router.push is not called
-      expect(true).toBe(true) // Placeholder
-    })
-
-    it('should navigate to checkout with correct params when valid', async () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 10, price: 100 }
-      
-      // TODO: Test that router.push is called with correct URL
-      expect(true).toBe(true) // Placeholder
-    })
-  })
-
-  describe('Edge Cases', () => {
-    it('should handle very large quantity numbers', async () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 5, price: 100 }
-      
-      // TODO: Test that quantity 999999 is capped at stock
-      expect(true).toBe(true) // Placeholder
-    })
-
-    it('should handle product data race condition', async () => {
-      // This test will fail until we add null safety
-      // TODO: Test that buttons are disabled when product is not loaded
-      expect(true).toBe(true) // Placeholder
-    })
-
-    it('should handle stock changes during session', async () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 5, price: 100 }
-      
-      // TODO: Test that backend error is shown when stock changes
-      expect(true).toBe(true) // Placeholder
-    })
-  })
-
-  describe('Button States', () => {
-    it('should disable both buttons when stock is 0', () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 0, price: 100 }
-      
-      // TODO: Test that both buttons have disabled attribute
-      expect(true).toBe(true) // Placeholder
-    })
-
-    it('should disable quantity input when stock is 0', () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 0, price: 100 }
-      
-      // TODO: Test that quantity input has disabled attribute
-      expect(true).toBe(true) // Placeholder
-    })
-
-    it('should disable +/- buttons when stock is 0', () => {
-      // This test should pass with current implementation
-      const product = { id: 1, name: 'Test Product', stock: 0, price: 100 }
-      
-      // TODO: Test that +/- buttons have disabled attribute
-      expect(true).toBe(true) // Placeholder
-    })
+    expect(productApi.getProductById).toHaveBeenNthCalledWith(1, 1)
+    expect(productApi.getProductById).toHaveBeenNthCalledWith(2, 2)
+    expect(vm.product.id).toBe(2)
+    expect(vm.product.name).toBe('商品二')
+    expect(vm.quantity).toBe(1)
+    expect(vm.tab).toBe('detail')
+    expect(vm.showPriceChart).toBe(false)
+    expect(vm.showAlertDialog).toBe(false)
+    expect(vm.showWishlistDialog).toBe(false)
+    expect(vm.targetPrice).toBe(0)
+    expect(vm.priceAlert).toBeNull()
+    expect(vm.isInWishlist).toBe(false)
+    expect(vm.duplicateWarnings).toEqual([])
+    expect(vm.currentImage).toBe('/b.png')
   })
 })
