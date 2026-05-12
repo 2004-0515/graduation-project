@@ -329,8 +329,8 @@ CREATE TABLE music (
 
 -- 插入示例音乐数据
 INSERT INTO music (title, artist, url, cover, sort_order, status) VALUES
-('轻音乐1', '纯音乐', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', NULL, 1, 1),
-('轻音乐2', '纯音乐', 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', NULL, 2, 1);
+('轻音乐1', '纯音乐', 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=', NULL, 1, 1),
+('轻音乐2', '纯音乐', 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=', NULL, 2, 1);
 
 
 -- =====================================================
@@ -485,3 +485,18 @@ CREATE TABLE tb_consumption_achievement (
     UNIQUE KEY uk_user_achievement (user_id, achievement_type),
     CONSTRAINT fk_achievement_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消费成就表';
+
+-- =====================================================
+-- 22. 联系我们留言表 (tb_contact_message)
+-- =====================================================
+DROP TABLE IF EXISTS tb_contact_message;
+CREATE TABLE tb_contact_message (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '留言ID',
+    name VARCHAR(50) NOT NULL COMMENT '姓名',
+    contact VARCHAR(100) NOT NULL COMMENT '联系方式',
+    type VARCHAR(30) NOT NULL COMMENT '问题类型',
+    content VARCHAR(1000) NOT NULL COMMENT '留言内容',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '处理状态',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='联系我们留言表';
+

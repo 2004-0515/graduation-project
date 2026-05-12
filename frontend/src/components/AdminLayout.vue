@@ -38,6 +38,10 @@
           <span class="nav-icon">消息</span>
           <span class="nav-text">消息管理</span>
         </router-link>
+        <router-link to="/admin/contact-messages" class="nav-item" :class="{ active: $route.path.startsWith('/admin/contact-messages') }">
+          <span class="nav-icon">联</span>
+          <span class="nav-text">留言管理</span>
+        </router-link>
         <router-link to="/admin/coupons" class="nav-item" :class="{ active: $route.path.startsWith('/admin/coupons') }">
           <span class="nav-icon">券</span>
           <span class="nav-text">促销管理</span>
@@ -85,6 +89,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/userStore'
 import { useAdminStore } from '@/stores/adminStore'
+import { debugError } from '@/utils/debug'
 
 const route = useRoute()
 const router = useRouter()
@@ -105,6 +110,7 @@ const pageTitle = computed(() => {
     '/admin/users': '用户管理',
     '/admin/files': '文件审核',
     '/admin/notifications': '消息管理',
+    '/admin/contact-messages': '留言管理',
     '/admin/coupons': '促销管理',
     '/admin/music': '音乐管理',
     '/admin/price': '价格管理',
@@ -114,9 +120,14 @@ const pageTitle = computed(() => {
 })
 
 const handleLogout = async () => {
-  await userStore.logout()
-  ElMessage.success('已退出登录')
-  router.push('/login')
+  try {
+    await userStore.logout()
+    ElMessage.success('已退出登录')
+    router.push('/login')
+  } catch (error) {
+    debugError('后台退出登录失败:', error)
+    ElMessage.error('退出登录失败')
+  }
 }
 
 onMounted(() => {

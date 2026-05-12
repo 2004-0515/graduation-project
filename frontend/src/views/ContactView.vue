@@ -1,5 +1,5 @@
 <template>
-  <div class="contact-page">
+  <div class="contact-page" data-testid="contact-view">
     <Navbar />
     <main class="main-content">
       <div class="container">
@@ -56,7 +56,7 @@
                 <el-input v-model="form.contact" placeholder="手机号或邮箱" />
               </el-form-item>
               <el-form-item label="问题类型">
-                <el-select v-model="form.type" placeholder="请选择">
+                <el-select v-model="form.type" placeholder="请选择" data-testid="contact-type">
                   <el-option label="商品咨询" value="product" />
                   <el-option label="订单问题" value="order" />
                   <el-option label="支付问题" value="payment" />
@@ -69,7 +69,9 @@
                 <el-input v-model="form.content" type="textarea" :rows="4" placeholder="请详细描述您的问题" />
               </el-form-item>
               <el-form-item>
-                <button type="button" class="submit-btn" @click="submitForm">提交留言</button>
+                <button type="button" class="submit-btn" data-testid="contact-submit" :disabled="state.submitting" @click="submitForm">
+                  {{ state.submitting ? '提交中...' : '提交留言' }}
+                </button>
               </el-form-item>
             </el-form>
           </div>
@@ -83,6 +85,8 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
 import { ElMessage } from 'element-plus'
+import contactApi from '../api/contactApi'
+import { debugError } from '../utils/debug'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -93,16 +97,59 @@ const form = reactive({
   content: ''
 })
 
-const submitForm = () => {
-  if (!form.name || !form.contact || !form.content) {
-    ElMessage.warning('请填写完整信息')
-    return
+const state = reactive({
+  submitting: false
+})
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
   }
-  ElMessage.success('留言提交成功，我们会尽快回复您')
+  return fallback
+}
+
+const resetForm = () => {
   form.name = ''
   form.contact = ''
   form.type = ''
   form.content = ''
+}
+
+const submitForm = async () => {
+  if (!form.name || !form.contact || !form.content) {
+    ElMessage.warning('请填写完整信息')
+    return
+  }
+  if (!form.type) {
+    ElMessage.warning('请选择问题类型')
+    return
+  }
+
+  state.submitting = true
+  try {
+    const res = await contactApi.submitMessage({
+      name: form.name,
+      contact: form.contact,
+      type: form.type,
+      content: form.content
+    })
+    if (res?.code === 200) {
+      ElMessage.success(res.message || '留言提交成功，我们会尽快回复您')
+      resetForm()
+      return
+    }
+
+    const message = res?.message || '留言提交失败，请稍后重试'
+    debugError('提交留言失败:', message)
+    ElMessage.error(message)
+  } catch (error) {
+    debugError('提交留言失败:', error)
+    ElMessage.error(getErrorMessage(error, '留言提交失败，请稍后重试'))
+  } finally {
+    state.submitting = false
+  }
 }
 </script>
 

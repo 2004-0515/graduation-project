@@ -190,6 +190,12 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
+      path: '/admin/contact-messages',
+      name: 'adminContactMessages',
+      component: () => import('@/views/admin/ContactMessagesView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
       path: '/admin/coupons',
       name: 'adminCoupons',
       component: () => import('@/views/admin/CouponsManageView.vue'),
