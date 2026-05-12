@@ -30,7 +30,18 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     
     // 根据名称模糊查询已审核通过且上架的商品（用于搜索建议）
     @EntityGraph(attributePaths = {"category"})
-    List<Product> findByNameContainingAndAuditStatusAndStatus(String name, Integer auditStatus, Integer status);
+    List<Product> findByNameContainingIgnoreCaseAndAuditStatusAndStatus(String name, Integer auditStatus, Integer status);
+
+    // 根据名称或描述模糊查询已审核通过且上架的商品（用于搜索建议）
+    @EntityGraph(attributePaths = {"category"})
+    List<Product> findByAuditStatusAndStatusAndNameContainingIgnoreCaseOrAuditStatusAndStatusAndDescriptionContainingIgnoreCase(
+        Integer auditStatusForName,
+        Integer statusForName,
+        String name,
+        Integer auditStatusForDescription,
+        Integer statusForDescription,
+        String description
+    );
     
     // 根据审核状态查询商品
     @EntityGraph(attributePaths = {"category"})
@@ -61,6 +72,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     
     // 原子性扣减库存（用于防止并发超卖）
     @Modifying(clearAutomatically = true)
-    @Query("UPDATE Product p SET p.stock = p.stock - :quantity WHERE p.id = :id AND p.stock >= :quantity")
+    @Query(value = "UPDATE tb_product SET stock = stock - :quantity WHERE id = :id AND stock >= :quantity", nativeQuery = true)
     int reduceStockAtomic(@Param("id") Long id, @Param("quantity") Integer quantity);
 }

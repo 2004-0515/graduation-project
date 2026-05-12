@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 商品控制器，处理商品相关API请求
@@ -38,6 +39,43 @@ public class ProductController {
     
     @Autowired
     private NotificationService notificationService;
+
+    private Response<?> unauthorized() {
+        return Response.fail(401, "用户未登录");
+    }
+
+    private java.math.BigDecimal parseRequiredBigDecimal(Object value, String fieldName) {
+        if (value == null || value.toString().trim().isEmpty()) {
+            throw new IllegalArgumentException(fieldName + "不能为空");
+        }
+        try {
+            return new java.math.BigDecimal(value.toString());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(fieldName + "格式不正确");
+        }
+    }
+
+    private Integer parseRequiredInteger(Object value, String fieldName) {
+        if (value == null || value.toString().trim().isEmpty()) {
+            throw new IllegalArgumentException(fieldName + "不能为空");
+        }
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(fieldName + "格式不正确");
+        }
+    }
+
+    private Long parseRequiredLong(Object value, String fieldName) {
+        if (value == null || value.toString().trim().isEmpty()) {
+            throw new IllegalArgumentException(fieldName + "不能为空");
+        }
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(fieldName + "格式不正确");
+        }
+    }
     
     /**
      * 获取商品列表，支持分页和筛选
@@ -69,13 +107,8 @@ public class ProductController {
         List<Product> allProducts;
         
         // 管理后台请求返回所有商品，前台只返回已审核通过且上架的商品
-        String username = null;
-        try {
-            username = SecurityUtils.getCurrentUsername();
-        } catch (Exception e) {
-            // 未登录用户
-        }
-        boolean isAdmin = "admin".equals(username) && Boolean.TRUE.equals(admin);
+        java.util.Optional<String> username = getCurrentUsernameIfAuthenticated();
+        boolean isAdmin = username.filter("admin"::equals).isPresent() && Boolean.TRUE.equals(admin);
         
         if (isAdmin) {
             // 管理后台：获取所有商品
@@ -97,7 +130,7 @@ public class ProductController {
             }
         } else {
             // 前台：只获取已审核通过且上架的商品
-            allProducts = productService.getApprovedProducts();
+            allProducts = new java.util.ArrayList<>(productService.getApprovedProducts());
         }
         
         // 分类筛选
@@ -221,14 +254,17 @@ public class ProductController {
      */
     @PostMapping
     public Response<Product> createProduct(@RequestBody Map<String, Object> data) {
-        String username = null;
-        try {
-            username = SecurityUtils.getCurrentUsername();
-        } catch (Exception e) {
+        java.util.Optional<String> username = getCurrentUsernameIfAuthenticated();
+        if (username.isEmpty()) {
+            return Response.fail(401, "用户未登录");
+        }
+
+        User currentUser = userService.findByUsername(username.get());
+        if (currentUser == null) {
             return Response.fail(401, "用户未登录");
         }
         
-        log.info("创建商品请求: user={}, name={}", username, data.get("name"));
+        log.info("创建商品请求: user={}, name={}", username.get(), data.get("name"));
         
         Product product = new Product();
         product.setName((String) data.get("name"));
@@ -270,7 +306,7 @@ public class ProductController {
         }
         
         // 管理员创建的商品自动通过审核，且广告自动启用
-        if ("admin".equals(username)) {
+        if ("admin".equals(username.get())) {
             product.setAuditStatus(1);
             product.setAuditTime(java.time.LocalDateTime.now());
             // 管理员上传的广告自动启用
@@ -284,7 +320,7 @@ public class ProductController {
         }
         
         Product createdProduct = productService.saveProduct(product);
-        log.info("商品创建成功: id={}, user={}", createdProduct.getId(), username);
+        log.info("商品创建成功: id={}, user={}", createdProduct.getId(), username.get());
         return Response.success("商品创建成功", createdProduct);
     }
     
@@ -302,17 +338,15 @@ public class ProductController {
         }
         
         // 获取当前用户
-        String username = null;
-        try {
-            username = SecurityUtils.getCurrentUsername();
-        } catch (Exception e) {
+        java.util.Optional<String> username = getCurrentUsernameIfAuthenticated();
+        if (username.isEmpty()) {
             return Response.fail(401, "用户未登录");
         }
-        boolean isAdmin = "admin".equals(username);
+        boolean isAdmin = "admin".equals(username.get());
         
         // 检查是否是商品所有者或管理�?
         if (!isAdmin && product.getSellerId() != null) {
-            User user = userService.findByUsername(username);
+            User user = userService.findByUsername(username.get());
             if (user == null || !product.getSellerId().equals(user.getId())) {
                 return Response.fail(403, "无权修改此商品");
             }
@@ -417,11 +451,11 @@ public class ProductController {
                 User admin = userService.findByUsername("admin");
                 if (admin != null) {
                     String title = "商品修改待审核";
-                    String message = "用户 " + username + " 修改了商品「" + product.getName() + "」，请及时审核。";
+                    String message = "用户 " + username.get() + " 修改了商品「" + product.getName() + "」，请及时审核。";
                     notificationService.createNotification(admin.getId(), "product_review", title, message, null);
                 }
-            } catch (Exception e) {
-                System.err.println("发送审核通知给管理员失败: " + e.getMessage());
+            } catch (RuntimeException e) {
+                log.warn("发送商品修改审核通知给管理员失败: productId={}, username={}", product.getId(), username.get(), e);
             }
         }
         
@@ -439,10 +473,8 @@ public class ProductController {
     @DeleteMapping("/{id}")
     public Response<Void> deleteProduct(@PathVariable Long id) {
         // 获取当前用户
-        String username = null;
-        try {
-            username = SecurityUtils.getCurrentUsername();
-        } catch (Exception e) {
+        java.util.Optional<String> username = getCurrentUsernameIfAuthenticated();
+        if (username.isEmpty()) {
             return Response.fail(401, "用户未登录");
         }
         
@@ -452,9 +484,9 @@ public class ProductController {
         }
         
         // 检查权限：管理员或商品所有�?
-        boolean isAdmin = "admin".equals(username);
+        boolean isAdmin = "admin".equals(username.get());
         if (!isAdmin) {
-            User user = userService.findByUsername(username);
+            User user = userService.findByUsername(username.get());
             if (user == null || product.getSellerId() == null || !product.getSellerId().equals(user.getId())) {
                 return Response.fail(403, "无权删除此商品");
             }
@@ -471,8 +503,13 @@ public class ProductController {
      */
     @PostMapping("/submit")
     public Response<Product> submitProduct(@RequestBody Map<String, Object> data) {
-        String username = SecurityUtils.getCurrentUsername();
-        User user = userService.findByUsername(username);
+        Optional<String> username = getCurrentUsernameIfAuthenticated();
+        if (username.isEmpty()) {
+            return Response.fail(401, "用户未登录");
+        }
+
+        String currentUsername = username.get();
+        User user = userService.findByUsername(currentUsername);
         if (user == null) {
             return Response.fail(401, "用户未登录");
         }
@@ -480,30 +517,35 @@ public class ProductController {
         Product product = new Product();
         product.setName((String) data.get("name"));
         product.setDescription((String) data.get("description"));
-        product.setPrice(new java.math.BigDecimal(data.get("price").toString()));
-        if (data.get("originalPrice") != null && !data.get("originalPrice").toString().isEmpty()) {
-            try {
-                product.setOriginalPrice(new java.math.BigDecimal(data.get("originalPrice").toString()));
-            } catch (Exception e) {
-                // 忽略无效的原价
+        try {
+            product.setPrice(parseRequiredBigDecimal(data.get("price"), "价格"));
+            if (data.get("originalPrice") != null && !data.get("originalPrice").toString().trim().isEmpty()) {
+                product.setOriginalPrice(parseRequiredBigDecimal(data.get("originalPrice"), "原价"));
             }
+            product.setStock(parseRequiredInteger(data.get("stock"), "库存"));
+        } catch (IllegalArgumentException e) {
+            return Response.fail(400, e.getMessage());
         }
-        product.setStock(Integer.parseInt(data.get("stock").toString()));
         product.setMainImage((String) data.get("mainImage"));
         product.setImages((String) data.get("images"));
         product.setSellerId(user.getId());
-        product.setSellerName(username);
+        product.setSellerName(currentUsername);
         product.setSales(0);
         product.setStatus(1); // 默认上架
         
         // 设置分类
-        Long categoryId = Long.parseLong(data.get("categoryId").toString());
+        Long categoryId;
+        try {
+            categoryId = parseRequiredLong(data.get("categoryId"), "分类");
+        } catch (IllegalArgumentException e) {
+            return Response.fail(400, e.getMessage());
+        }
         Category category = categoryRepository.findById(categoryId)
             .orElseThrow(() -> new com.shopping.exception.ResourceNotFoundException("分类", categoryId));
         product.setCategory(category);
         
         // 管理员直接通过，普通用户需要审核
-        if ("admin".equals(username)) {
+        if ("admin".equals(currentUsername)) {
             product.setAuditStatus(1); // 已通过
             product.setAuditTime(java.time.LocalDateTime.now());
         } else {
@@ -514,11 +556,11 @@ public class ProductController {
                 User admin = userService.findByUsername("admin");
                 if (admin != null) {
                     String title = "新商品待审核";
-                    String message = "用户 " + username + " 提交了新商品「" + product.getName() + "」，请及时审核。";
+                    String message = "用户 " + currentUsername + " 提交了新商品「" + product.getName() + "」，请及时审核。";
                     notificationService.createNotification(admin.getId(), "product_review", title, message, null);
                 }
-            } catch (Exception e) {
-                System.err.println("发送审核通知给管理员失败: " + e.getMessage());
+            } catch (RuntimeException e) {
+                log.warn("发送新商品审核通知给管理员失败: productName={}, username={}", product.getName(), currentUsername, e);
             }
         }
         
@@ -529,7 +571,7 @@ public class ProductController {
         }
         
         Product saved = productService.saveProduct(product);
-        return Response.success("admin".equals(username) ? "商品发布成功" : "商品提交成功，等待管理员审核", saved);
+        return Response.success("admin".equals(currentUsername) ? "商品发布成功" : "商品提交成功，等待管理员审核", saved);
     }
     
     /**
@@ -538,13 +580,18 @@ public class ProductController {
      */
     @GetMapping("/my")
     public Response<List<Product>> getMyProducts() {
-        String username = SecurityUtils.getCurrentUsername();
-        User user = userService.findByUsername(username);
+        Optional<String> username = getCurrentUsernameIfAuthenticated();
+        if (username.isEmpty()) {
+            return Response.fail(401, "用户未登录");
+        }
+
+        String currentUsername = username.get();
+        User user = userService.findByUsername(currentUsername);
         if (user == null) {
             return Response.fail(401, "用户未登录");
         }
         // 兼容旧数据：同时通过sellerId和sellerName查询
-        List<Product> products = productService.getProductsBySellerIdOrName(user.getId(), username);
+        List<Product> products = productService.getProductsBySellerIdOrName(user.getId(), currentUsername);
         return Response.success(products);
     }
     
@@ -606,5 +653,12 @@ public class ProductController {
         productService.updateAllProductsStatus(status);
         String msg = status == 1 ? "全部商品已上架" : "全部商品已下架";
         return Response.success(msg);
+    }
+
+    private java.util.Optional<String> getCurrentUsernameIfAuthenticated() {
+        if (!SecurityUtils.isAuthenticated()) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.ofNullable(SecurityUtils.getCurrentUsername());
     }
 }

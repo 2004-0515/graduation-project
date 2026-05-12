@@ -88,6 +88,13 @@ const priceApi = {
   },
 
   /**
+   * 删除降价提醒记录
+   */
+  deleteAlertRecord(productId: number): Promise<ApiResponse<void>> {
+    return axios.delete(`/price/alert/${productId}/record`)
+  },
+
+  /**
    * 获取用户的降价提醒列表
    */
   getUserAlerts(): Promise<ApiResponse<PriceAlert[]>> {

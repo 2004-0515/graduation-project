@@ -150,7 +150,7 @@
         </div>
       </section>
       
-      <section class="section promo-section">
+      <section class="section promo-section" data-testid="home-coupon-section">
         <div class="container">
           <div class="section-head">
             <h2 class="text-title">限时活动</h2>
@@ -158,7 +158,7 @@
           </div>
           <div class="promo-grid">
             <!-- 主活动卡片 -->
-            <div class="promo-main glass-card" @click="$router.push('/promotions')">
+            <div class="promo-main glass-card" data-testid="home-promotions-entry" @click="$router.push('/promotions')">
               <div class="promo-main-bg"></div>
               <div class="promo-main-content">
                 <span class="promo-badge">限时特惠</span>
@@ -178,7 +178,13 @@
             
             <!-- 优惠券快捷领取 -->
             <div class="coupon-quick">
-              <div v-for="c in quickCoupons" :key="c.id" class="quick-coupon glass-card" @click="claimQuickCoupon(c)">
+              <div
+                v-for="c in quickCoupons"
+                :key="c.id"
+                class="quick-coupon glass-card"
+                :data-testid="`home-quick-coupon-${c.id}`"
+                @click="claimQuickCoupon(c)"
+              >
                 <div class="quick-coupon-value" :class="getCouponClass(c.type)">
                   <template v-if="c.type === 2">{{ (c.discountRate * 10).toFixed(0) }}折</template>
                   <template v-else>¥{{ c.discountAmount }}</template>
@@ -190,7 +196,12 @@
                     <template v-else>无门槛</template>
                   </span>
                 </div>
-                <button class="quick-claim-btn" :class="{ claimed: c.claimed }" :disabled="c.claimed">
+                <button
+                  class="quick-claim-btn"
+                  :class="{ claimed: c.claimed }"
+                  :data-testid="`home-quick-coupon-claim-${c.id}`"
+                  :disabled="c.claimed"
+                >
                   {{ c.claimed ? '已领' : '领取' }}
                 </button>
               </div>
@@ -210,14 +221,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
 import productApi from '@/api/productApi'
 import categoryApi from '@/api/categoryApi'
 import couponApi from '@/api/couponApi'
 import fileApi from '@/api/fileApi'
+import { useUserStore } from '@/stores/userStore'
+import { debugError } from '@/utils/debug'
 
 const router = useRouter()
+const userStore = useUserStore()
 const loading = ref(true)
 const hotGames = ref<any[]>([])
 const newGames = ref<any[]>([])
@@ -227,12 +242,13 @@ const quickCoupons = ref<any[]>([])
 const availableCouponsCount = ref(0)
 const countdownText = ref('')
 const maxDiscount = ref('50%')
+let latestCouponsRequestId = 0
 
 const slides = [
-  { image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600', subtitle: '品质生活，从这里开始', title: '紫苑风鸢，精选好物', description: '发现生活中的美好，理性消费每一刻', buttonText: '开始选购', link: '/category' },
-  { image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1600', subtitle: '潮流新品上线', title: '时尚大牌，新品首发', description: '精选服饰、美妆、配饰，专属优惠', buttonText: '探索新品', link: '/category' },
-  { image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1600', subtitle: '限时特惠活动', title: '超值折扣，限时抢购', description: '精选商品低至5折，限时抢购中', buttonText: '立即抢购', link: '/promotions' },
-  { image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1600', subtitle: '数码精品专区', title: '科技好物，品质之选', description: '发现最新数码产品，品质保证', buttonText: '查看详情', link: '/category' }
+  { image: '/external-cache/home-1.jpg', subtitle: '品质生活，从这里开始', title: '紫苑风鸢，精选好物', description: '发现生活中的美好，理性消费每一刻', buttonText: '开始选购', link: '/category' },
+  { image: '/external-cache/home-2.jpg', subtitle: '潮流新品上线', title: '时尚大牌，新品首发', description: '精选服饰、美妆、配饰，专属优惠', buttonText: '探索新品', link: '/category' },
+  { image: '/external-cache/home-3.jpg', subtitle: '限时特惠活动', title: '超值折扣，限时抢购', description: '精选商品低至5折，限时抢购中', buttonText: '立即抢购', link: '/promotions' },
+  { image: '/external-cache/home-4.jpg', subtitle: '数码精品专区', title: '科技好物，品质保证', description: '发现最新数码产品，品质保证', buttonText: '查看详情', link: '/category' }
 ]
 
 const currentSlide = ref(0)
@@ -272,9 +288,22 @@ const getCouponClass = (type: number) => {
   return classes[type] || 'type-reduce'
 }
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
+
 const fetchCoupons = async () => {
+  const requestId = ++latestCouponsRequestId
   try {
     const res: any = await couponApi.getAvailableCoupons()
+    if (requestId !== latestCouponsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       const coupons = res.data || []
       availableCouponsCount.value = coupons.length
@@ -290,20 +319,46 @@ const fetchCoupons = async () => {
           maxDiscount.value = `¥${maxAmount}`
         }
       }
+    } else {
+      debugError('获取首页优惠券失败', res?.message || '首页优惠券返回异常')
     }
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    if (requestId !== latestCouponsRequestId) {
+      return
+    }
+    debugError('获取首页优惠券失败', e)
+  }
+}
+
+const refreshCouponsAfterClaimSuccess = async () => {
+  try {
+    await fetchCoupons()
+  } catch (error) {
+    debugError('首页快捷领取成功后刷新优惠券失败', error)
+  }
 }
 
 const claimQuickCoupon = async (coupon: any) => {
   if (coupon.claimed) return
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+
   try {
     const res: any = await couponApi.claimCoupon(coupon.id)
     if (res?.code === 200) {
-      coupon.claimed = true
       ElMessage.success('领取成功')
+      await refreshCouponsAfterClaimSuccess()
+    } else {
+      const message = res?.message || '领取失败'
+      debugError('首页快捷领取优惠券失败', message)
+      ElMessage.error(message)
     }
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '领取失败')
+    debugError('首页快捷领取优惠券失败', e)
+    ElMessage.error(getErrorMessage(e, '领取失败'))
   }
 }
 
@@ -328,8 +383,10 @@ const fetchCategories = async () => {
     const res: any = await categoryApi.getCategories()
     if (res?.code === 200) {
       categories.value = res.data || []
+    } else {
+      debugError('获取首页分类失败', res?.message || '首页分类返回异常')
     }
-  } catch (e) { console.error(e) }
+  } catch (e) { debugError('获取首页分类失败', e) }
 }
 
 onMounted(async () => {
@@ -349,8 +406,10 @@ onMounted(async () => {
     if (hotRes?.code === 200) {
       const list = hotRes.data?.content || hotRes.data?.records || hotRes.data || []
       hotGames.value = list
+    } else {
+      debugError('获取首页热销商品失败', hotRes?.message || '首页热销商品返回异常')
     }
-  } catch (e) { console.error('获取热销商品失败:', e) }
+  } catch (e) { debugError('获取首页热销商品失败', e) }
   
   // 获取新品上架（按最新排序）
   try {
@@ -358,8 +417,10 @@ onMounted(async () => {
     if (newRes?.code === 200) {
       const list = newRes.data?.content || newRes.data?.records || newRes.data || []
       newGames.value = list
+    } else {
+      debugError('获取首页新品失败', newRes?.message || '首页新品返回异常')
     }
-  } catch (e) { console.error('获取新品失败:', e) }
+  } catch (e) { debugError('获取首页新品失败', e) }
   
   loading.value = false
 })

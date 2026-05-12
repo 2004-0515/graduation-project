@@ -1,5 +1,5 @@
 <template>
-  <div class="coupon-detail-page">
+  <div class="coupon-detail-page" data-testid="coupon-detail-view">
     <Navbar />
 
     <main class="main-content">
@@ -93,6 +93,7 @@
             <div class="action-section">
               <button 
                 class="claim-btn" 
+                data-testid="coupon-detail-claim"
                 :class="{ disabled: !canClaim }"
                 :disabled="!canClaim"
                 @click="handleClaim"
@@ -118,13 +119,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import couponApi from '../api/couponApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import { debugError } from '../utils/debug'
 
 const route = useRoute()
 const router = useRouter()
@@ -132,6 +134,10 @@ const userStore = useUserStore()
 
 const loading = ref(false)
 const coupon = ref<any>({})
+let latestCouponRequestId = 0
+const invalidateCouponRequests = () => {
+  latestCouponRequestId += 1
+}
 
 const statusClass = computed(() => {
   if (coupon.value.statusText === '进行中') return 'active'
@@ -157,23 +163,55 @@ const formatTime = (time: string) => {
   return time.substring(0, 10)
 }
 
-const fetchCoupon = async () => {
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
+
+const fetchCoupon = async (showError: boolean = true) => {
   const id = route.params.id
   if (!id) return
-  
+
+  const requestId = ++latestCouponRequestId
   loading.value = true
   try {
     const res: any = await couponApi.getCouponById(Number(id))
+    if (requestId !== latestCouponRequestId) {
+      return
+    }
     if (res?.code === 200) {
       coupon.value = res.data
     } else {
-      ElMessage.error(res?.message || '获取优惠券信息失败')
+      const message = res?.message || '获取优惠券信息失败'
+      debugError('获取优惠券详情失败', message)
+      if (showError) {
+        ElMessage.error(message)
+      }
     }
   } catch (e) {
-    console.error('获取优惠券失败', e)
-    ElMessage.error('获取优惠券信息失败')
+    if (requestId !== latestCouponRequestId) {
+      return
+    }
+    debugError('获取优惠券详情失败', e)
+    if (showError) {
+      ElMessage.error(getErrorMessage(e, '获取优惠券信息失败'))
+    }
   } finally {
-    loading.value = false
+    if (requestId === latestCouponRequestId) {
+      loading.value = false
+    }
+  }
+}
+
+const refreshCouponAfterClaimSuccess = async () => {
+  try {
+    await fetchCoupon(false)
+  } catch (error) {
+    debugError('领取成功后刷新优惠券详情失败', error)
   }
 }
 
@@ -187,24 +225,37 @@ const handleClaim = async () => {
   try {
     const res: any = await couponApi.claimCoupon(coupon.value.id)
     if (res?.code === 200) {
-      ElMessage.success('领取成功')
-      // 更新已领取数量
-      coupon.value.userClaimedCount = (coupon.value.userClaimedCount || 0) + 1
-      coupon.value.remaining = Math.max(0, coupon.value.remaining - 1)
-      // 检查是否达到限领上限
-      if (coupon.value.userClaimedCount >= coupon.value.limitPerUser) {
-        coupon.value.claimed = true
+      invalidateCouponRequests()
+      coupon.value = {
+        ...coupon.value,
+        claimed: true,
+        userClaimedCount: Number(coupon.value.userClaimedCount || 0) + 1,
+        remaining: Math.max(0, Number(coupon.value.remaining || 0) - 1)
       }
+      ElMessage.success('领取成功')
+      await refreshCouponAfterClaimSuccess()
     } else {
-      ElMessage.error(res?.message || '领取失败')
+      const message = res?.message || '领取失败'
+      debugError('领取优惠券失败', message)
+      ElMessage.error(message)
     }
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '领取失败')
+    debugError('领取优惠券失败', e)
+    ElMessage.error(getErrorMessage(e, '领取失败'))
   }
 }
 
+const reloadCouponDetailFromRoute = () => {
+  coupon.value = {}
+  void fetchCoupon()
+}
+
 onMounted(() => {
-  fetchCoupon()
+  reloadCouponDetailFromRoute()
+})
+
+watch(() => route.params.id, () => {
+  reloadCouponDetailFromRoute()
 })
 </script>
 

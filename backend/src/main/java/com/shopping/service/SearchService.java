@@ -61,11 +61,23 @@ public class SearchService {
         String trimmedKeyword = keyword.trim().toLowerCase();
         List<SearchSuggestionDto> suggestions = new ArrayList<>();
         
-        // 从商品名中匹配（只查询已审核通过且上架的商品）
-        List<Product> products = productRepository.findByNameContainingAndAuditStatusAndStatus(trimmedKeyword, 1, 1);
+        // 从商品名或描述中匹配（只查询已审核通过且上架的商品）
+        List<Product> products = productRepository
+            .findByAuditStatusAndStatusAndNameContainingIgnoreCaseOrAuditStatusAndStatusAndDescriptionContainingIgnoreCase(
+                1,
+                1,
+                trimmedKeyword,
+                1,
+                1,
+                trimmedKeyword
+            );
         for (Product product : products) {
             if (suggestions.size() >= MAX_SUGGESTIONS) break;
-            String highlight = highlightMatch(product.getName(), trimmedKeyword);
+            boolean matchedInName = product.getName() != null && product.getName().toLowerCase().contains(trimmedKeyword);
+            String highlight = highlightMatch(
+                matchedInName ? product.getName() : buildDescriptionHighlight(product.getName(), product.getDescription(), trimmedKeyword),
+                trimmedKeyword
+            );
             suggestions.add(SearchSuggestionDto.ofProduct(product.getName(), highlight));
         }
         
@@ -103,6 +115,26 @@ public class SearchService {
         String after = text.substring(index + keyword.length());
         
         return before + "<em>" + match + "</em>" + after;
+    }
+
+    private String buildDescriptionHighlight(String productName, String description, String keyword) {
+        if (description == null || description.isBlank()) {
+            return productName;
+        }
+
+        String trimmedDescription = description.trim();
+        String lowerDescription = trimmedDescription.toLowerCase();
+        String lowerKeyword = keyword.toLowerCase();
+        int index = lowerDescription.indexOf(lowerKeyword);
+        if (index < 0) {
+            return productName;
+        }
+
+        int snippetStart = Math.max(0, index - 8);
+        int snippetEnd = Math.min(trimmedDescription.length(), index + keyword.length() + 8);
+        String prefix = snippetStart > 0 ? "..." : "";
+        String suffix = snippetEnd < trimmedDescription.length() ? "..." : "";
+        return productName + " " + prefix + trimmedDescription.substring(snippetStart, snippetEnd) + suffix;
     }
     
     /**

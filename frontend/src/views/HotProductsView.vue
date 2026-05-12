@@ -1,5 +1,5 @@
 <template>
-  <div class="hot-page">
+  <div class="hot-page" data-testid="hot-products-view">
     <div class="deco-layer">
       <div class="deco-bg"></div>
       <div class="shape s1"></div>
@@ -28,15 +28,15 @@
         </div>
 
         <!-- TOP3 -->
-        <div class="top3" v-if="products.length >= 3">
-          <div class="top-card glass-card second" @click="$router.push(`/product/${products[1]?.id}`)">
+        <div class="top3" v-if="products.length >= 3" data-testid="hot-top3">
+          <div class="top-card glass-card second" data-testid="hot-top-card-2" @click="$router.push(`/product/${products[1]?.id}`)">
             <span class="medal silver">2</span>
             <div class="top-img"><img :src="getImageUrl(products[1]?.mainImage)" @error="imgErr" /></div>
             <h4>{{ products[1]?.name }}</h4>
             <p class="top-sales">已售{{ formatSales(products[1]?.sales) }}件</p>
             <span class="top-price">¥{{ products[1]?.price }}</span>
           </div>
-          <div class="top-card glass-card first" @click="$router.push(`/product/${products[0]?.id}`)">
+          <div class="top-card glass-card first" data-testid="hot-top-card-1" @click="$router.push(`/product/${products[0]?.id}`)">
             <span class="crown-badge">TOP</span>
             <span class="medal gold">1</span>
             <div class="top-img"><img :src="getImageUrl(products[0]?.mainImage)" @error="imgErr" /></div>
@@ -44,7 +44,7 @@
             <p class="top-sales">已售{{ formatSales(products[0]?.sales) }}件</p>
             <span class="top-price">¥{{ products[0]?.price }}</span>
           </div>
-          <div class="top-card glass-card third" @click="$router.push(`/product/${products[2]?.id}`)">
+          <div class="top-card glass-card third" data-testid="hot-top-card-3" @click="$router.push(`/product/${products[2]?.id}`)">
             <span class="medal bronze">3</span>
             <div class="top-img"><img :src="getImageUrl(products[2]?.mainImage)" @error="imgErr" /></div>
             <h4>{{ products[2]?.name }}</h4>
@@ -60,8 +60,8 @@
             <span class="update">更新于 {{ updateTime }}</span>
           </div>
           
-          <div class="rank-list" v-if="products.length">
-            <div v-for="(p, i) in products" :key="p.id" class="rank-item" @click="$router.push(`/product/${p.id}`)">
+          <div class="rank-list" v-if="products.length" data-testid="hot-rank-list">
+            <div v-for="(p, i) in products" :key="p.id" class="rank-item" :data-testid="`hot-rank-item-${p.id}`" @click="$router.push(`/product/${p.id}`)">
               <span :class="['rank-num', { top: i < 3 }]">{{ i + 1 }}</span>
               <img :src="getImageUrl(p.mainImage)" class="rank-img" @error="imgErr" />
               <div class="rank-info">
@@ -94,10 +94,13 @@ import { useCartStore } from '../stores/cartStore'
 import { useUserStore } from '../stores/userStore'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import { debugError } from '../utils/debug'
 
 const cartStore = useCartStore()
 const userStore = useUserStore()
 const products = ref<any[]>([])
+const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
+const getErrorMessage = (error: any, fallback: string) => error?.response?.data?.message || error?.message || fallback
 
 const totalSales = computed(() => {
   const sum = products.value.reduce((acc, p) => acc + (p.sales || 0), 0)
@@ -129,8 +132,9 @@ const addToCart = async (p: any) => {
   }
   try { 
     await cartStore.addToCart(userStore.userInfo?.id, p.id, 1)
-  } catch { 
-    ElMessage.error('添加失败') 
+  } catch (error: any) { 
+    debugError('热销商品加购失败', error)
+    ElMessage.error(getErrorMessage(error, '添加失败')) 
   }
 }
 
@@ -141,8 +145,10 @@ onMounted(async () => {
       const list = res.data?.content || res.data?.records || res.data || []
       // 按销量降序排序
       products.value = list.sort((a: any, b: any) => (b.sales || 0) - (a.sales || 0))
+    } else {
+      debugError('获取热销排行榜失败:', getResponseMessage(res, '业务返回异常'))
     }
-  } catch (e) { console.error(e) }
+  } catch (e) { debugError('获取热销排行榜失败', e) }
 })
 </script>
 
@@ -150,7 +156,7 @@ onMounted(async () => {
 .hot-page { min-height: 100vh; background: var(--white); position: relative; }
 
 .deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-.deco-bg { position: absolute; top: -10%; left: -10%; width: 50%; height: 60%; background: url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800') center/cover; opacity: 0.1; filter: blur(50px); }
+.deco-bg { position: absolute; top: -10%; left: -10%; width: 50%; height: 60%; background: url('/external-cache/hot-bg.jpg') center/cover; opacity: 0.1; filter: blur(50px); }
 .shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; }
 .s1 { width: 600px; height: 600px; top: 20%; right: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.15; }
 .s2 { width: 500px; height: 500px; bottom: 5%; left: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.12; animation-delay: -10s; }

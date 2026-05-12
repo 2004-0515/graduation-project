@@ -58,7 +58,8 @@
             
             <!-- 价格历史与降价提醒 -->
             <div class="price-history-section glass-card">
-              <div class="price-stats" v-if="priceStats">
+              <p v-if="hasPriceDataIssue" class="price-data-hint">价格历史数据暂未同步，请稍后刷新重试。</p>
+              <div class="price-stats" v-if="priceStatsAvailable && priceStats">
                 <div class="stat-item">
                   <span class="stat-label">历史最低</span>
                   <span class="stat-value lowest">¥{{ priceStats.lowestPrice }}</span>
@@ -84,6 +85,7 @@
                 <button 
                   v-if="!priceAlert || priceAlert.status !== 0" 
                   class="alert-btn" 
+                  data-testid="product-price-alert-open"
                   @click="openAlertDialog"
                 >
                   <span class="bell-icon">🔔</span>
@@ -101,8 +103,11 @@
               
               <!-- 价格走势图 -->
               <div v-show="showPriceChart" class="price-chart-container">
-                <div ref="priceChartRef" class="price-chart"></div>
-                <div v-if="priceHistory.length === 0" class="no-history">
+                <div v-if="priceHistoryAvailable" ref="priceChartRef" class="price-chart"></div>
+                <div v-if="!priceHistoryAvailable" class="no-history">
+                  <p>价格走势暂未同步</p>
+                </div>
+                <div v-else-if="priceHistory.length === 0" class="no-history">
                   <p>暂无价格历史记录</p>
                 </div>
               </div>
@@ -153,6 +158,7 @@
               <button 
                 class="btn-wishlist" 
                 :class="{ 'in-wishlist': isInWishlist }"
+                data-testid="product-add-to-wishlist"
                 @click="handleWishlistClick"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -302,6 +308,7 @@
               <span class="currency">¥</span>
               <input 
                 type="number" 
+                data-testid="product-price-alert-input"
                 v-model.number="targetPrice" 
                 :max="product.price - 0.01"
                 min="0.01"
@@ -323,7 +330,7 @@
         </div>
         <div class="alert-dialog-footer">
           <button class="btn btn-glass" @click="showAlertDialog = false">取消</button>
-          <button class="btn btn-primary" @click="setAlert">确认设置</button>
+          <button class="btn btn-primary" data-testid="product-price-alert-confirm" @click="setAlert">确认设置</button>
         </div>
       </div>
     </div>
@@ -368,7 +375,7 @@
         </div>
         <div class="wishlist-dialog-footer">
           <button class="btn btn-glass" @click="showWishlistDialog = false">取消</button>
-          <button class="btn btn-primary" @click="addToWishlist" :disabled="addingWishlist">
+          <button class="btn btn-primary" data-testid="product-wishlist-confirm" @click="addToWishlist" :disabled="addingWishlist">
             {{ addingWishlist ? '添加中...' : '加入清单' }}
           </button>
         </div>
@@ -421,6 +428,8 @@ const reviewStats = ref<any>({ total: 0, avgRating: 0, goodRate: 100, ratingCoun
 // 价格历史相关
 const priceHistory = ref<PriceHistory[]>([])
 const priceStats = ref<PriceStats | null>(null)
+const priceHistoryAvailable = ref(true)
+const priceStatsAvailable = ref(true)
 const priceAlert = ref<PriceAlert | null>(null)
 const showPriceChart = ref(false)
 const priceChartRef = ref<HTMLDivElement>()
@@ -445,6 +454,21 @@ const wishlistForm = ref({
   reason: ''
 })
 const isInWishlist = ref(false)
+let latestProductRequestId = 0
+let latestReviewsRequestId = 0
+let latestPriceHistoryRequestId = 0
+let latestPriceAlertRequestId = 0
+let latestDuplicateRequestId = 0
+let latestWishlistStatusRequestId = 0
+const invalidateReviewsRequests = () => {
+  latestReviewsRequestId += 1
+}
+const invalidatePriceAlertRequests = () => {
+  latestPriceAlertRequestId += 1
+}
+const invalidateWishlistStatusRequests = () => {
+  latestWishlistStatusRequestId += 1
+}
 
 // 返回按钮相关
 const canGoBack = computed(() => window.history.length > 1)
@@ -458,6 +482,13 @@ const userId = computed(() => userStore.userInfo?.id)
 const isOwnProduct = computed(() => {
   return product.value?.sellerId && userId.value && product.value.sellerId === userId.value
 })
+const hasPriceDataIssue = computed(() => !priceHistoryAvailable.value || !priceStatsAvailable.value)
+
+const getErrorMessage = (error: any, fallback: string) => {
+  const response = error?.response as { data?: { message?: string } } | undefined
+  const message = typeof error?.message === 'string' ? error.message : ''
+  return response?.data?.message || message || fallback
+}
 
 // 按钮可用状态 - 添加空指针保护和卖家判断
 const canAddToCart = computed(() => product.value?.stock > 0 && !isOwnProduct.value)
@@ -502,8 +533,7 @@ const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 const getVideoUrl = (path: string) => {
   if (!path) return ''
   if (path.startsWith('http://') || path.startsWith('https://')) return path
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`
-  return `http://localhost:8080/api${normalizedPath}`
+  return path.startsWith('/') ? path : `/${path}`
 }
 
 const openAdVideo = () => {
@@ -536,6 +566,18 @@ const onAdEnded = () => {
   adCountdown.value = 0 // 视频播放完毕可以关闭
 }
 
+const forceResetAdVideoState = () => {
+  showAdVideo.value = false
+  adCountdown.value = 0
+  if (adTimer) {
+    clearInterval(adTimer)
+    adTimer = null
+  }
+  if (adVideoRef.value) {
+    adVideoRef.value.pause()
+  }
+}
+
 const formatTime = (time: string) => {
   if (!time) return ''
   return time.substring(0, 10)
@@ -544,15 +586,44 @@ const formatTime = (time: string) => {
 const parseImages = (images: string) => {
   if (!images) return []
   try {
-    return JSON.parse(images)
-  } catch {
+    const parsed = JSON.parse(images)
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : images.split(',').filter(Boolean)
+  } catch (error) {
+    debugError('解析评价图片失败', error)
     return images.split(',').filter(Boolean)
   }
 }
 
+const buildReviewStatsFromList = (reviewList: any[]) => {
+  const total = reviewList.length
+  const ratingCounts = reviewList.reduce(
+    (counts, current) => {
+      const rating = Number(current?.rating || 0)
+      if (rating >= 1 && rating <= 5) {
+        counts[rating] = (counts[rating] || 0) + 1
+      }
+      return counts
+    },
+    {} as Record<number, number>
+  )
+  const totalRating = reviewList.reduce((sum, current) => sum + Number(current?.rating || 0), 0)
+  const goodCount = reviewList.filter((current) => Number(current?.rating || 0) >= 4).length
+
+  return {
+    total,
+    avgRating: total > 0 ? Number((totalRating / total).toFixed(1)) : 0,
+    goodRate: total > 0 ? Math.round((goodCount / total) * 100) : 100,
+    ratingCounts
+  }
+}
+
 const fetchProduct = async () => {
+  const requestId = ++latestProductRequestId
   try {
     const res: any = await productApi.getProductById(Number(route.params.id))
+    if (requestId !== latestProductRequestId) {
+      return
+    }
     if (res?.code === 200) {
       product.value = res.data
       currentImage.value = getImageUrl(product.value.mainImage)
@@ -563,23 +634,40 @@ const fetchProduct = async () => {
       // 转换所有图片URL
       product.value.images = product.value.images.map((img: string) => getImageUrl(img))
     }
-  } catch { ElMessage.error('获取商品信息失败') }
+  } catch (error) {
+    if (requestId !== latestProductRequestId) {
+      return
+    }
+    debugError('获取商品信息失败', error)
+    ElMessage.error(getErrorMessage(error, '获取商品信息失败'))
+  }
 }
 
 const fetchReviews = async () => {
   const productId = Number(route.params.id)
+  const requestId = ++latestReviewsRequestId
   try {
     const [reviewsRes, statsRes]: any[] = await Promise.all([
       reviewApi.getAllProductReviews(productId),
       reviewApi.getProductReviewStats(productId)
     ])
+    if (requestId !== latestReviewsRequestId) {
+      return
+    }
     if (reviewsRes?.code === 200) {
       reviews.value = reviewsRes.data || []
+    } else {
+      debugError('获取评价失败', reviewsRes?.message || '评价列表返回异常')
     }
     if (statsRes?.code === 200) {
       reviewStats.value = statsRes.data || { total: 0, avgRating: 0, goodRate: 100 }
+    } else {
+      debugError('获取评价失败', statsRes?.message || '评价统计返回异常')
     }
   } catch (e) {
+    if (requestId !== latestReviewsRequestId) {
+      return
+    }
     debugError('获取评价失败', e)
   }
 }
@@ -626,6 +714,7 @@ const addToCart = async () => {
   } catch (error: any) {
     // 提取后端错误消息
     const errorMsg = error?.response?.data?.message || error?.message || '加入购物车失败'
+    debugError('加入购物车失败', error)
     ElMessage.error(errorMsg)
   } finally {
     // 确保两个锁都被释放
@@ -664,21 +753,42 @@ const isOwnReview = (review: any) => {
   return review.userId === userStore.userInfo.id
 }
 
+const refreshReviewsAfterSuccess = async () => {
+  try {
+    await fetchReviews()
+  } catch (error) {
+    debugError('删除评价成功后刷新评价失败', error)
+  }
+}
+
+const applyLocalReviewDeletion = (reviewId: number) => {
+  const nextReviews = reviews.value.filter((current) => current.id !== reviewId)
+  if (nextReviews.length === reviews.value.length) {
+    return
+  }
+  reviews.value = nextReviews
+  reviewStats.value = buildReviewStatsFromList(nextReviews)
+}
+
 // 删除评价
 const deleteReview = async (review: any) => {
   try {
     await ElMessageBox.confirm('确定要删除这条评价吗？', '提示', { type: 'warning' })
     const res: any = await reviewApi.deleteReview(review.id)
     if (res?.code === 200) {
+      invalidateReviewsRequests()
+      applyLocalReviewDeletion(review.id)
       ElMessage.success('评价已删除')
-      // 重新获取评价列表
-      fetchReviews()
+      await refreshReviewsAfterSuccess()
     } else {
-      ElMessage.error(res?.message || '删除失败')
+      const message = res?.message || '删除失败'
+      debugError('删除评价失败', message)
+      ElMessage.error(message)
     }
   } catch (e: any) {
     if (e !== 'cancel') {
-      ElMessage.error('删除失败')
+      debugError('删除评价失败', e)
+      ElMessage.error(getErrorMessage(e, '删除失败'))
     }
   }
 }
@@ -686,46 +796,95 @@ const deleteReview = async (review: any) => {
 // 获取价格历史
 const fetchPriceHistory = async () => {
   const productId = Number(route.params.id)
+  const requestId = ++latestPriceHistoryRequestId
   try {
     const [historyRes, statsRes]: any[] = await Promise.all([
       priceApi.getPriceHistory(productId),
       priceApi.getPriceStats(productId)
     ])
+    if (requestId !== latestPriceHistoryRequestId) {
+      return
+    }
     if (historyRes?.code === 200) {
       priceHistory.value = historyRes.data || []
+      priceHistoryAvailable.value = true
+    } else {
+      priceHistoryAvailable.value = false
+      debugError('获取价格历史失败', historyRes?.message || '价格历史返回异常')
     }
     if (statsRes?.code === 200) {
       priceStats.value = statsRes.data
+      priceStatsAvailable.value = true
+    } else {
+      priceStatsAvailable.value = false
+      debugError('获取价格历史失败', statsRes?.message || '价格统计返回异常')
     }
   } catch (e) {
+    if (requestId !== latestPriceHistoryRequestId) {
+      return
+    }
+    priceHistoryAvailable.value = false
+    priceStatsAvailable.value = false
     debugError('获取价格历史失败', e)
   }
 }
 
 // 获取用户的降价提醒
 const fetchPriceAlert = async () => {
-  if (!userStore.isLoggedIn) return
+  if (!userStore.isLoggedIn) {
+    priceAlert.value = null
+    return
+  }
   const productId = Number(route.params.id)
+  const requestId = ++latestPriceAlertRequestId
   try {
     const res: any = await priceApi.getUserProductAlert(productId)
+    if (requestId !== latestPriceAlertRequestId) {
+      return
+    }
     if (res?.code === 200) {
       priceAlert.value = res.data
+    } else {
+      debugError('获取降价提醒失败', res?.message || '降价提醒返回异常')
     }
   } catch (e) {
+    if (requestId !== latestPriceAlertRequestId) {
+      return
+    }
     debugError('获取降价提醒失败', e)
+  }
+}
+
+const refreshPriceAlertAfterSuccess = async (actionLabel: string) => {
+  try {
+    await fetchPriceAlert()
+  } catch (error) {
+    debugError(`${actionLabel}成功后刷新降价提醒失败`, error)
   }
 }
 
 // 检测重复购买
 const checkDuplicatePurchase = async () => {
-  if (!userStore.isLoggedIn) return
+  if (!userStore.isLoggedIn) {
+    duplicateWarnings.value = []
+    return
+  }
   const productId = Number(route.params.id)
+  const requestId = ++latestDuplicateRequestId
   try {
     const res: any = await rationalApi.checkDuplicate(productId)
+    if (requestId !== latestDuplicateRequestId) {
+      return
+    }
     if (res?.code === 200) {
       duplicateWarnings.value = res.data || []
+    } else {
+      debugError('检测重复购买失败', res?.message || '重复购买检查返回异常')
     }
   } catch (e) {
+    if (requestId !== latestDuplicateRequestId) {
+      return
+    }
     debugError('检测重复购买失败', e)
   }
 }
@@ -890,14 +1049,25 @@ const setAlert = async () => {
   try {
     const res: any = await priceApi.createAlert(product.value.id, targetPrice.value)
     if (res?.code === 200) {
+      invalidatePriceAlertRequests()
+      priceAlert.value = {
+        ...(priceAlert.value || {}),
+        productId: product.value.id,
+        targetPrice: targetPrice.value,
+        currentPrice: product.value.price,
+        status: 0
+      }
       ElMessage.success('降价提醒设置成功')
-      priceAlert.value = res.data
+      await refreshPriceAlertAfterSuccess('设置降价提醒')
       showAlertDialog.value = false
     } else {
-      ElMessage.error(res?.message || '设置失败')
+      const message = res?.message || '设置失败'
+      debugError('设置降价提醒失败', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    ElMessage.error('设置降价提醒失败')
+    debugError('设置降价提醒失败', e)
+    ElMessage.error(getErrorMessage(e, '设置降价提醒失败'))
   }
 }
 
@@ -907,14 +1077,19 @@ const cancelAlert = async () => {
     await ElMessageBox.confirm('确定要取消降价提醒吗？', '提示', { type: 'warning' })
     const res: any = await priceApi.cancelAlert(product.value.id)
     if (res?.code === 200) {
-      ElMessage.success('已取消降价提醒')
+      invalidatePriceAlertRequests()
       priceAlert.value = null
+      ElMessage.success('已取消降价提醒')
+      await refreshPriceAlertAfterSuccess('取消降价提醒')
     } else {
-      ElMessage.error(res?.message || '取消失败')
+      const message = res?.message || '取消失败'
+      debugError('取消降价提醒失败', message)
+      ElMessage.error(message)
     }
   } catch (e: any) {
     if (e !== 'cancel') {
-      ElMessage.error('取消失败')
+      debugError('取消降价提醒失败', e)
+      ElMessage.error(getErrorMessage(e, '取消失败'))
     }
   }
 }
@@ -941,15 +1116,20 @@ const addToWishlist = async () => {
       wishlistForm.value.reason
     )
     if (res?.code === 200) {
+      invalidateWishlistStatusRequests()
+      isInWishlist.value = true
       ElMessage.success('已加入想要清单，冷静期' + wishlistForm.value.coolingDays + '天')
       showWishlistDialog.value = false
       wishlistForm.value = { coolingDays: 3, reason: '' }
-      isInWishlist.value = true
+      await refreshWishlistStatusAfterSuccess()
     } else {
-      ElMessage.error(res?.message || '添加失败')
+      const message = res?.message || '添加失败'
+      debugError('添加想要清单失败', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    ElMessage.error('添加失败')
+    debugError('添加想要清单失败', e)
+    ElMessage.error(getErrorMessage(e, '添加失败'))
   } finally {
     addingWishlist.value = false
   }
@@ -957,15 +1137,35 @@ const addToWishlist = async () => {
 
 // 检查商品是否在想要清单中
 const checkWishlistStatus = async () => {
-  if (!userStore.isLoggedIn) return
+  if (!userStore.isLoggedIn) {
+    isInWishlist.value = false
+    return
+  }
   const productId = Number(route.params.id)
+  const requestId = ++latestWishlistStatusRequestId
   try {
     const res: any = await rationalApi.checkInWishlist(productId)
+    if (requestId !== latestWishlistStatusRequestId) {
+      return
+    }
     if (res?.code === 200) {
       isInWishlist.value = res.data?.inWishlist || false
+    } else {
+      debugError('检查想要清单状态失败', res?.message || '想要清单状态返回异常')
     }
   } catch (e) {
+    if (requestId !== latestWishlistStatusRequestId) {
+      return
+    }
     debugError('检查想要清单状态失败', e)
+  }
+}
+
+const refreshWishlistStatusAfterSuccess = async () => {
+  try {
+    await checkWishlistStatus()
+  } catch (error) {
+    debugError('添加想要清单成功后刷新清单状态失败', error)
   }
 }
 
@@ -993,6 +1193,43 @@ const handleResize = () => {
   }
 }
 
+const resetProductDetailPageState = () => {
+  product.value = {}
+  quantity.value = 1
+  tab.value = 'detail'
+  currentImage.value = ''
+  reviews.value = []
+  reviewStats.value = { total: 0, avgRating: 0, goodRate: 100, ratingCounts: {} }
+  priceHistory.value = []
+  priceStats.value = null
+  priceHistoryAvailable.value = true
+  priceStatsAvailable.value = true
+  priceAlert.value = null
+  showPriceChart.value = false
+  targetPrice.value = 0
+  showAlertDialog.value = false
+  duplicateWarnings.value = []
+  showWishlistDialog.value = false
+  addingWishlist.value = false
+  wishlistForm.value = { coolingDays: 3, reason: '' }
+  isInWishlist.value = false
+  forceResetAdVideoState()
+  if (priceChart) {
+    priceChart.dispose()
+    priceChart = null
+  }
+}
+
+const reloadProductDetailFromRoute = () => {
+  resetProductDetailPageState()
+  fetchProduct()
+  fetchReviews()
+  fetchPriceHistory()
+  fetchPriceAlert()
+  checkDuplicatePurchase()
+  checkWishlistStatus()
+}
+
 // 监听价格历史变化，更新图表
 watch(priceHistory, () => {
   if (showPriceChart.value) {
@@ -1000,18 +1237,23 @@ watch(priceHistory, () => {
   }
 })
 
+watch(
+  () => route.params.id,
+  (newId, oldId) => {
+    if (newId !== oldId) {
+      reloadProductDetailFromRoute()
+    }
+  }
+)
+
 onMounted(() => {
-  fetchProduct()
-  fetchReviews()
-  fetchPriceHistory()
-  fetchPriceAlert()
-  checkDuplicatePurchase()
-  checkWishlistStatus()
+  reloadProductDetailFromRoute()
   window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  forceResetAdVideoState()
   if (priceChart) {
     priceChart.dispose()
     priceChart = null
@@ -1368,6 +1610,16 @@ onUnmounted(() => {
 .price-history-section {
   padding: 16px;
   margin-bottom: 24px;
+}
+
+.price-data-hint {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(245, 166, 35, 0.28);
+  border-radius: 10px;
+  background: rgba(245, 166, 35, 0.08);
+  color: #b26a00;
+  font-size: 13px;
 }
 
 .price-stats {

@@ -5,6 +5,8 @@ import com.shopping.entity.PriceAlert;
 import com.shopping.entity.PriceHistory;
 import com.shopping.entity.Product;
 import com.shopping.entity.User;
+import com.shopping.exception.ResourceNotFoundException;
+import com.shopping.exception.ValidationException;
 import com.shopping.service.PriceAlertService;
 import com.shopping.service.PriceHistoryService;
 import com.shopping.service.ProductService;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,13 +42,13 @@ public class PriceHistoryController {
     /**
      * 获取当前用户ID
      */
-    private Long getCurrentUserId() {
+    private Optional<Long> getCurrentUserId() {
         if (!SecurityUtils.isAuthenticated()) {
-            return null;
+            return Optional.empty();
         }
         String username = SecurityUtils.getCurrentUsername();
         User user = userService.findByUsername(username);
-        return user != null ? user.getId() : null;
+        return user != null ? Optional.of(user.getId()) : Optional.empty();
     }
     
     /**
@@ -58,19 +61,54 @@ public class PriceHistoryController {
         String username = SecurityUtils.getCurrentUsername();
         return "admin".equals(username);
     }
+
+    private <T> Response<T> unauthorized() {
+        return Response.fail(401, "请先登录");
+    }
+
+    private <T> Response<T> forbidden() {
+        return Response.fail(403, "无权限");
+    }
+
+    private LocalDateTime parseDateTimeOrThrow(String value, String fieldName) {
+        try {
+            return LocalDateTime.parse(value);
+        } catch (DateTimeParseException e) {
+            throw new ValidationException(fieldName + "格式不正确，应为 yyyy-MM-ddTHH:mm:ss");
+        }
+    }
+
+    private Long parseRequiredLong(Map<String, Object> params, String fieldName) {
+        Object value = params.get(fieldName);
+        if (value == null || value.toString().trim().isEmpty()) {
+            throw new ValidationException(fieldName + "不能为空");
+        }
+        try {
+            return Long.valueOf(value.toString());
+        } catch (NumberFormatException e) {
+            throw new ValidationException(fieldName + "格式不正确");
+        }
+    }
+
+    private BigDecimal parseRequiredBigDecimal(Map<String, Object> params, String fieldName) {
+        Object value = params.get(fieldName);
+        if (value == null || value.toString().trim().isEmpty()) {
+            throw new ValidationException(fieldName + "不能为空");
+        }
+        try {
+            return new BigDecimal(value.toString());
+        } catch (NumberFormatException e) {
+            throw new ValidationException(fieldName + "格式不正确");
+        }
+    }
     
     /**
      * 获取商品价格历史
      */
     @GetMapping("/history/{productId}")
     public Response<List<PriceHistory>> getPriceHistory(@PathVariable Long productId) {
-        try {
-            List<PriceHistory> history = priceHistoryService.getPriceHistory(productId);
-            return Response.success(history);
-        } catch (Exception e) {
-            log.error("获取价格历史失败", e);
-            return Response.fail("获取价格历史失败");
-        }
+        List<PriceHistory> history = priceHistoryService.getPriceHistory(productId);
+        return Response.success(history);
     }
     
     /**
@@ -81,15 +119,13 @@ public class PriceHistoryController {
             @PathVariable Long productId,
             @RequestParam(required = false) String startTime,
             @RequestParam(required = false) String endTime) {
-        try {
-            LocalDateTime start = startTime != null ? LocalDateTime.parse(startTime) : LocalDateTime.now().minusMonths(3);
-            LocalDateTime end = endTime != null ? LocalDateTime.parse(endTime) : LocalDateTime.now();
-            List<PriceHistory> history = priceHistoryService.getPriceHistoryInRange(productId, start, end);
-            return Response.success(history);
-        } catch (Exception e) {
-            log.error("获取价格历史失败", e);
-            return Response.fail("获取价格历史失败");
+        LocalDateTime start = startTime != null ? parseDateTimeOrThrow(startTime, "开始时间") : LocalDateTime.now().minusMonths(3);
+        LocalDateTime end = endTime != null ? parseDateTimeOrThrow(endTime, "结束时间") : LocalDateTime.now();
+        if (start.isAfter(end)) {
+            throw new ValidationException("开始时间不能晚于结束时间");
         }
+        List<PriceHistory> history = priceHistoryService.getPriceHistoryInRange(productId, start, end);
+        return Response.success(history);
     }
 
     
@@ -98,13 +134,8 @@ public class PriceHistoryController {
      */
     @GetMapping("/stats/{productId}")
     public Response<Map<String, Object>> getPriceStats(@PathVariable Long productId) {
-        try {
-            Map<String, Object> stats = priceHistoryService.getPriceStats(productId);
-            return Response.success(stats);
-        } catch (Exception e) {
-            log.error("获取价格统计失败", e);
-            return Response.fail("获取价格统计失败");
-        }
+        Map<String, Object> stats = priceHistoryService.getPriceStats(productId);
+        return Response.success(stats);
     }
     
     /**
@@ -112,23 +143,16 @@ public class PriceHistoryController {
      */
     @PostMapping("/alert")
     public Response<PriceAlert> createAlert(@RequestBody Map<String, Object> params) {
-        try {
-            Long userId = getCurrentUserId();
-            if (userId == null) {
-                return Response.fail("请先登录");
-            }
-            
-            Long productId = Long.valueOf(params.get("productId").toString());
-            BigDecimal targetPrice = new BigDecimal(params.get("targetPrice").toString());
-            
-            PriceAlert alert = priceAlertService.createAlert(userId, productId, targetPrice);
-            return Response.success("降价提醒设置成功", alert);
-        } catch (RuntimeException e) {
-            return Response.fail(e.getMessage());
-        } catch (Exception e) {
-            log.error("创建降价提醒失败", e);
-            return Response.fail("创建降价提醒失败");
+        Optional<Long> userId = getCurrentUserId();
+        if (userId.isEmpty()) {
+            return unauthorized();
         }
+
+        Long productId = parseRequiredLong(params, "productId");
+        BigDecimal targetPrice = parseRequiredBigDecimal(params, "targetPrice");
+
+        PriceAlert alert = priceAlertService.createAlert(userId.get(), productId, targetPrice);
+        return Response.success("降价提醒设置成功", alert);
     }
     
     /**
@@ -136,18 +160,27 @@ public class PriceHistoryController {
      */
     @DeleteMapping("/alert/{productId}")
     public Response<Void> cancelAlert(@PathVariable Long productId) {
-        try {
-            Long userId = getCurrentUserId();
-            if (userId == null) {
-                return Response.fail("请先登录");
-            }
-            
-            priceAlertService.cancelAlert(userId, productId);
-            return Response.success("已取消降价提醒", null);
-        } catch (Exception e) {
-            log.error("取消降价提醒失败", e);
-            return Response.fail("取消降价提醒失败");
+        Optional<Long> userId = getCurrentUserId();
+        if (userId.isEmpty()) {
+            return unauthorized();
         }
+
+        priceAlertService.cancelAlert(userId.get(), productId);
+        return Response.success("已取消降价提醒", null);
+    }
+
+    /**
+     * 删除降价提醒记录
+     */
+    @DeleteMapping("/alert/{productId}/record")
+    public Response<Void> deleteUserAlertRecord(@PathVariable Long productId) {
+        Optional<Long> userId = getCurrentUserId();
+        if (userId.isEmpty()) {
+            return unauthorized();
+        }
+
+        priceAlertService.deleteAlert(userId.get(), productId);
+        return Response.success("已删除降价提醒记录", null);
     }
     
     /**
@@ -155,18 +188,13 @@ public class PriceHistoryController {
      */
     @GetMapping("/alerts")
     public Response<List<PriceAlert>> getUserAlerts() {
-        try {
-            Long userId = getCurrentUserId();
-            if (userId == null) {
-                return Response.fail("请先登录");
-            }
-            
-            List<PriceAlert> alerts = priceAlertService.getUserAlerts(userId);
-            return Response.success(alerts);
-        } catch (Exception e) {
-            log.error("获取降价提醒列表失败", e);
-            return Response.fail("获取降价提醒列表失败");
+        Optional<Long> userId = getCurrentUserId();
+        if (userId.isEmpty()) {
+            return unauthorized();
         }
+
+        List<PriceAlert> alerts = priceAlertService.getUserAlerts(userId.get());
+        return Response.success(alerts);
     }
     
     /**
@@ -174,43 +202,36 @@ public class PriceHistoryController {
      */
     @GetMapping("/alerts/detail")
     public Response<List<Map<String, Object>>> getUserAlertsWithDetail() {
-        try {
-            Long userId = getCurrentUserId();
-            if (userId == null) {
-                return Response.fail("请先登录");
-            }
-            
-            List<PriceAlert> alerts = priceAlertService.getUserAlerts(userId);
-            
-            // 转换为包含商品信息的Map
-            List<Map<String, Object>> result = alerts.stream().map(alert -> {
-                Map<String, Object> map = new HashMap<>();
-                map.put("id", alert.getId());
-                map.put("productId", alert.getProductId());
-                map.put("targetPrice", alert.getTargetPrice());
-                map.put("currentPrice", alert.getCurrentPrice());
-                map.put("status", alert.getStatus());
-                map.put("triggeredTime", alert.getTriggeredTime());
-                map.put("triggeredPrice", alert.getTriggeredPrice());
-                map.put("notified", alert.getNotified());
-                map.put("createdTime", alert.getCreatedTime());
-                
-                // 获取商品信息
-                Product product = productService.findById(alert.getProductId());
-                if (product != null) {
-                    map.put("productName", product.getName());
-                    map.put("productImage", product.getMainImage());
-                    map.put("productPrice", product.getPrice());
-                }
-                
-                return map;
-            }).collect(Collectors.toList());
-            
-            return Response.success(result);
-        } catch (Exception e) {
-            log.error("获取降价提醒列表失败", e);
-            return Response.fail("获取降价提醒列表失败");
+        Optional<Long> userId = getCurrentUserId();
+        if (userId.isEmpty()) {
+            return unauthorized();
         }
+
+        List<PriceAlert> alerts = priceAlertService.getUserAlerts(userId.get());
+
+        List<Map<String, Object>> result = alerts.stream().map(alert -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", alert.getId());
+            map.put("productId", alert.getProductId());
+            map.put("targetPrice", alert.getTargetPrice());
+            map.put("currentPrice", alert.getCurrentPrice());
+            map.put("status", alert.getStatus());
+            map.put("triggeredTime", alert.getTriggeredTime());
+            map.put("triggeredPrice", alert.getTriggeredPrice());
+            map.put("notified", alert.getNotified());
+            map.put("createdTime", alert.getCreatedTime());
+
+            Product product = productService.findById(alert.getProductId());
+            if (product != null) {
+                map.put("productName", product.getName());
+                map.put("productImage", product.getMainImage());
+                map.put("productPrice", product.getPrice());
+            }
+
+            return map;
+        }).collect(Collectors.toList());
+
+        return Response.success(result);
     }
     
     /**
@@ -218,18 +239,13 @@ public class PriceHistoryController {
      */
     @GetMapping("/alert/{productId}")
     public Response<PriceAlert> getUserProductAlert(@PathVariable Long productId) {
-        try {
-            Long userId = getCurrentUserId();
-            if (userId == null) {
-                return Response.success(null);
-            }
-            
-            Optional<PriceAlert> alert = priceAlertService.getUserProductAlert(userId, productId);
-            return Response.success(alert.orElse(null));
-        } catch (Exception e) {
-            log.error("获取降价提醒失败", e);
-            return Response.fail("获取降价提醒失败");
+        Optional<Long> userId = getCurrentUserId();
+        if (userId.isEmpty()) {
+            return Response.success(null);
         }
+
+        Optional<PriceAlert> alert = priceAlertService.getUserProductAlert(userId.get(), productId);
+        return Response.success(alert.orElse(null));
     }
     
     /**
@@ -237,18 +253,13 @@ public class PriceHistoryController {
      */
     @GetMapping("/alert/{productId}/exists")
     public Response<Boolean> hasActiveAlert(@PathVariable Long productId) {
-        try {
-            Long userId = getCurrentUserId();
-            if (userId == null) {
-                return Response.success(false);
-            }
-            
-            boolean exists = priceAlertService.hasActiveAlert(userId, productId);
-            return Response.success(exists);
-        } catch (Exception e) {
-            log.error("检查降价提醒失败", e);
-            return Response.fail("检查降价提醒失败");
+        Optional<Long> userId = getCurrentUserId();
+        if (userId.isEmpty()) {
+            return Response.success(false);
         }
+
+        boolean exists = priceAlertService.hasActiveAlert(userId.get(), productId);
+        return Response.success(exists);
     }
     
     // ==================== 管理员API ====================
@@ -260,54 +271,45 @@ public class PriceHistoryController {
     public Response<List<Map<String, Object>>> getAllAlerts(
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String keyword) {
-        try {
-            if (!isAdmin()) {
-                return Response.fail("无权限");
-            }
-            
-            List<PriceAlert> alerts = priceAlertService.getAllAlerts(status);
-            
-            // 转换为包含用户名和商品名的Map
-            List<Map<String, Object>> result = alerts.stream().map(alert -> {
-                Map<String, Object> map = new HashMap<>();
-                map.put("id", alert.getId());
-                map.put("userId", alert.getUserId());
-                map.put("productId", alert.getProductId());
-                map.put("targetPrice", alert.getTargetPrice());
-                map.put("currentPrice", alert.getCurrentPrice());
-                map.put("status", alert.getStatus());
-                map.put("triggeredTime", alert.getTriggeredTime());
-                map.put("triggeredPrice", alert.getTriggeredPrice());
-                map.put("notified", alert.getNotified());
-                map.put("createdTime", alert.getCreatedTime());
-                
-                // 获取用户名
-                User user = userService.findById(alert.getUserId());
-                map.put("username", user != null ? user.getUsername() : null);
-                
-                // 获取商品名
-                Product product = productService.findById(alert.getProductId());
-                map.put("productName", product != null ? product.getName() : null);
-                
-                return map;
-            }).collect(Collectors.toList());
-            
-            // 关键字过滤
-            if (keyword != null && !keyword.isEmpty()) {
-                String kw = keyword.toLowerCase();
-                result = result.stream().filter(m -> {
-                    String username = (String) m.get("username");
-                    String productName = (String) m.get("productName");
-                    return (username != null && username.toLowerCase().contains(kw)) ||
-                           (productName != null && productName.toLowerCase().contains(kw));
-                }).collect(Collectors.toList());
-            }
-            
-            return Response.success(result);
-        } catch (Exception e) {
-            log.error("获取降价提醒列表失败", e);
-            return Response.fail("获取降价提醒列表失败");
+        if (!isAdmin()) {
+            return forbidden();
         }
+
+        List<PriceAlert> alerts = priceAlertService.getAllAlerts(status);
+
+        List<Map<String, Object>> result = alerts.stream().map(alert -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", alert.getId());
+            map.put("userId", alert.getUserId());
+            map.put("productId", alert.getProductId());
+            map.put("targetPrice", alert.getTargetPrice());
+            map.put("currentPrice", alert.getCurrentPrice());
+            map.put("status", alert.getStatus());
+            map.put("triggeredTime", alert.getTriggeredTime());
+            map.put("triggeredPrice", alert.getTriggeredPrice());
+            map.put("notified", alert.getNotified());
+            map.put("createdTime", alert.getCreatedTime());
+
+            User user = userService.findById(alert.getUserId());
+            map.put("username", user != null ? user.getUsername() : null);
+
+            Product product = productService.findById(alert.getProductId());
+            map.put("productName", product != null ? product.getName() : null);
+
+            return map;
+        }).collect(Collectors.toList());
+
+        if (keyword != null && !keyword.isEmpty()) {
+            String kw = keyword.toLowerCase();
+            result = result.stream().filter(m -> {
+                String username = (String) m.get("username");
+                String productName = (String) m.get("productName");
+                return (username != null && username.toLowerCase().contains(kw)) ||
+                        (productName != null && productName.toLowerCase().contains(kw));
+            }).collect(Collectors.toList());
+        }
+
+        return Response.success(result);
     }
     
     /**
@@ -315,16 +317,11 @@ public class PriceHistoryController {
      */
     @GetMapping("/admin/alerts/count")
     public Response<Long> getActiveAlertCount() {
-        try {
-            if (!isAdmin()) {
-                return Response.fail("无权限");
-            }
-            long count = priceAlertService.countActiveAlerts();
-            return Response.success(count);
-        } catch (Exception e) {
-            log.error("获取降价提醒数量失败", e);
-            return Response.fail("获取降价提醒数量失败");
+        if (!isAdmin()) {
+            return forbidden();
         }
+        long count = priceAlertService.countActiveAlerts();
+        return Response.success(count);
     }
     
     /**
@@ -332,22 +329,18 @@ public class PriceHistoryController {
      */
     @PostMapping("/admin/record")
     public Response<PriceHistory> recordPrice(@RequestBody Map<String, Object> params) {
-        try {
-            if (!isAdmin()) {
-                return Response.fail("无权限");
-            }
-            
-            Long productId = Long.valueOf(params.get("productId").toString());
-            BigDecimal price = new BigDecimal(params.get("price").toString());
-            BigDecimal originalPrice = params.get("originalPrice") != null ? 
-                    new BigDecimal(params.get("originalPrice").toString()) : null;
-            
-            PriceHistory history = priceHistoryService.recordPriceChange(productId, price, originalPrice);
-            return Response.success("价格记录成功", history);
-        } catch (Exception e) {
-            log.error("记录价格失败", e);
-            return Response.fail("记录价格失败");
+        if (!isAdmin()) {
+            return forbidden();
         }
+
+        Long productId = parseRequiredLong(params, "productId");
+        BigDecimal price = parseRequiredBigDecimal(params, "price");
+        BigDecimal originalPrice = params.get("originalPrice") != null && !params.get("originalPrice").toString().trim().isEmpty()
+                ? parseRequiredBigDecimal(params, "originalPrice")
+                : null;
+
+        PriceHistory history = priceHistoryService.recordPriceChange(productId, price, originalPrice);
+        return Response.success("价格记录成功", history);
     }
     
     /**
@@ -355,16 +348,11 @@ public class PriceHistoryController {
      */
     @DeleteMapping("/admin/history/{id}")
     public Response<Void> deleteHistory(@PathVariable Long id) {
-        try {
-            if (!isAdmin()) {
-                return Response.fail("无权限");
-            }
-            priceHistoryService.deleteHistory(id);
-            return Response.success("删除成功", null);
-        } catch (Exception e) {
-            log.error("删除价格历史失败", e);
-            return Response.fail("删除失败");
+        if (!isAdmin()) {
+            return forbidden();
         }
+        priceHistoryService.deleteHistory(id);
+        return Response.success("删除成功", null);
     }
     
     /**
@@ -372,16 +360,11 @@ public class PriceHistoryController {
      */
     @PostMapping("/admin/alert/{id}/trigger")
     public Response<Void> triggerAlert(@PathVariable Long id) {
-        try {
-            if (!isAdmin()) {
-                return Response.fail("无权限");
-            }
-            priceAlertService.manualTriggerAlert(id);
-            return Response.success("已触发并发送通知", null);
-        } catch (Exception e) {
-            log.error("触发降价提醒失败", e);
-            return Response.fail("触发失败: " + e.getMessage());
+        if (!isAdmin()) {
+            return forbidden();
         }
+        priceAlertService.manualTriggerAlert(id);
+        return Response.success("已触发并发送通知", null);
     }
     
     /**
@@ -389,16 +372,11 @@ public class PriceHistoryController {
      */
     @PostMapping("/admin/alert/{id}/reset")
     public Response<Void> resetAlert(@PathVariable Long id) {
-        try {
-            if (!isAdmin()) {
-                return Response.fail("无权限");
-            }
-            priceAlertService.resetAlert(id);
-            return Response.success("已回退到监控状态", null);
-        } catch (Exception e) {
-            log.error("回退降价提醒失败", e);
-            return Response.fail("回退失败: " + e.getMessage());
+        if (!isAdmin()) {
+            return forbidden();
         }
+        priceAlertService.resetAlert(id);
+        return Response.success("已回退到监控状态", null);
     }
     
     /**
@@ -406,15 +384,10 @@ public class PriceHistoryController {
      */
     @DeleteMapping("/admin/alert/{id}")
     public Response<Void> deleteAlert(@PathVariable Long id) {
-        try {
-            if (!isAdmin()) {
-                return Response.fail("无权限");
-            }
-            priceAlertService.deleteAlertById(id);
-            return Response.success("删除成功", null);
-        } catch (Exception e) {
-            log.error("删除降价提醒失败", e);
-            return Response.fail("删除失败");
+        if (!isAdmin()) {
+            return forbidden();
         }
+        priceAlertService.deleteAlertById(id);
+        return Response.success("删除成功", null);
     }
 }

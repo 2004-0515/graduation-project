@@ -1,5 +1,5 @@
 <template>
-  <div class="search-dropdown" v-if="visible" @mousedown.prevent>
+  <div class="search-dropdown" data-testid="search-dropdown" v-if="visible" @mousedown.prevent>
     <!-- 搜索历史区域 -->
     <div v-if="!hasInput && (searchHistory.length > 0 || !isLoggedIn)" class="dropdown-section">
       <div class="section-header">
@@ -8,11 +8,12 @@
           清空
         </button>
       </div>
-      <div v-if="searchHistory.length > 0" class="history-list">
+      <div v-if="searchHistory.length > 0" class="history-list" data-testid="search-history-list">
         <div 
           v-for="item in searchHistory" 
           :key="item.id" 
           class="history-item"
+          :data-testid="`search-history-item-${item.id}`"
           :class="{ selected: selectedIndex === getHistoryIndex(item) }"
           @click="handleSelectHistory(item.keyword)"
           @mouseenter="selectedIndex = getHistoryIndex(item)"
@@ -37,11 +38,12 @@
       <div class="section-header">
         <span class="section-title">热门搜索</span>
       </div>
-      <div class="hot-keywords">
+      <div class="hot-keywords" data-testid="search-hot-keywords">
         <span 
           v-for="(item, index) in hotKeywords" 
           :key="item.keyword"
           class="hot-tag"
+          :data-testid="`search-hot-item-${index}`"
           :class="{ 
             hot: index < 3,
             selected: selectedIndex === getHotIndex(index)
@@ -57,11 +59,12 @@
 
     <!-- 搜索建议区域 -->
     <div v-if="hasInput && suggestions.length > 0" class="dropdown-section">
-      <div class="suggestions-list">
+      <div class="suggestions-list" data-testid="search-suggestions-list">
         <div 
           v-for="(item, index) in suggestions" 
           :key="item.keyword + item.type"
           class="suggestion-item"
+          :data-testid="`search-suggestion-item-${index}`"
           :class="{ selected: selectedIndex === index }"
           @click="handleSelectSuggestion(item.keyword)"
           @mouseenter="selectedIndex = index"
@@ -98,6 +101,7 @@ import { useUserStore } from '@/stores/userStore'
 import searchApi from '@/api/searchApi'
 import type { SearchSuggestion, HotKeyword, SearchHistory } from '@/types'
 import { STORAGE_KEYS } from '@/constants'
+import { debugError } from '@/utils/debug'
 
 const props = defineProps<{
   visible: boolean
@@ -126,6 +130,44 @@ const MAX_LOCAL_HISTORY = 10
 
 // 防抖定时器
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let latestHistoryRequestId = 0
+let latestHotKeywordsRequestId = 0
+let latestSuggestionsRequestId = 0
+const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
+const isSuccessfulResponse = (res: any) => res?.code === 200
+const invalidateHistoryRequests = () => {
+  latestHistoryRequestId += 1
+}
+
+const clearLocalHistoryStorage = (reason: 'parse' | 'clear') => {
+  try {
+    localStorage.removeItem(LOCAL_HISTORY_KEY)
+  } catch (error) {
+    debugError(reason === 'parse' ? '清理本地搜索历史失败' : '清空本地搜索历史失败', error)
+  }
+}
+
+const loadLocalHistoryKeywords = () => {
+  let local: string | null = null
+  try {
+    local = localStorage.getItem(LOCAL_HISTORY_KEY)
+  } catch (error) {
+    debugError('读取本地搜索历史失败', error)
+    return []
+  }
+  if (!local) {
+    return []
+  }
+
+  try {
+    const parsed = JSON.parse(local)
+    return Array.isArray(parsed) ? parsed.filter((keyword): keyword is string => typeof keyword === 'string') : []
+  } catch (error) {
+    debugError('解析本地搜索历史失败', error)
+    clearLocalHistoryStorage('parse')
+    return []
+  }
+}
 
 // 计算索引
 const getHistoryIndex = (item: SearchHistory) => {
@@ -145,42 +187,54 @@ const totalItems = computed(() => {
 
 // 加载搜索历史
 const loadSearchHistory = async () => {
+  const requestId = ++latestHistoryRequestId
   if (isLoggedIn.value) {
     try {
       const res = await searchApi.getSearchHistory()
-      if (res.success) {
+      if (requestId !== latestHistoryRequestId) {
+        return
+      }
+      if (isSuccessfulResponse(res)) {
         searchHistory.value = res.data
+      } else {
+        debugError('加载搜索历史失败:', getResponseMessage(res, '业务返回异常'))
       }
     } catch (error) {
-      console.error('Failed to load search history:', error)
+      if (requestId !== latestHistoryRequestId) {
+        return
+      }
+      debugError('加载搜索历史失败', error)
     }
   } else {
     // 游客模式：从本地存储加载
-    const local = localStorage.getItem(LOCAL_HISTORY_KEY)
-    if (local) {
-      try {
-        const parsed = JSON.parse(local)
-        searchHistory.value = parsed.map((keyword: string, index: number) => ({
-          id: index,
-          keyword,
-          searchTime: new Date().toISOString()
-        }))
-      } catch {
-        searchHistory.value = []
-      }
+    if (requestId === latestHistoryRequestId) {
+      searchHistory.value = loadLocalHistoryKeywords().map((keyword, index) => ({
+        id: index,
+        keyword,
+        searchTime: new Date().toISOString()
+      }))
     }
   }
 }
 
 // 加载热门搜索词
 const loadHotKeywords = async () => {
+  const requestId = ++latestHotKeywordsRequestId
   try {
     const res = await searchApi.getHotKeywords()
-    if (res.success) {
+    if (requestId !== latestHotKeywordsRequestId) {
+      return
+    }
+    if (isSuccessfulResponse(res)) {
       hotKeywords.value = res.data
+    } else {
+      debugError('加载热门搜索词失败:', getResponseMessage(res, '业务返回异常'))
     }
   } catch (error) {
-    console.error('Failed to load hot keywords:', error)
+    if (requestId !== latestHotKeywordsRequestId) {
+      return
+    }
+    debugError('加载热门搜索词失败', error)
   }
 }
 
@@ -197,16 +251,28 @@ const loadSuggestions = (keyword: string) => {
   
   loading.value = true
   debounceTimer = setTimeout(async () => {
+    const requestId = ++latestSuggestionsRequestId
     try {
       const res = await searchApi.getSuggestions(keyword)
-      if (res.success) {
+      if (requestId !== latestSuggestionsRequestId) {
+        return
+      }
+      if (isSuccessfulResponse(res)) {
         suggestions.value = res.data
+      } else {
+        debugError('加载搜索建议失败:', getResponseMessage(res, '业务返回异常'))
+        suggestions.value = []
       }
     } catch (error) {
-      console.error('Failed to load suggestions:', error)
+      if (requestId !== latestSuggestionsRequestId) {
+        return
+      }
+      debugError('加载搜索建议失败', error)
       suggestions.value = []
     } finally {
-      loading.value = false
+      if (requestId === latestSuggestionsRequestId) {
+        loading.value = false
+      }
     }
   }, 300)
 }
@@ -215,21 +281,27 @@ const loadSuggestions = (keyword: string) => {
 const saveSearchHistory = async (keyword: string) => {
   if (isLoggedIn.value) {
     try {
-      await searchApi.addSearchHistory(keyword)
+      const res = await searchApi.addSearchHistory(keyword)
+      if (isSuccessfulResponse(res)) {
+        invalidateHistoryRequests()
+        searchHistory.value = [
+          {
+            id: Date.now(),
+            keyword,
+            searchTime: new Date().toISOString()
+          },
+          ...searchHistory.value.filter((item) => item.keyword !== keyword)
+        ]
+        await loadSearchHistory()
+      } else {
+        debugError('保存搜索历史失败:', getResponseMessage(res, '业务返回异常'))
+      }
     } catch (error) {
-      console.error('Failed to save search history:', error)
+      debugError('保存搜索历史失败', error)
     }
   } else {
     // 游客模式：保存到本地存储
-    const local = localStorage.getItem(LOCAL_HISTORY_KEY)
-    let history: string[] = []
-    if (local) {
-      try {
-        history = JSON.parse(local)
-      } catch {
-        history = []
-      }
-    }
+    let history = loadLocalHistoryKeywords()
     // 去重并添加到开头
     history = history.filter(h => h !== keyword)
     history.unshift(keyword)
@@ -237,7 +309,11 @@ const saveSearchHistory = async (keyword: string) => {
     if (history.length > MAX_LOCAL_HISTORY) {
       history = history.slice(0, MAX_LOCAL_HISTORY)
     }
-    localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(history))
+    try {
+      localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(history))
+    } catch (error) {
+      debugError('保存本地搜索历史失败', error)
+    }
   }
 }
 
@@ -245,26 +321,28 @@ const saveSearchHistory = async (keyword: string) => {
 const handleDeleteHistory = async (id: number) => {
   if (isLoggedIn.value) {
     try {
-      await searchApi.deleteSearchHistory(id)
-      searchHistory.value = searchHistory.value.filter(h => h.id !== id)
+      const res = await searchApi.deleteSearchHistory(id)
+      if (isSuccessfulResponse(res)) {
+        invalidateHistoryRequests()
+        searchHistory.value = searchHistory.value.filter(h => h.id !== id)
+        await loadSearchHistory()
+      } else {
+        debugError('删除搜索历史失败:', getResponseMessage(res, '业务返回异常'))
+      }
     } catch (error) {
-      console.error('Failed to delete history:', error)
+      debugError('删除搜索历史失败', error)
     }
   } else {
     // 游客模式
     const item = searchHistory.value.find(h => h.id === id)
     if (item) {
-      const local = localStorage.getItem(LOCAL_HISTORY_KEY)
-      if (local) {
-        try {
-          let history: string[] = JSON.parse(local)
-          history = history.filter(h => h !== item.keyword)
-          localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(history))
-          searchHistory.value = searchHistory.value.filter(h => h.id !== id)
-        } catch {
-          // ignore
-        }
+      const history = loadLocalHistoryKeywords().filter(h => h !== item.keyword)
+      try {
+        localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(history))
+      } catch (error) {
+        debugError('删除本地搜索历史失败', error)
       }
+      searchHistory.value = searchHistory.value.filter(h => h.id !== id)
     }
   }
 }
@@ -273,13 +351,19 @@ const handleDeleteHistory = async (id: number) => {
 const handleClearHistory = async () => {
   if (isLoggedIn.value) {
     try {
-      await searchApi.clearSearchHistory()
-      searchHistory.value = []
+      const res = await searchApi.clearSearchHistory()
+      if (isSuccessfulResponse(res)) {
+        invalidateHistoryRequests()
+        searchHistory.value = []
+        await loadSearchHistory()
+      } else {
+        debugError('清空搜索历史失败:', getResponseMessage(res, '业务返回异常'))
+      }
     } catch (error) {
-      console.error('Failed to clear history:', error)
+      debugError('清空搜索历史失败', error)
     }
   } else {
-    localStorage.removeItem(LOCAL_HISTORY_KEY)
+    clearLocalHistoryStorage('clear')
     searchHistory.value = []
   }
 }

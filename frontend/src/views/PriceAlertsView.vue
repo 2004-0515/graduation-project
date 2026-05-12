@@ -1,5 +1,5 @@
 <template>
-  <div class="alerts-page">
+  <div class="alerts-page" data-testid="price-alerts-view">
     <Navbar />
 
     <main class="main-content">
@@ -34,11 +34,12 @@
         <!-- 提醒列表 -->
         <div class="alerts-card">
           <div class="card-header">
-            <div class="tabs">
+            <div class="tabs" data-testid="price-alerts-tabs">
               <button 
                 v-for="tab in tabs" 
                 :key="tab.value"
                 :class="['tab-btn', { active: activeTab === tab.value }]"
+                :data-testid="`price-alerts-tab-${tab.value}`"
                 @click="activeTab = tab.value"
               >
                 {{ tab.label }}
@@ -46,14 +47,15 @@
             </div>
           </div>
 
-          <div class="alerts-list" v-loading="loading">
+          <div class="alerts-list" data-testid="price-alerts-list" v-loading="loading">
             <template v-if="filteredAlerts.length > 0">
               <div 
                 v-for="alert in filteredAlerts" 
                 :key="alert.id"
                 :class="['alert-item', getStatusClass(alert.status)]"
+                :data-testid="`price-alert-item-${alert.id}`"
               >
-                <div class="product-info" @click="goToProduct(alert.productId)">
+                <div class="product-info" :data-testid="`price-alert-product-${alert.id}`" @click="goToProduct(alert.productId)">
                   <div class="product-image">
                     <img :src="getImageUrl(alert.productImage)" @error="imgErr" />
                   </div>
@@ -70,9 +72,9 @@
                   <span class="alert-time">{{ formatTime(alert.createdTime) }}</span>
                 </div>
                 <div class="alert-actions">
-                  <button v-if="alert.status === 0" class="action-btn edit" @click="openEditDialog(alert)">修改</button>
-                  <button class="action-btn cancel" @click="handleCancel(alert)">
-                    {{ alert.status === 0 ? '取消' : '删除' }}
+                  <button v-if="alert.status === 0" class="action-btn edit" :data-testid="`price-alert-edit-${alert.id}`" @click="openEditDialog(alert)">修改</button>
+                  <button class="action-btn cancel" :data-testid="`price-alert-action-${alert.id}`" @click="handleCancel(alert)">
+                    {{ alert.status === 0 ? '取消监控' : '删除记录' }}
                   </button>
                 </div>
               </div>
@@ -89,7 +91,7 @@
     </main>
 
     <!-- 修改目标价格弹窗 -->
-    <el-dialog v-model="editDialogVisible" title="修改目标价格" width="400px">
+    <el-dialog v-model="editDialogVisible" title="修改目标价格" width="400px" data-testid="price-alert-edit-dialog">
       <div class="edit-form" v-if="editingAlert">
         <div class="form-item">
           <span class="label">商品</span>
@@ -103,13 +105,13 @@
           <span class="label">目标价格</span>
           <div class="input-wrapper">
             <span class="currency">¥</span>
-            <input type="number" v-model.number="newTargetPrice" :max="editingAlert.productPrice - 0.01" min="0.01" step="0.01" />
+            <input type="number" data-testid="price-alert-target-input" v-model.number="newTargetPrice" :max="editingAlert.productPrice - 0.01" min="0.01" step="0.01" />
           </div>
         </div>
       </div>
       <template #footer>
-        <el-button @click="editDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveEdit" :loading="saving">保存</el-button>
+        <el-button data-testid="price-alert-edit-cancel" @click="closeEditDialog">取消</el-button>
+        <el-button data-testid="price-alert-edit-save" type="primary" @click="saveEdit" :loading="saving">保存</el-button>
       </template>
     </el-dialog>
 
@@ -127,6 +129,7 @@ import Footer from '@/components/Footer.vue'
 import priceApi from '@/api/priceApi'
 import fileApi from '@/api/fileApi'
 import axios from '@/utils/axios'
+import { debugError } from '@/utils/debug'
 
 const router = useRouter()
 const loading = ref(false)
@@ -136,6 +139,10 @@ const activeTab = ref('all')
 const editDialogVisible = ref(false)
 const editingAlert = ref<any>(null)
 const newTargetPrice = ref(0)
+let latestAlertsRequestId = 0
+const invalidateAlertRequests = () => {
+  latestAlertsRequestId += 1
+}
 
 const tabs = [
   { label: '全部', value: 'all' },
@@ -172,24 +179,75 @@ const formatTime = (dateStr: string) => {
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
+const getErrorMessage = (error: any, fallback: string) => {
+  const response = error?.response as { data?: { message?: string } } | undefined
+  const message = typeof error?.message === 'string' ? error.message : ''
+  return response?.data?.message || message || fallback
+}
+
 const imgErr = (e: Event) => {
   const img = e.target as HTMLImageElement
   img.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect fill="#f8f8fc" width="80" height="80"/><text fill="#ccc" font-family="Arial" font-size="12" x="50%" y="50%" text-anchor="middle" dy=".3em">商品</text></svg>')
 }
 
-const fetchAlerts = async () => {
+const fetchAlerts = async (options?: { silentError?: boolean }) => {
+  const silentError = options?.silentError ?? false
+  const requestId = ++latestAlertsRequestId
   loading.value = true
   try {
     // 获取用户的降价提醒列表（带商品信息）
     const res: any = await axios.get('/price/alerts/detail')
-    if (res?.code === 200) {
-      alerts.value = res.data || []
+    if (requestId !== latestAlertsRequestId) {
+      return
     }
+    if (res?.code === 200) {
+      applyLocalAlerts(res.data || [])
+      return true
+    }
+    const message = res?.message || '获取降价提醒失败'
+    debugError('获取降价提醒失败:', message)
+    if (!silentError) {
+      ElMessage.error(message)
+    }
+    return false
   } catch (e) {
-    console.error(e)
+    if (requestId !== latestAlertsRequestId) {
+      return
+    }
+    debugError('获取降价提醒失败:', e)
+    if (!silentError) {
+      ElMessage.error(getErrorMessage(e, '获取降价提醒失败'))
+    }
+    return false
   } finally {
-    loading.value = false
+    if (requestId === latestAlertsRequestId) {
+      loading.value = false
+    }
   }
+}
+
+const refreshAlertsAfterSuccess = async (actionLabel: string) => {
+  const refreshed = await fetchAlerts({ silentError: true })
+  if (!refreshed) {
+    debugError(`${actionLabel}后刷新降价提醒失败:`, '获取降价提醒失败')
+  }
+}
+
+const applyLocalAlerts = (nextAlerts: any[]) => {
+  alerts.value = nextAlerts
+  if (!editingAlert.value) return
+  const nextEditingAlert = nextAlerts.find((item) => item.id === editingAlert.value.id) || null
+  if (!nextEditingAlert) {
+    closeEditDialog()
+    return
+  }
+  editingAlert.value = nextEditingAlert
+}
+
+const closeEditDialog = () => {
+  editDialogVisible.value = false
+  editingAlert.value = null
+  newTargetPrice.value = 0
 }
 
 const goToProduct = (productId: number) => {
@@ -218,31 +276,61 @@ const saveEdit = async () => {
   try {
     const res: any = await priceApi.createAlert(editingAlert.value.productId, newTargetPrice.value)
     if (res?.code === 200) {
+      invalidateAlertRequests()
+      applyLocalAlerts(
+        alerts.value.map((item) =>
+          item.id === editingAlert.value.id
+            ? { ...item, targetPrice: newTargetPrice.value }
+            : item
+        )
+      )
       ElMessage.success('目标价格已更新')
-      editDialogVisible.value = false
-      fetchAlerts()
+      closeEditDialog()
+      await refreshAlertsAfterSuccess('更新目标价格')
     } else {
-      ElMessage.error(res?.message || '更新失败')
+      const message = res?.message || '更新失败'
+      debugError('更新目标价格失败:', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    ElMessage.error('更新失败')
+    debugError('更新目标价格失败:', e)
+    ElMessage.error(getErrorMessage(e, '更新失败'))
   } finally {
     saving.value = false
   }
 }
 
 const handleCancel = async (alert: any) => {
-  const action = alert.status === 0 ? '取消' : '删除'
+  const isMonitoring = alert.status === 0
+  const action = isMonitoring ? '取消监控' : '删除记录'
   try {
     await ElMessageBox.confirm(`确定要${action}这条降价提醒吗？`, '提示', { type: 'warning' })
-    const res: any = await priceApi.cancelAlert(alert.productId)
+    const res: any = isMonitoring
+      ? await priceApi.cancelAlert(alert.productId)
+      : await priceApi.deleteAlertRecord(alert.productId)
     if (res?.code === 200) {
+      invalidateAlertRequests()
+      applyLocalAlerts(
+        isMonitoring
+          ? alerts.value.map((item) =>
+              item.id === alert.id ? { ...item, status: 2 } : item
+            )
+          : alerts.value.filter((item) => item.id !== alert.id)
+      )
       ElMessage.success(`已${action}`)
-      fetchAlerts()
+      await refreshAlertsAfterSuccess(action)
     } else {
-      ElMessage.error(res?.message || `${action}失败`)
+      const message = res?.message || `${action}失败`
+      debugError(`${action}降价提醒失败:`, message)
+      ElMessage.error(message)
     }
-  } catch {}
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
+      return
+    }
+    debugError(`${action}降价提醒失败:`, error)
+    ElMessage.error(getErrorMessage(error, `${action}失败`))
+  }
 }
 
 onMounted(() => fetchAlerts())

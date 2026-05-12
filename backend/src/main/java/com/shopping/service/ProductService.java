@@ -32,6 +32,12 @@ public class ProductService {
     @Autowired
     @Lazy
     private NotificationService notificationService;
+
+    private void ensureVersionInitialized(Product product) {
+        if (product != null && product.getVersion() == null) {
+            product.setVersion(0L);
+        }
+    }
     
     /**
      * 获取商品列表，支持分页（只返回已审核通过的商品）
@@ -107,10 +113,13 @@ public class ProductService {
      * @return 保存后的商品信息
      */
     public Product saveProduct(Product product) {
+        ensureVersionInitialized(product);
+
         // 检查是否是价格变动
         if (product.getId() != null) {
             Product oldProduct = productRepository.findById(product.getId()).orElse(null);
             if (oldProduct != null) {
+                ensureVersionInitialized(oldProduct);
                 BigDecimal oldPrice = oldProduct.getPrice();
                 BigDecimal newPrice = product.getPrice();
                 
@@ -261,6 +270,7 @@ public class ProductService {
         if (product == null) {
             return false;
         }
+        ensureVersionInitialized(product);
         int newStock = product.getStock() + quantity;
         if (newStock < 0) {
             return false;
@@ -303,6 +313,7 @@ public class ProductService {
         Product product = productRepository.findById(productId).orElseThrow(
             () -> new com.shopping.exception.ResourceNotFoundException("商品", productId));
 
+        ensureVersionInitialized(product);
         product.setStock(product.getStock() + quantity);
         productRepository.save(product);
     }
@@ -316,8 +327,24 @@ public class ProductService {
         Product product = productRepository.findById(productId).orElseThrow(
             () -> new com.shopping.exception.ResourceNotFoundException("商品", productId));
 
+        ensureVersionInitialized(product);
         int currentSales = product.getSales() != null ? product.getSales() : 0;
         product.setSales(currentSales + quantity);
+        productRepository.save(product);
+    }
+
+    /**
+     * 减少商品销量
+     * @param productId 商品ID
+     * @param quantity 减少的数量
+     */
+    public void decreaseSales(Long productId, Integer quantity) {
+        Product product = productRepository.findById(productId).orElseThrow(
+            () -> new com.shopping.exception.ResourceNotFoundException("商品", productId));
+
+        ensureVersionInitialized(product);
+        int currentSales = product.getSales() != null ? product.getSales() : 0;
+        product.setSales(Math.max(0, currentSales - quantity));
         productRepository.save(product);
     }
     

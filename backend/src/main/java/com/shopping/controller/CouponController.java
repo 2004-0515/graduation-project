@@ -34,14 +34,9 @@ public class CouponController {
         List<Coupon> coupons = couponService.getAvailableCoupons();
         
         // 检查当前用户是否已领取
-        Long userId = null;
-        try {
-            String username = SecurityUtils.getCurrentUsername();
-            User user = userService.findByUsername(username);
-            if (user != null) userId = user.getId();
-        } catch (Exception e) {}
+        java.util.Optional<Long> userId = getOptionalCurrentUserId();
         
-        final Long currentUserId = userId;
+        final java.util.Optional<Long> currentUserId = userId;
         List<Map<String, Object>> result = coupons.stream().map(c -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", c.getId());
@@ -61,8 +56,8 @@ public class CouponController {
             
             // 检查用户已领取数量
             int userClaimedCount = 0;
-            if (currentUserId != null) {
-                userClaimedCount = couponService.getUserClaimedCount(currentUserId, c.getId());
+            if (currentUserId.isPresent()) {
+                userClaimedCount = couponService.getUserClaimedCount(currentUserId.get(), c.getId());
             }
             map.put("userClaimedCount", userClaimedCount);
             map.put("claimed", userClaimedCount >= c.getLimitPerUser());
@@ -84,12 +79,7 @@ public class CouponController {
         }
         
         // 检查当前用户是否已领取
-        Long userId = null;
-        try {
-            String username = SecurityUtils.getCurrentUsername();
-            User user = userService.findByUsername(username);
-            if (user != null) userId = user.getId();
-        } catch (Exception e) {}
+        java.util.Optional<Long> userId = getOptionalCurrentUserId();
         
         Map<String, Object> map = new HashMap<>();
         map.put("id", c.getId());
@@ -110,8 +100,8 @@ public class CouponController {
         
         // 检查用户已领取数量
         int userClaimedCount = 0;
-        if (userId != null) {
-            userClaimedCount = couponService.getUserClaimedCount(userId, c.getId());
+        if (userId.isPresent()) {
+            userClaimedCount = couponService.getUserClaimedCount(userId.get(), c.getId());
         }
         map.put("userClaimedCount", userClaimedCount);
         map.put("claimed", userClaimedCount >= c.getLimitPerUser());
@@ -140,18 +130,18 @@ public class CouponController {
      */
     @PostMapping("/{id}/claim")
     public Response<UserCoupon> claimCoupon(@PathVariable Long id) {
+        if (!SecurityUtils.isAuthenticated()) {
+            return Response.fail(401, "请先登录");
+        }
+
         String username = SecurityUtils.getCurrentUsername();
         User user = userService.findByUsername(username);
         if (user == null) {
             return Response.fail(401, "请先登录");
         }
-        
-        try {
-            UserCoupon userCoupon = couponService.claimCoupon(user.getId(), id);
-            return Response.success("领取成功", userCoupon);
-        } catch (Exception e) {
-            return Response.fail(400, e.getMessage());
-        }
+
+        UserCoupon userCoupon = couponService.claimCoupon(user.getId(), id);
+        return Response.success("领取成功", userCoupon);
     }
     
     /**
@@ -309,5 +299,15 @@ public class CouponController {
         }
         
         return Response.success("已重置 " + count + " 张优惠券", count);
+    }
+
+    private java.util.Optional<Long> getOptionalCurrentUserId() {
+        if (!SecurityUtils.isAuthenticated()) {
+            return java.util.Optional.empty();
+        }
+
+        String username = SecurityUtils.getCurrentUsername();
+        User user = userService.findByUsername(username);
+        return user != null ? java.util.Optional.of(user.getId()) : java.util.Optional.empty();
     }
 }

@@ -3,6 +3,8 @@ package com.shopping.service;
 import com.shopping.constants.PriceAlertConstants;
 import com.shopping.entity.PriceAlert;
 import com.shopping.entity.Product;
+import com.shopping.exception.ResourceNotFoundException;
+import com.shopping.exception.ValidationException;
 import com.shopping.repository.PriceAlertRepository;
 import com.shopping.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,14 @@ public class PriceAlertService {
      */
     @Transactional
     public PriceAlert createAlert(Long userId, Long productId, BigDecimal targetPrice) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("商品", productId));
+
+        // 检查目标价格是否合理
+        if (targetPrice.compareTo(product.getPrice()) >= 0) {
+            throw new ValidationException("目标价格必须低于当前价格");
+        }
+
         // 检查是否已存在提醒（任何状态）
         Optional<PriceAlert> existing = priceAlertRepository.findByUserIdAndProductId(userId, productId);
         if (existing.isPresent()) {
@@ -44,23 +54,11 @@ public class PriceAlertService {
             alert.setTriggeredPrice(null);
             
             // 更新当前价格
-            Product product = productRepository.findById(productId).orElse(null);
-            if (product != null) {
-                alert.setCurrentPrice(product.getPrice());
-            }
+            alert.setCurrentPrice(product.getPrice());
             
             return priceAlertRepository.save(alert);
         }
-        
-        // 获取商品当前价格
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new RuntimeException("商品不存在"));
-        
-        // 检查目标价格是否合理
-        if (targetPrice.compareTo(product.getPrice()) >= 0) {
-            throw new RuntimeException("目标价格必须低于当前价格");
-        }
-        
+
         PriceAlert alert = new PriceAlert();
         alert.setUserId(userId);
         alert.setProductId(productId);
@@ -77,11 +75,15 @@ public class PriceAlertService {
      */
     @Transactional
     public void cancelAlert(Long userId, Long productId) {
-        Optional<PriceAlert> alert = priceAlertRepository.findByUserIdAndProductId(userId, productId);
-        alert.ifPresent(a -> {
-            a.setStatus(PriceAlertConstants.AlertStatus.CANCELLED);
-            priceAlertRepository.save(a);
-        });
+        PriceAlert alert = priceAlertRepository.findByUserIdAndProductId(userId, productId)
+                .orElseThrow(() -> new ResourceNotFoundException("降价提醒", productId));
+
+        if (alert.getStatus() != PriceAlertConstants.AlertStatus.MONITORING) {
+            throw new ValidationException("该提醒已不在监控状态");
+        }
+
+        alert.setStatus(PriceAlertConstants.AlertStatus.CANCELLED);
+        priceAlertRepository.save(alert);
     }
     
     /**
@@ -89,6 +91,13 @@ public class PriceAlertService {
      */
     @Transactional
     public void deleteAlert(Long userId, Long productId) {
+        PriceAlert alert = priceAlertRepository.findByUserIdAndProductId(userId, productId)
+                .orElseThrow(() -> new ResourceNotFoundException("降价提醒", productId));
+
+        if (alert.getStatus() == PriceAlertConstants.AlertStatus.MONITORING) {
+            throw new ValidationException("监控中的提醒请先取消监控");
+        }
+
         priceAlertRepository.deleteByUserIdAndProductId(userId, productId);
     }
 
@@ -136,8 +145,8 @@ public class PriceAlertService {
             
             // 发送通知
             if (alert.getNotified() == null || !alert.getNotified()) {
-                sendPriceAlertNotification(alert, newPrice);
-                alert.setNotified(true);
+                boolean sent = sendPriceAlertNotification(alert, newPrice);
+                alert.setNotified(sent);
                 priceAlertRepository.save(alert);
             }
         }
@@ -146,10 +155,14 @@ public class PriceAlertService {
     /**
      * 发送降价提醒通知
      */
-    private void sendPriceAlertNotification(PriceAlert alert, BigDecimal newPrice) {
+    private boolean sendPriceAlertNotification(PriceAlert alert, BigDecimal newPrice) {
         try {
             Product product = productRepository.findById(alert.getProductId()).orElse(null);
-            if (product == null) return;
+            if (product == null) {
+                log.warn("发送降价提醒通知失败，商品不存在: userId={}, productId={}",
+                        alert.getUserId(), alert.getProductId());
+                return false;
+            }
             
             String title = "降价提醒";
             String message = String.format("您关注的商品「%s」已降价至 ¥%.2f，达到您设置的目标价格 ¥%.2f，快去抢购吧！",
@@ -158,8 +171,10 @@ public class PriceAlertService {
             notificationService.createNotification(alert.getUserId(), "promotion", title, message, alert.getProductId());
             log.info("已发送降价提醒通知: userId={}, productId={}, newPrice={}", 
                     alert.getUserId(), alert.getProductId(), newPrice);
-        } catch (Exception e) {
+            return true;
+        } catch (RuntimeException e) {
             log.error("发送降价提醒通知失败", e);
+            return false;
         }
     }
     
@@ -193,10 +208,10 @@ public class PriceAlertService {
     @Transactional
     public void manualTriggerAlert(Long alertId) {
         PriceAlert alert = priceAlertRepository.findById(alertId)
-                .orElseThrow(() -> new RuntimeException("降价提醒不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("降价提醒", alertId));
         
         if (alert.getStatus() != PriceAlertConstants.AlertStatus.MONITORING) {
-            throw new RuntimeException("该提醒已不在监控状态");
+            throw new ValidationException("该提醒已不在监控状态");
         }
         
         Product product = productRepository.findById(alert.getProductId()).orElse(null);
@@ -209,8 +224,8 @@ public class PriceAlertService {
         priceAlertRepository.save(alert);
         
         // 发送通知
-        sendPriceAlertNotification(alert, currentPrice);
-        alert.setNotified(true);
+        boolean sent = sendPriceAlertNotification(alert, currentPrice);
+        alert.setNotified(sent);
         priceAlertRepository.save(alert);
     }
     
@@ -220,10 +235,10 @@ public class PriceAlertService {
     @Transactional
     public void resetAlert(Long alertId) {
         PriceAlert alert = priceAlertRepository.findById(alertId)
-                .orElseThrow(() -> new RuntimeException("降价提醒不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("降价提醒", alertId));
         
         if (alert.getStatus() == PriceAlertConstants.AlertStatus.MONITORING) {
-            throw new RuntimeException("该提醒已在监控状态");
+            throw new ValidationException("该提醒已在监控状态");
         }
         
         alert.setStatus(PriceAlertConstants.AlertStatus.MONITORING);

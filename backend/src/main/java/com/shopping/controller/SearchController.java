@@ -15,7 +15,7 @@ import java.util.List;
  * 处理搜索历史、热门关键词、搜索建议等API请求
  */
 @RestController
-@RequestMapping("/api/search")
+@RequestMapping("/search")
 public class SearchController {
     
     @Autowired
@@ -58,12 +58,12 @@ public class SearchController {
      */
     @GetMapping("/history")
     public Response<List<SearchHistoryDto>> getSearchHistory() {
-        Long userId = getCurrentUserId();
-        if (userId == null) {
+        java.util.Optional<Long> userId = getCurrentUserId();
+        if (userId.isEmpty()) {
             return Response.fail(401, "请先登录");
         }
         
-        List<SearchHistoryDto> history = searchService.getUserSearchHistory(userId);
+        List<SearchHistoryDto> history = searchService.getUserSearchHistory(userId.get());
         return Response.success(history);
     }
     
@@ -74,8 +74,8 @@ public class SearchController {
      */
     @PostMapping("/history")
     public Response<Void> addSearchHistory(@RequestBody SearchHistoryRequest request) {
-        Long userId = getCurrentUserId();
-        if (userId == null) {
+        java.util.Optional<Long> userId = getCurrentUserId();
+        if (userId.isEmpty()) {
             return Response.fail(401, "请先登录");
         }
         
@@ -87,7 +87,7 @@ public class SearchController {
             return Response.fail(400, "搜索关键词过长");
         }
         
-        searchService.addSearchHistory(userId, keyword);
+        searchService.addSearchHistory(userId.get(), keyword);
         return Response.success("添加成功");
     }
     
@@ -98,12 +98,12 @@ public class SearchController {
      */
     @DeleteMapping("/history/{id}")
     public Response<Void> deleteSearchHistory(@PathVariable Long id) {
-        Long userId = getCurrentUserId();
-        if (userId == null) {
+        java.util.Optional<Long> userId = getCurrentUserId();
+        if (userId.isEmpty()) {
             return Response.fail(401, "请先登录");
         }
         
-        boolean deleted = searchService.deleteSearchHistory(userId, id);
+        boolean deleted = searchService.deleteSearchHistory(userId.get(), id);
         if (deleted) {
             return Response.success("删除成功");
         } else {
@@ -117,12 +117,12 @@ public class SearchController {
      */
     @DeleteMapping("/history")
     public Response<Void> clearSearchHistory() {
-        Long userId = getCurrentUserId();
-        if (userId == null) {
+        java.util.Optional<Long> userId = getCurrentUserId();
+        if (userId.isEmpty()) {
             return Response.fail(401, "请先登录");
         }
         
-        searchService.clearSearchHistory(userId);
+        searchService.clearSearchHistory(userId.get());
         return Response.success("清空成功");
     }
     
@@ -150,16 +150,13 @@ public class SearchController {
      * 获取当前登录用户ID
      * @return 用户ID，未登录返回null
      */
-    private Long getCurrentUserId() {
-        try {
-            String username = SecurityUtils.getCurrentUsername();
-            if (username != null) {
-                User user = userService.findByUsername(username);
-                return user != null ? user.getId() : null;
-            }
-        } catch (Exception e) {
-            // 未登录
+    private java.util.Optional<Long> getCurrentUserId() {
+        if (!SecurityUtils.isAuthenticated()) {
+            return java.util.Optional.empty();
         }
-        return null;
+
+        String username = SecurityUtils.getCurrentUsername();
+        User user = userService.findByUsername(username);
+        return user != null ? java.util.Optional.of(user.getId()) : java.util.Optional.empty();
     }
 }

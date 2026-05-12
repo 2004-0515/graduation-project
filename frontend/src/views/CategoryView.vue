@@ -1,5 +1,5 @@
 <template>
-  <div class="category-page">
+  <div class="category-page" data-testid="category-view">
     <div class="deco-layer">
       <div class="deco-bg"></div>
       <div class="shape s1"></div>
@@ -20,10 +20,11 @@
             <div class="filter-group">
               <h3>商品分类</h3>
               <ul class="cat-list">
-                <li :class="{ active: !selectedCategory }" @click="selectCategory(null)">
+                <li :class="{ active: !selectedCategory }" data-testid="category-filter-all" @click="selectCategory(null)">
                   全部
                 </li>
                 <li v-for="cat in categories" :key="cat.id" 
+                    :data-testid="`category-filter-${cat.id}`"
                     :class="{ active: selectedCategory === cat.id }" 
                     @click="selectCategory(cat.id)">
                   {{ cat.name }}
@@ -33,37 +34,37 @@
             <div class="filter-group">
               <h3>价格区间</h3>
               <div class="price-range">
-                <input type="number" v-model.number="minPrice" placeholder="最低" />
+                <input type="number" v-model.number="minPrice" placeholder="最低" data-testid="category-min-price" />
                 <span>-</span>
-                <input type="number" v-model.number="maxPrice" placeholder="最高" />
+                <input type="number" v-model.number="maxPrice" placeholder="最高" data-testid="category-max-price" />
               </div>
-              <button class="btn btn-glass btn-sm" @click="applyPriceFilter">筛选</button>
-              <button class="btn btn-text btn-sm" @click="clearPriceFilter" v-if="minPrice || maxPrice">清除</button>
+              <button class="btn btn-glass btn-sm" data-testid="category-apply-price" @click="applyPriceFilter">筛选</button>
+              <button class="btn btn-text btn-sm" data-testid="category-clear-price" @click="clearPriceFilter" v-if="minPrice || maxPrice">清除</button>
             </div>
           </aside>
 
           <div class="content">
             <!-- 搜索提示 -->
-            <div v-if="searchKeyword" class="search-hint">
+            <div v-if="searchKeyword" class="search-hint" data-testid="category-search-hint">
               <span>搜索 "<em>{{ searchKeyword }}</em>" 的结果</span>
-              <button class="clear-search" @click="clearSearchKeyword">清除搜索</button>
+              <button class="clear-search" data-testid="category-clear-search" @click="clearSearchKeyword">清除搜索</button>
             </div>
 
             <div class="toolbar">
               <div class="sort-bar">
                 <span>排序：</span>
-                <button :class="{ active: sortBy === 'default' }" @click="changeSort('default')">综合</button>
-                <button :class="{ active: sortBy === 'sales' }" @click="changeSort('sales')">销量</button>
-                <button :class="{ active: sortBy === 'price' }" @click="changeSort('price')">
+                <button :class="{ active: sortBy === 'default' }" data-testid="category-sort-default" @click="changeSort('default')">综合</button>
+                <button :class="{ active: sortBy === 'sales' }" data-testid="category-sort-sales" @click="changeSort('sales')">销量</button>
+                <button :class="{ active: sortBy === 'price' }" data-testid="category-sort-price-asc" @click="changeSort('price')">
                   价格升序
                   <span class="sort-arrow" v-if="sortBy === 'price'">↑</span>
                 </button>
-                <button :class="{ active: sortBy === 'price_desc' }" @click="changeSort('price_desc')">
+                <button :class="{ active: sortBy === 'price_desc' }" data-testid="category-sort-price-desc" @click="changeSort('price_desc')">
                   价格降序
                   <span class="sort-arrow" v-if="sortBy === 'price_desc'">↓</span>
                 </button>
               </div>
-              <div class="result-info">
+              <div class="result-info" data-testid="category-result-info">
                 共 <em>{{ total }}</em> 件商品
               </div>
             </div>
@@ -73,8 +74,8 @@
               <p>加载中...</p>
             </div>
 
-            <div class="product-grid" v-else-if="products.length">
-              <div v-for="p in products" :key="p.id" class="product-card glass-card" @click="$router.push(`/product/${p.id}`)">
+            <div class="product-grid" v-else-if="products.length" data-testid="category-product-grid">
+              <div v-for="p in products" :key="p.id" class="product-card glass-card" :data-testid="`category-product-${p.id}`" @click="$router.push(`/product/${p.id}`)">
                 <div class="product-img">
                   <img :src="getImageUrl(p.mainImage)" :alt="p.name" @error="imgErr" />
                   <div class="img-overlay">
@@ -125,6 +126,7 @@ import categoryApi from '../api/categoryApi'
 import fileApi from '../api/fileApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import { debugError } from '../utils/debug'
 
 const route = useRoute()
 const router = useRouter()
@@ -138,11 +140,24 @@ const currentPage = ref(1)
 const pageSize = ref(12)
 const total = ref(0)
 const loading = ref(false)
+let latestFetchProductsRequestId = 0
+const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
 
 // 搜索关键词
 const searchKeyword = computed(() => {
   return (route.query.q || route.query.keyword || '') as string
 })
+
+const syncSelectedCategoryFromRoute = () => {
+  const routeCategoryId = route.query.id
+  if (routeCategoryId === undefined || routeCategoryId === null || routeCategoryId === '') {
+    selectedCategory.value = null
+    return
+  }
+
+  const parsedCategoryId = Number(routeCategoryId)
+  selectedCategory.value = Number.isFinite(parsedCategoryId) ? parsedCategoryId : null
+}
 
 const clearSearchKeyword = () => {
   router.push('/category')
@@ -156,6 +171,7 @@ const imgErr = (e: Event) => {
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
 const fetchProducts = async () => {
+  const requestId = ++latestFetchProductsRequestId
   loading.value = true
   try {
     const params: any = { 
@@ -172,23 +188,37 @@ const fetchProducts = async () => {
     if (searchKeyword) params.keyword = searchKeyword
     
     const res: any = await productApi.getProducts(params)
+    if (requestId !== latestFetchProductsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       const data = res.data
       products.value = data?.content || []
       total.value = data?.totalElements || 0
+    } else {
+      debugError('获取分类商品列表失败:', getResponseMessage(res, '业务返回异常'))
     }
   } catch (e) { 
-    console.error(e) 
+    if (requestId !== latestFetchProductsRequestId) {
+      return
+    }
+    debugError('获取分类商品列表失败', e)
   } finally {
-    loading.value = false
+    if (requestId === latestFetchProductsRequestId) {
+      loading.value = false
+    }
   }
 }
 
 const fetchCategories = async () => {
   try {
     const res: any = await categoryApi.getCategories()
-    if (res?.code === 200) categories.value = res.data || []
-  } catch (e) { console.error(e) }
+    if (res?.code === 200) {
+      categories.value = res.data || []
+    } else {
+      debugError('获取分类列表失败:', getResponseMessage(res, '业务返回异常'))
+    }
+  } catch (e) { debugError('获取分类列表失败', e) }
 }
 
 const selectCategory = (id: number | null) => {
@@ -228,12 +258,13 @@ const handlePageChange = (page: number) => {
 
 // 监听路由查询参数变化
 watch(() => route.query, () => { 
+  syncSelectedCategoryFromRoute()
   currentPage.value = 1
   fetchProducts() 
 }, { deep: true })
 
 onMounted(() => {
-  if (route.query.id) selectedCategory.value = Number(route.query.id)
+  syncSelectedCategoryFromRoute()
   fetchCategories()
   fetchProducts()
 })
@@ -242,7 +273,7 @@ onMounted(() => {
 <style scoped>
 .category-page { min-height: 100vh; background: var(--white); position: relative; }
 .deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-.deco-bg { position: absolute; top: 0; right: -10%; width: 50%; height: 60%; background: url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800') center/cover; opacity: 0.1; filter: blur(50px); }
+.deco-bg { position: absolute; top: 0; right: -10%; width: 50%; height: 60%; background: url('/external-cache/category-bg.jpg') center/cover; opacity: 0.1; filter: blur(50px); }
 .shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; }
 .s1 { width: 600px; height: 600px; top: 10%; left: -10%; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.5; }
 .s2 { width: 500px; height: 500px; bottom: 5%; right: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.5; animation-delay: -10s; }

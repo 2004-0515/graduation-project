@@ -1,5 +1,5 @@
 <template>
-  <div class="promo-page">
+  <div class="promo-page" data-testid="promotions-view">
     <div class="deco-layer">
       <div class="deco-bg"></div>
       <div class="shape s1"></div>
@@ -27,7 +27,14 @@
           <div v-if="loading" class="loading-state">加载中...</div>
           
           <div class="coupon-grid" v-else-if="coupons.length > 0">
-            <div v-for="c in coupons" :key="c.id" class="coupon-card glass-card" :class="{ claimed: c.claimed }" @click="goToCouponDetail(c.id)">
+            <div
+              v-for="c in coupons"
+              :key="c.id"
+              class="coupon-card glass-card"
+              :class="{ claimed: c.claimed }"
+              :data-testid="`promotions-coupon-${c.id}`"
+              @click="goToCouponDetail(c.id)"
+            >
               <div class="coupon-left" :class="getCouponTypeClass(c.type)">
                 <span class="coupon-value">
                   <template v-if="c.type === 2">{{ (c.discountRate * 10).toFixed(0) }}折</template>
@@ -47,7 +54,12 @@
                     剩余 {{ c.remaining }} 张
                     <template v-if="c.limitPerUser > 1">（限领{{ c.limitPerUser }}张，已领{{ c.userClaimedCount || 0 }}张）</template>
                   </span>
-                  <button class="btn btn-primary btn-sm" @click.stop="claimCoupon(c)" :disabled="c.claimed || c.remaining <= 0">
+                  <button
+                    class="btn btn-primary btn-sm"
+                    :data-testid="`promotions-claim-${c.id}`"
+                    @click.stop="claimCoupon(c)"
+                    :disabled="c.claimed || c.remaining <= 0"
+                  >
                     {{ c.claimed ? '已领完' : c.remaining <= 0 ? '已领完' : '立即领取' }}
                   </button>
                 </div>
@@ -130,6 +142,7 @@ import Footer from '../components/Footer.vue'
 import couponApi from '../api/couponApi'
 import productApi from '../api/productApi'
 import fileApi from '../api/fileApi'
+import { debugError } from '../utils/debug'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -137,6 +150,14 @@ const loading = ref(true)
 const coupons = ref<any[]>([])
 const myCoupons = ref<any[]>([])
 const hotProducts = ref<any[]>([])
+let latestCouponsRequestId = 0
+let latestMyCouponsRequestId = 0
+const invalidateCouponRequests = () => {
+  latestCouponsRequestId += 1
+}
+const invalidateMyCouponRequests = () => {
+  latestMyCouponsRequestId += 1
+}
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
@@ -161,29 +182,58 @@ const getCouponTypeText = (type: number) => {
   return texts[type] || '优惠券'
 }
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
+
 const fetchCoupons = async () => {
+  const requestId = ++latestCouponsRequestId
   loading.value = true
   try {
     const res: any = await couponApi.getAvailableCoupons()
+    if (requestId !== latestCouponsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       coupons.value = res.data || []
+    } else {
+      debugError('获取优惠券失败', res?.message || '优惠券列表返回异常')
     }
   } catch (e) {
-    console.error('获取优惠券失败', e)
+    if (requestId !== latestCouponsRequestId) {
+      return
+    }
+    debugError('获取优惠券失败', e)
   } finally {
-    loading.value = false
+    if (requestId === latestCouponsRequestId) {
+      loading.value = false
+    }
   }
 }
 
 const fetchMyCoupons = async () => {
   if (!userStore.isLoggedIn) return
+  const requestId = ++latestMyCouponsRequestId
   try {
     const res: any = await couponApi.getMyCoupons()
+    if (requestId !== latestMyCouponsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       myCoupons.value = res.data || []
+    } else {
+      debugError('获取我的优惠券失败', res?.message || '我的优惠券返回异常')
     }
   } catch (e) {
-    console.error('获取我的优惠券失败', e)
+    if (requestId !== latestMyCouponsRequestId) {
+      return
+    }
+    debugError('获取我的优惠券失败', e)
   }
 }
 
@@ -192,10 +242,32 @@ const fetchHotProducts = async () => {
     const res: any = await productApi.getProducts({ page: 1, size: 4, sort: 'sales' })
     if (res?.code === 200) {
       hotProducts.value = res.data?.content || []
+    } else {
+      debugError('获取热销商品失败', res?.message || '热销商品返回异常')
     }
   } catch (e) {
-    console.error('获取热销商品失败', e)
+    debugError('获取热销商品失败', e)
   }
+}
+
+const refreshCouponsAfterClaimSuccess = async () => {
+  const results = await Promise.allSettled([fetchCoupons(), fetchMyCoupons()])
+  const targetLabels = ['优惠券列表', '我的优惠券']
+
+  results.forEach((result, index) => {
+    if (result.status !== 'rejected') {
+      return
+    }
+    debugError(`领取优惠券成功后刷新${targetLabels[index]}失败`, result.reason)
+  })
+}
+
+const applyLocalCoupons = (nextCoupons: any[]) => {
+  coupons.value = nextCoupons
+}
+
+const applyLocalMyCoupons = (nextCoupons: any[]) => {
+  myCoupons.value = nextCoupons
 }
 
 const claimCoupon = async (coupon: any) => {
@@ -210,20 +282,37 @@ const claimCoupon = async (coupon: any) => {
   try {
     const res: any = await couponApi.claimCoupon(coupon.id)
     if (res?.code === 200) {
-      ElMessage.success('领取成功')
-      // 更新已领取数量
-      coupon.userClaimedCount = (coupon.userClaimedCount || 0) + 1
-      coupon.remaining--
-      // 检查是否达到限领上限
-      if (coupon.userClaimedCount >= coupon.limitPerUser) {
-        coupon.claimed = true
+      invalidateCouponRequests()
+      invalidateMyCouponRequests()
+      applyLocalCoupons(
+        coupons.value.map((item) =>
+          item.id === coupon.id
+            ? {
+                ...item,
+                claimed: true,
+                remaining: Math.max(0, Number(item.remaining || 0) - 1)
+              }
+            : item
+        )
+      )
+      const claimedCoupon = {
+        ...coupon,
+        claimed: true,
+        remaining: Math.max(0, Number(coupon.remaining || 0) - 1)
       }
-      fetchMyCoupons()
+      if (!myCoupons.value.some((item) => item.id === coupon.id)) {
+        applyLocalMyCoupons([claimedCoupon, ...myCoupons.value])
+      }
+      ElMessage.success('领取成功')
+      await refreshCouponsAfterClaimSuccess()
     } else {
-      ElMessage.error(res?.message || '领取失败')
+      const message = res?.message || '领取失败'
+      debugError('领取优惠券失败', message)
+      ElMessage.error(message)
     }
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '领取失败')
+    debugError('领取优惠券失败', e)
+    ElMessage.error(getErrorMessage(e, '领取失败'))
   }
 }
 
