@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <div class="orders-manage">
+    <div class="orders-manage" data-testid="admin-orders-view">
       <div class="toolbar">
         <div class="toolbar-left">
           <el-input v-model="searchKeyword" placeholder="搜索订单号" style="width: 200px" @keyup.enter="handleSearch">
@@ -119,26 +119,42 @@ import adminApi from '@/api/adminApi'
 import fileApi from '@/api/fileApi'
 import { useAdminStore } from '@/stores/adminStore'
 import { debugError } from '@/utils/debug'
+import type { Order } from '@/types'
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
 // 使用 admin store 来刷新侧边栏数量
 const adminStore = useAdminStore()
 
-const allOrders = ref<any[]>([]) // 所有订单数据
-const orders = ref<any[]>([]) // 当前页显示的订单
+const allOrders = ref<Order[]>([]) // 所有订单数据
+const orders = ref<Order[]>([]) // 当前页显示的订单
 const loading = ref(false)
 const detailVisible = ref(false)
-const currentOrder = ref<any>(null)
+const currentOrder = ref<Order | null>(null)
 
 const searchKeyword = ref('')
 const filterStatus = ref<number | string>('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+let latestOrdersRequestId = 0
+const invalidateOrderRequests = () => {
+  latestOrdersRequestId += 1
+}
+type TagType = '' | 'success' | 'info' | 'warning' | 'danger' | 'primary'
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
 
 const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 5: '退款中', 6: '申请取消中' }[status] || '未知')
-const getStatusType = (status: number) => ({ 0: 'warning', 1: 'primary', 2: 'info', 3: 'success', 4: 'danger', 5: 'danger', 6: 'warning' }[status] || 'info') as any
+const getStatusType = (status: number): TagType =>
+  ({ 0: 'warning', 1: 'primary', 2: 'info', 3: 'success', 4: 'danger', 5: 'danger', 6: 'warning' }[status] || 'info')
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '-'
@@ -146,38 +162,96 @@ const formatDate = (dateStr: string) => {
   return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`
 }
 
-const parseAddress = (addr: any) => {
+const parseAddress = (addr: Order['shippingAddress'] | string) => {
   if (typeof addr === 'string') {
-    try { addr = JSON.parse(addr) } catch { return addr }
+    try {
+      addr = JSON.parse(addr)
+    } catch (error) {
+      debugError('解析订单收货地址失败:', error)
+      return addr
+    }
   }
+  if (!addr) return '-'
+  if (typeof addr !== 'object') return String(addr)
   return `${addr.name || addr.receiver || ''} ${addr.phone || ''} ${addr.province || ''}${addr.city || ''}${addr.district || ''}${addr.detail || ''}`
 }
 
-const fetchOrders = async () => {
+const fetchOrders = async (showError: boolean = true) => {
+  const requestId = ++latestOrdersRequestId
   loading.value = true
   try {
-    const params: any = { page: 0, size: 1000 } // 获取所有订单
+    const params: { page: number; size: number; status?: number } = { page: 0, size: 1000 } // 获取所有订单
     // 只有当 filterStatus 是数字时才传 status 参数
     if (filterStatus.value !== '' && typeof filterStatus.value === 'number') {
       params.status = filterStatus.value
     }
     
-    const res: any = await adminApi.getAllOrders(params)
+    const res = await adminApi.getAllOrders(params)
+    if (requestId !== latestOrdersRequestId) {
+      return
+    }
     if (res?.code === 200) {
-      let list = res.data || []
+      let list = Array.isArray(res.data) ? res.data : []
       if (searchKeyword.value) {
-        list = list.filter((o: any) => o.orderNo?.includes(searchKeyword.value))
+        list = list.filter((o) => o.orderNo?.includes(searchKeyword.value))
       }
       allOrders.value = list
       total.value = list.length
       // 计算当前页数据
       updatePageData()
+      return
+    }
+    const message = res?.message || '获取订单列表失败'
+    debugError('获取订单列表失败:', message)
+    if (showError) {
+      ElMessage.error(message)
     }
   } catch (e) {
+    if (requestId !== latestOrdersRequestId) {
+      return
+    }
     debugError('获取订单列表失败:', e)
-    ElMessage.error('获取订单列表失败')
+    if (showError) {
+      ElMessage.error(getErrorMessage(e, '获取订单列表失败'))
+    }
   }
-  finally { loading.value = false }
+  finally {
+    if (requestId === latestOrdersRequestId) {
+      loading.value = false
+    }
+  }
+}
+
+const refreshOrdersAfterSuccess = async (actionLabel: string) => {
+  try {
+    await fetchOrders(false)
+  } catch (error) {
+    debugError(`${actionLabel}后刷新订单列表失败:`, error)
+  }
+}
+
+const refreshOrdersAndPendingCountAfterSuccess = async (actionLabel: string) => {
+  try {
+    await Promise.all([
+      adminStore.fetchPendingOrderCount(),
+      fetchOrders(false)
+    ])
+  } catch (error) {
+    debugError(`${actionLabel}后刷新订单列表失败:`, error)
+  }
+}
+
+const applyLocalOrders = (nextOrders: Order[]) => {
+  allOrders.value = nextOrders
+  total.value = nextOrders.length
+  updatePageData()
+
+  if (currentOrder.value) {
+    currentOrder.value = nextOrders.find((item) => item.id === currentOrder.value?.id) || null
+    if (!currentOrder.value) {
+      detailVisible.value = false
+    }
+  }
 }
 
 // 更新当前页数据
@@ -205,45 +279,107 @@ const handleSearch = () => {
   fetchOrders()
 }
 
-const viewDetail = (order: any) => {
+const viewDetail = (order: Order) => {
   currentOrder.value = order
   detailVisible.value = true
 }
 
-const cancelOrder = async (order: any) => {
+const cancelOrder = async (order: Order) => {
   try {
     await ElMessageBox.confirm('确定要取消该订单吗？', '提示', { type: 'warning' })
-    await adminApi.updateOrderStatus(order.id, 4)
+    const res = await adminApi.updateOrderStatus(order.id, 4)
+    if (res?.code !== 200) {
+      const message = res?.message || '取消订单失败'
+      debugError('取消订单失败:', message)
+      ElMessage.error(message)
+      return
+    }
+    invalidateOrderRequests()
+    applyLocalOrders(
+      allOrders.value.map((item) =>
+        item.id === order.id
+          ? {
+              ...item,
+              orderStatus: 4,
+              orderStatusName: '已取消'
+            }
+          : item
+      )
+    )
     ElMessage.success('订单已取消')
-    // 重新获取订单列表，确保数据同步
-    await fetchOrders()
-  } catch {}
+    await refreshOrdersAfterSuccess('取消订单')
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
+      return
+    }
+    debugError('取消订单失败:', error)
+    ElMessage.error(getErrorMessage(error, '取消订单失败'))
+  }
 }
 
-const reviewCancel = async (order: any, approved: boolean) => {
+const reviewCancel = async (order: Order, approved: boolean) => {
   try {
     const msg = approved ? '确定同意取消该订单吗？' : '确定拒绝取消申请吗？'
     await ElMessageBox.confirm(msg, '审核取消申请', { type: 'warning' })
-    await adminApi.reviewCancelRequest(order.id, approved)
+    const res = await adminApi.reviewCancelRequest(order.id, approved)
+    if (res?.code !== 200) {
+      const fallback = approved ? '同意取消失败' : '拒绝取消失败'
+      const message = res?.message || fallback
+      debugError('审核取消申请失败:', message)
+      ElMessage.error(message)
+      return
+    }
+    adminStore.decreasePendingOrderCount()
+    if (approved) {
+      invalidateOrderRequests()
+      applyLocalOrders(
+        allOrders.value.map((item) =>
+          item.id === order.id
+            ? {
+                ...item,
+                orderStatus: 4,
+                orderStatusName: '已取消'
+              }
+            : item
+        )
+      )
+    }
     ElMessage.success(approved ? '已同意取消' : '已拒绝取消申请')
-    // 刷新侧边栏待发货数量
-    adminStore.fetchPendingOrderCount()
-    // 重新获取订单列表，确保数据同步
-    await fetchOrders()
-  } catch {}
+    await refreshOrdersAndPendingCountAfterSuccess('审核取消申请')
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
+      return
+    }
+    debugError('审核取消申请失败:', error)
+    ElMessage.error(getErrorMessage(error, approved ? '同意取消失败' : '拒绝取消失败'))
+  }
 }
 
-const deleteOrder = async (order: any) => {
+const deleteOrder = async (order: Order) => {
   try {
     await ElMessageBox.confirm(
       `确定要删除订单"${order.orderNo}"吗？此操作不可恢复。`, 
       '删除订单', 
       { type: 'warning', confirmButtonText: '确定删除', cancelButtonText: '取消' }
     )
-    await adminApi.deleteOrder(order.id)
+    const res = await adminApi.deleteOrder(order.id)
+    if (res?.code !== 200) {
+      const message = res?.message || '删除订单失败'
+      debugError('删除订单失败:', message)
+      ElMessage.error(message)
+      return
+    }
+    invalidateOrderRequests()
+    applyLocalOrders(allOrders.value.filter((item) => item.id !== order.id))
     ElMessage.success('订单已删除')
-    fetchOrders()
-  } catch {}
+    await refreshOrdersAfterSuccess('删除订单')
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
+      return
+    }
+    debugError('删除订单失败:', error)
+    ElMessage.error(getErrorMessage(error, '删除订单失败'))
+  }
 }
 
 onMounted(() => fetchOrders())

@@ -94,10 +94,9 @@ const fileApi = {
   getImageUrl(path: string | undefined | null): string {
     if (!path) return ''
     // 已经是完整URL
-    if (path.startsWith('http://') || path.startsWith('https://')) return path
-    // 确保路径以/开头
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`
-    return `http://localhost:8080/api${normalizedPath}`
+    if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) return path
+    // 开发环境通过 Vite 代理 /uploads，生产环境走同源路径，避免硬编码旧端口
+    return path.startsWith('/') ? path : `/${path}`
   }
 }
 

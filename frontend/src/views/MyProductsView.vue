@@ -1,10 +1,10 @@
 <template>
-  <div class="my-products-page">
+  <div class="my-products-page" data-testid="my-products-view">
     <Navbar />
     <div class="container">
       <div class="page-header">
         <h1>我的商品</h1>
-        <el-button type="primary" @click="openDialog()">发布商品</el-button>
+        <el-button type="primary" data-testid="my-products-open-dialog" @click="openDialog()">发布商品</el-button>
       </div>
 
       <!-- 商品列表 -->
@@ -13,8 +13,8 @@
           <el-empty description="暂无商品，点击上方按钮发布您的第一个商品" />
         </div>
         
-        <div v-else class="product-cards">
-          <div v-for="product in products" :key="product.id" class="product-card">
+        <div v-else class="product-cards" data-testid="my-products-list">
+          <div v-for="product in products" :key="product.id" class="product-card" :data-testid="`my-product-card-${product.id}`">
             <div class="product-image">
               <el-image :src="getImageUrl(product.mainImage)" fit="cover">
                 <template #error><div class="img-placeholder">暂无图片</div></template>
@@ -35,32 +35,32 @@
               </p>
             </div>
             <div class="product-actions">
-              <el-button size="small" @click="openDialog(product)" :disabled="product.auditStatus === 0">编辑</el-button>
-              <el-button size="small" type="danger" @click="handleDelete(product)">删除</el-button>
+              <el-button size="small" :data-testid="`my-product-edit-${product.id}`" @click="openDialog(product)" :disabled="product.auditStatus === 0">编辑</el-button>
+              <el-button size="small" type="danger" :data-testid="`my-product-delete-${product.id}`" @click="handleDelete(product)">删除</el-button>
             </div>
           </div>
         </div>
       </div>
 
       <!-- 发布/编辑弹窗 -->
-      <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑商品' : '发布商品'" width="600px">
+      <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑商品' : '发布商品'" width="600px" data-testid="my-products-dialog">
         <el-form :model="form" label-width="100px">
           <el-form-item label="商品名称" required>
-            <el-input v-model="form.name" placeholder="请输入商品名称" maxlength="100" />
+            <el-input v-model="form.name" placeholder="请输入商品名称" maxlength="100" data-testid="my-product-name-input" />
           </el-form-item>
           <el-form-item label="商品分类" required>
-            <el-select v-model="form.categoryId" placeholder="请选择分类" style="width: 100%">
+            <el-select v-model="form.categoryId" placeholder="请选择分类" style="width: 100%" data-testid="my-product-category-input">
               <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
             </el-select>
           </el-form-item>
           <el-form-item label="商品价格" required>
-            <el-input-number v-model="form.price" :min="0" :precision="2" placeholder="请输入价格" style="width: 100%" />
+            <el-input-number v-model="form.price" :min="0" :precision="2" placeholder="请输入价格" style="width: 100%" data-testid="my-product-price-input" />
           </el-form-item>
           <el-form-item label="原价">
-            <el-input-number v-model="form.originalPrice" :min="0" :precision="2" placeholder="可选" style="width: 100%" />
+            <el-input-number v-model="form.originalPrice" :min="0" :precision="2" placeholder="可选" style="width: 100%" data-testid="my-product-original-price-input" />
           </el-form-item>
           <el-form-item label="库存数量" required>
-            <el-input-number v-model="form.stock" :min="1" style="width: 100%" />
+            <el-input-number v-model="form.stock" :min="1" style="width: 100%" data-testid="my-product-stock-input" />
           </el-form-item>
           <el-form-item label="商品图片">
             <div class="image-upload-area">
@@ -80,7 +80,7 @@
             </div>
           </el-form-item>
           <el-form-item label="商品描述">
-            <el-input v-model="form.description" type="textarea" :rows="4" placeholder="请输入商品描述" />
+            <el-input v-model="form.description" type="textarea" :rows="4" placeholder="请输入商品描述" data-testid="my-product-description-input" />
           </el-form-item>
           <el-form-item label="广告视频">
             <div class="video-upload-area">
@@ -107,8 +107,8 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitProduct" :loading="saving">
+          <el-button data-testid="my-product-cancel" @click="closeDialog">取消</el-button>
+          <el-button data-testid="my-product-submit" type="primary" @click="submitProduct" :loading="saving">
             {{ isEdit ? '保存' : '提交审核' }}
           </el-button>
         </template>
@@ -126,6 +126,7 @@ import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
 import axios from '@/utils/axios'
 import fileApi from '@/api/fileApi'
+import { debugError } from '@/utils/debug'
 
 const products = ref<any[]>([])
 const categories = ref<any[]>([])
@@ -134,8 +135,15 @@ const saving = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref<number | null>(null)
+let latestProductsRequestId = 0
+const invalidateProductRequests = () => {
+  latestProductsRequestId += 1
+}
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
+const getErrorMessage = (error: any, fallback: string) => error?.response?.data?.message || error?.message || fallback
+const isSuccessfulResponse = (res: any) => res?.code === 200
 
 const form = reactive({
   name: '',
@@ -157,6 +165,13 @@ const resetForm = () => {
   form.mainImage = ''
   form.description = ''
   form.adVideo = ''
+}
+
+const closeDialog = () => {
+  dialogVisible.value = false
+  isEdit.value = false
+  editId.value = null
+  resetForm()
 }
 
 const getAuditClass = (status: number) => {
@@ -194,17 +209,55 @@ const openDialog = (product?: any) => {
 const fetchCategories = async () => {
   try {
     const res: any = await axios.get('/categories')
-    if (res?.code === 200) categories.value = res.data || []
-  } catch (e) { console.error(e) }
+    if (res?.code === 200) {
+      categories.value = res.data || []
+    } else {
+      debugError('获取卖家分类列表失败:', getResponseMessage(res, '业务返回异常'))
+    }
+  } catch (e) { debugError('获取卖家分类列表失败', e) }
 }
 
 const fetchProducts = async () => {
+  const requestId = ++latestProductsRequestId
   loading.value = true
   try {
     const res: any = await axios.get('/products/my')
-    if (res?.code === 200) products.value = res.data || []
-  } catch (e) { console.error(e) }
-  finally { loading.value = false }
+    if (requestId !== latestProductsRequestId) {
+      return
+    }
+    if (res?.code === 200) {
+      const nextProducts = res.data || []
+      products.value = nextProducts
+      if (isEdit.value && editId.value !== null) {
+        const matchedProduct = nextProducts.find((item: any) => item.id === editId.value)
+        if (!matchedProduct) {
+          closeDialog()
+        } else {
+          Object.assign(form, {
+            name: matchedProduct.name,
+            categoryId: matchedProduct.categoryId,
+            price: matchedProduct.price,
+            originalPrice: matchedProduct.originalPrice || 0,
+            stock: matchedProduct.stock,
+            mainImage: matchedProduct.mainImage,
+            description: matchedProduct.description,
+            adVideo: matchedProduct.adVideo || ''
+          })
+        }
+      }
+    } else {
+      debugError('获取我的商品列表失败:', getResponseMessage(res, '业务返回异常'))
+    }
+  } catch (e) {
+    if (requestId !== latestProductsRequestId) {
+      return
+    }
+    debugError('获取我的商品列表失败', e)
+  } finally {
+    if (requestId === latestProductsRequestId) {
+      loading.value = false
+    }
+  }
 }
 
 const beforeUpload = (file: File) => {
@@ -234,10 +287,13 @@ const handleImageUpload = async (options: any) => {
       form.mainImage = res.data
       ElMessage.success(res.message || '图片上传成功')
     } else {
-      ElMessage.error(res?.message || '上传失败')
+      const message = getResponseMessage(res, '上传失败')
+      debugError('上传商品图片失败', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    ElMessage.error('图片上传失败')
+    debugError('上传商品图片失败', e)
+    ElMessage.error(getErrorMessage(e, '图片上传失败'))
   }
 }
 
@@ -262,18 +318,37 @@ const handleVideoUpload = async (options: any) => {
       form.adVideo = res.data
       ElMessage.success('视频上传成功')
     } else {
-      ElMessage.error(res?.message || '上传失败')
+      const message = getResponseMessage(res, '上传失败')
+      debugError('上传广告视频失败', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    ElMessage.error('视频上传失败')
+    debugError('上传广告视频失败', e)
+    ElMessage.error(getErrorMessage(e, '视频上传失败'))
   }
 }
 
 const getVideoUrl = (path: string) => {
   if (!path) return ''
   if (path.startsWith('http://') || path.startsWith('https://')) return path
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`
-  return `http://localhost:8080/api${normalizedPath}`
+  return path.startsWith('/') ? path : `/${path}`
+}
+
+const refreshMyProductsAfterSuccess = async (actionLabel: string) => {
+  try {
+    await fetchProducts()
+  } catch (error) {
+    debugError(`${actionLabel}后刷新我的商品列表失败`, error)
+  }
+}
+
+const upsertLocalProduct = (product: any) => {
+  const existingIndex = products.value.findIndex((item) => item.id === product.id)
+  if (existingIndex >= 0) {
+    products.value = products.value.map((item, index) => (index === existingIndex ? { ...item, ...product } : item))
+    return
+  }
+  products.value = [product, ...products.value]
 }
 
 const submitProduct = async () => {
@@ -284,6 +359,7 @@ const submitProduct = async () => {
   
   saving.value = true
   try {
+    const actionLabel = isEdit.value ? '编辑商品' : '提交商品'
     const productData = {
       ...form,
       adVideo: form.adVideo || null
@@ -291,25 +367,71 @@ const submitProduct = async () => {
     
     if (isEdit.value && editId.value) {
       const res: any = await axios.put(`/products/${editId.value}`, productData)
-      ElMessage.success(res?.message || '商品修改成功，等待管理员审核')
+      if (isSuccessfulResponse(res)) {
+        invalidateProductRequests()
+        upsertLocalProduct({
+          ...(products.value.find((item) => item.id === editId.value) || {}),
+          ...productData,
+          ...(res.data || {}),
+          id: res?.data?.id ?? editId.value,
+          auditStatus: res?.data?.auditStatus ?? 0
+        })
+        ElMessage.success(getResponseMessage(res, '商品修改成功，等待管理员审核'))
+      } else {
+        const message = getResponseMessage(res, '操作失败')
+        debugError('提交我的商品失败', message)
+        ElMessage.error(message)
+        return
+      }
     } else {
-      await axios.post('/products/submit', productData)
-      ElMessage.success('商品提交成功，等待管理员审核')
+      const res: any = await axios.post('/products/submit', productData)
+      if (isSuccessfulResponse(res)) {
+        invalidateProductRequests()
+        upsertLocalProduct({
+          ...productData,
+          ...(res.data || {}),
+          id: res?.data?.id ?? Date.now(),
+          auditStatus: res?.data?.auditStatus ?? 0,
+          sales: res?.data?.sales ?? 0
+        })
+        ElMessage.success(getResponseMessage(res, '商品提交成功，等待管理员审核'))
+      } else {
+        const message = getResponseMessage(res, '操作失败')
+        debugError('提交我的商品失败', message)
+        ElMessage.error(message)
+        return
+      }
     }
-    dialogVisible.value = false
-    fetchProducts()
+    closeDialog()
+    await refreshMyProductsAfterSuccess(actionLabel)
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.message || '操作失败')
+    debugError('提交我的商品失败', e)
+    ElMessage.error(getErrorMessage(e, '操作失败'))
   } finally { saving.value = false }
 }
 
 const handleDelete = async (product: any) => {
   try {
     await ElMessageBox.confirm(`确定要删除商品"${product.name}"吗？`, '提示', { type: 'warning' })
-    await axios.delete(`/products/${product.id}`)
-    ElMessage.success('删除成功')
-    fetchProducts()
-  } catch {}
+    const res: any = await axios.delete(`/products/${product.id}`)
+    if (isSuccessfulResponse(res)) {
+      ElMessage.success(getResponseMessage(res, '删除成功'))
+    } else {
+      const message = getResponseMessage(res, '删除失败')
+      debugError('删除我的商品失败', message)
+      ElMessage.error(message)
+      return
+    }
+    invalidateProductRequests()
+    products.value = products.value.filter((item) => item.id !== product.id)
+    await refreshMyProductsAfterSuccess('删除商品')
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
+      return
+    }
+    debugError('删除我的商品失败', error)
+    ElMessage.error(getErrorMessage(error, '删除失败'))
+  }
 }
 
 onMounted(() => {

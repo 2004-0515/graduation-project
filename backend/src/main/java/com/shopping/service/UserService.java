@@ -30,9 +30,10 @@ public class UserService {
      * @param pageSize 每页记录数
      * @return 分页用户列表
      */
-    public Page<User> fetchUsers(int pageNo, int pageSize) {
+    public Page<User> fetchUsers(int pageNo, int pageSize, String keyword, Integer status) {
         Pageable pageable = PageRequest.of(pageNo, pageSize);
-        return userRepository.findAll(pageable);
+        String normalizedKeyword = keyword != null && !keyword.trim().isEmpty() ? keyword.trim() : null;
+        return userRepository.searchUsers(normalizedKeyword, status, pageable);
     }
     
     /**

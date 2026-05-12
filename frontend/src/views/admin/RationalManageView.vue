@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <div class="rational-manage">
+    <div class="rational-manage" data-testid="admin-rational-view">
       <!-- 统计卡片 -->
       <div class="stats-grid">
         <div class="stat-card">
@@ -187,7 +187,7 @@
             <h3>最近获得成就</h3>
           </div>
           <div class="achievement-list">
-            <div v-for="item in recentAchievements" :key="item.id" class="achievement-item">
+            <div v-for="item in recentAchievements" :key="item.id" class="achievement-item" :data-testid="`admin-achievement-item-${item.id}`">
               <div class="ach-icon" :class="getAchievementIcon(item.type)">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
@@ -198,7 +198,7 @@
                 <span class="ach-user">{{ item.username }}</span>
               </div>
               <span class="ach-time">{{ formatTime(item.achievedTime) }}</span>
-              <button class="revoke-btn" @click="handleRevokeAchievement(item)">撤销</button>
+              <button class="revoke-btn" :data-testid="`admin-achievement-revoke-${item.id}`" @click="handleRevokeAchievement(item)">撤销</button>
             </div>
             <div v-if="recentAchievements.length === 0" class="empty-tip">暂无成就记录</div>
           </div>
@@ -211,10 +211,10 @@
           <div class="grant-form">
             <el-form :inline="true">
               <el-form-item label="用户ID">
-                <el-input-number v-model="grantForm.userId" :min="1" placeholder="输入用户ID" />
+                <el-input-number v-model="grantForm.userId" :min="1" placeholder="输入用户ID" data-testid="admin-achievement-user-id" />
               </el-form-item>
               <el-form-item label="成就类型">
-                <el-select v-model="grantForm.type" placeholder="选择成就">
+                <el-select v-model="grantForm.type" placeholder="选择成就" data-testid="admin-achievement-type">
                   <el-option 
                     v-for="ach in achievementTypes" 
                     :key="ach.type" 
@@ -224,7 +224,7 @@
                 </el-select>
               </el-form-item>
               <el-form-item>
-                <el-button type="primary" @click="handleGrantAchievement" :loading="granting">授予成就</el-button>
+                <el-button type="primary" data-testid="admin-achievement-grant" @click="handleGrantAchievement" :loading="granting">授予成就</el-button>
               </el-form-item>
             </el-form>
           </div>
@@ -264,12 +264,25 @@ const stats = ref<any>({})
 const consumptionTrend = ref<any[]>([])
 const wishlistActivity = ref<any[]>([])
 const recentAchievements = ref<any[]>([])
+let latestStatsRequestId = 0
+let latestTrendRequestId = 0
+let latestWishlistActivityRequestId = 0
+let latestRecentAchievementsRequestId = 0
+const invalidateStatsRequests = () => {
+  latestStatsRequestId += 1
+}
+const invalidateRecentAchievementsRequests = () => {
+  latestRecentAchievementsRequestId += 1
+}
 
 const trendChartRef = ref<HTMLDivElement>()
 let trendChart: ECharts | null = null
 
 const grantForm = ref({ userId: null as number | null, type: '' })
 const granting = ref(false)
+
+const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
+const getErrorMessage = (error: any, fallback: string) => error?.response?.data?.message || error?.message || fallback
 
 const achievementTypes = [
   { type: 'FIRST_WISHLIST', name: '理性第一步' },
@@ -331,10 +344,16 @@ const getAchievementPercent = (count: number) => {
 }
 
 const fetchStats = async () => {
+  const requestId = ++latestStatsRequestId
   try {
     const res: any = await rationalApi.getAdminStats()
+    if (requestId !== latestStatsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       stats.value = res.data || {}
+    } else {
+      debugError('获取理性消费统计数据失败:', getResponseMessage(res, '业务返回异常'))
     }
   } catch (e) {
     debugError('获取理性消费统计数据失败', e)
@@ -342,11 +361,17 @@ const fetchStats = async () => {
 }
 
 const fetchConsumptionTrend = async () => {
+  const requestId = ++latestTrendRequestId
   try {
     const res: any = await rationalApi.getConsumptionTrend()
+    if (requestId !== latestTrendRequestId) {
+      return
+    }
     if (res?.code === 200) {
       consumptionTrend.value = res.data || []
       nextTick(() => initTrendChart())
+    } else {
+      debugError('获取消费趋势失败:', getResponseMessage(res, '业务返回异常'))
     }
   } catch (e) {
     debugError('获取消费趋势失败', e)
@@ -354,10 +379,16 @@ const fetchConsumptionTrend = async () => {
 }
 
 const fetchWishlistActivity = async () => {
+  const requestId = ++latestWishlistActivityRequestId
   try {
     const res: any = await rationalApi.getWishlistActivity()
+    if (requestId !== latestWishlistActivityRequestId) {
+      return
+    }
     if (res?.code === 200) {
       wishlistActivity.value = res.data || []
+    } else {
+      debugError('获取想要清单活动失败:', getResponseMessage(res, '业务返回异常'))
     }
   } catch (e) {
     debugError('获取想要清单活动失败', e)
@@ -365,13 +396,75 @@ const fetchWishlistActivity = async () => {
 }
 
 const fetchRecentAchievements = async () => {
+  const requestId = ++latestRecentAchievementsRequestId
   try {
     const res: any = await rationalApi.getRecentAchievements()
+    if (requestId !== latestRecentAchievementsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       recentAchievements.value = res.data || []
+    } else {
+      debugError('获取成就记录失败:', getResponseMessage(res, '业务返回异常'))
     }
   } catch (e) {
     debugError('获取成就记录失败', e)
+  }
+}
+
+const refreshAchievementsAfterSuccess = async (actionLabel: string) => {
+  const results = await Promise.allSettled([fetchStats(), fetchRecentAchievements()])
+  const targetLabels = ['统计数据', '成就记录']
+
+  results.forEach((result, index) => {
+    if (result.status !== 'rejected') {
+      return
+    }
+    debugError(`${actionLabel}成功后刷新${targetLabels[index]}失败:`, result.reason)
+  })
+}
+
+const applyLocalAchievementRevoke = (item: any) => {
+  recentAchievements.value = recentAchievements.value.filter((achievement) => achievement.id !== item.id)
+
+  const totalAchievementsGranted = Number(stats.value.totalAchievementsGranted || 0)
+  stats.value = {
+    ...stats.value,
+    totalAchievementsGranted: Math.max(0, totalAchievementsGranted - 1),
+    achievementDistribution: {
+      ...(stats.value.achievementDistribution || {}),
+      [item.type]: Math.max(0, Number(stats.value.achievementDistribution?.[item.type] || 0) - 1)
+    }
+  }
+}
+
+const upsertLocalAchievementGrant = (item: any) => {
+  const achievement = {
+    id: item?.id ?? `granted-${item?.userId}-${item?.type}-${Date.now()}`,
+    userId: item?.userId,
+    type: item?.type,
+    name: item?.name || getAchievementName(item?.type),
+    username: item?.username || `用户${item?.userId ?? ''}`,
+    achievedTime: item?.achievedTime || new Date().toISOString()
+  }
+
+  const existingIndex = recentAchievements.value.findIndex((current) => current.id === achievement.id)
+  if (existingIndex >= 0) {
+    recentAchievements.value = recentAchievements.value.map((current, index) =>
+      index === existingIndex ? { ...current, ...achievement } : current
+    )
+  } else {
+    recentAchievements.value = [achievement, ...recentAchievements.value]
+  }
+
+  const totalAchievementsGranted = Number(stats.value.totalAchievementsGranted || 0)
+  stats.value = {
+    ...stats.value,
+    totalAchievementsGranted: totalAchievementsGranted + 1,
+    achievementDistribution: {
+      ...(stats.value.achievementDistribution || {}),
+      [achievement.type]: Number(stats.value.achievementDistribution?.[achievement.type] || 0) + 1
+    }
   }
 }
 
@@ -424,15 +517,24 @@ const handleGrantAchievement = async () => {
   try {
     const res: any = await rationalApi.grantAchievement(grantForm.value.userId, grantForm.value.type)
     if (res?.code === 200) {
+      invalidateStatsRequests()
+      invalidateRecentAchievementsRequests()
+      upsertLocalAchievementGrant({
+        userId: grantForm.value.userId,
+        type: grantForm.value.type,
+        ...(res.data || {})
+      })
       ElMessage.success('成就授予成功')
       grantForm.value = { userId: null, type: '' }
-      fetchStats()
-      fetchRecentAchievements()
+      await refreshAchievementsAfterSuccess('授予成就')
     } else {
-      ElMessage.error(res?.message || '授予失败')
+      const message = getResponseMessage(res, '授予失败')
+      debugError('授予成就失败', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    ElMessage.error('授予失败')
+    debugError('授予成就失败', e)
+    ElMessage.error(getErrorMessage(e, '授予失败'))
   } finally {
     granting.value = false
   }
@@ -443,14 +545,22 @@ const handleRevokeAchievement = async (item: any) => {
     await ElMessageBox.confirm(`确定要撤销用户 ${item.username} 的成就"${item.name}"吗？`, '确认撤销', { type: 'warning' })
     const res: any = await rationalApi.revokeAchievement(item.userId, item.type)
     if (res?.code === 200) {
+      invalidateStatsRequests()
+      invalidateRecentAchievementsRequests()
+      applyLocalAchievementRevoke(item)
       ElMessage.success('成就已撤销')
-      fetchStats()
-      fetchRecentAchievements()
+      await refreshAchievementsAfterSuccess('撤销成就')
     } else {
-      ElMessage.error(res?.message || '撤销失败')
+      const message = getResponseMessage(res, '撤销失败')
+      debugError('撤销成就失败', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    // 取消
+    if (e === 'cancel' || e === 'close') {
+      return
+    }
+    debugError('撤销成就失败', e)
+    ElMessage.error(getErrorMessage(e, '撤销失败'))
   }
 }
 

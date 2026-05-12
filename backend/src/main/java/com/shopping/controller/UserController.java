@@ -4,12 +4,9 @@ import com.shopping.dto.Response;
 import com.shopping.entity.User;
 import com.shopping.service.UserService;
 import com.shopping.utils.AdminUtils;
+import com.shopping.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -18,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/users")
 public class UserController {
+
+    private static final String AUTH_FAILED_MESSAGE = "用户未认证或认证失效";
     
     @Autowired
     private UserService userService;
@@ -31,9 +30,11 @@ public class UserController {
     @GetMapping
     public Response<Page<User>> getUsers(
             @RequestParam(defaultValue = "0") int pageNo,
-            @RequestParam(defaultValue = "10") int pageSize) {
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer status) {
         AdminUtils.requireAdmin();
-        Page<User> users = userService.fetchUsers(pageNo, pageSize);
+        Page<User> users = userService.fetchUsers(pageNo, pageSize, keyword, status);
         return Response.success(users);
     }
     
@@ -127,9 +128,11 @@ public class UserController {
      */
     @DeleteMapping("/me")
     public Response<String> deleteCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        // 获取用户名，而不是直接转换为User对象
-        String username = authentication.getName();
+        if (!SecurityUtils.isAuthenticated()) {
+            return Response.fail(401, AUTH_FAILED_MESSAGE);
+        }
+
+        String username = SecurityUtils.getCurrentUsername();
         // 通过用户名查询实际的用户对象
         User user = userService.findByUsername(username);
         if (user != null) {

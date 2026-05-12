@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <div class="price-manage">
+    <div class="price-manage" data-testid="admin-price-view">
       <!-- Tab切换 -->
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
         <el-tab-pane label="价格历史" name="history" />
@@ -198,12 +198,26 @@ import adminApi from '@/api/adminApi'
 import priceApi from '@/api/priceApi'
 import type { PriceHistory, PriceStats, PriceAlert } from '@/api/priceApi'
 import axios from '@/utils/axios'
+import { debugError } from '@/utils/debug'
 
 const activeTab = ref('history')
 const loadingProducts = ref(false)
 const loadingHistory = ref(false)
 const loadingAlerts = ref(false)
 const saving = ref(false)
+let latestProductsRequestId = 0
+let latestHistoryRequestId = 0
+let latestAlertsRequestId = 0
+let latestActiveAlertCountRequestId = 0
+const invalidateHistoryRequests = () => {
+  latestHistoryRequestId += 1
+}
+const invalidateAlertsRequests = () => {
+  latestAlertsRequestId += 1
+}
+const invalidateActiveAlertCountRequests = () => {
+  latestActiveAlertCountRequestId += 1
+}
 
 // 价格历史相关
 const products = ref<any[]>([])
@@ -221,6 +235,16 @@ const alerts = ref<any[]>([])
 const alertStatusFilter = ref<number | string>('')
 const alertSearchKeyword = ref('')
 const activeAlertCount = ref(0)
+
+const isMessageBoxCancel = (error: unknown) => error === 'cancel' || error === 'close'
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
 
 const selectedProduct = computed(() => products.value.find(p => p.id === selectedProductId.value))
 
@@ -256,47 +280,88 @@ const getAlertStatusText = (status: number) => {
   return map[status] || '未知'
 }
 
+const clearSelectedProductState = () => {
+  selectedProductId.value = null
+  priceHistory.value = []
+  priceStats.value = null
+  recordDialogVisible.value = false
+}
+
+const reconcileSelectedProduct = () => {
+  if (!selectedProductId.value) return
+  const exists = products.value.some((item) => item.id === selectedProductId.value)
+  if (!exists) {
+    clearSelectedProductState()
+  }
+}
+
 const formatDateTime = (dateStr: string) => {
   if (!dateStr) return ''
   return dateStr.replace('T', ' ').substring(0, 19)
 }
 
 const fetchProducts = async () => {
+  const requestId = ++latestProductsRequestId
   loadingProducts.value = true
   try {
     const res: any = await adminApi.getProducts({ page: 0, size: 1000 })
+    if (requestId !== latestProductsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       products.value = res.data?.content || []
+      reconcileSelectedProduct()
+    } else {
+      debugError('获取价格管理商品列表失败:', res?.message || '价格管理商品列表返回异常')
     }
   } catch (e) {
-    console.error(e)
+    if (requestId !== latestProductsRequestId) {
+      return
+    }
+    debugError('获取价格管理商品列表失败', e)
   } finally {
-    loadingProducts.value = false
+    if (requestId === latestProductsRequestId) {
+      loadingProducts.value = false
+    }
   }
 }
 
 const fetchPriceHistory = async () => {
   if (!selectedProductId.value) return
+  const requestId = ++latestHistoryRequestId
   loadingHistory.value = true
   try {
     const [historyRes, statsRes]: any[] = await Promise.all([
       priceApi.getPriceHistory(selectedProductId.value),
       priceApi.getPriceStats(selectedProductId.value)
     ])
+    if (requestId !== latestHistoryRequestId) {
+      return
+    }
     if (historyRes?.code === 200) {
       priceHistory.value = historyRes.data || []
+    } else {
+      debugError('获取价格历史失败:', historyRes?.message || '价格历史返回异常')
     }
     if (statsRes?.code === 200) {
       priceStats.value = statsRes.data
+    } else {
+      debugError('获取价格历史失败:', statsRes?.message || '价格统计返回异常')
     }
   } catch (e) {
-    console.error(e)
+    if (requestId !== latestHistoryRequestId) {
+      return
+    }
+    debugError('获取价格历史失败', e)
   } finally {
-    loadingHistory.value = false
+    if (requestId === latestHistoryRequestId) {
+      loadingHistory.value = false
+    }
   }
 }
 
 const fetchAllAlerts = async () => {
+  const requestId = ++latestAlertsRequestId
   loadingAlerts.value = true
   try {
     const params: any = {}
@@ -304,25 +369,112 @@ const fetchAllAlerts = async () => {
     if (alertSearchKeyword.value) params.keyword = alertSearchKeyword.value
     
     const res: any = await axios.get('/price/admin/alerts', { params })
+    if (requestId !== latestAlertsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       alerts.value = res.data || []
+    } else {
+      debugError('获取降价提醒列表失败:', res?.message || '降价提醒列表返回异常')
     }
   } catch (e) {
-    console.error(e)
+    if (requestId !== latestAlertsRequestId) {
+      return
+    }
+    debugError('获取降价提醒列表失败', e)
   } finally {
-    loadingAlerts.value = false
+    if (requestId === latestAlertsRequestId) {
+      loadingAlerts.value = false
+    }
   }
 }
 
 const fetchActiveAlertCount = async () => {
+  const requestId = ++latestActiveAlertCountRequestId
   try {
     const res: any = await axios.get('/price/admin/alerts/count')
+    if (requestId !== latestActiveAlertCountRequestId) {
+      return
+    }
     if (res?.code === 200) {
       activeAlertCount.value = res.data || 0
+    } else {
+      debugError('获取激活降价提醒数量失败:', res?.message || '激活提醒数量返回异常')
     }
   } catch (e) {
-    console.error(e)
+    if (requestId !== latestActiveAlertCountRequestId) {
+      return
+    }
+    debugError('获取激活降价提醒数量失败', e)
   }
+}
+
+const refreshPriceHistoryAfterSuccess = async (actionLabel: string) => {
+  try {
+    await fetchPriceHistory()
+  } catch (error) {
+    debugError(`${actionLabel}后刷新价格历史失败:`, error)
+  }
+}
+
+const refreshAlertsAfterSuccess = async (actionLabel: string) => {
+  try {
+    await fetchAllAlerts()
+    await fetchActiveAlertCount()
+  } catch (error) {
+    debugError(`${actionLabel}后刷新降价提醒失败:`, error)
+  }
+}
+
+const removeLocalPriceHistory = (historyId: number) => {
+  priceHistory.value = priceHistory.value.filter((item) => item.id !== historyId)
+}
+
+const recalculateLocalPriceStats = (history: PriceHistory[]) => {
+  if (history.length === 0) {
+    priceStats.value = null
+    return
+  }
+
+  const prices = history.map((item) => Number(item.price || 0))
+  const currentPrice = prices[0] || 0
+  const lowestPrice = Math.min(...prices)
+  const highestPrice = Math.max(...prices)
+  const total = prices.reduce((sum, price) => sum + price, 0)
+
+  priceStats.value = {
+    currentPrice,
+    lowestPrice,
+    highestPrice,
+    avgPrice: Number((total / prices.length).toFixed(2)),
+    recordCount: history.length,
+    pricePosition: currentPrice ? Number((((currentPrice - lowestPrice) / Math.max(highestPrice - lowestPrice, 1)) * 100).toFixed(2)) : 0,
+    isLowestPrice: currentPrice === lowestPrice
+  }
+}
+
+const applyLocalPriceHistoryRecord = (record: PriceHistory) => {
+  const nextHistory = [record, ...priceHistory.value]
+  priceHistory.value = nextHistory
+  recalculateLocalPriceStats(nextHistory)
+
+  products.value = products.value.map((item) =>
+    item.id === record.productId
+      ? {
+          ...item,
+          price: record.price,
+          originalPrice: record.originalPrice ?? item.originalPrice
+        }
+      : item
+  )
+}
+
+const applyLocalAlertUpdate = (alertId: number, updater: (alert: any) => any) => {
+  alerts.value = alerts.value.map((item) => (item.id === alertId ? updater(item) : item))
+}
+
+const removeLocalAlert = (alertId: number) => {
+  alerts.value = alerts.value.filter((item) => item.id !== alertId)
 }
 
 const openRecordDialog = () => {
@@ -339,20 +491,40 @@ const saveRecord = async () => {
   }
   saving.value = true
   try {
+    const previousPrice = Number(selectedProduct.value?.price || 0)
+    const nextPrice = Number(recordForm.price)
+    const changeAmount = previousPrice ? Number((nextPrice - previousPrice).toFixed(2)) : null
+    const changeRate = previousPrice
+      ? Number((((nextPrice - previousPrice) / previousPrice) * 100).toFixed(2))
+      : null
     const res: any = await axios.post('/price/admin/record', {
       productId: selectedProductId.value,
       price: recordForm.price,
       originalPrice: recordForm.originalPrice || null
     })
     if (res?.code === 200) {
+      invalidateHistoryRequests()
+      applyLocalPriceHistoryRecord({
+        id: res?.data?.id ?? Date.now(),
+        productId: selectedProductId.value,
+        price: nextPrice,
+        originalPrice: recordForm.originalPrice || null,
+        recordedTime: res?.data?.recordedTime || new Date().toISOString(),
+        changeType: res?.data?.changeType || (previousPrice === 0 ? 'INITIAL' : nextPrice > previousPrice ? 'INCREASE' : nextPrice < previousPrice ? 'DECREASE' : 'UNCHANGED'),
+        changeAmount: res?.data?.changeAmount ?? changeAmount,
+        changeRate: res?.data?.changeRate ?? changeRate
+      })
       ElMessage.success('价格记录成功')
       recordDialogVisible.value = false
-      fetchPriceHistory()
+      await refreshPriceHistoryAfterSuccess('记录价格')
     } else {
-      ElMessage.error(res?.message || '记录失败')
+      const message = res?.message || '记录失败'
+      debugError('记录价格失败:', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    ElMessage.error('记录失败')
+    debugError('记录价格失败:', e)
+    ElMessage.error(getErrorMessage(e, '记录失败'))
   } finally {
     saving.value = false
   }
@@ -363,12 +535,20 @@ const handleDeleteHistory = async (row: PriceHistory) => {
     await ElMessageBox.confirm('确定要删除这条价格记录吗？', '提示', { type: 'warning' })
     const res: any = await axios.delete(`/price/admin/history/${row.id}`)
     if (res?.code === 200) {
+      invalidateHistoryRequests()
+      removeLocalPriceHistory(row.id)
       ElMessage.success('删除成功')
-      fetchPriceHistory()
+      await refreshPriceHistoryAfterSuccess('删除价格记录')
     } else {
-      ElMessage.error(res?.message || '删除失败')
+      const message = res?.message || '删除失败'
+      debugError('删除价格记录失败:', message)
+      ElMessage.error(message)
     }
-  } catch {}
+  } catch (error) {
+    if (isMessageBoxCancel(error)) return
+    debugError('删除价格记录失败:', error)
+    ElMessage.error(getErrorMessage(error, '删除失败'))
+  }
 }
 
 const handleTriggerAlert = async (row: any) => {
@@ -376,13 +556,27 @@ const handleTriggerAlert = async (row: any) => {
     await ElMessageBox.confirm('确定要手动触发这条降价提醒吗？将立即发送通知给用户。', '提示', { type: 'warning' })
     const res: any = await axios.post(`/price/admin/alert/${row.id}/trigger`)
     if (res?.code === 200) {
+      invalidateAlertsRequests()
+      invalidateActiveAlertCountRequests()
+      applyLocalAlertUpdate(row.id, (item) => ({
+        ...item,
+        status: 1,
+        notified: true,
+        triggeredPrice: item.triggeredPrice ?? item.currentPrice
+      }))
+      activeAlertCount.value = Math.max(0, Number(activeAlertCount.value || 0) - 1)
       ElMessage.success('已触发并发送通知')
-      await fetchAllAlerts()
-      await fetchActiveAlertCount()
+      await refreshAlertsAfterSuccess('手动触发降价提醒')
     } else {
-      ElMessage.error(res?.message || '操作失败')
+      const message = res?.message || '操作失败'
+      debugError('手动触发降价提醒失败:', message)
+      ElMessage.error(message)
     }
-  } catch {}
+  } catch (error) {
+    if (isMessageBoxCancel(error)) return
+    debugError('手动触发降价提醒失败:', error)
+    ElMessage.error(getErrorMessage(error, '操作失败'))
+  }
 }
 
 const handleResetAlert = async (row: any) => {
@@ -390,13 +584,26 @@ const handleResetAlert = async (row: any) => {
     await ElMessageBox.confirm('确定要回退这条降价提醒到监控状态吗？', '提示', { type: 'warning' })
     const res: any = await axios.post(`/price/admin/alert/${row.id}/reset`)
     if (res?.code === 200) {
+      invalidateAlertsRequests()
+      invalidateActiveAlertCountRequests()
+      applyLocalAlertUpdate(row.id, (item) => ({
+        ...item,
+        status: 0,
+        notified: false
+      }))
+      activeAlertCount.value = Number(activeAlertCount.value || 0) + 1
       ElMessage.success('已回退到监控状态')
-      await fetchAllAlerts()
-      await fetchActiveAlertCount()
+      await refreshAlertsAfterSuccess('回退降价提醒')
     } else {
-      ElMessage.error(res?.message || '操作失败')
+      const message = res?.message || '操作失败'
+      debugError('回退降价提醒失败:', message)
+      ElMessage.error(message)
     }
-  } catch {}
+  } catch (error) {
+    if (isMessageBoxCancel(error)) return
+    debugError('回退降价提醒失败:', error)
+    ElMessage.error(getErrorMessage(error, '操作失败'))
+  }
 }
 
 const handleDeleteAlert = async (row: any) => {
@@ -404,13 +611,24 @@ const handleDeleteAlert = async (row: any) => {
     await ElMessageBox.confirm('确定要删除这条降价提醒吗？', '提示', { type: 'warning' })
     const res: any = await axios.delete(`/price/admin/alert/${row.id}`)
     if (res?.code === 200) {
+      invalidateAlertsRequests()
+      invalidateActiveAlertCountRequests()
+      if (Number(row.status) === 0) {
+        activeAlertCount.value = Math.max(0, Number(activeAlertCount.value || 0) - 1)
+      }
+      removeLocalAlert(row.id)
       ElMessage.success('删除成功')
-      fetchAllAlerts()
-      fetchActiveAlertCount()
+      await refreshAlertsAfterSuccess('删除降价提醒')
     } else {
-      ElMessage.error(res?.message || '删除失败')
+      const message = res?.message || '删除失败'
+      debugError('删除降价提醒失败:', message)
+      ElMessage.error(message)
     }
-  } catch {}
+  } catch (error) {
+    if (isMessageBoxCancel(error)) return
+    debugError('删除降价提醒失败:', error)
+    ElMessage.error(getErrorMessage(error, '删除失败'))
+  }
 }
 
 onMounted(() => {

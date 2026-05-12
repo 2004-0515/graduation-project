@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,6 +18,7 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -67,9 +67,12 @@ public class MusicController {
         if (originalFilename == null) {
             return Response.fail(400, "文件名无效");
         }
-        
-        // 检查文件类型
-        String ext = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+
+        Optional<String> extOptional = extractExtension(originalFilename);
+        if (extOptional.isEmpty()) {
+            return Response.fail(400, "文件类型无效");
+        }
+        String ext = extOptional.get();
         if (!ext.equals(".mp3") && !ext.equals(".wav") && !ext.equals(".ogg") && !ext.equals(".m4a")) {
             return Response.fail(400, "仅支持 mp3、wav、ogg、m4a 格式");
         }
@@ -98,7 +101,7 @@ public class MusicController {
             return Response.success("上传成功", url);
         } catch (IOException e) {
             log.error("上传音乐文件失败: filename={}", originalFilename, e);
-            return Response.fail(500, "上传失败: " + e.getMessage());
+            return Response.fail(500, "上传失败");
         }
     }
     
@@ -116,10 +119,14 @@ public class MusicController {
         if (originalFilename == null) {
             return Response.fail(400, "文件名无效");
         }
-        
-        String ext = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+
+        Optional<String> extOptional = extractExtension(originalFilename);
+        if (extOptional.isEmpty()) {
+            return Response.fail(400, "文件类型无效");
+        }
+        String ext = extOptional.get();
         if (!ext.equals(".jpg") && !ext.equals(".jpeg") && !ext.equals(".png") && !ext.equals(".webp")) {
-            return Response.fail(400, "仅支持 jpg、png、webp 格式");
+            return Response.fail(400, "仅支持 jpg、jpeg、png、webp 格式");
         }
         
         try {
@@ -139,8 +146,16 @@ public class MusicController {
             return Response.success("上传成功", url);
         } catch (IOException e) {
             log.error("上传音乐封面失败: filename={}", originalFilename, e);
-            return Response.fail(500, "上传失败: " + e.getMessage());
+            return Response.fail(500, "上传失败");
         }
+    }
+
+    private Optional<String> extractExtension(String filename) {
+        int dotIndex = filename.lastIndexOf(".");
+        if (dotIndex <= 0 || dotIndex == filename.length() - 1) {
+            return Optional.empty();
+        }
+        return Optional.of(filename.substring(dotIndex).toLowerCase());
     }
     
     /**

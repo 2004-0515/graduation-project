@@ -2,6 +2,7 @@ package com.shopping.service;
 
 import com.shopping.entity.UploadFile;
 import com.shopping.entity.User;
+import com.shopping.exception.ResourceNotFoundException;
 import com.shopping.repository.UploadFileRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -55,10 +56,8 @@ public class UploadFileService {
      * 审核文件
      */
     public UploadFile review(Long id, Integer status, String remark, User reviewer) {
-        UploadFile file = uploadFileRepository.findById(id).orElse(null);
-        if (file == null) {
-            return null;
-        }
+        UploadFile file = uploadFileRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("文件", id));
 
         file.setStatus(status);
         file.setReviewerId(reviewer.getId());

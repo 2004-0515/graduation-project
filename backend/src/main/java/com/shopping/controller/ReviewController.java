@@ -34,12 +34,8 @@ public class ReviewController {
             return Response.fail(401, "请先登录");
         }
         
-        try {
-            Review created = reviewService.createReview(user.getId(), review);
-            return Response.success("评价成功", created);
-        } catch (Exception e) {
-            return Response.fail(400, e.getMessage());
-        }
+        Review created = reviewService.createReview(user.getId(), review);
+        return Response.success("评价成功", created);
     }
     
     /**
@@ -109,11 +105,7 @@ public class ReviewController {
             return Response.fail(401, "请先登录");
         }
         
-        try {
-            reviewService.deleteReview(id, user.getId());
-            return Response.success("删除成功", null);
-        } catch (Exception e) {
-            return Response.fail(400, e.getMessage());
-        }
+        reviewService.deleteReview(id, user.getId());
+        return Response.success("删除成功", null);
     }
 }

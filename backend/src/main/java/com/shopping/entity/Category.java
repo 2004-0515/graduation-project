@@ -45,6 +45,15 @@ public class Category {
     
     @PrePersist
     protected void onCreate() {
+        if (this.parentId == null) {
+            this.parentId = 0L;
+        }
+        if (this.sortOrder == null) {
+            this.sortOrder = 0;
+        }
+        if (this.status == null) {
+            this.status = 1;
+        }
         this.createdTime = LocalDateTime.now();
         this.updatedTime = LocalDateTime.now();
     }

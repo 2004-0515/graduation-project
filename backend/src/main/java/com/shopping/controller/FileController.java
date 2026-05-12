@@ -4,17 +4,18 @@ import com.shopping.dto.Response;
 import com.shopping.entity.Product;
 import com.shopping.entity.UploadFile;
 import com.shopping.entity.User;
+import com.shopping.exception.BusinessException;
+import com.shopping.exception.ResourceNotFoundException;
 import com.shopping.service.NotificationService;
 import com.shopping.service.ProductService;
 import com.shopping.service.UploadFileService;
 import com.shopping.service.UserService;
+import com.shopping.utils.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,6 +26,7 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -60,6 +62,18 @@ public class FileController {
     
     @Autowired
     private ProductService productService;
+
+    private Path getUploadBasePath() {
+        return Paths.get(uploadDir).toAbsolutePath().normalize();
+    }
+
+    private Optional<User> getCurrentUser() {
+        Optional<String> username = getCurrentUsernameIfAuthenticated();
+        if (username.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(userService.findByUsername(username.get()));
+    }
 
     /**
      * 文件类型枚举
@@ -147,17 +161,16 @@ public class FileController {
         }
 
         try {
-            // 获取当前用户
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String username = auth.getName();
-            User user = userService.findByUsername(username);
-            if (user == null) {
+            Optional<String> username = getCurrentUsernameIfAuthenticated();
+            Optional<User> currentUser = getCurrentUser();
+            if (username.isEmpty() || currentUser.isEmpty()) {
                 return Response.fail(401, "用户未登录");
             }
+            User user = currentUser.get();
 
             // 按年月存储
             String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
-            Path uploadPath = Paths.get(uploadDir, "videos", datePath);
+            Path uploadPath = getUploadBasePath().resolve("videos").resolve(datePath);
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
@@ -179,7 +192,8 @@ public class FileController {
 
             return Response.success("视频上传成功", fileUrl);
         } catch (IOException e) {
-            return Response.fail(500, "视频上传失败: " + e.getMessage());
+            log.error("上传广告视频失败", e);
+            return Response.fail(500, "视频上传失败");
         }
     }
 
@@ -212,14 +226,20 @@ public class FileController {
             return Response.fail(400, "审核状态无效");
         }
 
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User reviewer = userService.findByUsername(auth.getName());
+        Optional<String> username = getCurrentUsernameIfAuthenticated();
+        if (username.isEmpty()) {
+            return Response.fail(401, "未登录");
+        }
+
+        User reviewer = userService.findByUsername(username.get());
         if (reviewer == null) {
             return Response.fail(401, "未登录");
         }
 
-        UploadFile file = uploadFileService.review(id, status, remark, reviewer);
-        if (file == null) {
+        UploadFile file;
+        try {
+            file = uploadFileService.review(id, status, remark, reviewer);
+        } catch (ResourceNotFoundException ex) {
             return Response.fail(404, "文件不存在");
         }
 
@@ -247,7 +267,7 @@ public class FileController {
                         log.info("商品图片更新成功: productId={}", product.getId());
                     }
                 }
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 log.error("更新关联记录失败: fileId={}", file.getId(), e);
             }
         }
@@ -267,9 +287,9 @@ public class FileController {
             }
             
             notificationService.createNotification(file.getUserId(), "file_review", title, message, null);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // 通知发送失败不影响审核结果
-            System.err.println("发送审核通知失败: " + e.getMessage());
+            log.warn("发送审核通知失败: fileId={}", file.getId(), e);
         }
 
         return Response.success(status == 1 ? "审核通过" : "已拒绝", file);
@@ -306,25 +326,14 @@ public class FileController {
     @DeleteMapping("/{id}")
     public Response<Void> deleteFile(@PathVariable Long id) {
         com.shopping.utils.AdminUtils.requireAdmin();
-        try {
-            UploadFile file = uploadFileService.findById(id);
-            if (file == null) {
-                return Response.fail(404, "文件不存在");
-            }
-            
-            // 删除物理文件
-            String filePath = file.getFilePath();
-            if (filePath != null && filePath.startsWith("/uploads/")) {
-                Path path = Paths.get(uploadDir, filePath.substring("/uploads/".length()));
-                Files.deleteIfExists(path);
-            }
-            
-            // 删除数据库记录
-            uploadFileService.delete(id);
-            return Response.success("删除成功");
-        } catch (Exception e) {
-            return Response.fail(500, "删除失败: " + e.getMessage());
+        UploadFile file = uploadFileService.findById(id);
+        if (file == null) {
+            return Response.fail(404, "文件不存在");
         }
+
+        deletePhysicalFile(file);
+        uploadFileService.delete(id);
+        return Response.success("删除成功");
     }
 
     /**
@@ -348,20 +357,19 @@ public class FileController {
         }
 
         try {
-            // 获取当前用户
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String username = auth.getName();
-            User user = userService.findByUsername(username);
-            if (user == null) {
+            Optional<String> username = getCurrentUsernameIfAuthenticated();
+            Optional<User> currentUser = getCurrentUser();
+            if (username.isEmpty() || currentUser.isEmpty()) {
                 return Response.fail(401, "用户未登录");
             }
+            User user = currentUser.get();
 
             // 判断是否为管理员
-            boolean isAdmin = "admin".equals(username);
+            boolean isAdmin = "admin".equals(username.get());
 
             // 按类型+年月存储
             String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
-            Path uploadPath = Paths.get(uploadDir, fileType.folder, datePath);
+            Path uploadPath = getUploadBasePath().resolve(fileType.folder).resolve(datePath);
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
@@ -388,13 +396,13 @@ public class FileController {
             uploadFile.setOriginalName(originalFilename);
             uploadFile.setFileSize(file.getSize());
             uploadFile.setUserId(user.getId());
-            uploadFile.setUsername(username);
+            uploadFile.setUsername(username.get());
 
             // 管理员上传或不需要审核的类型直接通过
             if (isAdmin || !fileType.needReview) {
                 uploadFile.setStatus(UploadFile.STATUS_APPROVED);
                 uploadFile.setReviewerId(user.getId());
-                uploadFile.setReviewerName(username);
+                uploadFile.setReviewerName(username.get());
                 uploadFile.setReviewRemark("管理员上传，自动通过");
                 
                 // 如果是头像，直接更新
@@ -411,12 +419,12 @@ public class FileController {
                     User admin = userService.findByUsername("admin");
                     if (admin != null) {
                         String title = "新的" + fileTypeName + "待审核";
-                        String message = "用户 " + username + " 上传了新的" + fileTypeName + "，请及时审核。";
+                        String message = "用户 " + username.get() + " 上传了新的" + fileTypeName + "，请及时审核。";
                         notificationService.createNotification(admin.getId(), "file_review", title, message, null);
                     }
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     // 通知发送失败不影响上传
-                    log.warn("发送审核通知给管理员失败: fileType={}, username={}", fileType.name(), username, e);
+                    log.warn("发送审核通知给管理员失败: fileType={}, username={}", fileType.name(), username.get(), e);
                 }
             }
 
@@ -425,7 +433,8 @@ public class FileController {
             String message = (isAdmin || !fileType.needReview) ? "上传成功" : "上传成功，等待管理员审核";
             return Response.success(message, fileUrl);
         } catch (IOException e) {
-            return Response.fail(500, "文件上传失败: " + e.getMessage());
+            log.error("上传文件失败: type={}, originalName={}", fileType.name(), file.getOriginalFilename(), e);
+            return Response.fail(500, "文件上传失败");
         }
     }
 
@@ -450,16 +459,15 @@ public class FileController {
         }
 
         try {
-            // 获取当前用户
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String username = auth.getName();
-            User user = userService.findByUsername(username);
-            if (user == null) {
+            Optional<String> username = getCurrentUsernameIfAuthenticated();
+            Optional<User> currentUser = getCurrentUser();
+            if (username.isEmpty() || currentUser.isEmpty()) {
                 return Response.fail(401, "用户未登录");
             }
+            User user = currentUser.get();
 
             // 判断是否为管理员
-            boolean isAdmin = "admin".equals(username);
+            boolean isAdmin = "admin".equals(username.get());
 
             // 年月路径
             String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
@@ -469,7 +477,7 @@ public class FileController {
                 ? sanitizeFolderName(categoryName) 
                 : "其他";
             
-            Path uploadPath = Paths.get(uploadDir, "products", categoryFolder, datePath);
+            Path uploadPath = getUploadBasePath().resolve("products").resolve(categoryFolder).resolve(datePath);
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
@@ -500,14 +508,16 @@ public class FileController {
                         product.setMainImage(fileUrl);
                         productService.saveProduct(product);
                     }
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     log.warn("管理员上传后更新商品图片失败: productId={}", productId, e);
                 }
             }
 
             return Response.success("上传成功", fileUrl);
         } catch (IOException e) {
-            return Response.fail(500, "文件上传失败: " + e.getMessage());
+            log.error("上传商品图片失败: categoryName={}, productId={}, originalName={}",
+                    categoryName, productId, file.getOriginalFilename(), e);
+            return Response.fail(500, "文件上传失败");
         }
     }
     
@@ -521,5 +531,27 @@ public class FileController {
                 .replaceAll("[\\\\/:*?\"<>|]", "")  // 移除Windows不允许的字符
                 .replaceAll("\\s+", "_");           // 空格替换为下划线
         return sanitized.isEmpty() ? "other" : sanitized;
+    }
+
+    private void deletePhysicalFile(UploadFile file) {
+        String filePath = file.getFilePath();
+        if (filePath == null || !filePath.startsWith("/uploads/")) {
+            return;
+        }
+
+        try {
+            Path path = getUploadBasePath().resolve(filePath.substring("/uploads/".length())).normalize();
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            log.error("删除物理文件失败: id={}, filePath={}", file.getId(), filePath, e);
+            throw new BusinessException(500, "删除文件失败");
+        }
+    }
+
+    private java.util.Optional<String> getCurrentUsernameIfAuthenticated() {
+        if (!SecurityUtils.isAuthenticated()) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.ofNullable(SecurityUtils.getCurrentUsername());
     }
 }

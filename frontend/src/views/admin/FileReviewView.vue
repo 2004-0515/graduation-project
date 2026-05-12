@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <div class="file-review-page">
+    <div class="file-review-page" data-testid="admin-files-view">
       <div class="page-header">
         <h1>文件审核</h1>
         <p>审核用户上传的图片</p>
@@ -72,7 +72,7 @@
       <el-dialog v-model="rejectVisible" title="拒绝原因" width="400px">
         <el-input v-model="rejectRemark" type="textarea" :rows="3" placeholder="请输入拒绝原因（可选）" />
         <template #footer>
-          <el-button @click="rejectVisible = false">取消</el-button>
+          <el-button @click="closeRejectDialog">取消</el-button>
           <el-button type="danger" @click="confirmReject">确认拒绝</el-button>
         </template>
       </el-dialog>
@@ -87,6 +87,7 @@ import AdminLayout from '@/components/AdminLayout.vue'
 import axios from '@/utils/axios'
 import fileApi from '@/api/fileApi'
 import { useAdminStore } from '@/stores/adminStore'
+import { debugError } from '@/utils/debug'
 
 // 使用 admin store 来刷新侧边栏数量
 const adminStore = useAdminStore()
@@ -106,6 +107,19 @@ const previewUrl = ref('')
 const rejectVisible = ref(false)
 const rejectRemark = ref('')
 const currentFile = ref<any>(null)
+let latestFilesRequestId = 0
+const invalidateFileRequests = () => {
+  latestFilesRequestId += 1
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
@@ -133,24 +147,60 @@ const formatTime = (time: string) => {
 }
 
 const fetchFiles = async () => {
+  const requestId = ++latestFilesRequestId
   try {
     const params: any = { pageNo: pageNo.value - 1, pageSize: pageSize.value }
     if (filters.status !== null) params.status = filters.status
     if (filters.fileType) params.fileType = filters.fileType
     
     const res: any = await axios.get('/files/pending', { params })
+    if (requestId !== latestFilesRequestId) {
+      return
+    }
     if (res?.code === 200) {
       files.value = res.data?.content || []
       total.value = res.data?.totalElements || 0
+    } else {
+      debugError('获取文件审核列表失败', res?.message || '文件审核列表返回异常')
     }
   } catch (e) {
-    console.error(e)
+    if (requestId !== latestFilesRequestId) {
+      return
+    }
+    debugError('获取文件审核列表失败', e)
   }
+}
+
+const refreshFilesAfterSuccess = async (actionLabel: string) => {
+  try {
+    await Promise.all([fetchFiles(), adminStore.fetchPendingFileCount()])
+  } catch (error) {
+    debugError(`${actionLabel}后刷新文件审核列表失败`, error)
+  }
+}
+
+const refreshFilesListOnlyAfterSuccess = async (actionLabel: string) => {
+  try {
+    await fetchFiles()
+  } catch (error) {
+    debugError(`${actionLabel}后刷新文件审核列表失败`, error)
+  }
+}
+
+const removeLocalFile = (fileId: number) => {
+  files.value = files.value.filter((item) => item.id !== fileId)
+  total.value = Math.max(0, Number(total.value || 0) - 1)
 }
 
 const previewImage = (file: any) => {
   previewUrl.value = getImageUrl(file.filePath)
   previewVisible.value = true
+}
+
+const closeRejectDialog = () => {
+  rejectVisible.value = false
+  rejectRemark.value = ''
+  currentFile.value = null
 }
 
 const handleReview = async (file: any, status: number) => {
@@ -164,14 +214,19 @@ const handleReview = async (file: any, status: number) => {
   try {
     const res: any = await axios.put(`/files/${file.id}/review`, { status, remark: '审核通过' })
     if (res?.code === 200) {
+      adminStore.decreasePendingFileCount()
+      invalidateFileRequests()
+      removeLocalFile(file.id)
       ElMessage.success('审核通过')
-      fetchFiles()
-      adminStore.fetchPendingFileCount()
+      await refreshFilesAfterSuccess('审核通过')
     } else {
-      ElMessage.error(res?.message || '操作失败')
+      const message = res?.message || '操作失败'
+      debugError('文件审核通过失败', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    ElMessage.error('操作失败')
+    debugError('文件审核通过失败', e)
+    ElMessage.error(getErrorMessage(e, '操作失败'))
   }
 }
 
@@ -184,15 +239,20 @@ const confirmReject = async () => {
       remark: rejectRemark.value || '审核未通过' 
     })
     if (res?.code === 200) {
+      adminStore.decreasePendingFileCount()
+      invalidateFileRequests()
+      removeLocalFile(currentFile.value.id)
       ElMessage.success('已拒绝')
-      rejectVisible.value = false
-      fetchFiles()
-      adminStore.fetchPendingFileCount()
+      closeRejectDialog()
+      await refreshFilesAfterSuccess('审核拒绝')
     } else {
-      ElMessage.error(res?.message || '操作失败')
+      const message = res?.message || '操作失败'
+      debugError('文件审核拒绝失败', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    ElMessage.error('操作失败')
+    debugError('文件审核拒绝失败', e)
+    ElMessage.error(getErrorMessage(e, '操作失败'))
   }
 }
 
@@ -206,15 +266,26 @@ const handleDelete = async (file: any) => {
     
     const res: any = await axios.delete(`/files/${file.id}`)
     if (res?.code === 200) {
+      invalidateFileRequests()
+      removeLocalFile(file.id)
+      if (file.status === 0) {
+        adminStore.decreasePendingFileCount()
+        await refreshFilesAfterSuccess('删除文件审核记录')
+      } else {
+        await refreshFilesListOnlyAfterSuccess('删除文件审核记录')
+      }
       ElMessage.success('删除成功')
-      fetchFiles()
     } else {
-      ElMessage.error(res?.message || '删除失败')
+      const message = res?.message || '删除失败'
+      debugError('删除文件审核记录失败', message)
+      ElMessage.error(message)
     }
   } catch (e: any) {
-    if (e !== 'cancel') {
-      ElMessage.error('删除失败')
+    if (e === 'cancel' || e === 'close' || e?.action === 'cancel' || e?.action === 'close') {
+      return
     }
+    debugError('删除文件审核记录失败', e)
+    ElMessage.error(getErrorMessage(e, '删除失败'))
   }
 }
 

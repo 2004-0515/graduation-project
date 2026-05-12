@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <div class="music-manage">
+    <div class="music-manage" data-testid="admin-music-view">
       <div class="page-header">
         <h2>音乐管理</h2>
         <div class="header-actions">
@@ -103,7 +103,7 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button @click="closeDialog">取消</el-button>
         <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
@@ -160,6 +160,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
 import musicApi, { type Music } from '@/api/musicApi'
+import { debugError } from '@/utils/debug'
 
 const defaultCover = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%235A8FD4" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="white" font-size="30">♪</text></svg>'
 
@@ -183,6 +184,12 @@ const previewCurrentTime = ref(0)
 const previewDuration = ref(0)
 const isEdit = ref(false)
 const editId = ref<number | null>(null)
+let latestMusicRequestId = 0
+const invalidateMusicRequests = () => {
+  latestMusicRequestId += 1
+}
+const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
+const getErrorMessage = (error: any, fallback: string) => error?.response?.data?.message || error?.message || fallback
 
 const form = reactive({
   title: '',
@@ -193,17 +200,44 @@ const form = reactive({
   statusBool: true
 })
 
-const loadMusic = async () => {
+const loadMusic = async (showError = true) => {
+  const requestId = ++latestMusicRequestId
   loading.value = true
   try {
     const res: any = await musicApi.getAllMusic()
+    if (requestId !== latestMusicRequestId) {
+      return
+    }
     if (res?.code === 200) {
       musicList.value = res.data || []
+      if (isEdit.value && editId.value !== null) {
+        const matchedMusic = musicList.value.find((item) => item.id === editId.value)
+        if (!matchedMusic) {
+          closeDialog()
+        } else {
+          form.title = matchedMusic.title
+          form.artist = matchedMusic.artist || ''
+          form.url = matchedMusic.url
+          form.cover = matchedMusic.cover || ''
+          form.sortOrder = matchedMusic.sortOrder || 0
+          form.statusBool = matchedMusic.status === 1
+        }
+      }
+    } else {
+      debugError('加载音乐列表失败:', getResponseMessage(res, '业务返回异常'))
     }
   } catch (e) {
-    ElMessage.error('加载失败')
+    if (requestId !== latestMusicRequestId) {
+      return
+    }
+    debugError('加载音乐列表失败', e)
+    if (showError) {
+      ElMessage.error(getErrorMessage(e, '加载失败'))
+    }
   } finally {
-    loading.value = false
+    if (requestId === latestMusicRequestId) {
+      loading.value = false
+    }
   }
 }
 
@@ -214,6 +248,13 @@ const resetForm = () => {
   form.cover = ''
   form.sortOrder = 0
   form.statusBool = true
+}
+
+const closeDialog = () => {
+  dialogVisible.value = false
+  isEdit.value = false
+  editId.value = null
+  resetForm()
 }
 
 const openAddDialog = () => {
@@ -262,10 +303,13 @@ const uploadMusicFile = async (options: any) => {
         form.title = name
       }
     } else {
-      ElMessage.error(res?.message || '上传失败')
+      const message = getResponseMessage(res, '上传失败')
+      debugError('上传音乐失败', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    ElMessage.error('上传失败')
+    debugError('上传音乐失败', e)
+    ElMessage.error(getErrorMessage(e, '上传失败'))
   } finally {
     uploadingMusic.value = false
   }
@@ -292,13 +336,37 @@ const uploadCoverFile = async (options: any) => {
       form.cover = res.data
       ElMessage.success('封面上传成功')
     } else {
-      ElMessage.error(res?.message || '上传失败')
+      const message = getResponseMessage(res, '上传失败')
+      debugError('上传音乐封面失败', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    ElMessage.error('上传失败')
+    debugError('上传音乐封面失败', e)
+    ElMessage.error(getErrorMessage(e, '上传失败'))
   } finally {
     uploadingCover.value = false
   }
+}
+
+const refreshMusicAfterSuccess = async (actionLabel: string) => {
+  try {
+    await loadMusic(false)
+  } catch (error) {
+    debugError(`${actionLabel}成功后刷新音乐列表失败`, error)
+  }
+}
+
+const applyLocalMusicUpdate = (musicId: number, updater: (music: Music) => Music) => {
+  musicList.value = musicList.value.map((item) => (item.id === musicId ? updater(item) : item))
+}
+
+const upsertLocalMusic = (music: Music) => {
+  const existingIndex = musicList.value.findIndex((item) => item.id === music.id)
+  if (existingIndex >= 0) {
+    musicList.value = musicList.value.map((item, index) => (index === existingIndex ? { ...item, ...music } : item))
+    return
+  }
+  musicList.value = [music, ...musicList.value]
 }
 
 const handleSubmit = async () => {
@@ -313,6 +381,7 @@ const handleSubmit = async () => {
   
   submitting.value = true
   try {
+    const actionLabel = isEdit.value ? '提交音乐编辑' : '提交音乐新增'
     const data = {
       title: form.title,
       artist: form.artist,
@@ -323,16 +392,45 @@ const handleSubmit = async () => {
     }
     
     if (isEdit.value && editId.value) {
-      await musicApi.updateMusic(editId.value, data)
-      ElMessage.success('更新成功')
+      const res: any = await musicApi.updateMusic(editId.value, data)
+      if (res?.code === 200) {
+        invalidateMusicRequests()
+        upsertLocalMusic({
+          ...(musicList.value.find((item) => item.id === editId.value) || {}),
+          ...data,
+          ...(res.data || {}),
+          id: res?.data?.id ?? editId.value
+        } as Music)
+        ElMessage.success(getResponseMessage(res, '更新成功'))
+      } else {
+        const message = getResponseMessage(res, '操作失败')
+        debugError('提交音乐失败', message)
+        ElMessage.error(message)
+        return
+      }
     } else {
-      await musicApi.addMusic(data)
-      ElMessage.success('添加成功')
+      const res: any = await musicApi.addMusic(data)
+      if (res?.code === 200) {
+        invalidateMusicRequests()
+        if (res?.data?.id != null) {
+          upsertLocalMusic({
+            ...data,
+            ...res.data
+          } as Music)
+        }
+        ElMessage.success(getResponseMessage(res, '添加成功'))
+      } else {
+        const message = getResponseMessage(res, '操作失败')
+        debugError('提交音乐失败', message)
+        ElMessage.error(message)
+        return
+      }
     }
-    dialogVisible.value = false
-    loadMusic()
+    closeDialog()
+    await refreshMusicAfterSuccess(actionLabel)
   } catch (e) {
-    ElMessage.error('操作失败')
+    debugError('提交音乐失败', e)
+    ElMessage.error(getErrorMessage(e, '操作失败'))
   } finally {
     submitting.value = false
   }
@@ -340,22 +438,48 @@ const handleSubmit = async () => {
 
 const handleStatusChange = async (id: number, enabled: boolean) => {
   try {
-    await musicApi.updateStatus(id, enabled ? 1 : 0)
-    ElMessage.success('状态更新成功')
-    loadMusic()
+    const res: any = await musicApi.updateStatus(id, enabled ? 1 : 0)
+    if (res?.code === 200) {
+      invalidateMusicRequests()
+      applyLocalMusicUpdate(id, (item) => ({
+        ...item,
+        status: enabled ? 1 : 0
+      }))
+      ElMessage.success(getResponseMessage(res, '状态更新成功'))
+    } else {
+      const message = getResponseMessage(res, '状态更新失败')
+      debugError('更新音乐状态失败', message)
+      ElMessage.error(message)
+      return
+    }
+    await refreshMusicAfterSuccess('更新音乐状态')
   } catch (e) {
-    ElMessage.error('状态更新失败')
+    debugError('更新音乐状态失败', e)
+    ElMessage.error(getErrorMessage(e, '状态更新失败'))
   }
 }
 
 const handleDelete = async (id: number) => {
   try {
     await ElMessageBox.confirm('确定要删除这首音乐吗？', '提示', { type: 'warning' })
-    await musicApi.deleteMusic(id)
-    ElMessage.success('删除成功')
-    loadMusic()
+    const res: any = await musicApi.deleteMusic(id)
+    if (res?.code === 200) {
+      invalidateMusicRequests()
+      musicList.value = musicList.value.filter((item) => item.id !== id)
+      ElMessage.success(getResponseMessage(res, '删除成功'))
+    } else {
+      const message = getResponseMessage(res, '删除失败')
+      debugError('删除音乐失败', message)
+      ElMessage.error(message)
+      return
+    }
+    await refreshMusicAfterSuccess('删除音乐')
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error('删除失败')
+    if (e === 'cancel' || e === 'close' || (e as any)?.action === 'cancel' || (e as any)?.action === 'close') {
+      return
+    }
+    debugError('删除音乐失败', e)
+    ElMessage.error(getErrorMessage(e, '删除失败'))
   }
 }
 

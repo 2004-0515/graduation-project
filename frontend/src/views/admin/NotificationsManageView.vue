@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <div class="notifications-manage">
+    <div class="notifications-manage" data-testid="admin-notifications-view">
       <div class="page-header">
         <h2>消息管理</h2>
         <p>向用户发送系统通知、促销信息等</p>
@@ -11,9 +11,9 @@
         <h3>发送新消息</h3>
         <el-form :model="form" label-width="100px" class="send-form">
           <el-form-item label="发送对象">
-            <el-radio-group v-model="form.target">
-              <el-radio value="all">所有用户</el-radio>
-              <el-radio value="selected">指定用户</el-radio>
+            <el-radio-group v-model="form.target" data-testid="notification-target-group">
+              <el-radio value="all" data-testid="notification-target-all">所有用户</el-radio>
+              <el-radio value="selected" data-testid="notification-target-selected">指定用户</el-radio>
             </el-radio-group>
           </el-form-item>
 
@@ -24,6 +24,7 @@
               filterable
               placeholder="搜索并选择用户"
               style="width: 100%"
+              data-testid="notification-users-select"
             >
               <el-option
                 v-for="user in users"
@@ -35,7 +36,7 @@
           </el-form-item>
 
           <el-form-item label="消息类型">
-            <el-select v-model="form.type" placeholder="选择类型" style="width: 200px">
+            <el-select v-model="form.type" placeholder="选择类型" style="width: 200px" data-testid="notification-type-select">
               <el-option label="系统通知" value="system" />
               <el-option label="促销活动" value="promotion" />
               <el-option label="订单相关" value="order" />
@@ -49,6 +50,7 @@
               placeholder="选择要关联的优惠券（可选）"
               style="width: 100%"
               clearable
+              data-testid="notification-related-coupon-select"
             >
               <el-option
                 v-for="coupon in coupons"
@@ -61,7 +63,7 @@
           </el-form-item>
 
           <el-form-item label="消息标题">
-            <el-input v-model="form.title" placeholder="请输入消息标题" maxlength="50" show-word-limit />
+            <el-input v-model="form.title" placeholder="请输入消息标题" maxlength="50" show-word-limit data-testid="notification-title-input" />
           </el-form-item>
 
           <el-form-item label="消息内容">
@@ -72,11 +74,12 @@
               placeholder="请输入消息内容"
               maxlength="500"
               show-word-limit
+              data-testid="notification-message-input"
             />
           </el-form-item>
 
           <el-form-item>
-            <el-button type="primary" @click="sendMessage" :loading="sending">
+            <el-button type="primary" @click="sendMessage" :loading="sending" data-testid="notification-send-button">
               <el-icon><Promotion /></el-icon>
               发送消息
             </el-button>
@@ -130,10 +133,22 @@ import { Promotion } from '@element-plus/icons-vue'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
 import couponApi from '@/api/couponApi'
+import { debugError } from '@/utils/debug'
 
 const users = ref<any[]>([])
 const coupons = ref<any[]>([])
 const sending = ref(false)
+let latestUsersRequestId = 0
+let latestCouponsRequestId = 0
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
 
 const form = reactive({
   target: 'all',
@@ -174,25 +189,59 @@ const getCouponDesc = (coupon: any) => {
   return `满${coupon.minAmount || 0}减${coupon.discountAmount}`
 }
 
+const reconcileSelectedUsers = () => {
+  if (form.selectedUsers.length === 0) return
+  const availableUserIds = new Set(users.value.map((user) => user.id))
+  form.selectedUsers = form.selectedUsers.filter((userId) => availableUserIds.has(userId))
+}
+
+const reconcileRelatedCoupon = () => {
+  if (form.relatedId === null) return
+  const matchedCoupon = coupons.value.some((coupon) => coupon.id === form.relatedId)
+  if (!matchedCoupon) {
+    form.relatedId = null
+  }
+}
+
 const fetchUsers = async () => {
+  const requestId = ++latestUsersRequestId
   try {
     const res: any = await adminApi.getUsers({ page: 0, size: 1000 })
+    if (requestId !== latestUsersRequestId) {
+      return
+    }
     if (res?.code === 200) {
       users.value = res.data?.content || res.data || []
+      reconcileSelectedUsers()
+    } else {
+      debugError('获取通知发送用户列表失败', res?.message || '通知发送用户列表返回异常')
     }
   } catch (e) {
-    console.error('获取用户列表失败', e)
+    if (requestId !== latestUsersRequestId) {
+      return
+    }
+    debugError('获取通知发送用户列表失败', e)
   }
 }
 
 const fetchCoupons = async () => {
+  const requestId = ++latestCouponsRequestId
   try {
     const res: any = await couponApi.getAllCoupons()
+    if (requestId !== latestCouponsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       coupons.value = res.data || []
+      reconcileRelatedCoupon()
+    } else {
+      debugError('获取通知发送优惠券列表失败', res?.message || '通知发送优惠券列表返回异常')
     }
   } catch (e) {
-    console.error('获取优惠券列表失败', e)
+    if (requestId !== latestCouponsRequestId) {
+      return
+    }
+    debugError('获取通知发送优惠券列表失败', e)
   }
 }
 
@@ -239,18 +288,24 @@ const sendMessage = async () => {
       ? users.value.map(u => u.id) 
       : form.selectedUsers
 
-    await adminApi.broadcastNotification({
+    const res = await adminApi.broadcastNotification({
       userIds,
       type: form.type,
       title: form.title,
       message: form.message,
       relatedId: form.relatedId
     })
-    
-    ElMessage.success(`消息已发送给 ${userIds.length} 位用户`)
-    resetForm()
+    if (res?.code === 200) {
+      ElMessage.success(`消息已发送给 ${userIds.length} 位用户`)
+      resetForm()
+    } else {
+      const message = res?.message || '发送失败'
+      debugError('发送消息失败', message)
+      ElMessage.error(message)
+    }
   } catch (e) {
-    ElMessage.error('发送失败')
+    debugError('发送消息失败', e)
+    ElMessage.error(getErrorMessage(e, '发送失败'))
   } finally {
     sending.value = false
   }

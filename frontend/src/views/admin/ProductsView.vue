@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <div class="products-manage">
+    <div class="products-manage" data-testid="admin-products-view">
       <!-- Tab切换 -->
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
         <el-tab-pane label="全部商品" name="all" />
@@ -241,7 +241,7 @@
       <el-dialog v-model="rejectDialogVisible" title="拒绝原因" width="400px">
         <el-input v-model="rejectRemark" type="textarea" :rows="3" placeholder="请输入拒绝原因（可选）" />
         <template #footer>
-          <el-button @click="rejectDialogVisible = false">取消</el-button>
+          <el-button @click="closeRejectDialog">取消</el-button>
           <el-button type="danger" @click="confirmReject" :loading="auditing">确认拒绝</el-button>
         </template>
       </el-dialog>
@@ -290,7 +290,7 @@
           </div>
         </div>
         <template #footer>
-          <el-button @click="approveDialogVisible = false">取消</el-button>
+          <el-button @click="closeApproveDialog">取消</el-button>
           <el-button type="success" @click="confirmApprove" :loading="auditing">确认通过</el-button>
         </template>
       </el-dialog>
@@ -412,6 +412,7 @@ import adminApi from '@/api/adminApi'
 import fileApi from '@/api/fileApi'
 import axios from '@/utils/axios'
 import { useAdminStore } from '@/stores/adminStore'
+import { debugError } from '@/utils/debug'
 
 // 使用 admin store 来刷新侧边栏数量
 const adminStore = useAdminStore()
@@ -452,6 +453,24 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const selectedProducts = ref<any[]>([])
+let latestProductsRequestId = 0
+let latestPendingCountRequestId = 0
+const invalidateProductsRequests = () => {
+  latestProductsRequestId += 1
+}
+const invalidatePendingCountRequests = () => {
+  latestPendingCountRequestId += 1
+}
+
+const isMessageBoxCancel = (error: unknown) => error === 'cancel' || error === 'close'
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
 
 const form = reactive({
   name: '',
@@ -523,8 +542,7 @@ const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 const getVideoUrl = (path: string) => {
   if (!path) return ''
   if (path.startsWith('http://') || path.startsWith('https://')) return path
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`
-  return `http://localhost:8080/api${normalizedPath}`
+  return path.startsWith('/') ? path : `/${path}`
 }
 
 const beforeImageUpload = (file: File) => {
@@ -554,10 +572,13 @@ const handleImageUpload = async (options: any) => {
       form.mainImage = res.data
       ElMessage.success('图片上传成功')
     } else {
-      ElMessage.error(res?.message || '上传失败')
+      const message = res?.message || '上传失败'
+      debugError('商品图片上传失败:', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    ElMessage.error('图片上传失败')
+    debugError('商品图片上传失败:', e)
+    ElMessage.error(getErrorMessage(e, '图片上传失败'))
   }
 }
 
@@ -582,10 +603,13 @@ const handleVideoUpload = async (options: any) => {
       form.adVideo = res.data
       ElMessage.success('视频上传成功')
     } else {
-      ElMessage.error(res?.message || '上传失败')
+      const message = res?.message || '上传失败'
+      debugError('广告视频上传失败:', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    ElMessage.error('视频上传失败')
+    debugError('广告视频上传失败:', e)
+    ElMessage.error(getErrorMessage(e, '视频上传失败'))
   }
 }
 
@@ -615,15 +639,32 @@ const openCompareDialog = (product: any) => {
 const fetchCategories = async () => {
   try {
     const res: any = await adminApi.getCategories()
-    if (res?.code === 200) categories.value = res.data || []
-  } catch (e) { console.error(e) }
+    if (res?.code === 200) {
+      categories.value = res.data || []
+    } else {
+      debugError('获取商品分类失败:', res?.message || '商品分类返回异常')
+    }
+  } catch (e) { debugError('获取商品分类失败', e) }
 }
 
 const fetchPendingCount = async () => {
+  const requestId = ++latestPendingCountRequestId
   try {
     const res: any = await axios.get('/products/pending/count')
-    if (res?.code === 200) pendingCount.value = res.data || 0
-  } catch (e) { console.error(e) }
+    if (requestId !== latestPendingCountRequestId) {
+      return
+    }
+    if (res?.code === 200) {
+      pendingCount.value = res.data || 0
+    } else {
+      debugError('获取待审核商品数量失败:', res?.message || '待审核数量返回异常')
+    }
+  } catch (e) {
+    if (requestId !== latestPendingCountRequestId) {
+      return
+    }
+    debugError('获取待审核商品数量失败', e)
+  }
 }
 
 const handleTabChange = () => {
@@ -632,13 +673,19 @@ const handleTabChange = () => {
 }
 
 const fetchProducts = async () => {
+  const requestId = ++latestProductsRequestId
   loading.value = true
   try {
     if (activeTab.value === 'pending') {
       const res: any = await axios.get('/products/pending')
+      if (requestId !== latestProductsRequestId) {
+        return
+      }
       if (res?.code === 200) {
         products.value = res.data || []
         total.value = products.value.length
+      } else {
+        debugError('获取商品管理列表失败:', res?.message || '待审核商品列表返回异常')
       }
     } else {
       const params: any = { page: currentPage.value - 1, size: pageSize.value }
@@ -654,13 +701,72 @@ const fetchProducts = async () => {
       }
       
       const res: any = await adminApi.getProducts(params)
+      if (requestId !== latestProductsRequestId) {
+        return
+      }
       if (res?.code === 200) {
         products.value = res.data?.content || []
         total.value = res.data?.totalElements || 0
+      } else {
+        debugError('获取商品管理列表失败:', res?.message || '商品管理列表返回异常')
       }
     }
-  } catch (e) { console.error(e) }
-  finally { loading.value = false }
+  } catch (e) {
+    if (requestId !== latestProductsRequestId) {
+      return
+    }
+    debugError('获取商品管理列表失败', e)
+  }
+  finally {
+    if (requestId === latestProductsRequestId) {
+      loading.value = false
+    }
+  }
+}
+
+const refreshProductsAfterSuccess = async (actionLabel: string) => {
+  try {
+    await fetchProducts()
+  } catch (error) {
+    debugError(`${actionLabel}成功后刷新商品列表失败:`, error)
+  }
+}
+
+const refreshPendingStateAfterSuccess = async (actionLabel: string) => {
+  const results = await Promise.allSettled([
+    fetchProducts(),
+    fetchPendingCount(),
+    adminStore.fetchPendingProductCount()
+  ])
+
+  results.forEach((result, index) => {
+    if (result.status !== 'rejected') {
+      return
+    }
+
+    const targetLabels = ['商品列表', '待审核数量', '后台待审核徽标']
+    debugError(`${actionLabel}成功后刷新${targetLabels[index]}失败:`, result.reason)
+  })
+}
+
+const applyLocalProductUpdate = (productId: number, updater: (product: any) => any) => {
+  products.value = products.value.map((item) => (item.id === productId ? updater(item) : item))
+}
+
+const upsertLocalProduct = (product: any) => {
+  const existingIndex = products.value.findIndex((item) => item.id === product.id)
+  if (existingIndex >= 0) {
+    products.value = products.value.map((item, index) => (index === existingIndex ? { ...item, ...product } : item))
+    return
+  }
+  products.value = [product, ...products.value]
+  total.value = Number(total.value || 0) + 1
+}
+
+const removeLocalProduct = (productId: number) => {
+  products.value = products.value.filter((item) => item.id !== productId)
+  total.value = Math.max(0, Number(total.value || 0) - 1)
+  selectedProducts.value = selectedProducts.value.filter((item) => item.id !== productId)
 }
 
 const saveProduct = async () => {
@@ -687,16 +793,43 @@ const saveProduct = async () => {
     }
     
     if (isEdit.value && editId.value) {
-      await adminApi.updateProduct(editId.value, productData)
+      const res = await adminApi.updateProduct(editId.value, productData)
+      if (res?.code !== 200) {
+        const message = res?.message || '保存失败'
+        debugError('保存商品失败:', message)
+        ElMessage.error(message)
+        return
+      }
+      invalidateProductsRequests()
+      upsertLocalProduct({
+        ...(products.value.find((item) => item.id === editId.value) || {}),
+        ...productData,
+        ...(res.data || {}),
+        id: res?.data?.id ?? editId.value
+      })
       ElMessage.success('商品更新成功')
     } else {
-      await adminApi.createProduct(productData)
+      const res = await adminApi.createProduct(productData)
+      if (res?.code !== 200) {
+        const message = res?.message || '保存失败'
+        debugError('保存商品失败:', message)
+        ElMessage.error(message)
+        return
+      }
+      invalidateProductsRequests()
+      if (res?.data?.id != null) {
+        upsertLocalProduct({
+          ...productData,
+          ...(res.data || {})
+        })
+      }
       ElMessage.success('商品添加成功')
     }
     dialogVisible.value = false
-    fetchProducts()
+    await refreshProductsAfterSuccess(isEdit.value ? '保存商品' : '新增商品')
   } catch (e) {
-    ElMessage.error('保存失败')
+    debugError('保存商品失败:', e)
+    ElMessage.error(getErrorMessage(e, '保存失败'))
   } finally { saving.value = false }
 }
 
@@ -716,17 +849,34 @@ const batchUpdateStatus = async (status: number) => {
     )
     
     let successCount = 0
+    let failureCount = 0
     for (const product of selectedProducts.value) {
       try {
         await adminApi.updateProduct(product.id, { status })
         product.status = status
         successCount++
-      } catch {}
+      } catch (error) {
+        failureCount++
+        debugError(`批量${action}商品失败(productId=${product.id}):`, error)
+      }
     }
-    
-    ElMessage.success(`成功${action} ${successCount} 个商品`)
-    selectedProducts.value = []
-  } catch {}
+
+    if (failureCount === 0) {
+      ElMessage.success(`成功${action} ${successCount} 个商品`)
+    } else if (successCount === 0) {
+      ElMessage.error(`批量${action}失败，${selectedProducts.value.length} 个商品均未处理成功`)
+    } else {
+      ElMessage.warning(`批量${action}完成：成功 ${successCount} 个，失败 ${failureCount} 个`)
+    }
+
+    if (successCount > 0) {
+      selectedProducts.value = selectedProducts.value.filter((product) => product.status !== status)
+    }
+  } catch (error) {
+    if (isMessageBoxCancel(error)) return
+    debugError(`批量${action}商品失败:`, error)
+    ElMessage.error(`批量${action}失败`)
+  }
 }
 
 const batchUpdateAllStatus = async (status: number) => {
@@ -738,19 +888,43 @@ const batchUpdateAllStatus = async (status: number) => {
       { type: 'warning' }
     )
     
-    await axios.put('/products/batch-status', { status })
+    const res: any = await axios.put('/products/batch-status', { status })
+    if (res?.code !== 200) {
+      const message = res?.message || `全部${action}失败`
+      debugError(`全部商品${action}失败:`, message)
+      ElMessage.error(message)
+      return
+    }
     ElMessage.success(`全部商品已${action}`)
-    fetchProducts()
-  } catch {}
+    await refreshProductsAfterSuccess(`全部${action}商品`)
+  } catch (error) {
+    if (isMessageBoxCancel(error)) return
+    debugError(`全部商品${action}失败:`, error)
+    ElMessage.error(getErrorMessage(error, `全部${action}失败`))
+  }
 }
 
 const toggleStatus = async (product: any) => {
   try {
-    await adminApi.updateProduct(product.id, { status: product.status })
+    const res = await adminApi.updateProduct(product.id, { status: product.status })
+    if (res?.code !== 200) {
+      product.status = product.status === 1 ? 0 : 1
+      const message = res?.message || '操作失败'
+      debugError('切换商品上下架状态失败:', message)
+      ElMessage.error(message)
+      return
+    }
+    invalidateProductsRequests()
+    applyLocalProductUpdate(product.id, (item) => ({
+      ...item,
+      status: product.status
+    }))
+    await refreshProductsAfterSuccess(`切换商品${product.status === 1 ? '上架' : '下架'}状态`)
     ElMessage.success(product.status === 1 ? '已上架' : '已下架')
   } catch (e) {
     product.status = product.status === 1 ? 0 : 1
-    ElMessage.error('操作失败')
+    debugError('切换商品上下架状态失败:', e)
+    ElMessage.error(getErrorMessage(e, '操作失败'))
   }
 }
 
@@ -759,9 +933,17 @@ const getLastAdSettings = () => {
   try {
     const saved = localStorage.getItem('admin_ad_settings')
     if (saved) {
-      return JSON.parse(saved)
+      const parsed = JSON.parse(saved) as { enabled?: unknown; duration?: unknown }
+      const enabled = Number(parsed?.enabled)
+      const duration = Number(parsed?.duration)
+      if ((enabled === 0 || enabled === 1) && Number.isFinite(duration) && duration > 0) {
+        return { enabled, duration }
+      }
+      debugError('读取广告设置失败，已回退默认值:', `invalid ad settings: ${saved}`)
     }
-  } catch {}
+  } catch (error) {
+    debugError('读取广告设置失败，已回退默认值:', error)
+  }
   return { enabled: 1, duration: 5 }
 }
 
@@ -769,7 +951,20 @@ const getLastAdSettings = () => {
 const saveAdSettings = (enabled: number, duration: number) => {
   try {
     localStorage.setItem('admin_ad_settings', JSON.stringify({ enabled, duration }))
-  } catch {}
+  } catch (error) {
+    debugError('保存广告设置失败:', error)
+  }
+}
+
+const closeApproveDialog = () => {
+  approveDialogVisible.value = false
+  approveProduct.value = null
+}
+
+const closeRejectDialog = () => {
+  rejectDialogVisible.value = false
+  rejectRemark.value = ''
+  rejectProductId.value = null
 }
 
 const handleAudit = async (product: any, auditStatus: number) => {
@@ -787,12 +982,26 @@ const handleAudit = async (product: any, auditStatus: number) => {
       try {
         await ElMessageBox.confirm(`确定要通过商品"${product.name}"的审核吗？`, '提示', { type: 'success' })
         auditing.value = true
-        await axios.post(`/products/${product.id}/audit`, { auditStatus: 1 })
-        ElMessage.success('审核通过')
-        fetchProducts()
-        fetchPendingCount()
-        adminStore.fetchPendingProductCount()
-      } catch {} finally { auditing.value = false }
+    const res: any = await axios.post(`/products/${product.id}/audit`, { auditStatus: 1 })
+    if (res?.code !== 200) {
+      const message = res?.message || '审核失败'
+      debugError('审核商品失败:', message)
+      ElMessage.error(message)
+      return
+    }
+    adminStore.decreasePendingProductCount()
+    invalidateProductsRequests()
+    invalidatePendingCountRequests()
+    removeLocalProduct(product.id)
+    pendingCount.value = Math.max(0, Number(pendingCount.value || 0) - 1)
+    ElMessage.success('审核通过')
+    await refreshPendingStateAfterSuccess('审核商品')
+      } catch (error) {
+        if (!isMessageBoxCancel(error)) {
+          debugError('审核商品失败:', error)
+          ElMessage.error(getErrorMessage(error, '审核失败'))
+        }
+      } finally { auditing.value = false }
     }
   } else {
     // 拒绝 - 打开弹窗
@@ -816,14 +1025,24 @@ const confirmApprove = async () => {
       // 保存本次设置供下次使用
       saveAdSettings(approveAdEnabled.value, approveAdDuration.value)
     }
-    await axios.post(`/products/${approveProduct.value.id}/audit`, data)
+    const res: any = await axios.post(`/products/${approveProduct.value.id}/audit`, data)
+    if (res?.code !== 200) {
+      const message = res?.message || '操作失败'
+      debugError('确认通过商品审核失败:', message)
+      ElMessage.error(message)
+      return
+    }
+    adminStore.decreasePendingProductCount()
+    invalidateProductsRequests()
+    invalidatePendingCountRequests()
+    removeLocalProduct(approveProduct.value.id)
+    pendingCount.value = Math.max(0, Number(pendingCount.value || 0) - 1)
     ElMessage.success(approveAdEnabled.value === 1 ? '审核通过，广告已启用' : '审核通过')
-    approveDialogVisible.value = false
-    fetchProducts()
-    fetchPendingCount()
-    adminStore.fetchPendingProductCount()
+    closeApproveDialog()
+    await refreshPendingStateAfterSuccess('确认通过商品审核')
   } catch (e) {
-    ElMessage.error('操作失败')
+    debugError('确认通过商品审核失败:', e)
+    ElMessage.error(getErrorMessage(e, '操作失败'))
   } finally { auditing.value = false }
 }
 
@@ -831,27 +1050,49 @@ const confirmReject = async () => {
   if (!rejectProductId.value) return
   auditing.value = true
   try {
-    await axios.post(`/products/${rejectProductId.value}/audit`, { 
+    const res: any = await axios.post(`/products/${rejectProductId.value}/audit`, { 
       auditStatus: 2, 
       remark: rejectRemark.value 
     })
+    if (res?.code !== 200) {
+      const message = res?.message || '操作失败'
+      debugError('拒绝商品审核失败:', message)
+      ElMessage.error(message)
+      return
+    }
+    adminStore.decreasePendingProductCount()
+    invalidateProductsRequests()
+    invalidatePendingCountRequests()
+    removeLocalProduct(rejectProductId.value)
+    pendingCount.value = Math.max(0, Number(pendingCount.value || 0) - 1)
     ElMessage.success('已拒绝该商品')
-    rejectDialogVisible.value = false
-    fetchProducts()
-    fetchPendingCount()
-    adminStore.fetchPendingProductCount()
+    closeRejectDialog()
+    await refreshPendingStateAfterSuccess('拒绝商品审核')
   } catch (e) {
-    ElMessage.error('操作失败')
+    debugError('拒绝商品审核失败:', e)
+    ElMessage.error(getErrorMessage(e, '操作失败'))
   } finally { auditing.value = false }
 }
 
 const handleDelete = async (product: any) => {
   try {
     await ElMessageBox.confirm(`确定要删除商品"${product.name}"吗？`, '提示', { type: 'warning' })
-    await adminApi.deleteProduct(product.id)
+    const res = await adminApi.deleteProduct(product.id)
+    if (res?.code !== 200) {
+      const message = res?.message || '删除失败'
+      debugError('删除商品失败:', message)
+      ElMessage.error(message)
+      return
+    }
     ElMessage.success('删除成功')
-    fetchProducts()
-  } catch {}
+    invalidateProductsRequests()
+    removeLocalProduct(product.id)
+    await refreshProductsAfterSuccess('删除商品')
+  } catch (error) {
+    if (isMessageBoxCancel(error)) return
+    debugError('删除商品失败:', error)
+    ElMessage.error(getErrorMessage(error, '删除失败'))
+  }
 }
 
 onMounted(() => {

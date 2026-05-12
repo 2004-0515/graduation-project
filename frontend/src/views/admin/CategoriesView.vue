@@ -1,12 +1,12 @@
 <template>
   <AdminLayout>
-    <div class="categories-manage">
+    <div class="categories-manage" data-testid="admin-categories-view">
       <div class="toolbar">
         <div class="toolbar-left">
           <span class="total-count">共 {{ categories.length }} 个分类</span>
         </div>
         <div class="toolbar-right">
-          <el-button type="primary" @click="openDialog()">添加分类</el-button>
+          <el-button type="primary" data-testid="admin-category-add" @click="openDialog()">添加分类</el-button>
         </div>
       </div>
 
@@ -35,10 +35,10 @@
       <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑分类' : '添加分类'" width="500px">
         <el-form :model="form" label-width="100px">
           <el-form-item label="分类名称" required>
-            <el-input v-model="form.name" placeholder="请输入分类名称" />
+            <el-input v-model="form.name" placeholder="请输入分类名称" data-testid="admin-category-name" />
           </el-form-item>
           <el-form-item label="分类描述">
-            <el-input v-model="form.description" type="textarea" :rows="2" placeholder="请输入分类描述" />
+            <el-input v-model="form.description" type="textarea" :rows="2" placeholder="请输入分类描述" data-testid="admin-category-description" />
           </el-form-item>
           <el-form-item label="排序">
             <el-input-number v-model="form.sortOrder" :min="0" style="width: 100%" />
@@ -48,8 +48,8 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveCategory" :loading="saving">保存</el-button>
+          <el-button @click="closeDialog">取消</el-button>
+          <el-button type="primary" data-testid="admin-category-save" @click="saveCategory" :loading="saving">保存</el-button>
         </template>
       </el-dialog>
     </div>
@@ -61,6 +61,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
+import { debugError } from '@/utils/debug'
 
 const categories = ref<any[]>([])
 const loading = ref(false)
@@ -68,6 +69,10 @@ const saving = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref<number | null>(null)
+let latestCategoriesRequestId = 0
+const invalidateCategoryRequests = () => {
+  latestCategoriesRequestId += 1
+}
 
 const form = reactive({
   name: '',
@@ -81,6 +86,13 @@ const resetForm = () => {
   form.description = ''
   form.sortOrder = 0
   form.status = 1
+}
+
+const closeDialog = () => {
+  dialogVisible.value = false
+  isEdit.value = false
+  editId.value = null
+  resetForm()
 }
 
 const openDialog = (category?: any) => {
@@ -97,12 +109,59 @@ const openDialog = (category?: any) => {
 }
 
 const fetchCategories = async () => {
+  const requestId = ++latestCategoriesRequestId
   loading.value = true
   try {
     const res: any = await adminApi.getCategories()
-    if (res?.code === 200) categories.value = res.data || []
-  } catch (e) { console.error(e) }
-  finally { loading.value = false }
+    if (requestId !== latestCategoriesRequestId) {
+      return
+    }
+    if (res?.code === 200) {
+      applyLocalCategories(res.data || [])
+    } else {
+      debugError('获取分类管理列表失败:', res?.message || '业务返回异常')
+    }
+  } catch (e) {
+    if (requestId !== latestCategoriesRequestId) {
+      return
+    }
+    debugError('获取分类管理列表失败', e)
+  }
+  finally {
+    if (requestId === latestCategoriesRequestId) {
+      loading.value = false
+    }
+  }
+}
+
+const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
+
+const refreshCategoriesAfterSuccess = async (actionLabel: string) => {
+  try {
+    await fetchCategories()
+  } catch (error) {
+    debugError(`${actionLabel}成功后刷新分类列表失败`, error)
+  }
+}
+
+const applyLocalCategories = (nextCategories: any[]) => {
+  categories.value = nextCategories
+  if (!isEdit.value || editId.value === null) return
+  const matchedCategory = nextCategories.find((item) => item.id === editId.value)
+  if (!matchedCategory) {
+    closeDialog()
+    return
+  }
+  Object.assign(form, matchedCategory)
 }
 
 const saveCategory = async () => {
@@ -113,27 +172,76 @@ const saveCategory = async () => {
   
   saving.value = true
   try {
+    const actionLabel = isEdit.value ? '保存分类' : '新增分类'
     if (isEdit.value && editId.value) {
-      await adminApi.updateCategory(editId.value, form)
-      ElMessage.success('分类更新成功')
+      const res: any = await adminApi.updateCategory(editId.value, form)
+      if (res?.code === 200) {
+        invalidateCategoryRequests()
+        const updatedCategory = res?.data && typeof res.data === 'object'
+          ? res.data
+          : {
+              ...form,
+              id: editId.value
+            }
+        applyLocalCategories(
+          categories.value.map((item) => (item.id === editId.value ? updatedCategory : item))
+        )
+        ElMessage.success(getResponseMessage(res, '分类更新成功'))
+      } else {
+        const message = getResponseMessage(res, '保存失败')
+        debugError('保存分类失败', message)
+        ElMessage.error(message)
+        return
+      }
     } else {
-      await adminApi.createCategory(form)
-      ElMessage.success('分类添加成功')
+      const res: any = await adminApi.createCategory(form)
+      if (res?.code === 200) {
+        invalidateCategoryRequests()
+        const createdCategory = res?.data && typeof res.data === 'object'
+          ? res.data
+          : {
+              ...form,
+              id: Date.now()
+            }
+        applyLocalCategories([...categories.value, createdCategory])
+        ElMessage.success(getResponseMessage(res, '分类添加成功'))
+      } else {
+        const message = getResponseMessage(res, '保存失败')
+        debugError('保存分类失败', message)
+        ElMessage.error(message)
+        return
+      }
     }
-    dialogVisible.value = false
-    fetchCategories()
+    closeDialog()
+    await refreshCategoriesAfterSuccess(actionLabel)
   } catch (e) {
-    ElMessage.error('保存失败')
+    debugError('保存分类失败', e)
+    ElMessage.error(getErrorMessage(e, '保存失败'))
   } finally { saving.value = false }
 }
 
 const handleDelete = async (category: any) => {
   try {
     await ElMessageBox.confirm(`确定要删除分类"${category.name}"吗？删除后该分类下的商品将无法显示。`, '提示', { type: 'warning' })
-    await adminApi.deleteCategory(category.id)
-    ElMessage.success('删除成功')
-    fetchCategories()
-  } catch {}
+    const res: any = await adminApi.deleteCategory(category.id)
+    if (res?.code === 200) {
+      invalidateCategoryRequests()
+      applyLocalCategories(categories.value.filter((item) => item.id !== category.id))
+      ElMessage.success(getResponseMessage(res, '删除成功'))
+    } else {
+      const message = getResponseMessage(res, '删除失败')
+      debugError('删除分类失败', message)
+      ElMessage.error(message)
+      return
+    }
+    await refreshCategoriesAfterSuccess('删除分类')
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
+      return
+    }
+    debugError('删除分类失败', error)
+    ElMessage.error(getErrorMessage(error, '删除失败'))
+  }
 }
 
 onMounted(() => fetchCategories())

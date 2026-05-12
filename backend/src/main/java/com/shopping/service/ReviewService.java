@@ -10,6 +10,8 @@ import com.shopping.repository.ReviewRepository;
 import com.shopping.repository.UserRepository;
 import com.shopping.repository.ProductRepository;
 import com.shopping.repository.OrderRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +25,8 @@ import java.util.Map;
 
 @Service
 public class ReviewService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReviewService.class);
     
     @Autowired
     private ReviewRepository reviewRepository;
@@ -91,8 +95,9 @@ public class ReviewService {
                     "您的商品「" + product.getName() + "」收到了新评价（" + review.getRating() + "星），请及时查看。",
                     product.getId());
             }
-        } catch (Exception e) {
-            // 通知发送失败不影响评价创建
+        } catch (RuntimeException e) {
+            log.warn("发送评价通知给卖家失败: reviewId={}, productId={}, userId={}",
+                    savedReview.getId(), review.getProductId(), userId, e);
         }
         
         return savedReview;

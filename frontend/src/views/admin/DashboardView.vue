@@ -154,6 +154,8 @@ const categoryBarRef = ref<HTMLElement | null>(null)
 let salesChart: ECharts | null = null
 let orderPieChart: ECharts | null = null
 let categoryBarChart: ECharts | null = null
+let latestStatsRequestId = 0
+const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
 
 const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 5: '退款中', 6: '申请取消中' }[status] || '未知')
 const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled', 5: 'refunding', 6: 'cancel-requested' }[status] || '')
@@ -272,22 +274,38 @@ const initCategoryBarChart = () => {
 }
 
 const fetchStats = async () => {
+  const requestId = ++latestStatsRequestId
   try {
     // 获取用户数
     const usersRes: any = await adminApi.getUsers({ page: 0, size: 1 })
-    if (usersRes?.code === 200) stats.totalUsers = usersRes.data?.totalElements || 0
+    if (requestId !== latestStatsRequestId) {
+      return
+    }
+    if (usersRes?.code === 200) {
+      stats.totalUsers = usersRes.data?.totalElements || 0
+    } else {
+      debugError('获取仪表盘用户统计失败:', getResponseMessage(usersRes, '业务返回异常'))
+    }
 
     // 获取商品数据
     const productsRes: any = await adminApi.getProducts({ page: 0, size: 1000 })
+    if (requestId !== latestStatsRequestId) {
+      return
+    }
     if (productsRes?.code === 200) {
       const products = productsRes.data?.content || []
       allProducts.value = products
       stats.totalProducts = productsRes.data?.totalElements || products.length
       stats.lowStockProducts = products.filter((p: any) => p.stock < 10).length
+    } else {
+      debugError('获取仪表盘商品统计失败:', getResponseMessage(productsRes, '业务返回异常'))
     }
 
     // 获取订单数据
     const ordersRes: any = await adminApi.getAllOrders({ page: 0, size: 1000 })
+    if (requestId !== latestStatsRequestId) {
+      return
+    }
     if (ordersRes?.code === 200) {
       const orders = ordersRes.data || []
       allOrders.value = orders
@@ -303,14 +321,22 @@ const fetchStats = async () => {
       
       // 最近订单
       recentOrders.value = orders.slice(0, 5)
+    } else {
+      debugError('获取仪表盘订单统计失败:', getResponseMessage(ordersRes, '业务返回异常'))
     }
 
     // 初始化图表
+    if (requestId !== latestStatsRequestId) {
+      return
+    }
     await nextTick()
     initSalesChart()
     initOrderPieChart()
     initCategoryBarChart()
   } catch (e) {
+    if (requestId !== latestStatsRequestId) {
+      return
+    }
     debugError('获取仪表盘统计数据失败:', e)
   }
 }

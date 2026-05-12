@@ -1,5 +1,5 @@
 <template>
-  <div class="seller-orders-page">
+  <div class="seller-orders-page" data-testid="seller-orders-view">
     <Navbar />
     <div class="container">
       <div class="page-header">
@@ -26,8 +26,8 @@
           <el-empty :description="filterStatus === 0 ? '暂无待发货订单' : '暂无订单记录'" />
         </div>
 
-        <div v-else class="order-cards">
-          <div v-for="item in orderItems" :key="item.id" class="order-card">
+        <div v-else class="order-cards" data-testid="seller-orders-list">
+          <div v-for="item in orderItems" :key="item.id" class="order-card" :data-testid="`seller-order-item-${item.id}`">
             <div class="card-header">
               <div class="order-info">
                 <span class="order-no">订单号: {{ item.orderNo }}</span>
@@ -48,7 +48,7 @@
                 </el-image>
                 <div class="product-detail">
                   <h3>{{ item.productName }}</h3>
-                  <p class="price-qty">¥{{ item.price }} x {{ item.quantity }}</p>
+                  <p class="price-qty">¥{{ Number(item.price).toFixed(2) }} x {{ item.quantity }}</p>
                   <p class="subtotal">小计: ¥{{ (item.price * item.quantity).toFixed(2) }}</p>
                 </div>
               </div>
@@ -85,11 +85,21 @@ import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
 import axios from '@/utils/axios'
 import fileApi from '@/api/fileApi'
+import { debugError } from '@/utils/debug'
+import type { Address, ApiResponse, SellerOrderItem } from '@/types'
 
-const orderItems = ref<any[]>([])
+const orderItems = ref<SellerOrderItem[]>([])
 const loading = ref(false)
 const filterStatus = ref<number | null>(null)
 const pendingCount = ref(0)
+let latestOrderItemsRequestId = 0
+let latestPendingCountRequestId = 0
+const invalidateSellerOrderRequests = () => {
+  latestOrderItemsRequestId += 1
+}
+const invalidatePendingCountRequests = () => {
+  latestPendingCountRequestId += 1
+}
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
@@ -111,51 +121,131 @@ const getOrderStatusClass = (status: number) => {
   return map[status] || ''
 }
 
-const formatAddress = (addr: any) => {
+const formatAddress = (addr?: Address) => {
   if (!addr) return ''
   return `${addr.name || addr.receiver || ''} ${addr.phone || ''} ${addr.province || ''}${addr.city || ''}${addr.district || ''}${addr.detail || ''}`
 }
 
-const fetchPendingCount = async () => {
-  try {
-    const res: any = await axios.get('/orders/seller/pending/count')
-    if (res?.code === 200) {
-      pendingCount.value = res.data || 0
-    }
-  } catch (e) { console.error(e) }
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
 }
 
-const fetchOrderItems = async () => {
+const fetchPendingCount = async () => {
+  const requestId = ++latestPendingCountRequestId
+  try {
+    const res = await axios.get('/orders/seller/pending/count') as ApiResponse<number>
+    if (requestId !== latestPendingCountRequestId) {
+      return
+    }
+    if (res?.code === 200) {
+      pendingCount.value = res.data || 0
+    } else {
+      debugError('获取待发货数量失败:', res?.message || '待发货数量返回异常')
+    }
+  } catch (error) {
+    if (requestId !== latestPendingCountRequestId) {
+      return
+    }
+    debugError('获取待发货数量失败:', error)
+  }
+}
+
+const fetchOrderItems = async (showError: boolean = true) => {
+  const requestId = ++latestOrderItemsRequestId
   loading.value = true
   try {
-    const params: any = {}
+    const params: Record<string, number> = {}
     if (filterStatus.value !== null) {
       params.shipStatus = filterStatus.value
     }
-    const res: any = await axios.get('/orders/seller/items', { params })
+    const res = await axios.get('/orders/seller/items', { params }) as ApiResponse<SellerOrderItem[]>
+    if (requestId !== latestOrderItemsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       orderItems.value = res.data || []
+    } else {
+      const message = res?.message || '获取订单列表失败'
+      debugError('获取卖家订单项失败:', message)
+      if (showError) {
+        ElMessage.error(message)
+      }
     }
-  } catch (e) { console.error(e) }
-  finally { loading.value = false }
+  } catch (error) {
+    if (requestId !== latestOrderItemsRequestId) {
+      return
+    }
+    debugError('获取卖家订单项失败:', error)
+    if (showError) {
+      ElMessage.error(getErrorMessage(error, '获取订单列表失败'))
+    }
+  }
+  finally {
+    if (requestId === latestOrderItemsRequestId) {
+      loading.value = false
+    }
+  }
 }
 
 const handleFilterChange = () => {
   fetchOrderItems()
 }
 
-const handleShip = async (item: any) => {
+const refreshSellerOrdersAfterSuccess = async () => {
+  try {
+    await fetchOrderItems(false)
+    await fetchPendingCount()
+  } catch (error) {
+    debugError('发货成功后刷新卖家订单失败:', error)
+  }
+}
+
+const applyLocalOrderItems = (nextItems: SellerOrderItem[]) => {
+  if (filterStatus.value === null) {
+    orderItems.value = nextItems
+    return
+  }
+  orderItems.value = nextItems.filter((item) => item.shipStatus === filterStatus.value)
+}
+
+const handleShip = async (item: SellerOrderItem) => {
   try {
     await ElMessageBox.confirm(
       `确定要发货商品"${item.productName}"吗？`,
       '确认发货',
       { confirmButtonText: '确定发货', cancelButtonText: '取消', type: 'info' }
     )
-    await axios.put(`/orders/seller/items/${item.id}/ship`)
-    ElMessage.success('发货成功')
-    fetchOrderItems()
-    fetchPendingCount()
-  } catch {}
+    const res = await axios.put(`/orders/seller/items/${item.id}/ship`) as ApiResponse<unknown>
+    if (res?.code === 200) {
+      invalidateSellerOrderRequests()
+      invalidatePendingCountRequests()
+      applyLocalOrderItems(
+        orderItems.value.map((current) =>
+          current.id === item.id
+            ? { ...current, shipStatus: 1 }
+            : current
+        )
+      )
+      pendingCount.value = Math.max(0, Number(pendingCount.value || 0) - 1)
+      ElMessage.success('发货成功')
+      await refreshSellerOrdersAfterSuccess()
+      return
+    }
+    const message = res?.message || '发货失败'
+    debugError('卖家发货失败:', message)
+    ElMessage.error(message)
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
+      return
+    }
+    debugError('卖家发货失败:', error)
+    ElMessage.error(getErrorMessage(error, '发货失败'))
+  }
 }
 
 onMounted(() => {

@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <div class="coupons-manage">
+    <div class="coupons-manage" data-testid="admin-coupons-view">
       <div class="toolbar">
         <div class="toolbar-left">
           <span class="total-count">共 {{ coupons.length }} 张优惠券</span>
@@ -106,7 +106,7 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button @click="closeDialog">取消</el-button>
           <el-button type="primary" @click="saveCoupon" :loading="saving">保存</el-button>
         </template>
       </el-dialog>
@@ -119,6 +119,7 @@ import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
 import couponApi from '@/api/couponApi'
+import { debugError } from '@/utils/debug'
 
 const coupons = ref<any[]>([])
 const loading = ref(false)
@@ -127,6 +128,10 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref<number | null>(null)
 const dateRange = ref<[Date, Date] | null>(null)
+let latestCouponsRequestId = 0
+const invalidateCouponRequests = () => {
+  latestCouponsRequestId += 1
+}
 
 const form = reactive({
   name: '',
@@ -154,6 +159,25 @@ const resetForm = () => {
   form.status = 1
   dateRange.value = null
 }
+
+const closeDialog = () => {
+  dialogVisible.value = false
+  isEdit.value = false
+  editId.value = null
+  resetForm()
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
+
+const getResponseMessage = (response: { message?: string } | null | undefined, fallback: string) =>
+  response?.message || fallback
 
 const getTypeName = (type: number) => {
   const names: Record<number, string> = { 1: '满减券', 2: '折扣券', 3: '无门槛' }
@@ -199,17 +223,70 @@ const openDialog = (coupon?: any) => {
 }
 
 const fetchCoupons = async () => {
+  const requestId = ++latestCouponsRequestId
   loading.value = true
   try {
     const res: any = await couponApi.getAllCoupons()
+    if (requestId !== latestCouponsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       coupons.value = res.data || []
+      reconcileEditingCoupon(coupons.value)
+    } else {
+      debugError('获取优惠券管理列表失败', res?.message || '业务返回异常')
     }
   } catch (e) {
-    console.error(e)
+    if (requestId !== latestCouponsRequestId) {
+      return
+    }
+    debugError('获取优惠券管理列表失败', e)
   } finally {
-    loading.value = false
+    if (requestId === latestCouponsRequestId) {
+      loading.value = false
+    }
   }
+}
+
+const refreshCouponsAfterSuccess = async (actionLabel: string) => {
+  try {
+    await fetchCoupons()
+  } catch (error) {
+    debugError(`${actionLabel}成功后刷新优惠券列表失败`, error)
+  }
+}
+
+const applyLocalCouponUpdate = (couponId: number, updater: (coupon: any) => any) => {
+  coupons.value = coupons.value.map((item) => (item.id === couponId ? updater(item) : item))
+}
+
+const upsertLocalCoupon = (coupon: any) => {
+  const existingIndex = coupons.value.findIndex((item) => item.id === coupon.id)
+  if (existingIndex >= 0) {
+    coupons.value = coupons.value.map((item, index) => (index === existingIndex ? { ...item, ...coupon } : item))
+    return
+  }
+  coupons.value = [coupon, ...coupons.value]
+}
+
+const reconcileEditingCoupon = (nextCoupons: any[]) => {
+  if (!isEdit.value || editId.value === null) return
+  const matchedCoupon = nextCoupons.find((item) => item.id === editId.value)
+  if (!matchedCoupon) {
+    closeDialog()
+    return
+  }
+  form.name = matchedCoupon.name
+  form.type = matchedCoupon.type
+  form.discountAmount = matchedCoupon.discountAmount || 10
+  form.discountRate = matchedCoupon.discountRate || 0.8
+  form.minAmount = matchedCoupon.minAmount || 0
+  form.maxDiscount = matchedCoupon.maxDiscount || 0
+  form.totalCount = matchedCoupon.totalCount
+  form.limitPerUser = matchedCoupon.limitPerUser || 1
+  form.description = matchedCoupon.description || ''
+  form.status = matchedCoupon.status
+  dateRange.value = [new Date(matchedCoupon.startTime), new Date(matchedCoupon.endTime)]
 }
 
 const saveCoupon = async () => {
@@ -224,6 +301,7 @@ const saveCoupon = async () => {
   
   saving.value = true
   try {
+    const actionLabel = isEdit.value ? '保存优惠券' : '新增优惠券'
     const data: any = {
       name: form.name,
       type: form.type,
@@ -248,16 +326,45 @@ const saveCoupon = async () => {
     }
     
     if (isEdit.value && editId.value) {
-      await couponApi.updateCoupon(editId.value, data)
-      ElMessage.success('优惠券更新成功')
+      const res: any = await couponApi.updateCoupon(editId.value, data)
+      if (res?.code === 200) {
+        invalidateCouponRequests()
+        upsertLocalCoupon({
+          ...(coupons.value.find((item) => item.id === editId.value) || {}),
+          ...data,
+          ...(res.data || {}),
+          id: res?.data?.id ?? editId.value
+        })
+        ElMessage.success(getResponseMessage(res, '优惠券更新成功'))
+      } else {
+        const message = getResponseMessage(res, '优惠券更新失败')
+        debugError('保存优惠券失败', message)
+        ElMessage.error(message)
+        return
+      }
     } else {
-      await couponApi.createCoupon(data)
-      ElMessage.success('优惠券添加成功')
+      const res: any = await couponApi.createCoupon(data)
+      if (res?.code === 200) {
+        invalidateCouponRequests()
+        if (res?.data?.id != null) {
+          upsertLocalCoupon({
+            ...data,
+            ...res.data
+          })
+        }
+        ElMessage.success(getResponseMessage(res, '优惠券添加成功'))
+      } else {
+        const message = getResponseMessage(res, '优惠券添加失败')
+        debugError('保存优惠券失败', message)
+        ElMessage.error(message)
+        return
+      }
     }
-    dialogVisible.value = false
-    fetchCoupons()
+    closeDialog()
+    await refreshCouponsAfterSuccess(actionLabel)
   } catch (e) {
-    ElMessage.error('保存失败')
+    debugError('保存优惠券失败', e)
+    ElMessage.error(getErrorMessage(e, '保存失败'))
   } finally {
     saving.value = false
   }
@@ -265,21 +372,51 @@ const saveCoupon = async () => {
 
 const toggleStatus = async (coupon: any) => {
   try {
-    await couponApi.updateCoupon(coupon.id, { status: coupon.status })
-    ElMessage.success(coupon.status === 1 ? '已启用' : '已禁用')
+    const res: any = await couponApi.updateCoupon(coupon.id, { status: coupon.status })
+    if (res?.code === 200) {
+      invalidateCouponRequests()
+      applyLocalCouponUpdate(coupon.id, (item) => ({
+        ...item,
+        status: coupon.status
+      }))
+      await refreshCouponsAfterSuccess('切换优惠券状态')
+      ElMessage.success(coupon.status === 1 ? '已启用' : '已禁用')
+      return
+    }
+
+    coupon.status = coupon.status === 1 ? 0 : 1
+    const message = getResponseMessage(res, '操作失败')
+    debugError('切换优惠券状态失败', message)
+    ElMessage.error(message)
   } catch (e) {
     coupon.status = coupon.status === 1 ? 0 : 1
-    ElMessage.error('操作失败')
+    debugError('切换优惠券状态失败', e)
+    ElMessage.error(getErrorMessage(e, '操作失败'))
   }
 }
 
 const handleDelete = async (coupon: any) => {
   try {
     await ElMessageBox.confirm(`确定要删除优惠券"${coupon.name}"吗？`, '提示', { type: 'warning' })
-    await couponApi.deleteCoupon(coupon.id)
-    ElMessage.success('删除成功')
-    fetchCoupons()
-  } catch {}
+    const res: any = await couponApi.deleteCoupon(coupon.id)
+    if (res?.code !== 200) {
+      const message = getResponseMessage(res, '删除失败')
+      debugError('删除优惠券失败', message)
+      ElMessage.error(message)
+      return
+    }
+
+    ElMessage.success(getResponseMessage(res, '删除成功'))
+    invalidateCouponRequests()
+    coupons.value = coupons.value.filter((item) => item.id !== coupon.id)
+    await refreshCouponsAfterSuccess('删除优惠券')
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
+      return
+    }
+    debugError('删除优惠券失败', error)
+    ElMessage.error(getErrorMessage(error, '删除失败'))
+  }
 }
 
 onMounted(() => fetchCoupons())

@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <div class="users-manage">
+    <div class="users-manage" data-testid="admin-users-view">
       <div class="toolbar">
         <div class="toolbar-left">
           <el-input v-model="searchKeyword" placeholder="搜索用户名/邮箱" style="width: 240px" @keyup.enter="fetchUsers">
@@ -108,6 +108,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
 import fileApi from '@/api/fileApi'
+import { debugError } from '@/utils/debug'
 
 const users = ref<any[]>([])
 const loading = ref(false)
@@ -117,12 +118,28 @@ const currentUser = ref<any>(null)
 const searchKeyword = ref('')
 const filterStatus = ref<number | null>(null)
 
-const getAvatarUrl = (avatar: string) => fileApi.getImageUrl(avatar)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+let latestUsersRequestId = 0
+const invalidateUserRequests = () => {
+  latestUsersRequestId += 1
+}
 
-const defaultAvatar = 'https://api.dicebear.com/7.x/notionists/svg?seed=default'
+const getDefaultAvatarUrl = (name: string) =>
+  'data:image/svg+xml,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#9b87f5"/><stop offset="100%" style="stop-color:#6ec5ff"/></linearGradient></defs><rect width="100" height="100" rx="50" fill="url(#g)"/><text x="50" y="60" font-size="36" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="600">${name}</text></svg>`
+  )
+
+const getAvatarUrl = (avatar: string, username: string = 'U') => {
+  if (avatar) {
+    return fileApi.getImageUrl(avatar)
+  }
+  return getDefaultAvatarUrl(username.charAt(0).toUpperCase() || 'U')
+}
+
+const isMessageBoxCancel = (error: unknown) => error === 'cancel' || error === 'close'
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return null
@@ -130,7 +147,17 @@ const formatDate = (dateStr: string) => {
   return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`
 }
 
+const reconcileCurrentUser = () => {
+  if (!currentUser.value) return
+  const nextCurrentUser = users.value.find((item) => item.id === currentUser.value.id) || null
+  currentUser.value = nextCurrentUser
+  if (!nextCurrentUser) {
+    detailVisible.value = false
+  }
+}
+
 const fetchUsers = async () => {
+  const requestId = ++latestUsersRequestId
   loading.value = true
   try {
     const params: any = { page: currentPage.value - 1, size: pageSize.value }
@@ -138,12 +165,27 @@ const fetchUsers = async () => {
     if (filterStatus.value !== null) params.status = filterStatus.value
     
     const res: any = await adminApi.getUsers(params)
+    if (requestId !== latestUsersRequestId) {
+      return
+    }
     if (res?.code === 200) {
       users.value = res.data?.content || []
       total.value = res.data?.totalElements || 0
+      reconcileCurrentUser()
+    } else {
+      debugError('获取用户列表失败:', res?.message || '用户列表返回异常')
     }
-  } catch (e) { console.error(e) }
-  finally { loading.value = false }
+  } catch (e) {
+    if (requestId !== latestUsersRequestId) {
+      return
+    }
+    debugError('获取用户列表失败', e)
+  }
+  finally {
+    if (requestId === latestUsersRequestId) {
+      loading.value = false
+    }
+  }
 }
 
 const viewDetail = (user: any) => {
@@ -151,14 +193,52 @@ const viewDetail = (user: any) => {
   detailVisible.value = true
 }
 
+const refreshUsersAfterSuccess = async (actionLabel: string) => {
+  try {
+    await fetchUsers()
+  } catch (error) {
+    debugError(`${actionLabel}成功后刷新用户列表失败:`, error)
+  }
+}
+
+const applyLocalUserStatus = (userId: number, status: number) => {
+  users.value = users.value.map((item) =>
+    item.id === userId
+      ? {
+          ...item,
+          status
+        }
+      : item
+  )
+
+  if (currentUser.value?.id === userId) {
+    currentUser.value = {
+      ...currentUser.value,
+      status
+    }
+  }
+}
+
 const toggleStatus = async (user: any, status: number) => {
   const action = status === 1 ? '启用' : '禁用'
   try {
     await ElMessageBox.confirm(`确定要${action}用户"${user.username}"吗？`, '提示', { type: 'warning' })
-    await adminApi.updateUserStatus(user.id, status)
-    user.status = status
+    const res: any = await adminApi.updateUserStatus(user.id, status)
+    if (res?.code !== undefined && res?.code !== 200) {
+      const message = res?.message || `${action}失败`
+      debugError(`管理员${action}用户失败:`, message)
+      ElMessage.error(message)
+      return
+    }
+    invalidateUserRequests()
+    applyLocalUserStatus(user.id, status)
+    await refreshUsersAfterSuccess(`${action}用户`)
     ElMessage.success(`用户已${action}`)
-  } catch {}
+  } catch (error) {
+    if (isMessageBoxCancel(error)) return
+    debugError(`管理员${action}用户失败:`, error)
+    ElMessage.error(`${action}失败`)
+  }
 }
 
 const resetCoupons = async (user: any) => {
@@ -168,9 +248,15 @@ const resetCoupons = async (user: any) => {
     if (res?.code === 200) {
       ElMessage.success(res.message || '重置成功')
     } else {
-      ElMessage.error(res?.message || '重置失败')
+      const message = res?.message || '重置失败'
+      debugError('重置用户优惠券失败:', message)
+      ElMessage.error(message)
     }
-  } catch {}
+  } catch (error) {
+    if (isMessageBoxCancel(error)) return
+    debugError('重置用户优惠券失败:', error)
+    ElMessage.error('重置失败')
+  }
 }
 
 onMounted(() => fetchUsers())

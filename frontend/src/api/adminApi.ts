@@ -134,7 +134,7 @@ const adminApi = {
    * 删除订单（仅限已完成或已取消的订单）
    */
   deleteOrder(orderId: number): Promise<ApiResponse<void>> {
-    return axios.delete(`/orders/${orderId}`)
+    return axios.delete(`/orders/${orderId}/admin`)
   },
 
   // ==================== 统计数据 ====================
@@ -176,6 +176,26 @@ const adminApi = {
    */
   resetUserCoupons(userId: number, couponId?: number): Promise<ApiResponse<number>> {
     return axios.post('/coupons/admin/reset-user-coupon', { userId, couponId })
+  },
+
+  getContactMessages(): Promise<ApiResponse<Array<{
+    id: number
+    name: string
+    contact: string
+    type: string
+    content: string
+    status: string
+    createdTime: string
+  }>>> {
+    return axios.get('/contact-messages/admin')
+  },
+
+  updateContactMessageStatus(id: number, status: 'pending' | 'handled'): Promise<ApiResponse<void>> {
+    return axios.put(`/contact-messages/admin/${id}/status`, { status })
+  },
+
+  deleteContactMessage(id: number): Promise<ApiResponse<void>> {
+    return axios.delete(`/contact-messages/admin/${id}`)
   }
 }
 
