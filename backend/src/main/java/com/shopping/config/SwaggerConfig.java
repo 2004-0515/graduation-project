@@ -28,7 +28,7 @@ public class SwaggerConfig {
                 // 设置服务器信息
                 .servers(
                         List.of(
-                                new Server().url("http://localhost:8080").description("开发环境")
+                                new Server().url("/").description("当前环境")
                         )
                 )
                 // 添加安全要求

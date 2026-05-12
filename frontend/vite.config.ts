@@ -5,7 +5,9 @@ import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import path from 'path'
 
-const apiProxyTarget = process.env.VITE_PROXY_TARGET || 'http://localhost:8080'
+// Local Vite dev may proxy to a same-machine backend by default.
+// Shared environments and deployment-like runs should always set VITE_PROXY_TARGET explicitly.
+const apiProxyTarget = process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8080'
 
 // https://vite.dev/config/
 export default defineConfig({

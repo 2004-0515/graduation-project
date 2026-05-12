@@ -40,6 +40,16 @@ export interface UserUpdateData {
   avatar?: string
 }
 
+export interface UserOrderStats {
+  orderCount: number
+  pendingPayment: number
+  pendingShipment: number
+  pendingReceive: number
+  cartCount: number
+  priceAlertCount: number
+  sellerPendingCount: number
+}
+
 export interface Product {
   id: number
   name: string
@@ -134,6 +144,41 @@ export interface OrderItem {
   price: number
   quantity: number
   reviewed?: boolean
+  shipStatus?: number
+  shipTime?: string
+  orderNo?: string
+  orderStatus?: OrderStatus
+  buyerName?: string
+  createdTime?: string
+  shippingAddress?: Address
+}
+
+export interface SellerOrderItem extends OrderItem {
+  shipStatus: number
+  orderNo: string
+  orderStatus: OrderStatus
+  buyerName: string
+  createdTime: string
+}
+
+export type NotificationType =
+  | 'system'
+  | 'order'
+  | 'promotion'
+  | 'file_review'
+  | 'product_review'
+  | 'review'
+
+export interface NotificationSettingsState {
+  order: boolean
+  promotion: boolean
+  system: boolean
+  logistics: boolean
+  comment: boolean
+}
+
+export interface PrivacySettingsState {
+  profileVisibility: 'public' | 'friends' | 'private'
 }
 
 export enum PaymentMethod {

@@ -37,7 +37,7 @@ public final class OrderConstants {
         }
         
         public static boolean canCancel(int status) {
-            return status == PENDING_PAYMENT || status == PENDING_SHIPMENT;
+            return status == PENDING_PAYMENT;
         }
         
         public static boolean canRequestCancel(int status) {

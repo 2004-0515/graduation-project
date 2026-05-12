@@ -3,6 +3,7 @@ package com.shopping.config;
 import com.shopping.filter.JwtAuthenticationFilter;
 import com.shopping.filter.RateLimiterFilter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -18,6 +19,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import static org.springframework.http.HttpMethod.GET;
+import static org.springframework.http.HttpMethod.POST;
 
 @Configuration
 @EnableWebSecurity
@@ -28,6 +30,9 @@ public class SecurityConfig {
     
     @Autowired
     private RateLimiterFilter rateLimiterFilter;
+
+    @Value("${spring.web.cors.allowed-origins}")
+    private String allowedOrigins;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -50,12 +55,15 @@ public class SecurityConfig {
             .authorizeHttpRequests(authorize -> authorize
                 // 允许匿名访问的API - 使用相对路径，因为context-path已经在application.properties中配置
                 .requestMatchers("/auth/login", "/auth/register", "/auth/captcha", "/auth/validate-captcha", "/auth/test-password-match", "/categories/**", "/products/**").permitAll()
+                .requestMatchers(POST, "/contact-messages").permitAll()
+                .requestMatchers(GET, "/price/history/**", "/price/stats/**").permitAll()
                 // 允许访问上传的文件
                 .requestMatchers("/uploads/**").permitAll()
                 // 允许匿名查看商品评价
                 .requestMatchers(GET, "/reviews/product/**").permitAll()
-                // 优惠券公开信息允许匿名查看，领取和我的优惠券仍然需要登录
+                // 优惠券公开信息允许匿名查看；领取请求放行到控制器，由控制器统一返回中文登录提示
                 .requestMatchers(GET, "/coupons", "/coupons/*").permitAll()
+                .requestMatchers(POST, "/coupons/*/claim").permitAll()
                 // 搜索相关API - 建议和热词允许匿名访问，历史记录需要登录
                 .requestMatchers("/search/suggestions", "/search/hot-keywords", "/search/stats").permitAll()
                 .requestMatchers("/search/history/**").authenticated()
@@ -81,16 +89,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // 从环境变量读取允许的来源，支持多个来源
-        String allowedOrigins = System.getenv("CORS_ALLOWED_ORIGINS");
-        if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
-            for (String origin : allowedOrigins.split(",")) {
-                configuration.addAllowedOriginPattern(origin.trim());
+        // 统一从 Spring 配置读取，避免环境变量和额外 CORS Bean 产生双重语义。
+        for (String origin : allowedOrigins.split(",")) {
+            String trimmedOrigin = origin.trim();
+            if (!trimmedOrigin.isEmpty()) {
+                configuration.addAllowedOriginPattern(trimmedOrigin);
             }
-        } else {
-            // 开发环境默认配置
-            configuration.addAllowedOriginPattern("http://localhost:*");
-            configuration.addAllowedOriginPattern("http://127.0.0.1:*");
         }
         configuration.addAllowedMethod("*");
         configuration.addAllowedHeader("*");
