@@ -148,9 +148,33 @@ const MAX_RETRY = 3 // 最大重试次数
 const hasLoadedMusic = ref(false)
 const hasAttemptedLoad = ref(false)
 let deferredLoadTimer: ReturnType<typeof setTimeout> | null = null
+let latestLoadMusicRequestId = 0
+const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
+
+type PlayerState = {
+  currentMusicId?: number | null
+  currentIndex?: number
+  currentTime?: number
+  volume?: number
+  isMuted?: boolean
+  loopMode?: 'none' | 'list' | 'single'
+  isPlaying?: boolean
+  isMinimized?: boolean
+  isExpanded?: boolean
+}
 
 // 播放状态持久化的key
 const STORAGE_KEY = 'musicPlayerState'
+const MUSIC_PLAYER_POSITION_KEY = 'musicPlayerPosition'
+
+const readStorageValue = (key: string) => {
+  try {
+    return localStorage.getItem(key)
+  } catch (error) {
+    debugError(`读取${key === STORAGE_KEY ? '播放状态' : '播放器位置'}失败`, error)
+    return null
+  }
+}
 
 // 保存播放状态到localStorage
 const savePlayerState = () => {
@@ -166,15 +190,35 @@ const savePlayerState = () => {
     isMinimized: isMinimized.value,
     isExpanded: isExpanded.value
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  } catch (error) {
+    debugError('保存播放状态失败', error)
+  }
 }
 
 // 从localStorage恢复播放状态
-const restorePlayerState = () => {
-  const saved = localStorage.getItem(STORAGE_KEY)
+const clearPlayerState = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch (error) {
+    debugError('清理播放状态失败', error)
+  }
+}
+
+const clearPlayerPosition = () => {
+  try {
+    localStorage.removeItem(MUSIC_PLAYER_POSITION_KEY)
+  } catch (error) {
+    debugError('清理播放器位置失败', error)
+  }
+}
+
+const restorePlayerState = (): PlayerState | undefined => {
+  const saved = readStorageValue(STORAGE_KEY)
   if (saved) {
     try {
-      const state = JSON.parse(saved)
+      const state = JSON.parse(saved) as PlayerState
       volume.value = state.volume ?? 80
       isMuted.value = state.isMuted ?? false
       loopMode.value = state.loopMode ?? 'list'
@@ -183,9 +227,10 @@ const restorePlayerState = () => {
       return state
     } catch (e) {
       debugError('恢复播放状态失败', e)
+      clearPlayerState()
     }
   }
-  return null
+  return undefined
 }
 
 // 拖拽相关
@@ -214,11 +259,22 @@ const volumeIcon = computed(() => {
 
 // 初始化位置
 const initPosition = () => {
-  const saved = localStorage.getItem('musicPlayerPosition')
+  const saved = readStorageValue(MUSIC_PLAYER_POSITION_KEY)
   if (saved) {
-    const pos = JSON.parse(saved)
-    position.x = pos.x
-    position.y = pos.y
+    try {
+      const pos = JSON.parse(saved) as { x?: number; y?: number }
+      if (typeof pos.x === 'number' && typeof pos.y === 'number') {
+        position.x = pos.x
+        position.y = pos.y
+      } else {
+        throw new Error('播放器位置缓存格式无效')
+      }
+    } catch (error) {
+      debugError('恢复播放器位置失败', error)
+      clearPlayerPosition()
+      position.x = window.innerWidth - 380
+      position.y = window.innerHeight - 480
+    }
   } else {
     position.x = window.innerWidth - 380
     position.y = window.innerHeight - 480
@@ -254,7 +310,11 @@ const stopDrag = () => {
   isDragging.value = false
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
-  localStorage.setItem('musicPlayerPosition', JSON.stringify({ x: position.x, y: position.y }))
+  try {
+    localStorage.setItem(MUSIC_PLAYER_POSITION_KEY, JSON.stringify({ x: position.x, y: position.y }))
+  } catch (error) {
+    debugError('保存播放器位置失败', error)
+  }
 }
 
 const handleMiniClick = () => {
@@ -349,12 +409,16 @@ const toggleVolumePanel = () => {
 const onResize = () => constrainPosition()
 
 const loadMusic = async (isRetry = false) => {
+  const requestId = ++latestLoadMusicRequestId
   hasAttemptedLoad.value = true
   isLoading.value = true
   loadError.value = false
   
   try {
     const res: any = await musicApi.getEnabledMusic()
+    if (requestId !== latestLoadMusicRequestId) {
+      return
+    }
     if (res?.code === 200) {
       musicList.value = res.data || []
       hasLoadedMusic.value = true
@@ -395,9 +459,12 @@ const loadMusic = async (isRetry = false) => {
         }
       }
     } else {
-      throw new Error('API返回错误')
+      throw new Error(getResponseMessage(res, 'API返回错误'))
     }
   } catch (e) { 
+    if (requestId !== latestLoadMusicRequestId) {
+      return
+    }
     debugError('加载音乐失败', e)
     loadError.value = true
     
@@ -410,7 +477,9 @@ const loadMusic = async (isRetry = false) => {
       }, 2000 * retryCount.value) // 递增延迟: 2s, 4s, 6s
     }
   } finally {
-    isLoading.value = false
+    if (requestId === latestLoadMusicRequestId) {
+      isLoading.value = false
+    }
   }
 }
 

@@ -8,33 +8,51 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import MusicPlayer from '@/components/MusicPlayer.vue'
+import { debugError } from '@/utils/debug'
+
+let mediaQueryList: MediaQueryList | null = null
+let handleThemeChange: ((event: MediaQueryListEvent) => void) | null = null
+
+const readAppearanceStorage = (key: 'fontSize' | 'theme') => {
+  try {
+    return localStorage.getItem(key)
+  } catch (error) {
+    debugError(`读取${key === 'fontSize' ? '字体大小' : '主题'}设置失败:`, error)
+    return null
+  }
+}
 
 // 初始化主题和字体大小设置
 const initAppearanceSettings = () => {
   // 字体大小
-  const savedFontSize = localStorage.getItem('fontSize')
+  const savedFontSize = readAppearanceStorage('fontSize')
   if (savedFontSize) {
     const sizeMap: Record<string, string> = { small: '14px', medium: '16px', large: '18px' }
     document.documentElement.style.setProperty('--base-font-size', sizeMap[savedFontSize] || '16px')
   }
   
   // 主题
-  const savedTheme = localStorage.getItem('theme')
+  const savedTheme = readAppearanceStorage('theme')
   if (savedTheme === 'dark') {
     document.documentElement.classList.add('dark-theme')
   } else if (savedTheme === 'auto') {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
     if (prefersDark) {
       document.documentElement.classList.add('dark-theme')
+    } else {
+      document.documentElement.classList.remove('dark-theme')
     }
+  } else {
+    document.documentElement.classList.remove('dark-theme')
   }
   
   // 监听系统主题变化
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    const currentTheme = localStorage.getItem('theme')
+  mediaQueryList = window.matchMedia('(prefers-color-scheme: dark)')
+  handleThemeChange = (e) => {
+    const currentTheme = readAppearanceStorage('theme')
     if (currentTheme === 'auto') {
       if (e.matches) {
         document.documentElement.classList.add('dark-theme')
@@ -42,11 +60,20 @@ const initAppearanceSettings = () => {
         document.documentElement.classList.remove('dark-theme')
       }
     }
-  })
+  }
+  mediaQueryList.addEventListener('change', handleThemeChange)
 }
 
 onMounted(() => {
   initAppearanceSettings()
+})
+
+onUnmounted(() => {
+  if (mediaQueryList && handleThemeChange) {
+    mediaQueryList.removeEventListener('change', handleThemeChange)
+  }
+  mediaQueryList = null
+  handleThemeChange = null
 })
 </script>
 

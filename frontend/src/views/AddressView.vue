@@ -1,15 +1,15 @@
 <template>
-  <div class="address-page">
+  <div class="address-page" data-testid="address-view">
     <Navbar />
     <main class="main-content">
       <div class="container">
         <div class="page-header">
           <h1>收货地址</h1>
-          <button class="add-btn" @click="openDialog()">添加地址</button>
+          <button class="add-btn" data-testid="address-add" @click="openDialog()">添加地址</button>
         </div>
 
-        <div class="address-list" v-if="addresses.length > 0">
-          <div v-for="addr in addresses" :key="addr.id" class="address-card">
+        <div class="address-list" v-if="addresses.length > 0" data-testid="address-list">
+          <div v-for="addr in addresses" :key="addr.id" class="address-card" :data-testid="`address-card-${addr.id}`">
             <div class="card-main">
               <div class="addr-header">
                 <span class="name">{{ addr.name }}</span>
@@ -19,9 +19,9 @@
               <p class="addr-detail">{{ addr.province }}{{ addr.city }}{{ addr.district }}{{ addr.detail }}</p>
             </div>
             <div class="card-actions">
-              <button v-if="!addr.isDefault" @click="setDefault(addr)">设为默认</button>
-              <button @click="openDialog(addr)">编辑</button>
-              <button class="delete" @click="deleteAddress(addr)">删除</button>
+              <button v-if="!addr.isDefault" :data-testid="`address-set-default-${addr.id}`" @click="setDefault(addr)">设为默认</button>
+              <button :data-testid="`address-edit-${addr.id}`" @click="openDialog(addr)">编辑</button>
+              <button class="delete" :data-testid="`address-delete-${addr.id}`" @click="deleteAddress(addr)">删除</button>
             </div>
           </div>
         </div>
@@ -36,15 +36,15 @@
     </main>
 
     <!-- 地址弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑地址' : '添加地址'" width="480px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑地址' : '添加地址'" width="480px" data-testid="address-dialog">
       <el-form :model="addressForm" label-position="top">
         <el-form-item label="收货人">
-          <el-input v-model="addressForm.name" placeholder="请输入收货人姓名" />
+          <el-input v-model="addressForm.name" placeholder="请输入收货人姓名" data-testid="address-name-input" />
         </el-form-item>
         <el-form-item label="手机号">
           <div class="phone-input-row">
-            <el-input v-model="addressForm.phone" placeholder="请输入手机号" />
-            <button type="button" class="use-my-phone-btn" @click="useMyPhone" v-if="userStore.userInfo?.phone">
+            <el-input v-model="addressForm.phone" placeholder="请输入手机号" data-testid="address-phone-input" />
+            <button type="button" class="use-my-phone-btn" data-testid="address-use-my-phone" @click="useMyPhone" v-if="userStore.userInfo?.phone">
               使用个人手机
             </button>
           </div>
@@ -55,6 +55,7 @@
             :options="cascaderOptions"
             :props="{ expandTrigger: 'hover' }"
             placeholder="请选择省/市/区"
+            data-testid="address-region-input"
             clearable
             filterable
             style="width: 100%"
@@ -62,15 +63,15 @@
           />
         </el-form-item>
         <el-form-item label="详细地址">
-          <el-input v-model="addressForm.detail" type="textarea" :rows="2" placeholder="请输入详细地址" />
+          <el-input v-model="addressForm.detail" type="textarea" :rows="2" placeholder="请输入详细地址" data-testid="address-detail-input" />
         </el-form-item>
         <el-form-item>
-          <el-checkbox v-model="addressForm.isDefault">设为默认地址</el-checkbox>
+          <el-checkbox v-model="addressForm.isDefault" data-testid="address-default-checkbox">设为默认地址</el-checkbox>
         </el-form-item>
       </el-form>
       <template #footer>
-        <button class="btn-cancel" @click="dialogVisible = false">取消</button>
-        <button class="btn-confirm" @click="saveAddress">保存</button>
+        <button class="btn-cancel" data-testid="address-cancel" @click="closeDialog">取消</button>
+        <button class="btn-confirm" data-testid="address-save" @click="saveAddress">保存</button>
       </template>
     </el-dialog>
 
@@ -92,6 +93,10 @@ const addresses = ref<any[]>([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref<number | null>(null)
+let latestAddressesRequestId = 0
+const invalidateAddressRequests = () => {
+  latestAddressesRequestId += 1
+}
 
 // 省市区数据
 const regionData: Record<string, Record<string, string[]>> = {
@@ -189,6 +194,19 @@ const cascaderOptions = computed<CascaderOption[]>(() => {
 // 级联选择器的值 [省, 市, 区]
 const regionValue = ref<string[]>([])
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
+
+const getResponseMessage = (response: { message?: string } | null | undefined, fallback: string) =>
+  response?.message || fallback
+const isSuccessfulResponse = (res: any) => res?.code === 200
+
 const onRegionChange = (val: string[]) => {
   if (val && val.length === 3) {
     addressForm.province = val[0]
@@ -222,6 +240,13 @@ const resetForm = () => {
   regionValue.value = []
 }
 
+const closeDialog = () => {
+  dialogVisible.value = false
+  isEdit.value = false
+  editId.value = null
+  resetForm()
+}
+
 const openDialog = (addr?: any) => {
   if (addr) {
     isEdit.value = true
@@ -250,62 +275,153 @@ const useMyPhone = () => {
 
 const fetchAddresses = async () => {
   if (!userStore.userInfo?.id) return
+  const requestId = ++latestAddressesRequestId
   try {
     const res: any = await addressApi.getUserAddresses(userStore.userInfo.id)
-    if (res?.code === 200 || res?.success) {
-      addresses.value = res.data || []
+    if (requestId !== latestAddressesRequestId) {
+      return
+    }
+    if (isSuccessfulResponse(res)) {
+      applyLocalAddressList(res.data || [])
+    } else {
+      debugError('获取地址失败:', getResponseMessage(res, '地址列表返回异常'))
     }
   } catch (error) {
+    if (requestId !== latestAddressesRequestId) {
+      return
+    }
     debugError('获取地址失败:', error)
   }
 }
 
+const refreshAddressesAfterSuccess = async (actionLabel: string) => {
+  try {
+    await fetchAddresses()
+  } catch (error) {
+    debugError(`${actionLabel}后刷新地址列表失败:`, error)
+  }
+}
+
+const applyLocalAddressList = (nextAddresses: any[]) => {
+  addresses.value = nextAddresses
+  if (!isEdit.value || editId.value === null) return
+  const matchedAddress = nextAddresses.find((item) => item.id === editId.value)
+  if (!matchedAddress) {
+    closeDialog()
+    return
+  }
+  Object.assign(addressForm, matchedAddress)
+  regionValue.value = matchedAddress.province && matchedAddress.city && matchedAddress.district
+    ? [matchedAddress.province, matchedAddress.city, matchedAddress.district]
+    : []
+}
+
 const saveAddress = async () => {
   try {
+    const actionLabel = isEdit.value ? '修改地址' : '添加地址'
     const data = { ...addressForm, userId: userStore.userInfo?.id }
     let res: any
     if (isEdit.value && editId.value) {
       res = await addressApi.updateAddress(editId.value, data)
-      if (res?.code === 200 || res?.success) {
+      if (isSuccessfulResponse(res)) {
+        invalidateAddressRequests()
+        const nextAddresses = data.isDefault
+          ? addresses.value.map((addr) => ({ ...addr, isDefault: addr.id === editId.value }))
+          : addresses.value
+        applyLocalAddressList(
+          nextAddresses.map((addr) =>
+            addr.id === editId.value
+              ? {
+                  ...addr,
+                  ...data,
+                  id: editId.value
+                }
+              : addr
+          )
+        )
         ElMessage.success('修改成功')
       } else {
-        ElMessage.error(res?.message || '修改失败')
+        const message = res?.message || '修改失败'
+        debugError('保存地址失败:', message)
+        ElMessage.error(message)
         return
       }
     } else {
       res = await addressApi.addAddress(data)
-      if (res?.code === 200 || res?.success) {
+      if (isSuccessfulResponse(res)) {
+        invalidateAddressRequests()
+        const createdAddress = res?.data && typeof res.data === 'object'
+          ? res.data
+          : {
+              ...data,
+              id: Date.now()
+            }
+        let nextAddresses = addresses.value
+        if (createdAddress.isDefault) {
+          nextAddresses = nextAddresses.map((addr) => ({ ...addr, isDefault: false }))
+        }
+        applyLocalAddressList([...nextAddresses, createdAddress])
         ElMessage.success('添加成功')
       } else {
-        ElMessage.error(res?.message || '添加失败')
+        const message = res?.message || '添加失败'
+        debugError('保存地址失败:', message)
+        ElMessage.error(message)
         return
       }
     }
-    dialogVisible.value = false
-    fetchAddresses()
+    closeDialog()
+    await refreshAddressesAfterSuccess(actionLabel)
   } catch (error: any) {
     debugError('保存地址失败:', error)
-    ElMessage.error(error?.message || '保存失败')
+    ElMessage.error(getErrorMessage(error, '保存失败'))
   }
 }
 
 const setDefault = async (addr: any) => {
   try {
-    await addressApi.setDefaultAddress(addr.id)
-    ElMessage.success('设置成功')
-    fetchAddresses()
+    const res: any = await addressApi.setDefaultAddress(addr.id)
+    if (isSuccessfulResponse(res)) {
+      invalidateAddressRequests()
+      applyLocalAddressList(
+        addresses.value.map((item) => ({
+          ...item,
+          isDefault: item.id === addr.id
+        }))
+      )
+      ElMessage.success('设置成功')
+      await refreshAddressesAfterSuccess('设置默认地址')
+    } else {
+      const message = res?.message || '设置失败'
+      debugError('设置默认地址失败:', message)
+      ElMessage.error(message)
+    }
   } catch (error) {
-    ElMessage.error('设置失败')
+    debugError('设置默认地址失败:', error)
+    ElMessage.error(getErrorMessage(error, '设置失败'))
   }
 }
 
 const deleteAddress = async (addr: any) => {
   try {
     await ElMessageBox.confirm('确定要删除这个地址吗？', '提示', { type: 'warning' })
-    await addressApi.deleteAddress(addr.id)
-    ElMessage.success('删除成功')
-    fetchAddresses()
-  } catch {}
+    const res: any = await addressApi.deleteAddress(addr.id)
+    if (isSuccessfulResponse(res)) {
+      invalidateAddressRequests()
+      applyLocalAddressList(addresses.value.filter((item) => item.id !== addr.id))
+      ElMessage.success('删除成功')
+      await refreshAddressesAfterSuccess('删除地址')
+    } else {
+      const message = res?.message || '删除失败'
+      debugError('删除地址失败:', message)
+      ElMessage.error(message)
+    }
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
+      return
+    }
+    debugError('删除地址失败:', error)
+    ElMessage.error(getErrorMessage(error, '删除失败'))
+  }
 }
 
 onMounted(() => {

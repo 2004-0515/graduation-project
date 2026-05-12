@@ -18,18 +18,35 @@ const API_CONFIG = {
   model: 'Qwen/Qwen3-8B'
 }
 
+const readApiKeyFromStorage = (): string => {
+  try {
+    return localStorage.getItem('ai_api_key') || ''
+  } catch (error) {
+    debugError('读取 AI API Key 失败:', error)
+    return ''
+  }
+}
+
+const writeApiKeyToStorage = (key: string): void => {
+  try {
+    localStorage.setItem('ai_api_key', key)
+  } catch (error) {
+    debugError('保存 AI API Key 失败:', error)
+  }
+}
+
 function getApiKey(): string {
   const envKey = import.meta.env.VITE_AI_API_KEY
   if (envKey) return envKey
-  return localStorage.getItem('ai_api_key') || ''
+  return readApiKeyFromStorage()
 }
 
 export function setApiKey(key: string): void {
-  localStorage.setItem('ai_api_key', key)
+  writeApiKeyToStorage(key)
 }
 
 export function getStoredApiKey(): string {
-  return localStorage.getItem('ai_api_key') || ''
+  return readApiKeyFromStorage()
 }
 
 let cachedCategories: any[] = []

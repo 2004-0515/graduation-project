@@ -1,5 +1,5 @@
 <template>
-  <div class="rational-page">
+  <div class="rational-page" data-testid="rational-consumption-view">
     <Navbar />
     <main class="main-content">
       <div class="container">
@@ -14,6 +14,7 @@
             v-for="tab in tabs" 
             :key="tab.key"
             :class="['tab-btn', { active: activeTab === tab.key }]"
+            :data-testid="`rational-tab-${tab.key}`"
             @click="activeTab = tab.key"
           >
             {{ tab.label }}
@@ -28,12 +29,13 @@
 
         <!-- 预算概览Tab -->
         <div v-show="activeTab === 'budget'" class="tab-content">
+          <p v-if="hasBudgetDataIssue" class="data-hint">部分预算与报告数据暂未同步，请稍后刷新重试。</p>
           <!-- 预算概览卡片 -->
           <div class="budget-overview glass-card">
             <div class="budget-header">
               <div class="budget-title">
                 <h2>本月预算</h2>
-                <button class="edit-btn" @click="showBudgetDialog = true">
+                <button class="edit-btn" data-testid="rational-budget-edit" @click="showBudgetDialog = true">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -42,9 +44,9 @@
                 </button>
               </div>
               <div class="budget-amount">
-                <span class="spent">{{ formatMoney(budgetStatus.spent) }}</span>
+                <span class="spent">{{ formatMoney(budgetStatus.spent, true, budgetStatusAvailable) }}</span>
                 <span class="divider">/</span>
-                <span class="total">{{ formatMoney(budgetStatus.budget) }}</span>
+                <span class="total">{{ formatMoney(budgetStatus.budget, true, budgetStatusAvailable) }}</span>
               </div>
             </div>
             
@@ -57,18 +59,18 @@
                 ></div>
               </div>
               <div class="progress-labels">
-                <span>已使用 {{ budgetStatus.usedPercent || 0 }}%</span>
-                <span>剩余 {{ formatMoney(budgetStatus.remaining) }}</span>
+                <span>已使用 {{ budgetStatusAvailable ? `${budgetStatus.usedPercent || 0}%` : '--' }}</span>
+                <span>剩余 {{ formatMoney(budgetStatus.remaining, true, budgetStatusAvailable) }}</span>
               </div>
             </div>
 
-            <div v-if="budgetStatus.isOverBudget" class="budget-alert danger">
+            <div v-if="budgetStatusAvailable && budgetStatus.isOverBudget" class="budget-alert danger">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
               <span>本月消费已超出预算，建议控制后续支出</span>
             </div>
-            <div v-else-if="budgetStatus.isNearLimit" class="budget-alert warning">
+            <div v-else-if="budgetStatusAvailable && budgetStatus.isNearLimit" class="budget-alert warning">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                 <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -86,7 +88,7 @@
                 </svg>
               </div>
               <div class="stat-info">
-                <span class="stat-value">{{ report.rationalIndex || 0 }}</span>
+                <span class="stat-value">{{ displayMetric(report.rationalIndex, reportAvailable) }}</span>
                 <span class="stat-label">理性消费指数</span>
                 <span class="stat-level" :class="rationalLevelClass">{{ report.rationalLevel || '暂无数据' }}</span>
               </div>
@@ -100,7 +102,7 @@
                 </svg>
               </div>
               <div class="stat-info">
-                <span class="stat-value">{{ report.orderCount || 0 }}</span>
+                <span class="stat-value">{{ displayMetric(report.orderCount, reportAvailable) }}</span>
                 <span class="stat-label">本月订单数</span>
               </div>
             </div>
@@ -112,7 +114,7 @@
                 </svg>
               </div>
               <div class="stat-info">
-                <span class="stat-value">{{ formatMoney(report.savedAmount, false) }}</span>
+                <span class="stat-value">{{ formatMoney(report.savedAmount, false, reportAvailable) }}</span>
                 <span class="stat-label">本月节省</span>
               </div>
             </div>
@@ -124,8 +126,20 @@
                 </svg>
               </div>
               <div class="stat-info">
-                <span class="stat-value">{{ report.impulseBlockedCount || 0 }}</span>
+                <span class="stat-value">{{ displayMetric(report.impulseBlockedCount, reportAvailable) }}</span>
                 <span class="stat-label">冲动消费拦截</span>
+              </div>
+            </div>
+
+            <div class="stat-card glass-card">
+              <div class="stat-icon duplicate">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              </div>
+              <div class="stat-info">
+                <span class="stat-value">{{ displayMetric(report.duplicateAlertCount, reportAvailable) }}</span>
+                <span class="stat-label">重复购买提醒</span>
               </div>
             </div>
           </div>
@@ -141,7 +155,7 @@
                 <span class="trend-label">环比上月</span>
               </div>
             </div>
-            <div class="chart-container">
+            <div v-if="reportAvailable" class="chart-container">
               <div class="bar-chart">
                 <div 
                   v-for="(item, index) in report.monthlyTrend || []" 
@@ -161,6 +175,7 @@
                 </div>
               </div>
             </div>
+            <div v-else class="empty-tip">消费趋势暂未同步</div>
           </div>
 
           <!-- 分类消费分布 -->
@@ -168,7 +183,7 @@
             <div class="section-header">
               <h3>消费分布</h3>
             </div>
-            <div class="category-list" v-if="report.categoryDistribution?.length">
+            <div class="category-list" v-if="reportAvailable && report.categoryDistribution?.length">
               <div 
                 v-for="cat in report.categoryDistribution" 
                 :key="cat.categoryId"
@@ -184,7 +199,7 @@
                 <span class="cat-amount">{{ formatMoney(cat.amount) }}</span>
               </div>
             </div>
-            <div v-else class="empty-tip">暂无消费数据</div>
+            <div v-else class="empty-tip">{{ reportAvailable ? '暂无消费数据' : '消费分布暂未同步' }}</div>
           </div>
 
           <!-- 消费建议 -->
@@ -205,6 +220,7 @@
 
         <!-- 想要清单Tab -->
         <div v-show="activeTab === 'wishlist'" class="tab-content">
+          <p v-if="hasWishlistDataIssue" class="data-hint">想要清单数据暂未同步，请稍后刷新重试。</p>
           <div class="wishlist-header glass-card">
             <div class="wishlist-intro">
               <h3>延迟满足 - 想要清单</h3>
@@ -212,25 +228,30 @@
             </div>
             <div class="wishlist-stats">
               <div class="ws-stat">
-                <span class="ws-value">{{ wishlistStats.coolingCount || 0 }}</span>
+                <span class="ws-value">{{ displayMetric(wishlistStats.coolingCount, wishlistStatsAvailable) }}</span>
                 <span class="ws-label">冷静中</span>
               </div>
               <div class="ws-stat">
-                <span class="ws-value">{{ wishlistStats.readyCount || 0 }}</span>
+                <span class="ws-value">{{ displayMetric(wishlistStats.readyCount, wishlistStatsAvailable) }}</span>
                 <span class="ws-label">可购买</span>
               </div>
               <div class="ws-stat">
-                <span class="ws-value">{{ wishlistStats.removedCount || 0 }}</span>
+                <span class="ws-value">{{ displayMetric(wishlistStats.removedCount, wishlistStatsAvailable) }}</span>
                 <span class="ws-label">已放弃</span>
+              </div>
+              <div class="ws-stat">
+                <span class="ws-value">{{ displayMetric(wishlistStats.purchasedCount, wishlistStatsAvailable) }}</span>
+                <span class="ws-label">已购买</span>
               </div>
             </div>
           </div>
 
-          <div class="wishlist-list" v-if="wishlist.length">
+          <div class="wishlist-list" v-if="wishlistAvailable && wishlist.length">
             <div 
               v-for="item in wishlist" 
               :key="item.id"
               class="wishlist-item glass-card"
+              :data-testid="`wishlist-item-${item.id}`"
             >
               <div class="wi-image">
                 <img :src="getImageUrl(item.productImage)" :alt="item.productName" />
@@ -269,6 +290,7 @@
                 </button>
                 <button 
                   class="btn-remove"
+                  :data-testid="`wishlist-remove-${item.id}`"
                   @click="handleRemoveWishlist(item.id)"
                 >
                   {{ item.status === 0 ? '不想要了' : '移除' }}
@@ -276,7 +298,7 @@
               </div>
             </div>
           </div>
-          <div v-else class="empty-wishlist glass-card">
+          <div v-else-if="wishlistAvailable" class="empty-wishlist glass-card">
             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
             </svg>
@@ -287,18 +309,19 @@
 
         <!-- 成就系统Tab -->
         <div v-show="activeTab === 'achievements'" class="tab-content">
+          <p v-if="hasAchievementsDataIssue" class="data-hint">消费成就数据暂未同步，请稍后刷新重试。</p>
           <div class="achievements-header glass-card">
             <h3>消费成就</h3>
             <p>养成理性消费习惯，解锁专属成就</p>
             <div class="achievement-progress">
-              <span>已解锁 {{ earnedCount }}/{{ achievements.length }}</span>
+              <span>已解锁 {{ achievementsAvailable ? `${earnedCount}/${achievements.length}` : '--' }}</span>
               <div class="ap-bar">
-                <div class="ap-fill" :style="{ width: (earnedCount / achievements.length * 100) + '%' }"></div>
+                <div class="ap-fill" :style="{ width: achievementProgressPercent + '%' }"></div>
               </div>
             </div>
           </div>
 
-          <div class="achievements-grid">
+          <div v-if="achievementsAvailable" class="achievements-grid">
             <div 
               v-for="ach in achievements" 
               :key="ach.type"
@@ -332,6 +355,10 @@
               </div>
             </div>
           </div>
+          <div v-else class="empty-wishlist glass-card">
+            <p>消费成就暂未同步</p>
+            <span>请稍后刷新重试</span>
+          </div>
         </div>
       </div>
     </main>
@@ -350,7 +377,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showBudgetDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveBudget" :loading="saving">保存</el-button>
+        <el-button type="primary" data-testid="rational-budget-save" @click="saveBudget" :loading="saving">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -365,6 +392,7 @@ import rationalApi from '@/api/rationalApi'
 import fileApi from '@/api/fileApi'
 import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
+import { debugError } from '@/utils/debug'
 
 const route = useRoute()
 const router = useRouter()
@@ -383,8 +411,30 @@ const report = ref<any>({})
 const wishlist = ref<any[]>([])
 const wishlistStats = ref<any>({})
 const achievements = ref<any[]>([])
+const budgetStatusAvailable = ref(true)
+const reportAvailable = ref(true)
+const wishlistAvailable = ref(true)
+const wishlistStatsAvailable = ref(true)
+const achievementsAvailable = ref(true)
 const showBudgetDialog = ref(false)
 const saving = ref(false)
+let latestBudgetStatusRequestId = 0
+let latestReportRequestId = 0
+let latestWishlistRequestId = 0
+let latestWishlistStatsRequestId = 0
+let latestAchievementsRequestId = 0
+const invalidateBudgetStatusRequests = () => {
+  latestBudgetStatusRequestId += 1
+}
+const invalidateWishlistRequests = () => {
+  latestWishlistRequestId += 1
+}
+const invalidateWishlistStatsRequests = () => {
+  latestWishlistStatsRequestId += 1
+}
+const invalidateAchievementsRequests = () => {
+  latestAchievementsRequestId += 1
+}
 const budgetForm = ref({
   amount: 2000,
   alertThreshold: 80
@@ -406,6 +456,13 @@ const rationalLevelClass = computed(() => {
 })
 
 const earnedCount = computed(() => achievements.value.filter(a => a.earned).length)
+const achievementProgressPercent = computed(() => {
+  if (!achievementsAvailable.value || achievements.value.length === 0) return 0
+  return (earnedCount.value / achievements.value.length) * 100
+})
+const hasBudgetDataIssue = computed(() => !budgetStatusAvailable.value || !reportAvailable.value)
+const hasWishlistDataIssue = computed(() => !wishlistAvailable.value || !wishlistStatsAvailable.value)
+const hasAchievementsDataIssue = computed(() => !achievementsAvailable.value)
 
 // 获取图片URL
 const getImageUrl = (path: string) => {
@@ -413,9 +470,24 @@ const getImageUrl = (path: string) => {
   return fileApi.getImageUrl(path)
 }
 
-const formatMoney = (val: number | undefined, showSymbol = true) => {
+const formatMoney = (val: number | undefined, showSymbol = true, available = true) => {
+  if (!available) return '--'
   if (val === undefined || val === null) return showSymbol ? '¥0.00' : '0'
   return showSymbol ? `¥${val.toFixed(2)}` : val.toFixed(0)
+}
+
+const displayMetric = (val: number | undefined, available = true) => {
+  if (!available) return '--'
+  return val ?? 0
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
 }
 
 const formatDate = (date: string) => {
@@ -438,67 +510,173 @@ const formatMonth = (month: string) => {
 
 const fetchBudgetStatus = async () => {
   if (!userStore.isLoggedIn) return
+  const requestId = ++latestBudgetStatusRequestId
   loading.value = true
   try {
     const res: any = await rationalApi.getBudgetStatus()
+    if (requestId !== latestBudgetStatusRequestId) {
+      return
+    }
     if (res?.code === 200) {
       budgetStatus.value = res.data || {}
       budgetForm.value.amount = budgetStatus.value.budget || 2000
       budgetForm.value.alertThreshold = budgetStatus.value.alertThreshold || 80
+      budgetStatusAvailable.value = true
+      return
     }
+    budgetStatusAvailable.value = false
   } catch (error) {
-    console.error('获取预算状态失败:', error)
+    if (requestId !== latestBudgetStatusRequestId) {
+      return
+    }
+    budgetStatusAvailable.value = false
+    debugError('获取预算状态失败:', error)
   } finally {
-    loading.value = false
+    if (requestId === latestBudgetStatusRequestId) {
+      loading.value = false
+    }
   }
 }
 
 const fetchReport = async () => {
   if (!userStore.isLoggedIn) return
+  const requestId = ++latestReportRequestId
   try {
     const res: any = await rationalApi.getReport()
+    if (requestId !== latestReportRequestId) {
+      return
+    }
     if (res?.code === 200) {
       report.value = res.data || {}
+      reportAvailable.value = true
+      return
     }
+    reportAvailable.value = false
+    debugError('获取消费报告失败:', res?.message || '消费报告返回异常')
   } catch (error) {
-    console.error('获取消费报告失败:', error)
+    if (requestId !== latestReportRequestId) {
+      return
+    }
+    reportAvailable.value = false
+    debugError('获取消费报告失败:', error)
   }
 }
 
 const fetchWishlist = async () => {
   if (!userStore.isLoggedIn) return
+  const requestId = ++latestWishlistRequestId
   try {
     const res: any = await rationalApi.getWishlist()
+    if (requestId !== latestWishlistRequestId) {
+      return
+    }
     if (res?.code === 200) {
       wishlist.value = res.data || []
+      wishlistAvailable.value = true
+      return
     }
+    wishlistAvailable.value = false
+    debugError('获取想要清单失败:', res?.message || '想要清单返回异常')
   } catch (error) {
-    console.error('获取想要清单失败:', error)
+    if (requestId !== latestWishlistRequestId) {
+      return
+    }
+    wishlistAvailable.value = false
+    debugError('获取想要清单失败:', error)
   }
 }
 
 const fetchWishlistStats = async () => {
   if (!userStore.isLoggedIn) return
+  const requestId = ++latestWishlistStatsRequestId
   try {
     const res: any = await rationalApi.getWishlistStats()
+    if (requestId !== latestWishlistStatsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       wishlistStats.value = res.data || {}
+      wishlistStatsAvailable.value = true
+      return
     }
+    wishlistStatsAvailable.value = false
+    debugError('获取清单统计失败:', res?.message || '清单统计返回异常')
   } catch (error) {
-    console.error('获取清单统计失败:', error)
+    if (requestId !== latestWishlistStatsRequestId) {
+      return
+    }
+    wishlistStatsAvailable.value = false
+    debugError('获取清单统计失败:', error)
   }
 }
 
 const fetchAchievements = async () => {
   if (!userStore.isLoggedIn) return
+  const requestId = ++latestAchievementsRequestId
   try {
     const res: any = await rationalApi.getAchievements()
+    if (requestId !== latestAchievementsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       achievements.value = res.data || []
+      achievementsAvailable.value = true
+      return
     }
+    achievementsAvailable.value = false
+    debugError('获取成就失败:', res?.message || '成就列表返回异常')
   } catch (error) {
-    console.error('获取成就失败:', error)
+    if (requestId !== latestAchievementsRequestId) {
+      return
+    }
+    achievementsAvailable.value = false
+    debugError('获取成就失败:', error)
   }
+}
+
+const refreshBudgetStatusAfterSuccess = async (actionLabel: string) => {
+  try {
+    await fetchBudgetStatus()
+  } catch (error) {
+    debugError(`${actionLabel}成功后刷新预算状态失败:`, error)
+  }
+}
+
+const refreshWishlistAfterSuccess = async (actionLabel: string) => {
+  const results = await Promise.allSettled([
+    fetchWishlist(),
+    fetchWishlistStats(),
+    fetchAchievements()
+  ])
+  const targetLabels = ['想要清单', '清单统计', '成就数据']
+
+  results.forEach((result, index) => {
+    if (result.status !== 'rejected') {
+      return
+    }
+    debugError(`${actionLabel}成功后刷新${targetLabels[index]}失败:`, result.reason)
+  })
+}
+
+const applyLocalBudgetStatus = (amount: number, alertThreshold: number) => {
+  const spent = Number(budgetStatus.value.spent || 0)
+  const remaining = amount - spent
+  const usedPercent = amount > 0 ? Number(((spent / amount) * 100).toFixed(2)) : 0
+  budgetStatus.value = {
+    ...budgetStatus.value,
+    budget: amount,
+    alertThreshold,
+    remaining,
+    usedPercent,
+    isOverBudget: remaining < 0,
+    isNearLimit: usedPercent >= alertThreshold && remaining >= 0
+  }
+  budgetStatusAvailable.value = true
+}
+
+const applyLocalWishlistStatsUpdate = (updater: (stats: any) => any) => {
+  wishlistStats.value = updater(wishlistStats.value || {})
+  wishlistStatsAvailable.value = true
 }
 
 const saveBudget = async () => {
@@ -510,14 +688,19 @@ const saveBudget = async () => {
   try {
     const res: any = await rationalApi.setBudget(budgetForm.value.amount, budgetForm.value.alertThreshold)
     if (res?.code === 200) {
+      invalidateBudgetStatusRequests()
+      applyLocalBudgetStatus(budgetForm.value.amount, budgetForm.value.alertThreshold)
       ElMessage.success('预算设置成功')
       showBudgetDialog.value = false
-      fetchBudgetStatus()
+      await refreshBudgetStatusAfterSuccess('保存预算')
     } else {
-      ElMessage.error(res?.message || '设置失败')
+      const message = res?.message || '设置失败'
+      debugError('保存预算失败:', message)
+      ElMessage.error(message)
     }
   } catch (error) {
-    ElMessage.error('设置失败')
+    debugError('保存预算失败:', error)
+    ElMessage.error(getErrorMessage(error, '设置失败'))
   } finally {
     saving.value = false
   }
@@ -532,24 +715,61 @@ const handleRemoveWishlist = async (id: number) => {
     })
     const res: any = await rationalApi.removeFromWishlist(id)
     if (res?.code === 200) {
+      const removedItem = wishlist.value.find((item) => item.id === id)
+      invalidateWishlistRequests()
+      invalidateWishlistStatsRequests()
+      invalidateAchievementsRequests()
+      wishlist.value = wishlist.value.filter((item) => item.id !== id)
+      wishlistAvailable.value = true
+      if (removedItem) {
+        applyLocalWishlistStatsUpdate((stats) => ({
+          ...stats,
+          coolingCount: removedItem.status === 0 ? Math.max(0, Number(stats.coolingCount || 0) - 1) : Number(stats.coolingCount || 0),
+          readyCount: removedItem.status === 1 ? Math.max(0, Number(stats.readyCount || 0) - 1) : Number(stats.readyCount || 0),
+          removedCount: Number(stats.removedCount || 0) + 1
+        }))
+      }
       ElMessage.success('已移除')
-      fetchWishlist()
-      fetchWishlistStats()
-      fetchAchievements()
+      await refreshWishlistAfterSuccess('移除想要清单')
     } else {
-      ElMessage.error(res?.message || '操作失败')
+      const message = res?.message || '操作失败'
+      debugError('移除想要清单失败:', message)
+      ElMessage.error(message)
     }
   } catch (e) {
-    // 取消
+    if (e === 'cancel' || e === 'close' || (e && typeof e === 'object' && 'action' in e && (((e as { action?: string }).action) === 'cancel' || ((e as { action?: string }).action) === 'close'))) {
+      return
+    }
+    debugError('移除想要清单失败:', e)
+    ElMessage.error(getErrorMessage(e, '操作失败'))
   }
 }
 
 const goToBuy = async (productId: number, wishlistId: number) => {
   // 标记为已购买
   try {
-    await rationalApi.markAsPurchased(wishlistId)
+    const res: any = await rationalApi.markAsPurchased(wishlistId)
+    if (res?.code === 200) {
+      const targetItem = wishlist.value.find((item) => item.id === wishlistId)
+      invalidateWishlistRequests()
+      invalidateWishlistStatsRequests()
+      invalidateAchievementsRequests()
+      wishlist.value = wishlist.value.filter((item) => item.id !== wishlistId)
+      wishlistAvailable.value = true
+      if (targetItem) {
+        applyLocalWishlistStatsUpdate((stats) => ({
+          ...stats,
+          coolingCount: targetItem.status === 0 ? Math.max(0, Number(stats.coolingCount || 0) - 1) : Number(stats.coolingCount || 0),
+          readyCount: targetItem.status === 1 ? Math.max(0, Number(stats.readyCount || 0) - 1) : Number(stats.readyCount || 0),
+          purchasedCount: Number(stats.purchasedCount || 0) + 1
+        }))
+      }
+      await refreshWishlistAfterSuccess('标记想要清单已购买')
+    } else {
+      debugError('标记想要清单为已购买失败:', res?.message || '业务返回异常')
+    }
   } catch (e) {
-    // 忽略错误，继续跳转
+    debugError('标记想要清单为已购买失败:', e)
   }
   router.push(`/product/${productId}`)
 }
@@ -625,6 +845,7 @@ onMounted(() => {
 
 /* 预算概览 */
 .budget-overview { padding: 28px; }
+.data-hint { margin: 0 0 16px; padding: 12px 16px; border: 1px solid rgba(245, 166, 35, 0.28); border-radius: var(--radius-md); background: rgba(245, 166, 35, 0.08); color: #b26a00; font-size: 13px; }
 .budget-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
 .budget-title { display: flex; align-items: center; gap: 16px; }
 .budget-title h2 { margin: 0; font-size: 18px; font-weight: 600; color: var(--text-title); }

@@ -5,13 +5,13 @@ import com.shopping.entity.Address;
 import com.shopping.entity.User;
 import com.shopping.service.AddressService;
 import com.shopping.service.UserService;
+import com.shopping.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 地址控制器，处理地址相关API请求
@@ -19,12 +19,22 @@ import java.util.List;
 @RestController
 @RequestMapping("/addresses")
 public class AddressController {
+
+    private static final String AUTH_FAILED_MESSAGE = "用户未认证或认证失效";
     
     @Autowired
     private AddressService addressService;
     
     @Autowired
     private UserService userService;
+
+    private Optional<User> getCurrentUser() {
+        if (!SecurityUtils.isAuthenticated()) {
+            return Optional.empty();
+        }
+        String username = SecurityUtils.getCurrentUsername();
+        return Optional.ofNullable(userService.findByUsername(username));
+    }
     
     /**
      * 获取当前登录用户的所有地址
@@ -32,23 +42,12 @@ public class AddressController {
      */
     @GetMapping
     public Response<List<Address>> getCurrentUserAddresses() {
-        // 获取当前登录用户
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        
-        // 检查用户是否已认证
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getName().equals("anonymousUser")) {
-            return Response.fail(401, "用户未认证或认证失效");
+        Optional<User> currentUser = getCurrentUser();
+        if (currentUser.isEmpty()) {
+            return Response.fail(401, AUTH_FAILED_MESSAGE);
         }
         
-        String username = authentication.getName();
-        User user = userService.findByUsername(username);
-        
-        // 检查用户是否存在
-        if (user == null) {
-            return Response.fail(401, "用户未认证或认证失效");
-        }
-        
-        List<Address> addresses = addressService.getActiveAddressesByUser(user);
+        List<Address> addresses = addressService.getActiveAddressesByUser(currentUser.get());
         return Response.success(addresses);
     }
     
@@ -59,26 +58,15 @@ public class AddressController {
      */
     @GetMapping("/{id}")
     public Response<Address> getAddressById(@PathVariable Long id) {
-        // 获取当前登录用户
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        
-        // 检查用户是否已认证
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getName().equals("anonymousUser")) {
-            return Response.fail(401, "用户未认证或认证失效");
-        }
-        
-        String username = authentication.getName();
-        User user = userService.findByUsername(username);
-        
-        // 检查用户是否存在
-        if (user == null) {
-            return Response.fail(401, "用户未认证或认证失效");
+        Optional<User> currentUser = getCurrentUser();
+        if (currentUser.isEmpty()) {
+            return Response.fail(401, AUTH_FAILED_MESSAGE);
         }
         
         Address address = addressService.getAddressById(id);
         if (address != null) {
             // 检查地址是否属于当前用户
-            if (!address.getUser().getId().equals(user.getId())) {
+            if (!address.getUser().getId().equals(currentUser.get().getId())) {
                 return Response.fail(403, "无权限访问此地址");
             }
             return Response.success(address);
@@ -93,23 +81,12 @@ public class AddressController {
      */
     @GetMapping("/default")
     public Response<Address> getDefaultAddress() {
-        // 获取当前登录用户
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        
-        // 检查用户是否已认证
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getName().equals("anonymousUser")) {
-            return Response.fail(401, "用户未认证或认证失效");
+        Optional<User> currentUser = getCurrentUser();
+        if (currentUser.isEmpty()) {
+            return Response.fail(401, AUTH_FAILED_MESSAGE);
         }
         
-        String username = authentication.getName();
-        User user = userService.findByUsername(username);
-        
-        // 检查用户是否存在
-        if (user == null) {
-            return Response.fail(401, "用户未认证或认证失效");
-        }
-        
-        Address defaultAddress = addressService.getDefaultAddressByUser(user);
+        Address defaultAddress = addressService.getDefaultAddressByUser(currentUser.get());
         if (defaultAddress != null) {
             return Response.success(defaultAddress);
         } else {
@@ -124,24 +101,13 @@ public class AddressController {
      */
     @PostMapping
     public Response<Address> createAddress(@RequestBody @Validated Address address) {
-        // 获取当前登录用户
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        
-        // 检查用户是否已认证
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getName().equals("anonymousUser")) {
-            return Response.fail(401, "用户未认证或认证失效");
-        }
-        
-        String username = authentication.getName();
-        User user = userService.findByUsername(username);
-        
-        // 检查用户是否存在
-        if (user == null) {
-            return Response.fail(401, "用户未认证或认证失效");
+        Optional<User> currentUser = getCurrentUser();
+        if (currentUser.isEmpty()) {
+            return Response.fail(401, AUTH_FAILED_MESSAGE);
         }
         
         // 设置地址所属用户
-        address.setUser(user);
+        address.setUser(currentUser.get());
         Address createdAddress = addressService.createAddress(address);
         return Response.success("地址创建成功", createdAddress);
     }
@@ -154,20 +120,9 @@ public class AddressController {
      */
     @PutMapping("/{id}")
     public Response<Address> updateAddress(@PathVariable Long id, @RequestBody @Validated Address address) {
-        // 获取当前登录用户
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        
-        // 检查用户是否已认证
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getName().equals("anonymousUser")) {
-            return Response.fail(401, "用户未认证或认证失效");
-        }
-        
-        String username = authentication.getName();
-        User user = userService.findByUsername(username);
-        
-        // 检查用户是否存在
-        if (user == null) {
-            return Response.fail(401, "用户未认证或认证失效");
+        Optional<User> currentUser = getCurrentUser();
+        if (currentUser.isEmpty()) {
+            return Response.fail(401, AUTH_FAILED_MESSAGE);
         }
         
         // 检查地址是否存在且属于当前用户
@@ -175,7 +130,7 @@ public class AddressController {
         if (existingAddress == null) {
             return Response.fail(404, "地址不存在");
         }
-        if (!existingAddress.getUser().getId().equals(user.getId())) {
+        if (!existingAddress.getUser().getId().equals(currentUser.get().getId())) {
             return Response.fail(403, "无权限操作此地址");
         }
         
@@ -199,20 +154,9 @@ public class AddressController {
      */
     @DeleteMapping("/{id}")
     public Response<Void> deleteAddress(@PathVariable Long id) {
-        // 获取当前登录用户
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        
-        // 检查用户是否已认证
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getName().equals("anonymousUser")) {
-            return Response.fail(401, "用户未认证或认证失效");
-        }
-        
-        String username = authentication.getName();
-        User user = userService.findByUsername(username);
-        
-        // 检查用户是否存在
-        if (user == null) {
-            return Response.fail(401, "用户未认证或认证失效");
+        Optional<User> currentUser = getCurrentUser();
+        if (currentUser.isEmpty()) {
+            return Response.fail(401, AUTH_FAILED_MESSAGE);
         }
         
         // 检查地址是否存在且属于当前用户
@@ -220,7 +164,7 @@ public class AddressController {
         if (address == null) {
             return Response.fail(404, "地址不存在");
         }
-        if (!address.getUser().getId().equals(user.getId())) {
+        if (!address.getUser().getId().equals(currentUser.get().getId())) {
             return Response.fail(403, "无权限操作此地址");
         }
         
@@ -235,20 +179,9 @@ public class AddressController {
      */
     @PutMapping("/{id}/default")
     public Response<Void> setDefaultAddress(@PathVariable Long id) {
-        // 获取当前登录用户
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        
-        // 检查用户是否已认证
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getName().equals("anonymousUser")) {
-            return Response.fail(401, "用户未认证或认证失效");
-        }
-        
-        String username = authentication.getName();
-        User user = userService.findByUsername(username);
-        
-        // 检查用户是否存在
-        if (user == null) {
-            return Response.fail(401, "用户未认证或认证失效");
+        Optional<User> currentUser = getCurrentUser();
+        if (currentUser.isEmpty()) {
+            return Response.fail(401, AUTH_FAILED_MESSAGE);
         }
         
         // 检查地址是否存在且属于当前用户
@@ -256,11 +189,11 @@ public class AddressController {
         if (address == null) {
             return Response.fail(404, "地址不存在");
         }
-        if (!address.getUser().getId().equals(user.getId())) {
+        if (!address.getUser().getId().equals(currentUser.get().getId())) {
             return Response.fail(403, "无权限操作此地址");
         }
         
-        addressService.setDefaultAddress(id, user);
+        addressService.setDefaultAddress(id, currentUser.get());
         return Response.success("默认地址设置成功");
     }
 }

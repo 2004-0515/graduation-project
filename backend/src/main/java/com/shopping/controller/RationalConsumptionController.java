@@ -24,14 +24,26 @@ public class RationalConsumptionController {
     @Autowired
     private RationalConsumptionService rationalConsumptionService;
 
+    private <T> Response<T> unauthorized() {
+        return Response.fail(401, "请先登录");
+    }
+
+    private <T> Response<T> forbidden() {
+        return Response.fail(403, "无权限访问");
+    }
+
+    private String currentUsernameOrNull() {
+        return SecurityUtils.isAuthenticated() ? SecurityUtils.getCurrentUsername() : null;
+    }
+
     /**
      * 获取当前预算状态
      */
     @GetMapping("/budget/status")
     public Response<?> getBudgetStatus() {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (username == null) {
-            return Response.fail("请先登录");
+            return unauthorized();
         }
         Map<String, Object> status = rationalConsumptionService.getBudgetStatus(username);
         return Response.success(status);
@@ -42,9 +54,9 @@ public class RationalConsumptionController {
      */
     @GetMapping("/budget")
     public Response<?> getCurrentBudget() {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (username == null) {
-            return Response.fail("请先登录");
+            return unauthorized();
         }
         ConsumptionBudget budget = rationalConsumptionService.getCurrentBudget(username);
         return Response.success(budget);
@@ -55,9 +67,9 @@ public class RationalConsumptionController {
      */
     @PostMapping("/budget")
     public Response<?> setBudget(@RequestBody Map<String, Object> params) {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (username == null) {
-            return Response.fail("请先登录");
+            return unauthorized();
         }
         
         BigDecimal amount = new BigDecimal(params.get("amount").toString());
@@ -66,7 +78,7 @@ public class RationalConsumptionController {
                 : null;
         
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            return Response.fail("预算金额必须大于0");
+            return Response.fail(422, "预算金额必须大于0");
         }
         
         ConsumptionBudget budget = rationalConsumptionService.setBudget(username, amount, alertThreshold);
@@ -78,9 +90,9 @@ public class RationalConsumptionController {
      */
     @GetMapping("/report")
     public Response<?> getReport(@RequestParam(required = false) String period) {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (username == null) {
-            return Response.fail("请先登录");
+            return unauthorized();
         }
         
         // 默认当月
@@ -97,7 +109,7 @@ public class RationalConsumptionController {
      */
     @GetMapping("/duplicate-check/{productId}")
     public Response<?> checkDuplicate(@PathVariable Long productId) {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (username == null) {
             return Response.success(List.of()); // 未登录返回空列表
         }
@@ -111,7 +123,7 @@ public class RationalConsumptionController {
      */
     @PostMapping("/duplicate-check/batch")
     public Response<?> checkDuplicateBatch(@RequestBody List<Long> productIds) {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (username == null) {
             return Response.success(Map.of());
         }
@@ -133,22 +145,17 @@ public class RationalConsumptionController {
      */
     @PostMapping("/wishlist")
     public Response<?> addToWishlist(@RequestBody Map<String, Object> params) {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (username == null) {
-            return Response.fail("请先登录");
+            return unauthorized();
         }
-        
-        try {
-            Long productId = Long.parseLong(params.get("productId").toString());
-            Integer coolingDays = params.get("coolingDays") != null 
-                    ? Integer.parseInt(params.get("coolingDays").toString()) : 3;
-            String reason = params.get("reason") != null ? params.get("reason").toString() : null;
-            
-            rationalConsumptionService.addToWishlist(username, productId, coolingDays, reason);
-            return Response.success("已添加到想要清单");
-        } catch (RuntimeException e) {
-            return Response.fail(e.getMessage());
-        }
+        Long productId = Long.parseLong(params.get("productId").toString());
+        Integer coolingDays = params.get("coolingDays") != null
+                ? Integer.parseInt(params.get("coolingDays").toString()) : 3;
+        String reason = params.get("reason") != null ? params.get("reason").toString() : null;
+
+        rationalConsumptionService.addToWishlist(username, productId, coolingDays, reason);
+        return Response.success("已添加到想要清单");
     }
 
     /**
@@ -156,7 +163,7 @@ public class RationalConsumptionController {
      */
     @GetMapping("/wishlist/check/{productId}")
     public Response<?> checkInWishlist(@PathVariable Long productId) {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (username == null) {
             return Response.success(Map.of("inWishlist", false));
         }
@@ -170,9 +177,9 @@ public class RationalConsumptionController {
      */
     @GetMapping("/wishlist")
     public Response<?> getWishlist() {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (username == null) {
-            return Response.fail("请先登录");
+            return unauthorized();
         }
         
         List<Map<String, Object>> list = rationalConsumptionService.getWishlist(username);
@@ -184,9 +191,9 @@ public class RationalConsumptionController {
      */
     @GetMapping("/wishlist/stats")
     public Response<?> getWishlistStats() {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (username == null) {
-            return Response.fail("请先登录");
+            return unauthorized();
         }
         
         Map<String, Object> stats = rationalConsumptionService.getWishlistStats(username);
@@ -198,17 +205,12 @@ public class RationalConsumptionController {
      */
     @DeleteMapping("/wishlist/{id}")
     public Response<?> removeFromWishlist(@PathVariable Long id) {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (username == null) {
-            return Response.fail("请先登录");
+            return unauthorized();
         }
-        
-        try {
-            rationalConsumptionService.removeFromWishlist(username, id);
-            return Response.success("已移除");
-        } catch (RuntimeException e) {
-            return Response.fail(e.getMessage());
-        }
+        rationalConsumptionService.removeFromWishlist(username, id);
+        return Response.success("已移除");
     }
 
     /**
@@ -216,17 +218,12 @@ public class RationalConsumptionController {
      */
     @PostMapping("/wishlist/{id}/purchased")
     public Response<?> markAsPurchased(@PathVariable Long id) {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (username == null) {
-            return Response.fail("请先登录");
+            return unauthorized();
         }
-        
-        try {
-            rationalConsumptionService.markAsPurchased(username, id);
-            return Response.success("已标记为购买");
-        } catch (RuntimeException e) {
-            return Response.fail(e.getMessage());
-        }
+        rationalConsumptionService.markAsPurchased(username, id);
+        return Response.success("已标记为购买");
     }
 
     // ==================== 成就系统接口 ====================
@@ -236,9 +233,9 @@ public class RationalConsumptionController {
      */
     @GetMapping("/achievements")
     public Response<?> getAchievements() {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (username == null) {
-            return Response.fail("请先登录");
+            return unauthorized();
         }
         
         List<Map<String, Object>> achievements = rationalConsumptionService.getAchievements(username);
@@ -252,9 +249,9 @@ public class RationalConsumptionController {
      */
     @GetMapping("/admin/stats")
     public Response<?> getAdminStats() {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (!"admin".equals(username)) {
-            return Response.fail("无权限访问");
+            return forbidden();
         }
         
         Map<String, Object> stats = rationalConsumptionService.getAdminStats();
@@ -266,9 +263,9 @@ public class RationalConsumptionController {
      */
     @GetMapping("/admin/consumption-trend")
     public Response<?> getConsumptionTrend() {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (!"admin".equals(username)) {
-            return Response.fail("无权限访问");
+            return forbidden();
         }
         
         List<Map<String, Object>> trend = rationalConsumptionService.getGlobalConsumptionTrend();
@@ -280,9 +277,9 @@ public class RationalConsumptionController {
      */
     @GetMapping("/admin/wishlist-activity")
     public Response<?> getWishlistActivity() {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (!"admin".equals(username)) {
-            return Response.fail("无权限访问");
+            return forbidden();
         }
         
         List<Map<String, Object>> activities = rationalConsumptionService.getRecentWishlistActivity();
@@ -294,9 +291,9 @@ public class RationalConsumptionController {
      */
     @GetMapping("/admin/recent-achievements")
     public Response<?> getRecentAchievements() {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (!"admin".equals(username)) {
-            return Response.fail("无权限访问");
+            return forbidden();
         }
         
         List<Map<String, Object>> achievements = rationalConsumptionService.getRecentAchievements();
@@ -308,20 +305,16 @@ public class RationalConsumptionController {
      */
     @PostMapping("/admin/grant-achievement")
     public Response<?> grantAchievement(@RequestBody Map<String, Object> params) {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (!"admin".equals(username)) {
-            return Response.fail("无权限访问");
+            return forbidden();
         }
-        
-        try {
-            Long userId = Long.parseLong(params.get("userId").toString());
-            String type = params.get("type").toString();
-            
-            rationalConsumptionService.grantAchievement(userId, type);
-            return Response.success("成就授予成功");
-        } catch (RuntimeException e) {
-            return Response.fail(e.getMessage());
-        }
+
+        Long userId = Long.parseLong(params.get("userId").toString());
+        String type = params.get("type").toString();
+
+        rationalConsumptionService.grantAchievement(userId, type);
+        return Response.success("成就授予成功");
     }
 
     /**
@@ -329,19 +322,15 @@ public class RationalConsumptionController {
      */
     @PostMapping("/admin/revoke-achievement")
     public Response<?> revokeAchievement(@RequestBody Map<String, Object> params) {
-        String username = SecurityUtils.getCurrentUsername();
+        String username = currentUsernameOrNull();
         if (!"admin".equals(username)) {
-            return Response.fail("无权限访问");
+            return forbidden();
         }
-        
-        try {
-            Long userId = Long.parseLong(params.get("userId").toString());
-            String type = params.get("type").toString();
-            
-            rationalConsumptionService.revokeAchievement(userId, type);
-            return Response.success("成就已撤销");
-        } catch (RuntimeException e) {
-            return Response.fail(e.getMessage());
-        }
+
+        Long userId = Long.parseLong(params.get("userId").toString());
+        String type = params.get("type").toString();
+
+        rationalConsumptionService.revokeAchievement(userId, type);
+        return Response.success("成就已撤销");
     }
 }

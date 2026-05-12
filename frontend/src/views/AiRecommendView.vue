@@ -15,7 +15,7 @@
           </div>
           <div class="header-text">
             <h1>AI 智能助手</h1>
-            <p>让购物更简单，为您提供个性化推荐</p>
+            <p>基于当前商品数据提供问答和选购参考</p>
           </div>
         </div>
 
@@ -107,6 +107,9 @@
               </div>
               <div class="input-hint">按 Enter 发送消息</div>
             </div>
+            <div class="chat-note">
+              聊天能力需要自行配置 AI 密钥，回答基于当前商品、分类和优惠券数据生成。
+            </div>
           </div>
 
           <!-- 右侧：推荐商品 -->
@@ -116,7 +119,7 @@
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                 </svg>
-                <h2>猜你喜欢</h2>
+                <h2>商品发现</h2>
               </div>
               <button class="refresh-btn" @click="refreshProducts" title="换一批">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -145,6 +148,7 @@
             </div>
 
             <div class="panel-footer">
+              <p class="panel-note">按当前商品库和销量顺序轮换展示，不代表个性化建模推荐。</p>
               <router-link to="/category" class="view-more-btn">
                 <span>发现更多好物</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -239,6 +243,7 @@ const allProducts = ref<any[]>([])
 const showApiKeyModal = ref(false)
 const apiKeyInput = ref('')
 const refreshKey = ref(0)
+const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
 
 const userInitial = computed(() => 
   userStore.userInfo?.nickname?.charAt(0) || 
@@ -246,11 +251,22 @@ const userInitial = computed(() =>
 )
 
 const recommendProducts = computed(() => {
-  // refreshKey用于触发重新计算
-  const _ = refreshKey.value
-  return [...allProducts.value]
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 6)
+  const sorted = [...allProducts.value].sort((a, b) => {
+    const salesDiff = Number(b.sales || 0) - Number(a.sales || 0)
+    if (salesDiff !== 0) return salesDiff
+    return Number(b.id || 0) - Number(a.id || 0)
+  })
+
+  if (sorted.length <= 6) {
+    return sorted
+  }
+
+  const start = (refreshKey.value * 6) % sorted.length
+  const windowed = sorted.slice(start, start + 6)
+  if (windowed.length === 6) {
+    return windowed
+  }
+  return [...windowed, ...sorted.slice(0, 6 - windowed.length)]
 })
 
 const refreshProducts = () => {
@@ -314,6 +330,7 @@ const sendMessage = async () => {
     })
     scrollToBottom()
   } catch (error) {
+    debugError('AI 对话失败:', error)
     isTyping.value = false
     messages.value.push({
       role: 'ai',
@@ -330,7 +347,18 @@ const openApiKeyModal = () => {
 }
 
 const saveApiKey = () => {
-  setApiKey(apiKeyInput.value.trim())
+  const trimmedKey = apiKeyInput.value.trim()
+  if (!trimmedKey) {
+    showApiKeyModal.value = false
+    messages.value.push({
+      role: 'ai',
+      content: '未填写 API 密钥，AI 对话仍不可用。配置密钥后才能调用外部模型服务。',
+      time: getCurrentTime()
+    })
+    return
+  }
+
+  setApiKey(trimmedKey)
   showApiKeyModal.value = false
   messages.value.push({
     role: 'ai',
@@ -358,15 +386,34 @@ onMounted(async () => {
   // 并行加载所有数据
   try {
     const [productsRes, categoriesRes, couponsRes] = await Promise.all([
-      productApi.getProducts({ page: 1, size: 100 }),
-      adminApi.getCategories().catch(() => ({ data: [] })),
-      couponApi.getAvailableCoupons().catch(() => ({ data: [] }))
+      productApi.getProducts({ page: 1, size: 100 }).catch((error) => {
+        debugError('获取 AI 商品数据失败:', error)
+        return { data: { content: [] } }
+      }),
+      adminApi.getCategories().catch((error) => {
+        debugError('获取 AI 分类数据失败:', error)
+        return { data: [] }
+      }),
+      couponApi.getAvailableCoupons().catch((error) => {
+        debugError('获取 AI 优惠券数据失败:', error)
+        return { data: [] }
+      })
     ])
 
     // 商品数据
     if ((productsRes as any)?.code === 200) {
       const data = (productsRes as any).data
       allProducts.value = data?.content || data?.records || data || []
+    } else {
+      debugError('获取 AI 商品数据失败:', getResponseMessage(productsRes, '业务返回异常'))
+    }
+
+    if ((categoriesRes as any)?.code && (categoriesRes as any)?.code !== 200) {
+      debugError('获取 AI 分类数据失败:', getResponseMessage(categoriesRes, '业务返回异常'))
+    }
+
+    if ((couponsRes as any)?.code && (couponsRes as any)?.code !== 200) {
+      debugError('获取 AI 优惠券数据失败:', getResponseMessage(couponsRes, '业务返回异常'))
     }
 
     // 设置额外数据给AI
@@ -678,6 +725,15 @@ onMounted(async () => {
   border-top: 1px solid #eef0f5;
 }
 
+.chat-note {
+  padding: 10px 16px 14px;
+  border-top: 1px solid #eef0f5;
+  background: #fff;
+  font-size: 12px;
+  color: #7a7f8f;
+  line-height: 1.6;
+}
+
 .quick-header {
   display: flex;
   align-items: center;
@@ -916,6 +972,13 @@ onMounted(async () => {
   padding: 12px 16px;
   background: #f8f9ff;
   border-top: 1px solid #eef0f5;
+}
+
+.panel-note {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #7a7f8f;
+  line-height: 1.5;
 }
 
 .view-more-btn {

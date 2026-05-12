@@ -5,6 +5,8 @@ import com.shopping.dto.ConsumptionReportDto;
 import com.shopping.dto.ConsumptionReportDto.CategoryConsumption;
 import com.shopping.dto.ConsumptionReportDto.MonthlyTrend;
 import com.shopping.entity.*;
+import com.shopping.exception.ResourceNotFoundException;
+import com.shopping.exception.ValidationException;
 import com.shopping.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -264,13 +266,63 @@ public class RationalConsumptionService {
         
         // 生成消费建议
         report.setSuggestions(generateSuggestions(report, categoryList));
-        
-        // 模拟数据
-        report.setImpulseBlockedCount((int)(Math.random() * 10));
-        report.setDuplicateAlertCount((int)(Math.random() * 5));
-        report.setSavedAmount(new BigDecimal((int)(Math.random() * 200)));
+
+        // 只输出可追溯的真实统计，不再返回随机模拟值
+        report.setImpulseBlockedCount(calculateImpulseBlockedCount(user.getId(), startTime, endTime));
+        report.setDuplicateAlertCount(calculateDuplicateAlertCount(user.getId(), startTime, endTime));
+        report.setSavedAmount(calculateSavedAmount(orders));
         
         return report;
+    }
+
+    private int calculateImpulseBlockedCount(Long userId, LocalDateTime startTime, LocalDateTime endTime) {
+        return (int) wishlistRepository.findByUserIdAndStatusInOrderByCreatedTimeDesc(userId, Collections.singletonList(3))
+                .stream()
+                .filter(item -> isWithinRange(item.getCreatedTime(), startTime, endTime))
+                .count();
+    }
+
+    private int calculateDuplicateAlertCount(Long userId, LocalDateTime startTime, LocalDateTime endTime) {
+        LocalDateTime lookbackStart = startTime.minusMonths(3);
+        List<Order> recentOrders = new ArrayList<>(orderRepository.findByUserIdAndPaymentStatusAndCreatedTimeBetween(
+                userId, 1, lookbackStart, endTime));
+
+        recentOrders.sort(Comparator.comparing(Order::getCreatedTime, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        Map<Long, LocalDateTime> productLastBoughtAt = new HashMap<>();
+        int duplicateCount = 0;
+
+        for (Order order : recentOrders) {
+            if (order.getCreatedTime() == null) {
+                continue;
+            }
+
+            boolean inReportRange = !order.getCreatedTime().isBefore(startTime) && !order.getCreatedTime().isAfter(endTime);
+            for (OrderItem item : order.getItems()) {
+                Product product = item.getProduct();
+                Long productId = product != null ? product.getId() : null;
+
+                if (productId != null) {
+                    LocalDateTime lastBoughtAt = productLastBoughtAt.get(productId);
+                    if (inReportRange && lastBoughtAt != null && !lastBoughtAt.isBefore(order.getCreatedTime().minusMonths(3))) {
+                        duplicateCount++;
+                    }
+                    productLastBoughtAt.put(productId, order.getCreatedTime());
+                }
+            }
+        }
+
+        return duplicateCount;
+    }
+
+    private BigDecimal calculateSavedAmount(List<Order> orders) {
+        return orders.stream()
+                .map(order -> order.getCouponDiscount() != null ? order.getCouponDiscount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private boolean isWithinRange(LocalDateTime time, LocalDateTime startTime, LocalDateTime endTime) {
+        return time != null && !time.isBefore(startTime) && !time.isAfter(endTime);
     }
 
     /**
@@ -417,7 +469,7 @@ public class RationalConsumptionService {
     public Wishlist addToWishlist(String username, Long productId, Integer coolingDays, String reason) {
         User user = userService.getUserByUsername(username);
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new RuntimeException("商品不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("商品", productId));
         
         // 检查是否已在清单中
         Optional<Wishlist> existing = wishlistRepository.findByUserIdAndProductIdAndStatusIn(
@@ -425,7 +477,7 @@ public class RationalConsumptionService {
                     WishlistConstants.WishlistStatus.COOLING, 
                     WishlistConstants.WishlistStatus.READY));
         if (existing.isPresent()) {
-            throw new RuntimeException("该商品已在想要清单中");
+            throw new ValidationException("该商品已在想要清单中");
         }
         
         Wishlist wishlist = new Wishlist();
@@ -518,10 +570,10 @@ public class RationalConsumptionService {
     public void removeFromWishlist(String username, Long wishlistId) {
         User user = userService.getUserByUsername(username);
         Wishlist wishlist = wishlistRepository.findById(wishlistId)
-                .orElseThrow(() -> new RuntimeException("清单项不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("清单项", wishlistId));
         
         if (!wishlist.getUserId().equals(user.getId())) {
-            throw new RuntimeException("无权操作");
+            throw new ValidationException("无权操作");
         }
         
         wishlist.setStatus(WishlistConstants.WishlistStatus.REMOVED);
@@ -541,10 +593,10 @@ public class RationalConsumptionService {
     public void markAsPurchased(String username, Long wishlistId) {
         User user = userService.getUserByUsername(username);
         Wishlist wishlist = wishlistRepository.findById(wishlistId)
-                .orElseThrow(() -> new RuntimeException("清单项不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("清单项", wishlistId));
         
         if (!wishlist.getUserId().equals(user.getId())) {
-            throw new RuntimeException("无权操作");
+            throw new ValidationException("无权操作");
         }
         
         wishlist.setStatus(WishlistConstants.WishlistStatus.PURCHASED);
@@ -790,13 +842,8 @@ public class RationalConsumptionService {
                 activity.put("productPrice", product.getPrice());
             }
             
-            // 用户信息
-            try {
-                User user = userService.findById(item.getUserId());
-                activity.put("username", user != null ? user.getUsername() : "未知用户");
-            } catch (Exception e) {
-                activity.put("username", "未知用户");
-            }
+            User user = userService.findById(item.getUserId());
+            activity.put("username", user != null ? user.getUsername() : "未知用户");
             
             activities.add(activity);
             count++;
@@ -832,13 +879,8 @@ public class RationalConsumptionService {
             item.put("description", ach.getAchievementDesc());
             item.put("achievedTime", ach.getAchievedTime());
             
-            // 用户信息
-            try {
-                User user = userService.findById(ach.getUserId());
-                item.put("username", user != null ? user.getUsername() : "未知用户");
-            } catch (Exception e) {
-                item.put("username", "未知用户");
-            }
+            User user = userService.findById(ach.getUserId());
+            item.put("username", user != null ? user.getUsername() : "未知用户");
             
             result.add(item);
         }
@@ -862,7 +904,7 @@ public class RationalConsumptionService {
         
         String[] def = achievementDefs.get(type);
         if (def == null) {
-            throw new RuntimeException("无效的成就类型");
+            throw new ValidationException("无效的成就类型");
         }
         
         checkAndGrantAchievement(userId, type, def[0], def[1]);
