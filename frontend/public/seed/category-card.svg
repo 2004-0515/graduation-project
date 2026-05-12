@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="分类占位图">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f5f3ff"/>
+      <stop offset="100%" stop-color="#e0f2fe"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="32" fill="url(#bg)"/>
+  <rect x="44" y="48" width="48" height="48" rx="14" fill="#9b87f5" fill-opacity=".75"/>
+  <rect x="108" y="48" width="48" height="48" rx="14" fill="#6ec5ff" fill-opacity=".7"/>
+  <rect x="44" y="112" width="48" height="48" rx="14" fill="#f59e0b" fill-opacity=".68"/>
+  <rect x="108" y="112" width="48" height="48" rx="14" fill="#34d399" fill-opacity=".7"/>
+</svg>

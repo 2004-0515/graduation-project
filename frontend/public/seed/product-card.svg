@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="商品占位图">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#312e81"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#67e8f9"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" rx="40" fill="url(#bg)"/>
+  <circle cx="116" cy="118" r="84" fill="#c4b5fd" fill-opacity=".22"/>
+  <circle cx="302" cy="92" r="64" fill="#67e8f9" fill-opacity=".18"/>
+  <rect x="86" y="76" width="228" height="168" rx="28" fill="url(#card)" fill-opacity=".9"/>
+  <rect x="102" y="270" width="196" height="22" rx="11" fill="#ffffff" fill-opacity=".72"/>
+  <rect x="126" y="310" width="148" height="18" rx="9" fill="#ffffff" fill-opacity=".46"/>
+</svg>

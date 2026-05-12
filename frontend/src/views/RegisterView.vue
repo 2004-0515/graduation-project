@@ -14,7 +14,7 @@
       </div>
 
       <div class="card-body">
-        <el-form :model="registerForm" :rules="registerRules" ref="registerFormRef" label-position="top">
+        <el-form :model="registerForm" :rules="registerRules" ref="registerFormRef" label-position="top" data-testid="register-form">
           <el-form-item label="用户名" prop="username">
             <el-input v-model="registerForm.username" placeholder="请输入用户名" prefix-icon="User" />
           </el-form-item>
@@ -52,6 +52,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
+import { debugError } from '../utils/debug'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -95,6 +96,7 @@ const handleRegister = async () => {
         ElMessage.success('注册成功，请登录')
         router.push('/login')
       } catch (error) {
+        debugError('注册失败:', userStore.error || error)
         ElMessage.error(userStore.error || '注册失败')
       } finally { loading.value = false }
     }
@@ -105,7 +107,7 @@ const handleRegister = async () => {
 <style scoped>
 .register-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--white); position: relative; }
 .deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-.deco-bg { position: absolute; bottom: -20%; left: -10%; width: 60%; height: 70%; background: url('https://images.unsplash.com/photo-1513407030348-c983a97b98d8?w=800') center/cover; opacity: 0.1; filter: blur(50px) saturate(1.2); }
+.deco-bg { position: absolute; bottom: -20%; left: -10%; width: 60%; height: 70%; background: url('/external-cache/register-bg.jpg') center/cover; opacity: 0.1; filter: blur(50px) saturate(1.2); }
 .shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; }
 .s1 { width: 600px; height: 600px; top: 5%; right: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.5; }
 .s2 { width: 500px; height: 500px; bottom: 5%; left: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.5; animation-delay: -10s; }

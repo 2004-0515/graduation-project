@@ -84,6 +84,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import { generateRandomCode } from '../utils/captcha'
+import { debugError } from '../utils/debug'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -143,6 +144,7 @@ const handleLogin = async () => {
         // 登录后始终跳转到首页，避免 redirect 参数导致的跳转问题
         router.push('/')
       } catch (error) {
+        debugError('登录失败:', userStore.error || error)
         ElMessage.error(userStore.error || '登录失败')
         refreshCaptcha()
       } finally { loading.value = false }
@@ -163,7 +165,7 @@ const handleLogin = async () => {
 }
 
 .deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-.deco-bg { position: absolute; top: -20%; right: -10%; width: 60%; height: 70%; background: url('https://images.unsplash.com/photo-1522383225653-ed111181a951?w=800') center/cover; opacity: 0.1; filter: blur(50px) saturate(1.2); }
+.deco-bg { position: absolute; top: -20%; right: -10%; width: 60%; height: 70%; background: url('/external-cache/login-bg.jpg') center/cover; opacity: 0.1; filter: blur(50px) saturate(1.2); }
 .shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; }
 .s1 { width: 600px; height: 600px; top: 5%; left: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.5; }
 .s2 { width: 500px; height: 500px; bottom: 5%; right: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.5; animation-delay: -10s; }
