@@ -106,3 +106,7 @@ dist/
 *.swo
 *~
 .cache/
+.vite/
+tmp-browser-pids.json
+backend/.jqwik-database
+backend/.m2repo/
