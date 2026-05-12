@@ -2,6 +2,7 @@ package com.shopping.service.impl;
 
 import com.shopping.entity.SecuritySettings;
 import com.shopping.entity.User;
+import com.shopping.exception.ResourceNotFoundException;
 import com.shopping.repository.SecuritySettingsRepository;
 import com.shopping.service.SecuritySettingsService;
 import org.slf4j.Logger;
@@ -32,22 +33,21 @@ public class SecuritySettingsServiceImpl implements SecuritySettingsService {
     @Override
     public SecuritySettings getSecuritySettingsByUserId(Long userId) {
         return securitySettingsRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("安全设置不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("安全设置", userId));
     }
 
     @Override
     public SecuritySettings updateSecuritySettings(SecuritySettings securitySettings) {
-        // 记录更新前的设置
-        SecuritySettings oldSettings = securitySettingsRepository.findByUserId(securitySettings.getUser().getId())
-                .orElseThrow(() -> new RuntimeException("安全设置不存在"));
-        
-        // 设置现有记录的id，确保是更新操作而不是插入操作
-        securitySettings.setId(oldSettings.getId());
-        
-        SecuritySettings updatedSettings = securitySettingsRepository.save(securitySettings);
-        
+        SecuritySettings existingSettings = securitySettingsRepository.findByUserId(securitySettings.getUser().getId())
+                .orElseGet(() -> initializeSecuritySettings(securitySettings.getUser()));
+
+        existingSettings.setUser(securitySettings.getUser());
+        existingSettings.setPasswordLastChanged(securitySettings.getPasswordLastChanged());
+
+        SecuritySettings updatedSettings = securitySettingsRepository.save(existingSettings);
+
         logger.info("用户[{}]更新了安全设置", securitySettings.getUser().getId());
-        
+
         return updatedSettings;
     }
 

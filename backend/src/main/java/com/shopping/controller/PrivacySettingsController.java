@@ -5,10 +5,11 @@ import com.shopping.entity.PrivacySettings;
 import com.shopping.entity.User;
 import com.shopping.service.PrivacySettingsService;
 import com.shopping.service.UserService;
+import com.shopping.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Optional;
 
 /**
  * 隐私设置控制器
@@ -16,11 +17,21 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/privacy-settings")
 public class PrivacySettingsController {
+    private static final String AUTH_FAILED_MESSAGE = "用户未认证或认证失效";
+
     @Autowired
     private PrivacySettingsService privacySettingsService;
     
     @Autowired
     private UserService userService;
+
+    private Optional<User> getCurrentUser() {
+        if (!SecurityUtils.isAuthenticated()) {
+            return Optional.empty();
+        }
+        String username = SecurityUtils.getCurrentUsername();
+        return Optional.ofNullable(userService.findByUsername(username));
+    }
 
     /**
      * 获取当前用户的隐私设置
@@ -28,10 +39,12 @@ public class PrivacySettingsController {
      */
     @GetMapping("/me")
     public Response<PrivacySettings> getCurrentUserPrivacySettings() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-        User user = userService.findByUsername(username);
-        PrivacySettings privacySettings = privacySettingsService.getPrivacySettings(user);
+        Optional<User> currentUser = getCurrentUser();
+        if (currentUser.isEmpty()) {
+            return Response.fail(401, AUTH_FAILED_MESSAGE);
+        }
+
+        PrivacySettings privacySettings = privacySettingsService.getPrivacySettings(currentUser.get());
         return Response.success("获取隐私设置成功", privacySettings);
     }
 
@@ -42,11 +55,13 @@ public class PrivacySettingsController {
      */
     @PutMapping("/me")
     public Response<PrivacySettings> updateCurrentUserPrivacySettings(@RequestBody PrivacySettings privacySettings) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-        User user = userService.findByUsername(username);
+        Optional<User> currentUser = getCurrentUser();
+        if (currentUser.isEmpty()) {
+            return Response.fail(401, AUTH_FAILED_MESSAGE);
+        }
+
         // 设置用户信息，防止恶意修改
-        privacySettings.setUser(user);
+        privacySettings.setUser(currentUser.get());
         PrivacySettings updatedSettings = privacySettingsService.updatePrivacySettings(privacySettings);
         return Response.success("更新隐私设置成功", updatedSettings);
     }

@@ -1,5 +1,5 @@
 <template>
-  <div class="notifications-page">
+  <div class="notifications-page" data-testid="notifications-view">
     <Navbar />
 
     <main class="main-content">
@@ -35,8 +35,8 @@
               </button>
             </div>
             <div class="actions">
-              <button class="action-btn" @click="markAllRead" :disabled="unreadCount === 0">全部已读</button>
-              <button class="action-btn danger" @click="clearAllNotifications" :disabled="totalCount === 0">清空</button>
+              <button class="action-btn" data-testid="notifications-mark-all-read" @click="markAllRead" :disabled="unreadCount === 0">全部已读</button>
+              <button class="action-btn danger" data-testid="notifications-clear-all" @click="clearAllNotifications" :disabled="totalCount === 0">清空</button>
             </div>
           </div>
 
@@ -46,6 +46,7 @@
                 v-for="item in filteredNotifications" 
                 :key="item.id"
                 :class="['notification-item', getActualType(item), { unread: !item.read }]"
+                :data-testid="`notification-item-${item.id}`"
                 @click="openDetail(item)"
               >
                 <div class="item-icon" :class="getActualType(item)">
@@ -117,34 +118,41 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button v-if="getActualType(currentNotification) === 'order'" 
+                     data-testid="notification-detail-order-action"
                      type="primary" @click="goToOrder">
             查看订单
           </el-button>
           <el-button v-if="getActualType(currentNotification) === 'promotion'" 
+                     data-testid="notification-detail-promotion-action"
                      type="primary" @click="goToPromotion">
             {{ isPriceAlertNotification(currentNotification) ? '查看商品' : (currentNotification?.relatedId ? '查看优惠券' : '领取优惠券') }}
           </el-button>
           <el-button v-if="isAdmin && getActualType(currentNotification) === 'file_review'" 
+                     data-testid="notification-detail-file-review-action"
                      type="primary" @click="goToFileReview">
             去审核
           </el-button>
           <el-button v-if="!isAdmin && getActualType(currentNotification) === 'file_review'" 
+                     data-testid="notification-detail-profile-action"
                      type="primary" @click="goToSettings">
             查看个人中心
           </el-button>
           <el-button v-if="isAdmin && getActualType(currentNotification) === 'product_review'" 
+                     data-testid="notification-detail-product-review-action"
                      type="primary" @click="goToProductReview">
             去审核
           </el-button>
           <el-button v-if="!isAdmin && getActualType(currentNotification) === 'product_review'" 
+                     data-testid="notification-detail-my-products-action"
                      type="primary" @click="goToMyProducts">
             查看我的商品
           </el-button>
           <el-button v-if="getActualType(currentNotification) === 'review'" 
+                     data-testid="notification-detail-review-action"
                      type="primary" @click="goToProductDetail">
             查看商品
           </el-button>
-          <el-button @click="detailVisible = false">关闭</el-button>
+          <el-button @click="closeDetail">关闭</el-button>
         </div>
       </template>
     </el-dialog>
@@ -161,6 +169,7 @@ import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 import notificationApi, { type Notification } from '../api/notificationApi'
 import { useNotificationStore } from '../stores/notificationStore'
+import { debugError } from '../utils/debug'
 
 import { useUserStore } from '../stores/userStore'
 
@@ -188,6 +197,10 @@ const notifications = ref<Notification[]>([])
 const loading = ref(false)
 const detailVisible = ref(false)
 const currentNotification = ref<Notification | null>(null)
+let latestNotificationsRequestId = 0
+const invalidateNotificationRequests = () => {
+  latestNotificationsRequestId += 1
+}
 
 const totalCount = computed(() => notifications.value.length)
 const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
@@ -207,7 +220,8 @@ const filteredNotifications = computed(() => {
 })
 
 // 判断是否是文件审核相关通知（兼容旧的system类型）- 只包含头像审核
-const isFileReviewNotification = (n: Notification) => {
+const isFileReviewNotification = (n: Notification | null) => {
+  if (!n) return false
   if (n.type === 'file_review') return true
   if (n.type === 'system') {
     const title = n.title || ''
@@ -219,7 +233,8 @@ const isFileReviewNotification = (n: Notification) => {
 }
 
 // 判断是否是商品审核相关通知（兼容旧的system类型）
-const isProductReviewNotification = (n: Notification) => {
+const isProductReviewNotification = (n: Notification | null) => {
+  if (!n) return false
   if (n.type === 'product_review') return true
   if (n.type === 'system') {
     const title = n.title || ''
@@ -232,7 +247,8 @@ const isProductReviewNotification = (n: Notification) => {
 }
 
 // 获取通知的实际类型（用于显示样式）
-const getActualType = (n: Notification) => {
+const getActualType = (n: Notification | null) => {
+  if (!n) return 'system'
   if (n.type === 'file_review' || isFileReviewNotification(n)) return 'file_review'
   if (n.type === 'product_review' || isProductReviewNotification(n)) return 'product_review'
   if (n.type === 'review') return 'review'
@@ -251,17 +267,71 @@ const getTypeName = (type: string) => {
   return names[type] || '通知'
 }
 
-const fetchNotifications = async () => {
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
+
+const fetchNotifications = async (options?: { silentError?: boolean }) => {
+  const silentError = options?.silentError ?? false
+  const requestId = ++latestNotificationsRequestId
   loading.value = true
   try {
     const res: any = await notificationApi.getNotifications()
-    if (res?.code === 200) {
-      notifications.value = res.data || []
+    if (requestId !== latestNotificationsRequestId) {
+      return
     }
-  } catch (e) {
-    console.error('获取通知失败', e)
+    if (res?.code === 200) {
+      applyLocalNotifications(res.data || [])
+      return true
+    }
+    const message = res?.message || '获取通知失败'
+    debugError('获取通知失败:', message)
+    if (!silentError) {
+      ElMessage.error(message)
+    }
+    return false
+  } catch (error) {
+    if (requestId !== latestNotificationsRequestId) {
+      return
+    }
+    debugError('获取通知失败:', error)
+    if (!silentError) {
+      ElMessage.error(getErrorMessage(error, '获取通知失败'))
+    }
+    return false
   } finally {
-    loading.value = false
+    if (requestId === latestNotificationsRequestId) {
+      loading.value = false
+    }
+  }
+}
+
+const refreshNotificationsAfterSuccess = async (actionLabel: string) => {
+  const refreshed = await fetchNotifications({ silentError: true })
+  if (!refreshed) {
+    debugError(`${actionLabel}后刷新通知列表失败:`, '获取通知失败')
+  }
+}
+
+const closeDetail = () => {
+  detailVisible.value = false
+  currentNotification.value = null
+}
+
+const applyLocalNotifications = (nextNotifications: Notification[]) => {
+  notifications.value = nextNotifications
+  notificationStore.setCount(nextNotifications.filter((item) => !item.read).length)
+  if (!currentNotification.value) return
+  const nextCurrentNotification =
+    nextNotifications.find((item) => item.id === currentNotification.value?.id) || null
+  currentNotification.value = nextCurrentNotification
+  if (!nextCurrentNotification) {
+    detailVisible.value = false
   }
 }
 
@@ -273,55 +343,82 @@ const openDetail = async (item: Notification) => {
   // 先标记为已读
   if (!item.read) {
     try {
-      await notificationApi.markAsRead(item.id)
-      item.read = true
-      notificationStore.decreaseCount(1)
-    } catch {}
+      const res: any = await notificationApi.markAsRead(item.id)
+      if (res?.code === 200) {
+        invalidateNotificationRequests()
+        applyLocalNotifications(
+          notifications.value.map((notification) =>
+            notification.id === item.id
+              ? { ...notification, read: true }
+              : notification
+          )
+        )
+        await refreshNotificationsAfterSuccess('标记通知已读')
+      } else {
+        const message = res?.message || '标记已读失败'
+        debugError('标记通知已读失败:', message)
+        ElMessage.warning(message)
+      }
+    } catch (error) {
+      debugError('标记通知已读失败:', error)
+      ElMessage.warning(getErrorMessage(error, '标记已读失败'))
+    }
   }
   // 打开详情弹窗
-  currentNotification.value = item
+  currentNotification.value = notifications.value.find((notification) => notification.id === item.id) || item
   detailVisible.value = true
 }
 
+const isSellerShipmentNotification = (n: Notification | null) => {
+  if (!n) return false
+  const title = n.title || ''
+  const message = n.message || ''
+  return title.includes('新订单待发货') ||
+    (message.includes('购买了您的商品') && message.includes('请尽快发货'))
+}
+
+const isOwnOrderNotification = (n: Notification | null) => {
+  if (!n) return false
+  const message = n.message || ''
+  return message.includes('您的订单') || message.includes('你的订单')
+}
+
 const goToOrder = () => {
-  detailVisible.value = false
-  
-  // 判断是否是管理员
-  const isAdmin = userStore.userInfo?.username === 'admin'
-  
-  // 检查消息内容，判断通知类型
-  const message = currentNotification.value?.message || ''
-  const title = currentNotification.value?.title || ''
-  const isOwnOrder = message.includes('您的订单') || message.includes('你的订单')
-  
-  // 卖家收到的发货通知，跳转到卖家发货页面
-  const isSellerShipNotification = title.includes('新订单待发货') || 
-                                    (message.includes('购买了您的商品') && message.includes('请尽快发货'))
-  
-  if (isSellerShipNotification) {
-    // 卖家发货通知，跳转到卖家发货页面
+  const notification = currentNotification.value
+  closeDetail()
+
+  if (isSellerShipmentNotification(notification)) {
     router.push('/seller-orders')
-  } else if (isAdmin && !isOwnOrder) {
-    // 管理员处理其他用户的订单，跳转到订单管理页面
-    router.push('/admin/orders')
-  } else {
-    // 管理员自己的订单或普通用户，跳转到我的订单页面
-    // 从消息内容中提取订单号（格式：您的订单 XXX 状态更新）
-    if (message) {
-      const match = message.match(/订单\s*(\S+)\s/)
-      if (match && match[1]) {
-        router.push(`/orders?search=${match[1]}`)
-        return
-      }
-    }
-    router.push('/orders')
+    return
   }
+
+  if (isAdmin.value && !isOwnOrderNotification(notification)) {
+    router.push('/admin/orders')
+    return
+  }
+
+  if (notification?.relatedId) {
+    router.push(`/order/${notification.relatedId}`)
+    return
+  }
+
+  const message = notification?.message || ''
+  if (message) {
+    const match = message.match(/订单\s*(\S+)\s/)
+    if (match && match[1]) {
+      router.push(`/orders?search=${match[1]}`)
+      return
+    }
+  }
+
+  router.push('/orders')
 }
 
 const goToCoupon = () => {
-  detailVisible.value = false
-  if (currentNotification.value?.relatedId) {
-    router.push(`/coupon/${currentNotification.value.relatedId}`)
+  const notification = currentNotification.value
+  closeDetail()
+  if (notification?.relatedId) {
+    router.push(`/coupon/${notification.relatedId}`)
   } else {
     router.push('/promotions')
   }
@@ -335,18 +432,19 @@ const isPriceAlertNotification = (n: Notification | null) => {
 
 // 跳转到促销相关页面
 const goToPromotion = () => {
-  detailVisible.value = false
-  if (isPriceAlertNotification(currentNotification.value)) {
-    // 降价提醒，跳转到商品详情页
-    if (currentNotification.value?.relatedId) {
-      router.push(`/product/${currentNotification.value.relatedId}`)
+  const notification = currentNotification.value
+  closeDetail()
+  if (isPriceAlertNotification(notification)) {
+    // 降价提醒优先回到商品详情；缺少商品ID时回到提醒列表
+    if (notification?.relatedId) {
+      router.push(`/product/${notification.relatedId}`)
     } else {
-      router.push('/products')
+      router.push('/price-alerts')
     }
   } else {
     // 其他促销通知，跳转到优惠券页面
-    if (currentNotification.value?.relatedId) {
-      router.push(`/coupon/${currentNotification.value.relatedId}`)
+    if (notification?.relatedId) {
+      router.push(`/coupon/${notification.relatedId}`)
     } else {
       router.push('/promotions')
     }
@@ -354,30 +452,31 @@ const goToPromotion = () => {
 }
 
 const goToFileReview = () => {
-  detailVisible.value = false
+  closeDetail()
   router.push('/admin/files')
 }
 
 const goToSettings = () => {
-  detailVisible.value = false
+  closeDetail()
   // 头像审核通知应该跳转到个人中心
   router.push('/profile')
 }
 
 const goToProductReview = () => {
-  detailVisible.value = false
+  closeDetail()
   router.push('/admin/products?tab=pending')
 }
 
 const goToMyProducts = () => {
-  detailVisible.value = false
+  closeDetail()
   router.push('/my-products')
 }
 
 const goToProductDetail = () => {
-  detailVisible.value = false
-  if (currentNotification.value?.relatedId) {
-    router.push(`/product/${currentNotification.value.relatedId}`)
+  const notification = currentNotification.value
+  closeDetail()
+  if (notification?.relatedId) {
+    router.push(`/product/${notification.relatedId}`)
   } else {
     router.push('/my-products')
   }
@@ -385,37 +484,65 @@ const goToProductDetail = () => {
 
 const markAllRead = async () => {
   try {
-    await notificationApi.markAllAsRead()
-    notifications.value.forEach(n => n.read = true)
-    notificationStore.clearCount()
-    ElMessage.success('已全部标记为已读')
-  } catch {
-    ElMessage.error('操作失败')
+    const res: any = await notificationApi.markAllAsRead()
+    if (res?.code === 200) {
+      invalidateNotificationRequests()
+      applyLocalNotifications(
+        notifications.value.map((notification) => ({ ...notification, read: true }))
+      )
+      ElMessage.success('已全部标记为已读')
+      await refreshNotificationsAfterSuccess('全部标记已读')
+      return
+    }
+    const message = res?.message || '全部标记已读失败'
+    debugError('全部标记已读失败:', message)
+    ElMessage.error(message)
+  } catch (error) {
+    debugError('全部标记已读失败:', error)
+    ElMessage.error(getErrorMessage(error, '全部标记已读失败'))
   }
 }
 
 const deleteItem = async (item: Notification) => {
   try {
-    await notificationApi.deleteNotification(item.id)
-    // 如果删除的是未读消息，减少计数
-    if (!item.read) {
-      notificationStore.decreaseCount(1)
+    const res: any = await notificationApi.deleteNotification(item.id)
+    if (res?.code === 200) {
+      invalidateNotificationRequests()
+      applyLocalNotifications(notifications.value.filter((notification) => notification.id !== item.id))
+      ElMessage.success('已删除')
+      await refreshNotificationsAfterSuccess('删除通知')
+      return
     }
-    notifications.value = notifications.value.filter(n => n.id !== item.id)
-    ElMessage.success('已删除')
-  } catch {
-    ElMessage.error('删除失败')
+    const message = res?.message || '删除通知失败'
+    debugError('删除通知失败:', message)
+    ElMessage.error(message)
+  } catch (error) {
+    debugError('删除通知失败:', error)
+    ElMessage.error(getErrorMessage(error, '删除通知失败'))
   }
 }
 
 const clearAllNotifications = async () => {
   try {
     await ElMessageBox.confirm('确定要清空所有通知吗？', '提示', { type: 'warning' })
-    await notificationApi.clearAll()
-    notifications.value = []
-    notificationStore.clearCount()
-    ElMessage.success('已清空所有通知')
-  } catch {}
+    const res: any = await notificationApi.clearAll()
+    if (res?.code === 200) {
+      invalidateNotificationRequests()
+      applyLocalNotifications([])
+      ElMessage.success('已清空所有通知')
+      await refreshNotificationsAfterSuccess('清空通知')
+      return
+    }
+    const message = res?.message || '清空通知失败'
+    debugError('清空通知失败:', message)
+    ElMessage.error(message)
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
+      return
+    }
+    debugError('清空通知失败:', error)
+    ElMessage.error(getErrorMessage(error, '清空通知失败'))
+  }
 }
 
 onMounted(() => {

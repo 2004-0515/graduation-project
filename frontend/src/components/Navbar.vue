@@ -19,7 +19,7 @@
       </div>
       
       <div class="nav-actions">
-        <div class="search-box" :class="{ focused: searchFocused }">
+        <div class="search-box" data-testid="navbar-search-box" :class="{ focused: searchFocused }">
           <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
@@ -168,6 +168,7 @@ import { useNotificationStore } from '@/stores/notificationStore'
 import fileApi from '@/api/fileApi'
 import searchApi from '@/api/searchApi'
 import SearchDropdown from '@/components/SearchDropdown.vue'
+import { debugError } from '@/utils/debug'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -198,10 +199,18 @@ const userAvatar = computed(() => {
 // 判断是否为管理员（用户名为 admin）
 const isAdmin = computed(() => userStore.userInfo?.username === 'admin')
 
+const recordSearchKeyword = async (keyword: string) => {
+  try {
+    await searchApi.recordSearch(keyword)
+  } catch (error) {
+    debugError('记录搜索关键词失败', error)
+  }
+}
+
 const search = () => { 
   if (query.value.trim()) {
     // 记录搜索统计
-    searchApi.recordSearch(query.value.trim()).catch(() => {})
+    recordSearchKeyword(query.value.trim())
     // 保存搜索历史
     if (searchDropdownRef.value) {
       searchDropdownRef.value.saveSearchHistory(query.value.trim())
@@ -227,7 +236,7 @@ const handleSearchSelect = (keyword: string) => {
   query.value = keyword
   showSearchDropdown.value = false
   // 记录搜索统计
-  searchApi.recordSearch(keyword).catch(() => {})
+  recordSearchKeyword(keyword)
   // 保存搜索历史
   if (searchDropdownRef.value) {
     searchDropdownRef.value.saveSearchHistory(keyword)
@@ -255,22 +264,55 @@ const closeSearchDropdown = () => {
   showSearchDropdown.value = false
 }
 
+const stopUnreadPolling = () => {
+  if (unreadTimer) {
+    clearInterval(unreadTimer)
+    unreadTimer = null
+  }
+}
+
+const startUnreadPolling = () => {
+  stopUnreadPolling()
+  unreadTimer = setInterval(() => notificationStore.fetchUnreadCount(), 60000)
+}
+
+const refreshAuthenticatedNavbarState = async () => {
+  const results = await Promise.allSettled([
+    cartStore.fetchCart(),
+    notificationStore.fetchUnreadCount()
+  ])
+  const labels = ['购物车状态', '通知未读数']
+
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      debugError(`刷新导航栏${labels[index]}失败`, result.reason)
+    }
+  })
+}
+
 const handleLogout = async () => {
-  await userStore.logout()
-  // 清空购物车状态
-  cartStore.items = []
-  // 清空通知数量
-  notificationStore.clearCount()
-  ElMessage.success('已退出登录')
-  router.push('/')
+  try {
+    await userStore.logout()
+    // 清空购物车状态
+    cartStore.items = []
+    // 清空通知数量
+    notificationStore.clearCount()
+    stopUnreadPolling()
+    ElMessage.success('已退出登录')
+    router.push('/')
+  } catch (error) {
+    debugError('退出登录失败', error)
+    ElMessage.error('退出登录失败')
+  }
 }
 
 // 监听登录状态变化
 watch(() => userStore.isLoggedIn, (loggedIn) => {
   if (loggedIn) {
-    cartStore.fetchCart()
-    notificationStore.fetchUnreadCount()
+    refreshAuthenticatedNavbarState()
+    startUnreadPolling()
   } else {
+    stopUnreadPolling()
     cartStore.items = []
     notificationStore.clearCount()
   }
@@ -278,17 +320,13 @@ watch(() => userStore.isLoggedIn, (loggedIn) => {
 
 onMounted(() => {
   if (userStore.isLoggedIn) {
-    cartStore.fetchCart()
-    notificationStore.fetchUnreadCount()
-    unreadTimer = setInterval(() => notificationStore.fetchUnreadCount(), 60000)
+    refreshAuthenticatedNavbarState()
+    startUnreadPolling()
   }
 })
 
 onUnmounted(() => {
-  if (unreadTimer) {
-    clearInterval(unreadTimer)
-    unreadTimer = null
-  }
+  stopUnreadPolling()
 })
 </script>
 

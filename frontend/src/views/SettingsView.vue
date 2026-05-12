@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-page">
+  <div class="settings-page" data-testid="settings-view">
     <Navbar />
     <main class="main-content">
       <div class="container">
@@ -14,6 +14,7 @@
               v-for="section in navSections" 
               :key="section.id"
               :class="['nav-item', { active: activeSection === section.id }]"
+              :data-testid="`settings-nav-${section.id}`"
               @click="activeSection = section.id"
             >
               <span class="nav-icon">{{ section.icon }}</span>
@@ -22,7 +23,7 @@
           </aside>
 
           <div class="settings-content">
-            <div class="settings-card" v-show="activeSection === 'security'">
+            <div class="settings-card" data-testid="settings-section-security" v-show="activeSection === 'security'">
               <div class="card-header">
                 <h3>账户安全</h3>
                 <p>保护您的账户安全</p>
@@ -55,7 +56,7 @@
                         <p>{{ userStore.userInfo?.phone || '未绑定' }}</p>
                       </div>
                     </div>
-                    <button class="link-btn" @click="openPhoneDialog">{{ userStore.userInfo?.phone ? '更换' : '绑定' }}</button>
+                    <button class="link-btn" data-testid="settings-open-phone-dialog" @click="openPhoneDialog">{{ userStore.userInfo?.phone ? '更换' : '绑定' }}</button>
                   </div>
                   <div class="security-item">
                     <div class="item-info">
@@ -65,7 +66,7 @@
                         <p>{{ userStore.userInfo?.email || '未绑定' }}</p>
                       </div>
                     </div>
-                    <button class="link-btn" @click="openEmailDialog">{{ userStore.userInfo?.email ? '更换' : '绑定' }}</button>
+                    <button class="link-btn" data-testid="settings-open-email-dialog" @click="openEmailDialog">{{ userStore.userInfo?.email ? '更换' : '绑定' }}</button>
                   </div>
                 </div>
               </div>
@@ -79,7 +80,7 @@
                 </el-form-item>
               </el-form>
               <template #footer>
-                <el-button @click="phoneDialogVisible = false">取消</el-button>
+                <el-button @click="closePhoneDialog">取消</el-button>
                 <el-button type="primary" @click="savePhone" :loading="saving">确定</el-button>
               </template>
             </el-dialog>
@@ -92,18 +93,23 @@
                 </el-form-item>
               </el-form>
               <template #footer>
-                <el-button @click="emailDialogVisible = false">取消</el-button>
+                <el-button @click="closeEmailDialog">取消</el-button>
                 <el-button type="primary" @click="saveEmail" :loading="saving">确定</el-button>
               </template>
             </el-dialog>
 
-            <div class="settings-card" v-show="activeSection === 'notification'">
+            <div class="settings-card" data-testid="settings-section-notification" v-show="activeSection === 'notification'">
               <div class="card-header">
                 <h3>通知设置</h3>
                 <p>管理您接收的通知类型</p>
               </div>
               <div class="card-body">
-                <div class="setting-item" v-for="item in notificationItems" :key="item.key">
+                <div
+                  class="setting-item"
+                  v-for="item in notificationItems"
+                  :key="item.key"
+                  :data-testid="`settings-notify-item-${item.key}`"
+                >
                   <div class="item-info">
                     <span class="item-icon">{{ item.icon }}</span>
                     <div class="item-text">
@@ -111,12 +117,15 @@
                       <p>{{ item.desc }}</p>
                     </div>
                   </div>
-                  <el-switch v-model="notifySettings[item.key]" />
+                  <el-switch
+                    v-model="notifySettings[item.key]"
+                    :data-testid="`settings-notify-switch-${item.key}`"
+                  />
                 </div>
               </div>
             </div>
 
-            <div class="settings-card" v-show="activeSection === 'privacy'">
+            <div class="settings-card" data-testid="settings-section-privacy" v-show="activeSection === 'privacy'">
               <div class="card-header">
                 <h3>隐私设置</h3>
                 <p>控制您的隐私和数据</p>
@@ -130,36 +139,23 @@
                       <p>控制谁可以看到您的个人资料</p>
                     </div>
                   </div>
-                  <el-select v-model="privacySettings.profileVisibility" size="small">
+                  <el-select
+                    v-model="privacySettings.profileVisibility"
+                    size="small"
+                    data-testid="settings-privacy-visibility"
+                  >
                     <el-option label="所有人" value="public" />
                     <el-option label="仅好友" value="friends" />
                     <el-option label="仅自己" value="private" />
                   </el-select>
                 </div>
-                <div class="setting-item">
-                  <div class="item-info">
-                    <span class="item-icon">记录</span>
-                    <div class="item-text">
-                      <h5>购买记录</h5>
-                      <p>是否在个人主页展示购买记录</p>
-                    </div>
-                  </div>
-                  <el-switch v-model="privacySettings.showPurchases" />
-                </div>
-                <div class="setting-item">
-                  <div class="item-info">
-                    <span class="item-icon">推荐</span>
-                    <div class="item-text">
-                      <h5>个性化推荐</h5>
-                      <p>根据您的浏览记录推荐商品</p>
-                    </div>
-                  </div>
-                  <el-switch v-model="privacySettings.personalization" />
-                </div>
+                <p class="settings-hint">
+                  当前服务器已接入的隐私项只有资料可见性。主题和字号仅保存在当前浏览器。
+                </p>
               </div>
             </div>
 
-            <div class="settings-card" v-show="activeSection === 'appearance'">
+            <div class="settings-card" data-testid="settings-section-appearance" v-show="activeSection === 'appearance'">
               <div class="card-header">
                 <h3>外观设置</h3>
                 <p>自定义您的界面外观</p>
@@ -197,7 +193,7 @@
               </div>
             </div>
 
-            <div class="settings-card danger-zone" v-show="activeSection === 'account'">
+            <div class="settings-card danger-zone" data-testid="settings-section-account" v-show="activeSection === 'account'">
               <div class="card-header">
                 <h3>账户操作</h3>
                 <p>请谨慎操作</p>
@@ -208,14 +204,14 @@
                     <h5>退出登录</h5>
                     <p>退出当前账户，需要重新登录</p>
                   </div>
-                  <button class="logout-btn" @click="handleLogout">退出登录</button>
+                  <button class="logout-btn" data-testid="settings-logout" @click="handleLogout">退出登录</button>
                 </div>
                 <div class="action-item danger">
                   <div class="action-info">
                     <h5>注销账户</h5>
-                    <p>永久删除您的账户和所有数据，此操作不可恢复</p>
+                    <p>永久删除您的账户和所有数据，此操作不可恢复。当前版本将直接基于登录态确认。</p>
                   </div>
-                  <button class="delete-btn" @click="handleDeleteAccount">注销账户</button>
+                  <button class="delete-btn" data-testid="settings-delete-account" @click="handleDeleteAccount">注销账户</button>
                 </div>
               </div>
             </div>
@@ -228,19 +224,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { nextTick, ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import settingsApi from '../api/settingsApi'
 import axios from '../utils/axios'
+import { debugError } from '../utils/debug'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const activeSection = ref('security')
 const loading = ref(false)
+type NotificationSettingsState = {
+  order: boolean
+  promotion: boolean
+  system: boolean
+  logistics: boolean
+  comment: boolean
+}
+
+type PrivacySettingsState = {
+  profileVisibility: 'public' | 'friends' | 'private'
+}
 
 const navSections = [
   { id: 'security', label: '账户安全', icon: '安全' },
@@ -254,8 +263,7 @@ const notificationItems = [
   { key: 'order', title: '订单通知', desc: '接收订单状态变更通知', icon: '订单' },
   { key: 'promotion', title: '促销通知', desc: '接收优惠活动和促销信息', icon: '促销' },
   { key: 'system', title: '系统通知', desc: '接收系统公告和安全提醒', icon: '系统' },
-  { key: 'logistics', title: '物流通知', desc: '接收包裹配送状态更新', icon: '物流' },
-  { key: 'comment', title: '评论回复', desc: '有人回复您的评论时通知', icon: '评论' },
+  { key: 'logistics', title: '物流通知', desc: '接收包裹配送状态更新', icon: '物流' }
 ]
 
 const themes = [
@@ -263,12 +271,29 @@ const themes = [
   { value: 'dark', label: '深色', icon: '夜' },
   { value: 'auto', label: '跟随系统', icon: '自动' },
 ]
+const validFontSizes = new Set(['small', 'medium', 'large'])
+const validThemes = new Set(['light', 'dark', 'auto'])
+const removeAppearanceStorage = (key: 'fontSize' | 'theme') => {
+  try {
+    localStorage.removeItem(key)
+  } catch (error) {
+    debugError(`清理${key === 'fontSize' ? '字体大小' : '主题'}设置失败:`, error)
+  }
+}
 
 const passwordForm = reactive({ oldPassword: '', newPassword: '', confirmPassword: '' })
-const notifySettings = reactive<Record<string, boolean>>({ order: true, promotion: true, system: true, logistics: true, comment: false })
-const privacySettings = reactive({ profileVisibility: 'public', showPurchases: false, personalization: true })
+const notifySettings = reactive<NotificationSettingsState>({
+  order: true,
+  promotion: true,
+  system: true,
+  logistics: true,
+  comment: false
+})
+const privacySettings = reactive<PrivacySettingsState>({ profileVisibility: 'public' })
 const appearanceSettings = reactive({ fontSize: 'medium' })
 const currentTheme = ref('light')
+let systemThemeMediaQuery: MediaQueryList | null = null
+let systemThemeChangeHandler: ((event: MediaQueryListEvent) => void) | null = null
 
 // 手机和邮箱绑定
 const phoneDialogVisible = ref(false)
@@ -276,6 +301,22 @@ const emailDialogVisible = ref(false)
 const saving = ref(false)
 const phoneForm = reactive({ phone: '' })
 const emailForm = reactive({ email: '' })
+const notificationSettingsReady = ref(false)
+const privacySettingsReady = ref(false)
+let latestNotificationSettingsRequestId = 0
+let latestPrivacySettingsRequestId = 0
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
+
+const getResponseMessage = (response: { message?: string } | null | undefined, fallback: string) =>
+  response?.message || fallback
 
 const openPhoneDialog = () => {
   phoneForm.phone = userStore.userInfo?.phone || ''
@@ -285,6 +326,16 @@ const openPhoneDialog = () => {
 const openEmailDialog = () => {
   emailForm.email = userStore.userInfo?.email || ''
   emailDialogVisible.value = true
+}
+
+const closePhoneDialog = () => {
+  phoneDialogVisible.value = false
+  phoneForm.phone = ''
+}
+
+const closeEmailDialog = () => {
+  emailDialogVisible.value = false
+  emailForm.email = ''
 }
 
 const savePhone = async () => {
@@ -298,18 +349,12 @@ const savePhone = async () => {
   }
   saving.value = true
   try {
-    const res: any = await axios.put('/auth/me', { phone: phoneForm.phone })
-    if (res?.code === 200) {
-      ElMessage.success('手机绑定成功')
-      if (userStore.userInfo) {
-        userStore.userInfo.phone = phoneForm.phone
-      }
-      phoneDialogVisible.value = false
-    } else {
-      ElMessage.error(res?.message || '绑定失败')
-    }
-  } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '绑定失败')
+    await userStore.updateUserInfo({ phone: phoneForm.phone })
+    ElMessage.success('手机绑定成功')
+    closePhoneDialog()
+  } catch (error) {
+    debugError('保存手机号失败:', error)
+    ElMessage.error(getErrorMessage(error, '绑定失败'))
   } finally {
     saving.value = false
   }
@@ -326,91 +371,185 @@ const saveEmail = async () => {
   }
   saving.value = true
   try {
-    const res: any = await axios.put('/auth/me', { email: emailForm.email })
-    if (res?.code === 200) {
-      ElMessage.success('邮箱绑定成功')
-      if (userStore.userInfo) {
-        userStore.userInfo.email = emailForm.email
-      }
-      emailDialogVisible.value = false
-    } else {
-      ElMessage.error(res?.message || '绑定失败')
-    }
-  } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '绑定失败')
+    await userStore.updateUserInfo({ email: emailForm.email })
+    ElMessage.success('邮箱绑定成功')
+    closeEmailDialog()
+  } catch (error) {
+    debugError('保存邮箱失败:', error)
+    ElMessage.error(getErrorMessage(error, '绑定失败'))
   } finally {
     saving.value = false
   }
 }
 
 const loadNotificationSettings = async () => {
+  const requestId = ++latestNotificationSettingsRequestId
   try {
     const res: any = await settingsApi.getNotificationSettings()
+    if (requestId !== latestNotificationSettingsRequestId) {
+      return
+    }
     if (res?.code === 200 && res.data) {
       notifySettings.order = res.data.orderStatusEnabled ?? true
       notifySettings.promotion = res.data.promotionsEnabled ?? true
       notifySettings.system = res.data.systemEnabled ?? true
       notifySettings.logistics = res.data.deliveryEnabled ?? true
+    } else {
+      debugError('获取通知设置失败:', getResponseMessage(res, '通知设置返回异常'))
     }
-  } catch (error) { console.error(error) }
+  } catch (error) {
+    if (requestId !== latestNotificationSettingsRequestId) {
+      return
+    }
+    debugError('获取通知设置失败:', error)
+  } finally {
+    if (requestId === latestNotificationSettingsRequestId) {
+      await nextTick()
+      notificationSettingsReady.value = true
+    }
+  }
 }
 
 const loadPrivacySettings = async () => {
+  const requestId = ++latestPrivacySettingsRequestId
   try {
     const res: any = await settingsApi.getPrivacySettings()
+    if (requestId !== latestPrivacySettingsRequestId) {
+      return
+    }
     if (res?.code === 200 && res.data) {
       privacySettings.profileVisibility = res.data.profileVisibility || 'public'
+    } else {
+      debugError('获取隐私设置失败:', getResponseMessage(res, '隐私设置返回异常'))
     }
-  } catch (error) { console.error(error) }
+  } catch (error) {
+    if (requestId !== latestPrivacySettingsRequestId) {
+      return
+    }
+    debugError('获取隐私设置失败:', error)
+  } finally {
+    if (requestId === latestPrivacySettingsRequestId) {
+      await nextTick()
+      privacySettingsReady.value = true
+    }
+  }
 }
 
 const saveNotificationSettings = async () => {
   try {
-    await settingsApi.updateNotificationSettings({
+    const res: any = await settingsApi.updateNotificationSettings({
       orderStatusEnabled: notifySettings.order, deliveryEnabled: notifySettings.logistics,
       promotionsEnabled: notifySettings.promotion, systemEnabled: notifySettings.system,
       newProductsEnabled: true, inAppEnabled: true, emailEnabled: true, smsEnabled: false,
       notificationFrequency: 'immediate', notifyStartTime: 8, notifyEndTime: 22
     })
-  } catch (error) { console.error(error) }
+    if (res?.code !== 200) {
+      const message = getResponseMessage(res, '保存通知设置失败')
+      debugError('保存通知设置失败:', message)
+      ElMessage.error(message)
+    }
+  } catch (error) {
+    debugError('保存通知设置失败:', error)
+    ElMessage.error(getErrorMessage(error, '保存通知设置失败'))
+  }
 }
 
 const savePrivacySettings = async () => {
   try {
-    await settingsApi.updatePrivacySettings({ profileVisibility: privacySettings.profileVisibility })
-  } catch (error) { console.error(error) }
+    const res: any = await settingsApi.updatePrivacySettings({ profileVisibility: privacySettings.profileVisibility })
+    if (res?.code !== 200) {
+      const message = getResponseMessage(res, '保存隐私设置失败')
+      debugError('保存隐私设置失败:', message)
+      ElMessage.error(message)
+    }
+  } catch (error) {
+    debugError('保存隐私设置失败:', error)
+    ElMessage.error(getErrorMessage(error, '保存隐私设置失败'))
+  }
 }
 
-watch(notifySettings, () => saveNotificationSettings(), { deep: true })
-watch(() => privacySettings.profileVisibility, () => savePrivacySettings())
+watch(notifySettings, () => {
+  if (!notificationSettingsReady.value) return
+  saveNotificationSettings()
+}, { deep: true })
+
+watch(() => privacySettings.profileVisibility, () => {
+  if (!privacySettingsReady.value) return
+  savePrivacySettings()
+})
+
+watch(
+  () => route.query.section,
+  (section) => {
+    if (typeof section === 'string' && navSections.some((item) => item.id === section)) {
+      activeSection.value = section
+    }
+  },
+  { immediate: true }
+)
 
 // 外观设置 - 字体大小
 watch(() => appearanceSettings.fontSize, (newSize) => {
   const sizeMap: Record<string, string> = { small: '14px', medium: '16px', large: '18px' }
   document.documentElement.style.setProperty('--base-font-size', sizeMap[newSize] || '16px')
-  localStorage.setItem('fontSize', newSize)
+  try {
+    localStorage.setItem('fontSize', newSize)
+  } catch (error) {
+    debugError('保存字体大小设置失败:', error)
+  }
 })
 
 // 外观设置 - 主题
 watch(currentTheme, (newTheme) => {
   applyTheme(newTheme)
-  localStorage.setItem('theme', newTheme)
+  try {
+    localStorage.setItem('theme', newTheme)
+  } catch (error) {
+    debugError('保存主题设置失败:', error)
+  }
 })
 
 // 加载保存的外观设置
 const loadAppearanceSettings = () => {
-  const savedFontSize = localStorage.getItem('fontSize')
-  if (savedFontSize) {
-    appearanceSettings.fontSize = savedFontSize
-    // 立即应用字体大小
-    const sizeMap: Record<string, string> = { small: '14px', medium: '16px', large: '18px' }
-    document.documentElement.style.setProperty('--base-font-size', sizeMap[savedFontSize] || '16px')
+  try {
+    const savedFontSize = localStorage.getItem('fontSize')
+    if (savedFontSize) {
+      if (validFontSizes.has(savedFontSize)) {
+        appearanceSettings.fontSize = savedFontSize
+        // 立即应用字体大小
+        const sizeMap: Record<string, string> = { small: '14px', medium: '16px', large: '18px' }
+        document.documentElement.style.setProperty('--base-font-size', sizeMap[savedFontSize] || '16px')
+      } else {
+        debugError('读取字体大小设置失败:', `invalid fontSize: ${savedFontSize}`)
+        removeAppearanceStorage('fontSize')
+        appearanceSettings.fontSize = 'medium'
+        document.documentElement.style.setProperty('--base-font-size', '16px')
+      }
+    }
+  } catch (error) {
+    debugError('读取字体大小设置失败:', error)
+    appearanceSettings.fontSize = 'medium'
+    document.documentElement.style.setProperty('--base-font-size', '16px')
   }
-  const savedTheme = localStorage.getItem('theme')
-  if (savedTheme) {
-    currentTheme.value = savedTheme
-    // 立即应用主题
-    applyTheme(savedTheme)
+
+  try {
+    const savedTheme = localStorage.getItem('theme')
+    if (savedTheme) {
+      if (validThemes.has(savedTheme)) {
+        currentTheme.value = savedTheme
+        // 立即应用主题
+        applyTheme(savedTheme)
+      } else {
+        debugError('读取主题设置失败:', `invalid theme: ${savedTheme}`)
+        removeAppearanceStorage('theme')
+        currentTheme.value = 'light'
+        applyTheme('light')
+      }
+    }
+  } catch (error) {
+    debugError('读取主题设置失败:', error)
+    currentTheme.value = 'light'
+    applyTheme('light')
   }
 }
 
@@ -433,7 +572,8 @@ const applyTheme = (theme: string) => {
 
 // 监听系统主题变化
 const setupSystemThemeListener = () => {
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+  systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  systemThemeChangeHandler = (e) => {
     if (currentTheme.value === 'auto') {
       if (e.matches) {
         document.documentElement.classList.add('dark-theme')
@@ -441,7 +581,8 @@ const setupSystemThemeListener = () => {
         document.documentElement.classList.remove('dark-theme')
       }
     }
-  })
+  }
+  systemThemeMediaQuery.addEventListener('change', systemThemeChangeHandler)
 }
 
 const changePassword = async () => {
@@ -482,48 +623,82 @@ const changePassword = async () => {
       passwordForm.newPassword = ''
       passwordForm.confirmPassword = ''
     } else { 
-      ElMessage.error(res?.message || '密码修改失败') 
+      const message = res?.message || '密码修改失败'
+      debugError('密码修改失败:', message)
+      ElMessage.error(message) 
     }
-  } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || error?.message || '密码修改失败')
+  } catch (error) {
+    debugError('密码修改失败:', error)
+    ElMessage.error(getErrorMessage(error, '密码修改失败'))
   } finally { 
     loading.value = false 
   }
 }
 
-const handleLogout = () => {
-  ElMessageBox.confirm('确定要退出登录吗？', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-    .then(() => { userStore.logout(); ElMessage.success('已退出登录'); router.push('/') }).catch(() => {})
+const handleLogout = async () => {
+  try {
+    await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await userStore.logout()
+    ElMessage.success('已退出登录')
+    router.push('/')
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
+      return
+    }
+    debugError('退出登录失败:', error)
+    ElMessage.error(getErrorMessage(error, '退出登录失败'))
+  }
 }
 
 const handleDeleteAccount = async () => {
   try {
-    await ElMessageBox.prompt('注销账户后，您的所有数据将被永久删除且无法恢复。请输入您的密码确认操作：', '危险操作', {
+    await ElMessageBox.confirm('注销账户后，您的所有数据将被永久删除且无法恢复，确定继续吗？', '危险操作', {
       confirmButtonText: '确定注销',
       cancelButtonText: '取消',
-      type: 'error',
-      inputType: 'password',
-      inputPlaceholder: '请输入密码',
-      inputValidator: (val) => val ? true : '请输入密码'
+      type: 'error'
     })
     
-    // 调用删除账户API
     const res: any = await axios.delete('/users/me')
     if (res?.code === 200) {
       ElMessage.success('账户已注销')
-      userStore.logout()
+      try {
+        await userStore.logout()
+      } catch (logoutError) {
+        debugError('账户注销成功后清理本地登录态失败:', logoutError)
+      }
       router.push('/')
     } else {
-      ElMessage.error(res?.message || '注销失败')
+      const message = res?.message || '注销失败'
+      debugError('注销账户失败:', message)
+      ElMessage.error(message)
     }
   } catch (e: any) {
-    if (e !== 'cancel') {
-      ElMessage.error('注销失败')
+    if (e === 'cancel' || e === 'close' || e?.action === 'cancel' || e?.action === 'close') {
+      return
     }
+    debugError('注销账户失败:', e)
+    ElMessage.error(getErrorMessage(e, '注销失败'))
   }
 }
 
-onMounted(() => { loadNotificationSettings(); loadPrivacySettings(); loadAppearanceSettings(); setupSystemThemeListener() })
+onMounted(() => {
+  loadNotificationSettings()
+  loadPrivacySettings()
+  loadAppearanceSettings()
+  setupSystemThemeListener()
+})
+
+onUnmounted(() => {
+  if (systemThemeMediaQuery && systemThemeChangeHandler) {
+    systemThemeMediaQuery.removeEventListener('change', systemThemeChangeHandler)
+  }
+  systemThemeMediaQuery = null
+  systemThemeChangeHandler = null
+})
 </script>
 
 <style scoped>
@@ -568,6 +743,7 @@ onMounted(() => { loadNotificationSettings(); loadPrivacySettings(); loadAppeara
 .link-btn:hover { background: var(--primary); color: white; }
 .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid var(--gray-200); }
 .setting-item:last-child { border-bottom: none; }
+.settings-hint { margin: 16px 0 0; font-size: 13px; color: var(--text-tertiary); line-height: 1.6; }
 .theme-section h4 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0 0 16px; }
 .theme-options { display: flex; gap: 16px; }
 .theme-option { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 36px; background: var(--gray-50); border: 2px solid transparent; border-radius: var(--radius-md); cursor: pointer; transition: all 0.3s; }

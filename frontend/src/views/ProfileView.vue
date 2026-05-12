@@ -1,5 +1,5 @@
 <template>
-  <div class="profile-page">
+  <div class="profile-page" data-testid="profile-view">
     <Navbar />
 
     <main class="main-content">
@@ -17,24 +17,25 @@
                   <input type="file" accept="image/*" @change="handleAvatarChange" />
                 </label>
               </div>
-              <h3>{{ userInfo?.nickname || userInfo?.username }}</h3>
+              <h3 data-testid="profile-display-name">{{ userInfo?.nickname || userInfo?.username }}</h3>
               <p class="user-email">{{ userInfo?.email }}</p>
             </div>
 
-            <div class="member-stats">
+            <div class="member-stats" data-testid="profile-member-stats">
               <div class="stat-item">
-                <span class="stat-num">{{ orderCount }}</span>
+                <span class="stat-num">{{ orderCountDisplay }}</span>
                 <span class="stat-label">订单</span>
               </div>
               <div class="stat-item">
-                <span class="stat-num">{{ cartCount }}</span>
+                <span class="stat-num">{{ cartCountDisplay }}</span>
                 <span class="stat-label">购物车</span>
               </div>
               <div class="stat-item">
-                <span class="stat-num">{{ priceAlertCount }}</span>
+                <span class="stat-num">{{ priceAlertCountDisplay }}</span>
                 <span class="stat-label">提醒</span>
               </div>
             </div>
+            <p v-if="hasUnavailableStats" class="stats-hint">部分统计暂未同步，请稍后刷新重试。</p>
 
             <nav class="sidebar-nav">
               <router-link to="/profile" class="nav-item active">个人资料</router-link>
@@ -42,11 +43,11 @@
               <router-link to="/my-products" class="nav-item">我的商品</router-link>
               <router-link to="/seller-orders" class="nav-item">
                 卖家订单
-                <span v-if="sellerPendingCount > 0" class="nav-badge">{{ sellerPendingCount }}</span>
+                <span v-if="showSellerPendingBadge" class="nav-badge">{{ sellerPendingCount }}</span>
               </router-link>
               <router-link to="/price-alerts" class="nav-item">
                 降价提醒
-                <span v-if="priceAlertCount > 0" class="nav-badge">{{ priceAlertCount }}</span>
+                <span v-if="showPriceAlertBadge" class="nav-badge">{{ priceAlertCount }}</span>
               </router-link>
               <router-link to="/address" class="nav-item">收货地址</router-link>
               <router-link to="/settings" class="nav-item">设置</router-link>
@@ -54,26 +55,42 @@
           </aside>
 
           <div class="main-panel">
-            <div class="quick-actions">
-              <div class="action-item" @click="$router.push('/orders?status=0')">
+            <div class="quick-actions" data-testid="profile-quick-actions">
+              <div
+                class="action-item"
+                data-testid="profile-quick-action-pending-payment"
+                @click="$router.push('/orders?status=0')"
+              >
                 <span class="action-label">待支付</span>
-                <span class="action-count">{{ pendingPayment }}</span>
+                <span class="action-count">{{ pendingPaymentDisplay }}</span>
               </div>
-              <div class="action-item" @click="$router.push('/orders?status=1')">
+              <div
+                class="action-item"
+                data-testid="profile-quick-action-pending-shipment"
+                @click="$router.push('/orders?status=1')"
+              >
                 <span class="action-label">待发货</span>
-                <span class="action-count">{{ pendingShipment }}</span>
+                <span class="action-count">{{ pendingShipmentDisplay }}</span>
               </div>
-              <div class="action-item" @click="$router.push('/orders?status=2')">
+              <div
+                class="action-item"
+                data-testid="profile-quick-action-pending-receive"
+                @click="$router.push('/orders?status=2')"
+              >
                 <span class="action-label">待收货</span>
-                <span class="action-count">{{ pendingReceive }}</span>
+                <span class="action-count">{{ pendingReceiveDisplay }}</span>
               </div>
-              <div class="action-item" @click="$router.push('/cart')">
+              <div class="action-item" data-testid="profile-quick-action-cart" @click="$router.push('/cart')">
                 <span class="action-label">购物车</span>
-                <span class="action-count">{{ cartCount }}</span>
+                <span class="action-count">{{ cartCountDisplay }}</span>
               </div>
-              <div class="action-item" @click="$router.push('/price-alerts')">
+              <div
+                class="action-item"
+                data-testid="profile-quick-action-price-alerts"
+                @click="$router.push('/price-alerts')"
+              >
                 <span class="action-label">降价提醒</span>
-                <span class="action-count">{{ priceAlertCount }}</span>
+                <span class="action-count">{{ priceAlertCountDisplay }}</span>
               </div>
             </div>
 
@@ -86,19 +103,19 @@
                 <el-form :model="profileForm" label-position="top" class="profile-form">
                   <div class="form-row">
                     <el-form-item label="用户名">
-                      <el-input v-model="profileForm.username" disabled />
+                      <el-input v-model="profileForm.username" disabled data-testid="profile-username-input" />
                     </el-form-item>
                     <el-form-item label="昵称">
-                      <el-input v-model="profileForm.nickname" placeholder="设置展示昵称" />
+                      <el-input
+                        v-model="profileForm.nickname"
+                        placeholder="设置展示昵称"
+                        data-testid="profile-nickname-input"
+                      />
                     </el-form-item>
                   </div>
-                  <div class="form-row">
-                    <el-form-item label="邮箱">
-                      <el-input v-model="profileForm.email" placeholder="用于接收通知" />
-                    </el-form-item>
-                    <el-form-item label="手机号">
-                      <el-input v-model="profileForm.phone" placeholder="用于联系沟通" />
-                    </el-form-item>
+                  <div class="profile-contact-hint">
+                    <span>邮箱和手机号已收口到账户设置统一维护。</span>
+                    <button type="button" class="link-btn inline-link" @click="goToSecuritySettings">前往设置</button>
                   </div>
                   <el-form-item label="个人简介">
                     <el-input
@@ -106,10 +123,11 @@
                       type="textarea"
                       :rows="3"
                       placeholder="简单介绍一下自己"
+                      data-testid="profile-bio-input"
                     />
                   </el-form-item>
                   <el-form-item>
-                    <button type="button" class="save-btn" @click="saveProfile">保存资料</button>
+                  <button type="button" class="save-btn" data-testid="profile-save" @click="saveProfile">保存资料</button>
                   </el-form-item>
                 </el-form>
               </div>
@@ -125,14 +143,16 @@
                     <h4>登录密码</h4>
                     <p>建议定期修改密码，保障账号安全。</p>
                   </div>
-                  <button class="link-btn" @click="showPasswordDialog = true">修改密码</button>
+                  <button class="link-btn" @click="goToSecuritySettings">前往设置</button>
                 </div>
                 <div class="security-item">
                   <div class="security-info">
                     <h4>绑定手机号</h4>
                     <p>{{ userInfo?.phone ? `已绑定：${maskPhone(userInfo.phone)}` : '暂未绑定手机号' }}</p>
                   </div>
-                  <button class="link-btn" disabled>{{ userInfo?.phone ? '已绑定' : '暂不可用' }}</button>
+                  <button class="link-btn" @click="goToSecuritySettings">
+                    {{ userInfo?.phone ? '前往设置' : '去绑定' }}
+                  </button>
                 </div>
               </div>
             </div>
@@ -140,24 +160,6 @@
         </div>
       </div>
     </main>
-
-    <el-dialog v-model="showPasswordDialog" title="修改密码" width="400px">
-      <el-form :model="passwordForm" label-position="top">
-        <el-form-item label="当前密码">
-          <el-input v-model="passwordForm.currentPassword" type="password" show-password />
-        </el-form-item>
-        <el-form-item label="新密码">
-          <el-input v-model="passwordForm.newPassword" type="password" show-password />
-        </el-form-item>
-        <el-form-item label="确认新密码">
-          <el-input v-model="passwordForm.confirmPassword" type="password" show-password />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <button class="btn-cancel" @click="showPasswordDialog = false">取消</button>
-        <button class="btn-confirm" @click="changePassword">确认</button>
-      </template>
-    </el-dialog>
 
     <Transition name="preview">
       <div v-if="showAvatarPreview" class="avatar-preview-overlay" @click="showAvatarPreview = false">
@@ -177,15 +179,19 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import { useCartStore } from '../stores/cartStore'
 import orderApi from '../api/orderApi'
 import fileApi from '../api/fileApi'
 import axios from '../utils/axios'
+import { debugError } from '../utils/debug'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import type { ApiResponse, Order } from '../types'
 
+const router = useRouter()
 const userStore = useUserStore()
 const cartStore = useCartStore()
 
@@ -201,26 +207,49 @@ const pendingShipment = ref(0)
 const pendingReceive = ref(0)
 const priceAlertCount = ref(0)
 const sellerPendingCount = ref(0)
-const showPasswordDialog = ref(false)
+const orderStatsAvailable = ref(true)
+const priceAlertStatsAvailable = ref(true)
+const sellerPendingStatsAvailable = ref(true)
+const cartStatsAvailable = ref(true)
+let latestOrderStatsRequestId = 0
+let latestPriceAlertCountRequestId = 0
+let latestSellerPendingCountRequestId = 0
 
 const cartCount = computed(() => cartStore.items.length)
+const unavailableMarker = '--'
+const orderCountDisplay = computed(() => orderStatsAvailable.value ? String(orderCount.value) : unavailableMarker)
+const pendingPaymentDisplay = computed(() => orderStatsAvailable.value ? String(pendingPayment.value) : unavailableMarker)
+const pendingShipmentDisplay = computed(() => orderStatsAvailable.value ? String(pendingShipment.value) : unavailableMarker)
+const pendingReceiveDisplay = computed(() => orderStatsAvailable.value ? String(pendingReceive.value) : unavailableMarker)
+const priceAlertCountDisplay = computed(() => priceAlertStatsAvailable.value ? String(priceAlertCount.value) : unavailableMarker)
+const cartCountDisplay = computed(() => cartStatsAvailable.value ? String(cartCount.value) : unavailableMarker)
+const showPriceAlertBadge = computed(() => priceAlertStatsAvailable.value && priceAlertCount.value > 0)
+const showSellerPendingBadge = computed(() => sellerPendingStatsAvailable.value && sellerPendingCount.value > 0)
+const hasUnavailableStats = computed(() =>
+  !orderStatsAvailable.value ||
+  !priceAlertStatsAvailable.value ||
+  !sellerPendingStatsAvailable.value ||
+  !cartStatsAvailable.value
+)
 
 const profileForm = reactive({
   username: '',
-  email: '',
-  phone: '',
   nickname: '',
   bio: ''
 })
 
-const passwordForm = reactive({
-  currentPassword: '',
-  newPassword: '',
-  confirmPassword: ''
-})
+const syncProfileFormFromUserInfo = () => {
+  profileForm.username = userInfo.value?.username || ''
+  profileForm.nickname = userInfo.value?.nickname || ''
+  profileForm.bio = userInfo.value?.bio || ''
+}
 
 const previewAvatar = () => {
   showAvatarPreview.value = true
+}
+
+const goToSecuritySettings = () => {
+  router.push('/settings?section=security')
 }
 
 const getDefaultAvatarUrl = (initial: string) =>
@@ -234,6 +263,15 @@ const getAvatarUrl = (avatar: string | undefined | null) => {
     return fileApi.getImageUrl(avatar)
   }
   return getDefaultAvatarUrl(userInitial.value)
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
 }
 
 const handleAvatarChange = async (event: Event) => {
@@ -256,14 +294,23 @@ const handleAvatarChange = async (event: Event) => {
   try {
     const res: any = await fileApi.uploadAvatar(file)
     if (res?.code === 200) {
-      await userStore.fetchCurrentUser()
+      if (userStore.userInfo && res?.data) {
+        userStore.userInfo.avatar = res.data
+      }
+      try {
+        await userStore.fetchCurrentUser()
+      } catch (refreshError) {
+        debugError('刷新当前用户头像失败:', refreshError)
+      }
       ElMessage.success(res?.message || '头像更新成功')
     } else {
-      ElMessage.error(res?.message || '上传失败')
+      const message = res?.message || '上传失败'
+      debugError('头像上传失败:', message)
+      ElMessage.error(message)
     }
-  } catch (error: any) {
-    console.error('头像上传失败:', error)
-    ElMessage.error(error?.response?.data?.message || error?.message || '上传失败')
+  } catch (error) {
+    debugError('头像上传失败:', error)
+    ElMessage.error(getErrorMessage(error, '上传失败'))
   }
 
   input.value = ''
@@ -276,97 +323,107 @@ const maskPhone = (phone: string) => {
 
 const saveProfile = async () => {
   try {
-    await userStore.updateUserInfo({
-      email: profileForm.email,
-      phone: profileForm.phone,
+    const payload = {
       nickname: profileForm.nickname,
       bio: profileForm.bio
-    })
+    }
+    await userStore.updateUserInfo(payload)
+    if (userStore.userInfo) {
+      userStore.userInfo.nickname = payload.nickname
+      userStore.userInfo.bio = payload.bio
+    }
+    syncProfileFormFromUserInfo()
     ElMessage.success('个人资料已保存')
-  } catch (error: any) {
-    ElMessage.error(error?.message || '保存失败')
-  }
-}
-
-const changePassword = async () => {
-  if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
-    ElMessage.warning('请完整填写密码信息')
-    return
-  }
-
-  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-    ElMessage.warning('两次输入的新密码不一致')
-    return
-  }
-
-  try {
-    await userStore.changePassword({
-      currentPassword: passwordForm.currentPassword,
-      newPassword: passwordForm.newPassword,
-      confirmPassword: passwordForm.confirmPassword
-    })
-    ElMessage.success('密码修改成功')
-    showPasswordDialog.value = false
-    passwordForm.currentPassword = ''
-    passwordForm.newPassword = ''
-    passwordForm.confirmPassword = ''
-  } catch (error: any) {
-    ElMessage.error(error?.message || '密码修改失败')
+  } catch (error) {
+    debugError('保存个人资料失败:', error)
+    ElMessage.error(getErrorMessage(error, '保存失败'))
   }
 }
 
 const loadOrderStats = async () => {
+  const requestId = ++latestOrderStatsRequestId
   try {
-    const res: any = await orderApi.getUserOrders()
+    const res = (await orderApi.getOrders(1, 1000)) as ApiResponse<Order[]>
+    if (requestId !== latestOrderStatsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       const orders = Array.isArray(res.data) ? res.data : []
       orderCount.value = orders.length
-      pendingPayment.value = orders.filter((item: any) => item.orderStatus === 0).length
-      pendingShipment.value = orders.filter((item: any) => item.orderStatus === 1).length
-      pendingReceive.value = orders.filter((item: any) => item.orderStatus === 2).length
+      pendingPayment.value = orders.filter((item) => item.orderStatus === 0).length
+      pendingShipment.value = orders.filter((item) => item.orderStatus === 1).length
+      pendingReceive.value = orders.filter((item) => item.orderStatus === 2).length
+      orderStatsAvailable.value = true
+      return
     }
+    orderStatsAvailable.value = false
+    debugError('获取订单统计失败:', res?.message || '订单统计返回异常')
   } catch (error) {
-    console.error('获取订单统计失败:', error)
+    if (requestId !== latestOrderStatsRequestId) {
+      return
+    }
+    orderStatsAvailable.value = false
+    debugError('获取订单统计失败:', error)
   }
 }
 
 const loadPriceAlertCount = async () => {
+  const requestId = ++latestPriceAlertCountRequestId
   try {
-    const res: any = await axios.get('/price/alerts')
+    const res = (await axios.get('/price/alerts')) as ApiResponse<Array<{ status?: number }>>
+    if (requestId !== latestPriceAlertCountRequestId) {
+      return
+    }
     if (res?.code === 200) {
       const alerts = Array.isArray(res.data) ? res.data : []
-      priceAlertCount.value = alerts.filter((item: any) => item.status === 0).length
+      priceAlertCount.value = alerts.filter((item) => item.status === 0).length
+      priceAlertStatsAvailable.value = true
+      return
     }
+    priceAlertStatsAvailable.value = false
+    debugError('获取降价提醒失败:', res?.message || '降价提醒返回异常')
   } catch (error) {
-    console.error('获取降价提醒失败:', error)
+    if (requestId !== latestPriceAlertCountRequestId) {
+      return
+    }
+    priceAlertStatsAvailable.value = false
+    debugError('获取降价提醒失败:', error)
   }
 }
 
 const loadSellerPendingCount = async () => {
+  const requestId = ++latestSellerPendingCountRequestId
   try {
     const res: any = await axios.get('/orders/seller/pending/count')
+    if (requestId !== latestSellerPendingCountRequestId) {
+      return
+    }
     if (res?.code === 200) {
       sellerPendingCount.value = Number(res.data || 0)
+      sellerPendingStatsAvailable.value = true
+      return
     }
+    sellerPendingStatsAvailable.value = false
+    debugError('获取卖家待处理数量失败:', res?.message || '卖家待处理数量返回异常')
   } catch (error) {
-    console.error('获取卖家待处理数量失败:', error)
+    if (requestId !== latestSellerPendingCountRequestId) {
+      return
+    }
+    sellerPendingStatsAvailable.value = false
+    debugError('获取卖家待处理数量失败:', error)
   }
 }
 
 onMounted(async () => {
-  if (userInfo.value) {
-    profileForm.username = userInfo.value.username || ''
-    profileForm.email = userInfo.value.email || ''
-    profileForm.phone = userInfo.value.phone || ''
-    profileForm.nickname = userInfo.value.nickname || ''
-    profileForm.bio = userInfo.value.bio || ''
-  }
+  syncProfileFormFromUserInfo()
 
   if (cartStore.items.length === 0) {
     try {
       await cartStore.fetchCart()
+      cartStatsAvailable.value = true
     } catch (error) {
-      console.error('获取购物车失败:', error)
+      cartStatsAvailable.value = false
+      debugError('获取购物车失败:', error)
     }
   }
 
@@ -401,6 +458,7 @@ onMounted(async () => {
 .user-card h3 { margin: 0 0 8px; font-size: 20px; font-weight: 600; color: var(--text-primary); }
 .user-email { margin: 0; font-size: 14px; color: var(--text-tertiary); }
 .member-stats { display: grid; grid-template-columns: repeat(3, 1fr); padding: 20px; border-bottom: 1px solid var(--gray-200); }
+.stats-hint { margin: 0; padding: 0 20px 16px; font-size: 12px; color: var(--text-tertiary); border-bottom: 1px solid var(--gray-200); }
 .stat-item { text-align: center; }
 .stat-num { display: block; font-size: 22px; font-weight: 600; color: var(--primary); }
 .stat-label { font-size: 13px; color: var(--text-tertiary); }
@@ -420,6 +478,20 @@ onMounted(async () => {
 .edit-tip { font-size: 13px; color: var(--text-tertiary); }
 .section-body { padding: 24px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.profile-contact-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  background: rgba(155, 135, 245, 0.05);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.inline-link { padding: 0; white-space: nowrap; }
 :deep(.el-form-item__label) { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
 :deep(.el-input__wrapper) { border-radius: var(--radius-md); background: var(--white); border: 1px solid var(--gray-300); box-shadow: none !important; }
 :deep(.el-input__wrapper:hover), :deep(.el-input__wrapper.is-focus) { border-color: var(--primary); }
@@ -451,5 +523,6 @@ onMounted(async () => {
   .sidebar { position: static; }
   .quick-actions { grid-template-columns: repeat(2, 1fr); }
   .form-row { grid-template-columns: 1fr; }
+  .profile-contact-hint { flex-direction: column; align-items: flex-start; }
 }
 </style>

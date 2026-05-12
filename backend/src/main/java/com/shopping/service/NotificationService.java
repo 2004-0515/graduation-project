@@ -3,6 +3,8 @@ package com.shopping.service;
 import com.shopping.dto.NotificationDto;
 import com.shopping.entity.Notification;
 import com.shopping.entity.User;
+import com.shopping.exception.ResourceNotFoundException;
+import com.shopping.exception.ValidationException;
 import com.shopping.repository.NotificationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,9 +53,9 @@ public class NotificationService {
     public void markAsRead(String username, Long notificationId) {
         User user = userService.getUserByUsername(username);
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new RuntimeException("通知不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("通知", notificationId));
         if (!notification.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("无权操作此通知");
+            throw new ValidationException("无权操作此通知");
         }
         notification.setRead(true);
         notificationRepository.save(notification);
@@ -69,9 +71,9 @@ public class NotificationService {
     public void deleteNotification(String username, Long notificationId) {
         User user = userService.getUserByUsername(username);
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new RuntimeException("通知不存在"));
+                .orElseThrow(() -> new ResourceNotFoundException("通知", notificationId));
         if (!notification.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("无权操作此通知");
+            throw new ValidationException("无权操作此通知");
         }
         notificationRepository.delete(notification);
     }

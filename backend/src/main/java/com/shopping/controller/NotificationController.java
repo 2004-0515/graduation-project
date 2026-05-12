@@ -3,9 +3,8 @@ package com.shopping.controller;
 import com.shopping.dto.NotificationDto;
 import com.shopping.dto.Response;
 import com.shopping.service.NotificationService;
+import com.shopping.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -117,10 +116,9 @@ public class NotificationController {
     }
 
     private String getCurrentUsername() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+        if (!SecurityUtils.isAuthenticated()) {
             throw new com.shopping.exception.AuthenticationException("用户未认证");
         }
-        return auth.getName();
+        return SecurityUtils.getCurrentUsername();
     }
 }
