@@ -1,6 +1,7 @@
 package com.shopping.service;
 
 import com.shopping.constants.AuditConstants;
+import com.shopping.exception.BusinessException;
 import com.shopping.dto.RegisterRequest;
 import com.shopping.dto.UserUpdateRequest;
 import com.shopping.entity.User;
@@ -103,22 +104,22 @@ public class AuthService {
             authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(username, password)
             );
-
-            // 更新最后登录时间
-            User user = userRepository.findByUsername(username);
-            if (user != null) {
-                user.setLastLoginTime(java.time.LocalDateTime.now());
-                userRepository.save(user);
-            }
-
-            // 生成JWT令牌
-            String token = jwtUtil.generateToken(username);
-            logger.info("User logged in successfully: {}", username);
-            return token;
-        } catch (Exception e) {
-            logger.warn("Login failed for user: {}", username);
+        } catch (org.springframework.security.core.AuthenticationException e) {
+            logger.warn("Authentication failed for user: {}", username);
             throw new AuthenticationException("用户名或密码错误");
         }
+
+        // 更新最后登录时间
+        User user = userRepository.findByUsername(username);
+        if (user != null) {
+            user.setLastLoginTime(java.time.LocalDateTime.now());
+            userRepository.save(user);
+        }
+
+        // 生成JWT令牌
+        String token = jwtUtil.generateToken(username);
+        logger.info("User logged in successfully: {}", username);
+        return token;
     }
     
     /**
@@ -162,7 +163,7 @@ public class AuthService {
         int updatedRows = userRepository.updatePasswordById(user.getId(), encodedNewPassword);
 
         if (updatedRows == 0) {
-            throw new RuntimeException("密码更新失败，请稍后重试");
+            throw new BusinessException(500, "密码更新失败，请稍后重试");
         }
 
         // 7. 更新安全设置中的密码修改时间

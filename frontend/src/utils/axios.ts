@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { STORAGE_KEYS, HTTP_STATUS } from '@/constants'
 import type { ApiResponse } from '@/types'
+import { debugError } from '@/utils/debug'
 
 const API_CONFIG = {
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
@@ -12,9 +13,26 @@ const API_CONFIG = {
 
 const instance: AxiosInstance = axios.create(API_CONFIG)
 
+const readStorage = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key)
+  } catch (error) {
+    debugError(`读取本地存储失败(${key})`, error)
+    return null
+  }
+}
+
+const removeStorage = (key: string): void => {
+  try {
+    localStorage.removeItem(key)
+  } catch (error) {
+    debugError(`删除本地存储失败(${key})`, error)
+  }
+}
+
 instance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem(STORAGE_KEYS.TOKEN)
+    const token = readStorage(STORAGE_KEYS.TOKEN)
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -39,7 +57,7 @@ instance.interceptors.response.use(
         const errorData = {
           ...response.data,
           success: false,
-          message: response.data.message || handleHttpError(response.status).message
+          message: response.data.message || getDefaultHttpError(response.status).message
         }
 
         const err = new Error(errorData.message) as Error & { response?: unknown; code?: number }
@@ -48,11 +66,11 @@ instance.interceptors.response.use(
         return Promise.reject(err)
       }
 
-      const errorResponse = handleHttpError(response.status)
+      const errorResponse = getDefaultHttpError(response.status)
 
       if (response.status === HTTP_STATUS.UNAUTHORIZED) {
-        localStorage.removeItem(STORAGE_KEYS.TOKEN)
-        localStorage.removeItem(STORAGE_KEYS.USER_INFO)
+        removeStorage(STORAGE_KEYS.TOKEN)
+        removeStorage(STORAGE_KEYS.USER_INFO)
         if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login'
         }
@@ -64,11 +82,11 @@ instance.interceptors.response.use(
       return Promise.reject(err)
     }
 
-    const networkError = new Error('Network request failed') as Error & { response?: unknown }
+    const networkError = new Error('网络请求失败，请检查网络连接') as Error & { response?: unknown }
     networkError.response = {
       data: {
         code: 0,
-        message: 'Network request failed',
+        message: '网络请求失败，请检查网络连接',
         success: false
       }
     }
@@ -76,20 +94,20 @@ instance.interceptors.response.use(
   }
 )
 
-function handleHttpError(status: number): { code: number; message: string; success: boolean } {
+export function getDefaultHttpError(status: number): { code: number; message: string; success: boolean } {
   switch (status) {
     case HTTP_STATUS.BAD_REQUEST:
-      return { code: status, message: 'Bad request', success: false }
+      return { code: status, message: '请求参数错误', success: false }
     case HTTP_STATUS.UNAUTHORIZED:
-      return { code: status, message: 'Unauthorized, please log in again', success: false }
+      return { code: status, message: '登录状态已失效，请重新登录', success: false }
     case HTTP_STATUS.FORBIDDEN:
-      return { code: status, message: 'Forbidden', success: false }
+      return { code: status, message: '没有权限执行该操作', success: false }
     case HTTP_STATUS.NOT_FOUND:
-      return { code: status, message: 'Resource not found', success: false }
+      return { code: status, message: '请求的资源不存在', success: false }
     case HTTP_STATUS.INTERNAL_SERVER_ERROR:
-      return { code: status, message: 'Server error', success: false }
+      return { code: status, message: '服务器开小差了，请稍后重试', success: false }
     default:
-      return { code: status, message: 'Request failed', success: false }
+      return { code: status, message: '请求失败，请稍后重试', success: false }
   }
 }
 

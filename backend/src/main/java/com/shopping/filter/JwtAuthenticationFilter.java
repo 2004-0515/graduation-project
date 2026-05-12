@@ -1,6 +1,7 @@
 package com.shopping.filter;
 
 import com.shopping.utils.JwtUtil;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,7 +36,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
-        final String username;
 
         // 检查认证头格式
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -45,44 +45,44 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 提取JWT令牌
         jwt = authHeader.substring(7);
-        // 从令牌中获取用户名
-        username = jwtUtil.getUsernameFromToken(jwt);
+        String username;
 
-        // 清除之前可能存在的认证信息
-        SecurityContextHolder.clearContext();
+        try {
+            username = jwtUtil.getUsernameFromToken(jwt);
 
-        // 如果用户名存在且当前上下文没有认证信息
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            try {
-                // 先验证令牌
+            // 清除之前可能存在的认证信息
+            SecurityContextHolder.clearContext();
+
+            // 如果用户名存在且当前上下文没有认证信息
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 if (jwtUtil.validateToken(jwt)) {
-                    // 再加载用户详情
                     UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-                    // 创建认证令牌
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities()
                     );
-                    // 设置认证详情
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    // 将认证信息设置到上下文
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 } else {
-                    // 令牌无效，返回401错误
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType("application/json");
-                    response.getWriter().write("{\"code\": 401, \"message\": \"Invalid JWT token\", \"success\": false}");
+                    writeUnauthorized(response, "登录状态已失效，请重新登录");
                     return;
                 }
-            } catch (Exception e) {
-                // 处理异常，返回401错误
-                System.err.println("JWT认证失败: " + e.getMessage());
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType("application/json");
-                response.getWriter().write("{\"code\": 401, \"message\": \"JWT authentication failed\", \"success\": false}");
-                return;
             }
+        } catch (JwtException | IllegalArgumentException e) {
+            writeUnauthorized(response, "登录状态已失效，请重新登录");
+            return;
+        } catch (RuntimeException e) {
+            writeUnauthorized(response, "登录认证失败，请重新登录");
+            return;
         }
+
         // 继续过滤链
         filterChain.doFilter(request, response);
+    }
+
+    private void writeUnauthorized(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("application/json");
+        response.getWriter().write("{\"code\": 401, \"message\": \"" + message + "\", \"success\": false}");
     }
 }
