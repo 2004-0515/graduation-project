@@ -1,5 +1,5 @@
 <template>
-  <div class="payment-page">
+  <div class="payment-page" data-testid="payment-view">
     <Navbar />
     <main class="main-content">
       <div class="container">
@@ -48,6 +48,7 @@
                 v-for="method in paymentMethods"
                 :key="method.value"
                 :class="['method-item', { active: selectedMethod === method.value }]"
+                :data-testid="`payment-method-${method.value}`"
                 @click="selectedMethod = method.value"
               >
                 <div class="method-icon" :style="{ color: method.color }">{{ method.icon }}</div>
@@ -64,12 +65,13 @@
                 <span class="discount">优惠金额：¥{{ formatMoney(order.couponDiscount || 0) }}</span>
               </div>
               <span>应付金额：</span>
-              <em class="total-amount">¥{{ formatMoney(actualPayAmount) }}</em>
+              <em class="total-amount" data-testid="payment-total-amount">¥{{ formatMoney(actualPayAmount) }}</em>
             </div>
             <div class="action-buttons">
               <button class="btn btn-glass" @click="goBack">返回</button>
               <button
                 class="btn btn-primary"
+                data-testid="payment-open"
                 :disabled="isPaid || order.orderStatus !== 0"
                 @click="openPayModal"
               >
@@ -110,7 +112,7 @@
                   <em>¥{{ formatMoney(actualPayAmount) }}</em>
                 </div>
                 <p class="expire-tip">二维码剩余有效时间 <span>{{ formatTime(countdown) }}</span></p>
-                <button class="btn btn-primary btn-block" @click="simulatePay">
+                <button class="btn btn-primary btn-block" data-testid="payment-simulate" @click="simulatePay">
                   模拟支付
                 </button>
               </div>
@@ -129,7 +131,7 @@
                 <p class="pay-info">支付金额：¥{{ formatMoney(actualPayAmount) }}</p>
                 <p class="pay-info">支付方式：{{ currentMethod?.label }}</p>
                 <p class="pay-info">交易单号：{{ transactionNo }}</p>
-                <button class="btn btn-primary btn-block" @click="goToOrders">查看订单</button>
+                <button class="btn btn-primary btn-block" data-testid="payment-view-orders" @click="goToOrders">查看订单</button>
               </div>
             </div>
           </div>
@@ -150,18 +152,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import orderApi from '../api/orderApi'
 import fileApi from '../api/fileApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import { debugError } from '@/utils/debug'
+import { OrderStatus, PaymentStatus, type ApiResponse, type Order } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 
-const order = ref<any>(null)
+const order = ref<Order | null>(null)
 const loading = ref(true)
 const selectedMethod = ref(1)
 const showPayModal = ref(false)
@@ -171,6 +175,7 @@ const transactionNo = ref('')
 const isPaid = ref(false)
 const qrPattern = ref<boolean[]>([])
 let countdownTimer: ReturnType<typeof setInterval> | null = null
+let latestOrderRequestId = 0
 
 const paymentMethods = [
   {
@@ -191,6 +196,19 @@ const paymentMethods = [
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 const formatMoney = (amount: number | string) => Number(amount || 0).toFixed(2)
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  if (error instanceof Error) {
+    const response = (error as Error & { response?: { data?: { message?: string } } }).response
+    return response?.data?.message || error.message || fallback
+  }
+  return fallback
+}
 
 const currentMethod = computed(() =>
   paymentMethods.find((item) => item.value === selectedMethod.value)
@@ -230,7 +248,7 @@ const imgErr = (event: Event) => {
   img.src =
     'data:image/svg+xml,' +
     encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60"><rect fill="#f8f8fc" width="60" height="60"/><text fill="#ccc" font-family="Arial" font-size="10" x="50%" y="50%" text-anchor="middle" dy=".3em">Item</text></svg>'
+      '<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60"><rect fill="#f8f8fc" width="60" height="60"/><text fill="#ccc" font-family="Arial" font-size="10" x="50%" y="50%" text-anchor="middle" dy=".3em">商品</text></svg>'
     )
 }
 
@@ -239,6 +257,19 @@ const stopCountdown = () => {
     clearInterval(countdownTimer)
     countdownTimer = null
   }
+}
+
+const resetPaymentFlowState = () => {
+  stopCountdown()
+  selectedMethod.value = 1
+  showPayModal.value = false
+  payStep.value = 'scan'
+  countdown.value = 300
+  transactionNo.value = ''
+  qrPattern.value = []
+  isPaid.value = false
+  order.value = null
+  loading.value = true
 }
 
 const cancelPay = () => {
@@ -258,29 +289,47 @@ const startCountdown = () => {
   }, 1000)
 }
 
-const fetchOrder = async () => {
+const fetchOrder = async (options?: { redirectOnNonPending?: boolean; showError?: boolean }) => {
+  const redirectOnNonPending = options?.redirectOnNonPending ?? true
+  const showError = options?.showError ?? true
   const orderId = Number(route.params.id)
   if (!orderId) {
     loading.value = false
     return
   }
+  const requestId = ++latestOrderRequestId
 
   try {
-    const res: any = await orderApi.getOrderById(orderId)
+    const res = await orderApi.getOrderById(orderId) as ApiResponse<Order>
+    if (requestId !== latestOrderRequestId) {
+      return
+    }
     if (res?.code === 200) {
       order.value = res.data
-      isPaid.value = order.value?.orderStatus !== 0
-      if (order.value?.orderStatus !== 0) {
+      isPaid.value = order.value?.paymentStatus === PaymentStatus.PAID
+      if (redirectOnNonPending && order.value?.orderStatus !== OrderStatus.PENDING_PAYMENT) {
         ElMessage.warning('该订单当前不是待支付状态')
-        router.push('/orders')
+        router.push(`/order/${order.value.id}`)
       }
     } else {
-      ElMessage.error(res?.message || '获取订单详情失败')
+      const message = res?.message || '获取订单详情失败'
+      debugError('获取待支付订单详情失败:', message)
+      if (showError) {
+        ElMessage.error(message)
+      }
     }
-  } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || '获取订单详情失败')
+  } catch (error: unknown) {
+    if (requestId !== latestOrderRequestId) {
+      return
+    }
+    debugError('获取待支付订单详情失败:', error)
+    if (showError) {
+      ElMessage.error(getErrorMessage(error, '获取订单详情失败'))
+    }
   } finally {
-    loading.value = false
+    if (requestId === latestOrderRequestId) {
+      loading.value = false
+    }
   }
 }
 
@@ -317,20 +366,23 @@ const simulatePay = async () => {
   await new Promise((resolve) => setTimeout(resolve, 2000))
 
   try {
-    const res: any = await orderApi.payOrder(order.value.id, selectedMethod.value)
+    const res = await orderApi.payOrder(order.value.id, selectedMethod.value)
     if (res?.code === 200) {
       transactionNo.value = generateTransactionNo()
-      payStep.value = 'success'
       isPaid.value = true
-      order.value = res.data || order.value
-      order.value.orderStatus = 1
+      await fetchOrder({ redirectOnNonPending: false, showError: false })
+      payStep.value = 'success'
+      isPaid.value = isPaid.value || order.value?.paymentStatus === PaymentStatus.PAID
     } else {
-      ElMessage.error(res?.message || '支付失败')
+      const message = res?.message || '支付失败'
+      debugError('订单支付失败:', message)
+      ElMessage.error(message)
       payStep.value = 'scan'
       startCountdown()
     }
-  } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || error?.message || '支付失败')
+  } catch (error: unknown) {
+    debugError('订单支付失败:', error)
+    ElMessage.error(getErrorMessage(error, '支付失败'))
     payStep.value = 'scan'
     startCountdown()
   }
@@ -344,9 +396,23 @@ const goBack = () => {
   router.back()
 }
 
-onMounted(() => {
+const reloadPaymentOrderFromRoute = () => {
+  resetPaymentFlowState()
   fetchOrder()
+}
+
+onMounted(() => {
+  reloadPaymentOrderFromRoute()
 })
+
+watch(
+  () => route.params.id,
+  (newId, oldId) => {
+    if (newId !== oldId) {
+      reloadPaymentOrderFromRoute()
+    }
+  }
+)
 
 onUnmounted(() => {
   stopCountdown()

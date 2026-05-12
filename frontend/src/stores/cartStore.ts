@@ -10,6 +10,20 @@ interface CartState {
   error: string | null
 }
 
+const getResponseMessage = (response: ApiResponse<unknown> | undefined, fallback: string): string =>
+  response?.message || fallback
+
+const createBusinessError = (response: ApiResponse<unknown> | undefined, fallback: string): Error =>
+  new Error(getResponseMessage(response, fallback))
+
+const isSuccessfulResponse = (response: ApiResponse<unknown> | undefined): boolean =>
+  response?.code === 200
+
+let latestFetchCartRequestId = 0
+const invalidateFetchCartRequests = () => {
+  latestFetchCartRequestId += 1
+}
+
 /**
  * 购物车状态管理
  */
@@ -72,23 +86,34 @@ export const useCartStore = defineStore('cart', {
      * 获取用户购物车列表
      */
     async fetchCart(_userId?: number): Promise<CartItem[]> {
+      const requestId = ++latestFetchCartRequestId
       this.loading = true
       this.error = null
 
       try {
         const response = await cartApi.getCart() as ApiResponse<CartItem[]>
-        if (response.success || response.code === 200) {
+        if (requestId !== latestFetchCartRequestId) {
+          return this.items
+        }
+        if (isSuccessfulResponse(response)) {
           this.items = response.data || []
+        } else {
+          throw createBusinessError(response, '获取购物车列表失败')
         }
         return this.items
       } catch (error: unknown) {
+        if (requestId !== latestFetchCartRequestId) {
+          return this.items
+        }
         const errorMessage = error instanceof Error ? error.message : '获取购物车列表失败'
         this.error = errorMessage
         debugError('获取购物车列表失败:', error)
         this.items = []
         return []
       } finally {
-        this.loading = false
+        if (requestId === latestFetchCartRequestId) {
+          this.loading = false
+        }
       }
     },
     
@@ -101,8 +126,9 @@ export const useCartStore = defineStore('cart', {
 
       try {
         const response = await cartApi.addToCart({ productId, quantity }) as ApiResponse<CartItem>
-        if (response.success || response.code === 200) {
+        if (isSuccessfulResponse(response)) {
           const cartItem = response.data
+          invalidateFetchCartRequests()
 
           // 检查商品是否已在购物车中
           const existingItemIndex = this.items.findIndex(item => item.productId === productId)
@@ -111,6 +137,8 @@ export const useCartStore = defineStore('cart', {
           } else {
             this.items.push(cartItem)
           }
+        } else {
+          throw createBusinessError(response, '添加商品到购物车失败')
         }
 
         ElMessage.success('商品已添加到购物车')
@@ -139,8 +167,9 @@ export const useCartStore = defineStore('cart', {
 
       try {
         const response = await cartApi.updateCartItem(id, updates) as ApiResponse<CartItem>
-        if (response.success || response.code === 200) {
+        if (isSuccessfulResponse(response)) {
           const updatedItem = response.data
+          invalidateFetchCartRequests()
 
           if (updatedItem) {
             const index = this.items.findIndex(item => item.id === id)
@@ -151,6 +180,8 @@ export const useCartStore = defineStore('cart', {
             // 数量为0，已删除
             this.items = this.items.filter(item => item.id !== id)
           }
+        } else {
+          throw createBusinessError(response, '更新购物车失败')
         }
 
         return response.data
@@ -177,7 +208,11 @@ export const useCartStore = defineStore('cart', {
      */
     async selectItem(id: number, selected: boolean): Promise<void> {
       try {
-        await cartApi.selectCartItem(id, selected)
+        const response = await cartApi.selectCartItem(id, selected)
+        if (!isSuccessfulResponse(response)) {
+          throw createBusinessError(response, '操作失败')
+        }
+        invalidateFetchCartRequests()
 
         const index = this.items.findIndex(item => item.id === id)
         if (index > -1) {
@@ -187,6 +222,7 @@ export const useCartStore = defineStore('cart', {
         const errorMessage = error instanceof Error ? error.message : '操作失败'
         this.error = errorMessage
         ElMessage.error(this.error)
+        debugError('切换购物车选中状态失败:', error)
         throw error
       }
     },
@@ -196,7 +232,11 @@ export const useCartStore = defineStore('cart', {
      */
     async selectAll(selected: boolean): Promise<void> {
       try {
-        await cartApi.selectAll(selected)
+        const response = await cartApi.selectAll(selected)
+        if (!isSuccessfulResponse(response)) {
+          throw createBusinessError(response, '操作失败')
+        }
+        invalidateFetchCartRequests()
 
         this.items.forEach(item => {
           item.selected = selected
@@ -205,6 +245,7 @@ export const useCartStore = defineStore('cart', {
         const errorMessage = error instanceof Error ? error.message : '操作失败'
         this.error = errorMessage
         ElMessage.error(this.error)
+        debugError('批量切换购物车选中状态失败:', error)
         throw error
       }
     },
@@ -217,7 +258,11 @@ export const useCartStore = defineStore('cart', {
       this.error = null
 
       try {
-        await cartApi.deleteCartItem(id)
+        const response = await cartApi.deleteCartItem(id)
+        if (!isSuccessfulResponse(response)) {
+          throw createBusinessError(response, '从购物车中移除商品失败')
+        }
+        invalidateFetchCartRequests()
         this.items = this.items.filter(item => item.id !== id)
 
         return true
@@ -235,15 +280,21 @@ export const useCartStore = defineStore('cart', {
     /**
      * 批量删除购物车项
      */
-    async batchDelete(ids: number[]): Promise<boolean> {
+    async batchDelete(ids: number[], options?: { silentSuccess?: boolean }): Promise<boolean> {
       this.loading = true
       this.error = null
 
       try {
-        await cartApi.batchDeleteCartItems(ids)
+        const response = await cartApi.batchDeleteCartItems(ids)
+        if (!isSuccessfulResponse(response)) {
+          throw createBusinessError(response, '批量删除失败')
+        }
+        invalidateFetchCartRequests()
         this.items = this.items.filter(item => !ids.includes(item.id))
 
-        ElMessage.success('商品已从购物车中移除')
+        if (!options?.silentSuccess) {
+          ElMessage.success('商品已从购物车中移除')
+        }
         return true
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : '批量删除失败'
@@ -264,7 +315,11 @@ export const useCartStore = defineStore('cart', {
       this.error = null
 
       try {
-        await cartApi.clearCart()
+        const response = await cartApi.clearCart()
+        if (!isSuccessfulResponse(response)) {
+          throw createBusinessError(response, '清空购物车失败')
+        }
+        invalidateFetchCartRequests()
         this.items = []
 
         ElMessage.success('购物车已清空')

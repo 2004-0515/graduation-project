@@ -184,6 +184,7 @@ import productApi from '../api/productApi'
 import rationalApi from '../api/rationalApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import { debugError } from '../utils/debug'
 
 const route = useRoute()
 const router = useRouter()
@@ -202,6 +203,10 @@ const availableCoupons = ref<any[]>([])
 const selectedCoupon = ref<number | null>(null)
 const couponDiscount = ref(0)
 const budgetStatus = ref<any>({})
+let latestAddressesRequestId = 0
+let latestCouponsRequestId = 0
+let latestBudgetStatusRequestId = 0
+let latestOrderItemsRequestId = 0
 
 const subtotal = computed(() =>
   orderItems.value.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0)
@@ -224,42 +229,98 @@ const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 const getCouponTypeClass = (type: number) =>
   ({ 1: 'type-reduce', 2: 'type-discount', 3: 'type-free' }[type] || 'type-reduce')
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
+
+const reconcileSelectedCoupon = () => {
+  if (!selectedCoupon.value) return
+  const matchedCoupon = availableCoupons.value.find((item) => item.id === selectedCoupon.value)
+  if (!matchedCoupon) {
+    clearCoupon()
+    return
+  }
+  couponDiscount.value = Number(matchedCoupon.discount || 0)
+}
+
 const fetchAddresses = async () => {
   if (!userStore.userInfo?.id) return
+  const requestId = ++latestAddressesRequestId
   try {
     const res: any = await addressApi.getUserAddresses(userStore.userInfo.id)
+    if (requestId !== latestAddressesRequestId) {
+      return
+    }
     if (res?.code === 200) {
       addresses.value = res.data || []
       const defaultAddr = addresses.value.find((item) => item.isDefault)
       if (defaultAddr) selectedAddress.value = defaultAddr.id
       else if (addresses.value.length > 0) selectedAddress.value = addresses.value[0].id
+      else selectedAddress.value = null
+    } else {
+      debugError('加载地址失败', res?.message || '地址列表返回异常')
     }
   } catch (error) {
-    console.error('加载地址失败:', error)
+    if (requestId !== latestAddressesRequestId) {
+      return
+    }
+    debugError('加载地址失败', error)
   }
 }
 
 const fetchAvailableCoupons = async () => {
-  if (!userStore.isLoggedIn || subtotal.value <= 0) return
+  if (!userStore.isLoggedIn || subtotal.value <= 0) {
+    availableCoupons.value = []
+    clearCoupon()
+    return
+  }
+  const requestId = ++latestCouponsRequestId
   try {
     const res: any = await couponApi.getAvailableForOrder(subtotal.value)
+    if (requestId !== latestCouponsRequestId) {
+      return
+    }
     if (res?.code === 200) {
       availableCoupons.value = res.data || []
+      reconcileSelectedCoupon()
+    } else {
+      availableCoupons.value = []
+      clearCoupon()
+      debugError('加载优惠券失败', res?.message || '可用优惠券返回异常')
     }
   } catch (error) {
-    console.error('加载优惠券失败:', error)
+    if (requestId !== latestCouponsRequestId) {
+      return
+    }
+    availableCoupons.value = []
+    clearCoupon()
+    debugError('加载优惠券失败', error)
   }
 }
 
 const fetchBudgetStatus = async () => {
   if (!userStore.isLoggedIn) return
+  const requestId = ++latestBudgetStatusRequestId
   try {
     const res: any = await rationalApi.getBudgetStatus()
+    if (requestId !== latestBudgetStatusRequestId) {
+      return
+    }
     if (res?.code === 200) {
       budgetStatus.value = res.data || {}
+    } else {
+      debugError('加载预算状态失败', res?.message || '预算状态返回异常')
     }
   } catch (error) {
-    console.error('加载预算状态失败:', error)
+    if (requestId !== latestBudgetStatusRequestId) {
+      return
+    }
+    debugError('加载预算状态失败', error)
   }
 }
 
@@ -277,12 +338,37 @@ const clearCoupon = () => {
   couponDiscount.value = 0
 }
 
+const saveCheckoutItemsSnapshot = () => {
+  try {
+    sessionStorage.setItem(CHECKOUT_ITEMS_KEY, JSON.stringify(orderItems.value))
+  } catch (error) {
+    debugError('保存结算商品失败', error)
+  }
+}
+
+const clearCheckoutItemsSnapshot = () => {
+  try {
+    sessionStorage.removeItem(CHECKOUT_ITEMS_KEY)
+  } catch (error) {
+    debugError('清理结算商品失败', error)
+  }
+}
+
 const restoreSavedOrderItems = () => {
-  const savedItems = sessionStorage.getItem(CHECKOUT_ITEMS_KEY)
+  let savedItems: string | null = null
+  try {
+    savedItems = sessionStorage.getItem(CHECKOUT_ITEMS_KEY)
+  } catch (error) {
+    debugError('读取结算商品失败', error)
+    orderItems.value = []
+    return
+  }
   if (!savedItems) return
   try {
     orderItems.value = JSON.parse(savedItems)
-  } catch {
+  } catch (error) {
+    debugError('恢复结算商品失败', error)
+    clearCheckoutItemsSnapshot()
     orderItems.value = []
   }
 }
@@ -294,9 +380,12 @@ const loadDirectPurchaseItem = async (productId: number, quantity: number) => {
   const product = res.data
   if (product.status !== 1) throw new Error('该商品已下架')
   if (product.stock < quantity) throw new Error('商品库存不足')
+  if (userStore.userInfo?.id && product.sellerId === userStore.userInfo.id) {
+    throw new Error('不能购买自己发布的商品')
+  }
 
   orderItems.value = [{ ...product, quantity }]
-  sessionStorage.setItem(CHECKOUT_ITEMS_KEY, JSON.stringify(orderItems.value))
+  saveCheckoutItemsSnapshot()
 }
 
 const loadCartCheckoutItems = async () => {
@@ -310,7 +399,10 @@ const loadCartCheckoutItems = async () => {
   }
 
   const selectedItems = cartStore.items.filter(
-    (item) => item.selected !== false && item.productStatus === 1
+    (item) =>
+      item.selected !== false &&
+      item.productStatus === 1 &&
+      !(item.sellerId && userStore.userInfo?.id && item.sellerId === userStore.userInfo.id)
   )
 
   const validItems = selectedItems.filter((item) => {
@@ -335,10 +427,11 @@ const loadCartCheckoutItems = async () => {
     sellerId: item.sellerId,
     sellerName: item.sellerName
   }))
-  sessionStorage.setItem(CHECKOUT_ITEMS_KEY, JSON.stringify(orderItems.value))
+  saveCheckoutItemsSnapshot()
 }
 
 const loadOrderItems = async () => {
+  const requestId = ++latestOrderItemsRequestId
   const productId = Number(route.query.productId)
   const quantity = Number(route.query.quantity) || 1
 
@@ -348,12 +441,19 @@ const loadOrderItems = async () => {
     } else {
       await loadCartCheckoutItems()
     }
-  } catch (error: any) {
-    ElMessage.error(error?.message || '加载结算商品失败')
+  } catch (error) {
+    if (requestId !== latestOrderItemsRequestId) {
+      return
+    }
+    debugError('加载结算商品失败', error)
+    ElMessage.error(getErrorMessage(error, '加载结算商品失败'))
     router.push('/cart')
     return
   }
 
+  if (requestId !== latestOrderItemsRequestId) {
+    return
+  }
   if (orderItems.value.length === 0) {
     ElMessage.warning('当前没有可结算商品')
   }
@@ -412,7 +512,7 @@ const submitOrder = async () => {
     const res: any = await orderApi.createOrder(orderData)
     if (res?.code === 200) {
       ElMessage.success('订单创建成功')
-      sessionStorage.removeItem(CHECKOUT_ITEMS_KEY)
+      clearCheckoutItemsSnapshot()
 
       if (!route.query.productId) {
         const orderedProductIds = orderItems.value.map((item) => item.id)
@@ -421,16 +521,23 @@ const submitOrder = async () => {
           .map((item) => item.id)
 
         if (cartItemsToDelete.length > 0) {
-          await cartStore.batchDelete(cartItemsToDelete)
+          try {
+            await cartStore.batchDelete(cartItemsToDelete, { silentSuccess: true })
+          } catch (cleanupError) {
+            debugError('订单创建成功后清理购物车失败', cleanupError)
+          }
         }
       }
 
       router.push(`/payment/${res.data.id}`)
     } else {
-      ElMessage.error(res?.message || '订单创建失败')
+      const message = res?.message || '订单创建失败'
+      debugError('订单创建失败', message)
+      ElMessage.error(message)
     }
   } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || error?.message || '订单创建失败')
+    debugError('订单创建失败', error)
+    ElMessage.error(getErrorMessage(error, '订单创建失败'))
   } finally {
     submitting.value = false
   }
@@ -440,6 +547,8 @@ watch(subtotal, () => {
   clearCoupon()
   if (subtotal.value > 0) {
     fetchAvailableCoupons()
+  } else {
+    availableCoupons.value = []
   }
 })
 

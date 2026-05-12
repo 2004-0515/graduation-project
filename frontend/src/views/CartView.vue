@@ -1,5 +1,5 @@
 <template>
-  <div class="cart-page">
+  <div class="cart-page" data-testid="cart-view">
     <div class="deco-layer">
       <div class="shape s1"></div>
       <div class="shape s2"></div>
@@ -33,7 +33,7 @@
             </ul>
           </div>
 
-          <div class="cart-list glass-card">
+          <div class="cart-list glass-card" data-testid="cart-list">
             <div class="list-header">
               <label class="checkbox-wrap">
                 <input type="checkbox" v-model="selectAll" @change="toggleSelectAll" />
@@ -46,10 +46,15 @@
               <span>操作</span>
             </div>
 
-            <div v-for="item in cartItems" :key="item.id" :class="['cart-item', { 
+            <div
+              v-for="item in cartItems"
+              :key="item.id"
+              :class="['cart-item', {
               'item-unavailable': item.productStatus !== 1,
               'item-own-product': item.sellerId && userId && item.sellerId === userId
-            }]">
+            }]"
+              :data-testid="`cart-item-${item.id}`"
+            >
               <label class="checkbox-wrap">
                 <input 
                   type="checkbox" 
@@ -70,31 +75,31 @@
               </div>
               <div class="item-price">¥{{ item.price }}</div>
               <div class="item-qty">
-                <button @click="updateQty(item, -1)" :disabled="item.quantity <= 1 || item.productStatus !== 1">-</button>
-                <span>{{ item.quantity }}</span>
-                <button @click="updateQty(item, 1)" :disabled="item.productStatus !== 1 || (item.stock !== undefined && item.quantity >= item.stock)">+</button>
+                <button :data-testid="`cart-item-decrease-${item.id}`" @click="updateQty(item, -1)" :disabled="item.quantity <= 1 || item.productStatus !== 1">-</button>
+                <span :data-testid="`cart-item-quantity-${item.id}`">{{ item.quantity }}</span>
+                <button :data-testid="`cart-item-increase-${item.id}`" @click="updateQty(item, 1)" :disabled="item.productStatus !== 1 || (item.stock !== undefined && item.quantity >= item.stock)">+</button>
               </div>
               <div class="item-subtotal">¥{{ (item.price * item.quantity).toFixed(2) }}</div>
-              <button class="delete-btn" @click="removeItem(item)">删除</button>
+              <button class="delete-btn" :data-testid="`cart-item-delete-${item.id}`" @click="removeItem(item)">删除</button>
             </div>
           </div>
 
-          <div class="checkout-bar glass-card">
-            <button class="clear-btn" @click="clearSelected">清空已选</button>
+          <div class="checkout-bar glass-card" data-testid="cart-checkout-bar">
+            <button class="clear-btn" data-testid="cart-clear-selected" @click="clearSelected">清空已选</button>
             <div class="bar-right">
-              <div class="total-info">
-                <span>共 {{ selectedCount }} 件</span>
-                <span class="total">合计：<em>¥{{ totalPrice.toFixed(2) }}</em></span>
+              <div class="total-info" data-testid="cart-summary">
+                <span data-testid="cart-selected-count">共 {{ selectedCount }} 件</span>
+                <span class="total">合计：<em data-testid="cart-total-price">¥{{ totalPrice.toFixed(2) }}</em></span>
                 <span v-if="showBudgetWarning" class="budget-warning-tip">
                   购买后将超出本月预算
                 </span>
               </div>
-              <button class="btn btn-primary" @click="goCheckout" :disabled="selectedCount === 0">去结算</button>
+              <button class="btn btn-primary" data-testid="cart-go-checkout" @click="goCheckout" :disabled="selectedCount === 0">去结算</button>
             </div>
           </div>
         </div>
 
-        <div v-else class="empty glass-card">
+        <div v-else class="empty glass-card" data-testid="cart-empty">
           <p>购物车是空的</p>
           <router-link to="/category" class="btn btn-primary">去逛逛</router-link>
         </div>
@@ -115,6 +120,7 @@ import fileApi from '../api/fileApi'
 import rationalApi from '../api/rationalApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import { debugError } from '../utils/debug'
 
 const router = useRouter()
 const cartStore = useCartStore()
@@ -159,7 +165,24 @@ const totalPrice = computed(() =>
   ).reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0)
 )
 
+const checkoutEligibleItems = computed(() =>
+  cartItems.value.filter(i =>
+    i.selected !== false &&
+    i.productStatus === 1 &&
+    !(i.sellerId && userId.value && i.sellerId === userId.value) &&
+    !(i.stock !== undefined && i.quantity > i.stock)
+  )
+)
+
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
 const imgErr = (e: Event) => { 
   const img = e.target as HTMLImageElement
   img.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect fill="#f8f8fc" width="80" height="80"/><text fill="#ccc" font-family="Arial" font-size="12" x="50%" y="50%" text-anchor="middle" dy=".3em">商品</text></svg>')
@@ -176,15 +199,25 @@ const toggleSelectAll = () => {
 const updateQty = async (item: any, delta: number) => {
   const newQty = item.quantity + delta
   if (newQty < 1) return
-  try { await cartStore.updateCartItem(item.id, newQty) } catch { ElMessage.error('更新失败') }
+  try {
+    await cartStore.updateCartItem(item.id, newQty)
+  } catch (error) {
+    debugError('更新购物车数量失败', error)
+    ElMessage.error(getErrorMessage(error, '更新失败'))
+  }
 }
 
 const removeItem = async (item: any) => {
   try {
     await ElMessageBox.confirm('确定要删除这件商品吗？', '提示', { type: 'warning' })
     await cartStore.removeFromCart(item.id)
-    ElMessage.success('已删除')
-  } catch {}
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
+      return
+    }
+    debugError('删除购物车商品失败', error)
+    ElMessage.error(getErrorMessage(error, '删除失败'))
+  }
 }
 
 const clearSelected = async () => {
@@ -192,14 +225,26 @@ const clearSelected = async () => {
   if (selected.length === 0) return
   try {
     await ElMessageBox.confirm(`确定要删除选中的 ${selected.length} 件商品吗？`, '提示', { type: 'warning' })
-    for (const item of selected) await cartStore.removeFromCart(item.id)
-    ElMessage.success('已清空')
-  } catch {}
+    await cartStore.batchDelete(selected.map(item => item.id))
+  } catch (error: any) {
+    if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
+      return
+    }
+    debugError('清空已选购物车商品失败', error)
+    ElMessage.error(getErrorMessage(error, '清空失败'))
+  }
 }
 
 const goCheckout = () => {
   const selectedItems = cartItems.value.filter(i => i.selected !== false)
   if (selectedItems.length === 0) { ElMessage.warning('请选择商品'); return }
+  if (checkoutEligibleItems.value.length === 0) {
+    ElMessage.warning('当前选中商品不可结算，请检查库存、上下架状态或移除自己的商品')
+    return
+  }
+  if (checkoutEligibleItems.value.length < selectedItems.length) {
+    ElMessage.warning('部分已选商品不可结算，系统将只结算有效商品')
+  }
   // 如果超出预算，给出提示但不阻止
   if (showBudgetWarning.value) {
     ElMessage.warning('购买后将超出本月预算，请理性消费')
@@ -213,15 +258,21 @@ const fetchBudgetStatus = async () => {
     const res: any = await rationalApi.getBudgetStatus()
     if (res?.code === 200) {
       budgetStatus.value = res.data || {}
+    } else {
+      debugError('获取购物车预算状态失败', res?.message || '购物车预算状态返回异常')
     }
   } catch (e) {
-    console.error('获取预算状态失败', e)
+    debugError('获取购物车预算状态失败', e)
   }
 }
 
 onMounted(async () => {
   if (userStore.isLoggedIn && userStore.userInfo?.id) {
-    await cartStore.fetchCart(userStore.userInfo.id)
+    try {
+      await cartStore.fetchCart(userStore.userInfo.id)
+    } catch (error) {
+      debugError('加载购物车失败', error)
+    }
     fetchBudgetStatus()
   }
 })

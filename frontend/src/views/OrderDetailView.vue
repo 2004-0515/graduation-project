@@ -1,5 +1,5 @@
 <template>
-  <div class="order-detail-page">
+  <div class="order-detail-page" data-testid="order-detail-view">
     <Navbar />
     <main class="main-content">
       <div class="container">
@@ -17,13 +17,14 @@
           <!-- 订单状态 -->
           <div class="status-card glass-card">
             <div class="status-info">
-              <span class="status-label" :class="getStatusClass(order.orderStatus)">{{ getStatusText(order.orderStatus) }}</span>
+              <span class="status-label" :class="getStatusClass(order.orderStatus)" data-testid="order-detail-status">{{ getStatusText(order.orderStatus) }}</span>
               <p class="status-desc">{{ getStatusDesc(order.orderStatus) }}</p>
             </div>
             <div class="status-actions">
-              <button v-if="order.orderStatus === 0" class="btn btn-primary" @click="payOrder">立即支付</button>
-              <button v-if="order.orderStatus === 0" class="btn btn-glass" @click="cancelOrder">取消订单</button>
-              <button v-if="order.orderStatus === 2" class="btn btn-primary" @click="confirmReceive">确认收货</button>
+              <button v-if="order.orderStatus === 0" class="btn btn-primary" data-testid="order-detail-pay" @click="payOrder">立即支付</button>
+              <button v-if="order.orderStatus === 0" class="btn btn-glass" data-testid="order-detail-cancel" @click="cancelOrder">取消订单</button>
+              <button v-if="order.orderStatus === 1 && order.paymentStatus === 1" class="btn btn-glass" data-testid="order-detail-request-cancel" @click="requestCancelOrder">申请取消</button>
+              <button v-if="order.orderStatus === 2" class="btn btn-primary" data-testid="order-detail-confirm" @click="confirmReceive">确认收货</button>
             </div>
           </div>
 
@@ -31,7 +32,7 @@
           <div class="info-card glass-card">
             <h3>收货信息</h3>
             <div class="address-info" v-if="order.shippingAddress">
-              <p><strong>{{ order.shippingAddress.name }}</strong> {{ order.shippingAddress.phone }}</p>
+              <p><strong>{{ order.shippingAddress.receiver || order.shippingAddress.name }}</strong> {{ order.shippingAddress.phone }}</p>
               <p>{{ order.shippingAddress.province }}{{ order.shippingAddress.city }}{{ order.shippingAddress.district }}{{ order.shippingAddress.detail }}</p>
             </div>
             <div v-else class="no-address">暂无收货地址信息</div>
@@ -45,9 +46,9 @@
                 <img :src="getImageUrl(item.productImage)" class="item-img" @error="imgErr" />
                 <div class="item-info">
                   <h4>{{ item.productName }}</h4>
-                  <p>¥{{ item.productPrice }} × {{ item.quantity }}</p>
+                  <p>¥{{ item.price }} × {{ item.quantity }}</p>
                 </div>
-                <div class="item-subtotal">¥{{ (item.productPrice * item.quantity).toFixed(2) }}</div>
+                <div class="item-subtotal">¥{{ (item.price * item.quantity).toFixed(2) }}</div>
               </div>
             </div>
           </div>
@@ -55,7 +56,7 @@
           <!-- 订单信息 -->
           <div class="order-info-card glass-card">
             <h3>订单信息</h3>
-            <div class="info-row"><span>订单编号</span><span>{{ order.orderNo }}</span></div>
+            <div class="info-row"><span>订单编号</span><span data-testid="order-detail-order-no">{{ order.orderNo }}</span></div>
             <div class="info-row"><span>下单时间</span><span>{{ formatDate(order.createdTime) }}</span></div>
             <div class="info-row" v-if="order.paymentTime"><span>支付时间</span><span>{{ formatDate(order.paymentTime) }}</span></div>
             <div class="info-row" v-if="order.shippingTime"><span>发货时间</span><span>{{ formatDate(order.shippingTime) }}</span></div>
@@ -72,19 +73,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import orderApi from '../api/orderApi'
 import fileApi from '../api/fileApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import { debugError } from '@/utils/debug'
+import type { Order } from '@/types'
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
 const route = useRoute()
 const router = useRouter()
-const order = ref<any>(null)
+const order = ref<Order | null>(null)
+let latestOrderRequestId = 0
+const invalidateOrderRequests = () => {
+  latestOrderRequestId += 1
+}
 
 const imgErr = (e: Event) => { 
   const img = e.target as HTMLImageElement
@@ -95,7 +102,7 @@ const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: 
 const getStatusClass = (status: number) => ({ 0: 'pending', 1: 'processing', 2: 'shipping', 3: 'completed', 4: 'cancelled', 5: 'refunding', 6: 'cancel-requested' }[status] || '')
 const getStatusDesc = (status: number) => ({
   0: '请尽快完成支付，超时订单将自动取消',
-  1: '商家正在准备商品，请耐心等待',
+  1: '订单已支付，等待发货。您可在发货前申请取消',
   2: '商品已发出，请注意查收',
   3: '订单已完成，感谢您的购买',
   4: '订单已取消',
@@ -108,28 +115,159 @@ const formatDate = (dateStr: string) => {
   return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`
 }
 
-const payOrder = () => ElMessage.info('跳转支付页面...')
-const cancelOrder = async () => {
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
+
+const payOrder = () => {
+  if (!order.value) return
+  router.push(`/payment/${order.value.id}`)
+}
+
+const resetOrderDetailState = () => {
+  order.value = null
+}
+
+const refreshOrderAfterSuccess = async (actionLabel: string) => {
   try {
-    await orderApi.cancelOrder(order.value.id)
-    order.value.orderStatus = 4
-    ElMessage.success('订单已取消')
-  } catch { ElMessage.error('取消失败') }
+    await fetchOrder()
+  } catch (error) {
+    debugError(`${actionLabel}后刷新订单详情失败:`, error)
+  }
+}
+
+const applyLocalOrder = (updater: (current: Order) => Order) => {
+  if (!order.value) return
+  order.value = updater(order.value as Order)
+}
+
+const fetchOrder = async () => {
+  const orderId = Number(route.params.id)
+  if (!orderId) {
+    ElMessage.error('订单不存在')
+    router.back()
+    return
+  }
+
+  const requestId = ++latestOrderRequestId
+  const res = await orderApi.getOrderById(orderId)
+  if (requestId !== latestOrderRequestId) {
+    return
+  }
+  if (res?.code === 200) {
+    order.value = res.data
+    return
+  }
+
+  debugError('获取订单详情失败:', res?.message || '订单详情返回异常')
+  throw new Error(res?.message || '获取订单详情失败')
+}
+
+const cancelOrder = async () => {
+  if (!order.value) return
+  try {
+    const res = await orderApi.cancelOrder(order.value.id)
+    if (res?.code === 200) {
+      invalidateOrderRequests()
+      applyLocalOrder((current) => ({
+        ...current,
+        orderStatus: 4,
+        orderStatusName: '已取消'
+      }))
+      ElMessage.success('订单已取消')
+      await refreshOrderAfterSuccess('取消订单')
+      return
+    }
+    const message = res?.message || '取消订单失败'
+    debugError('取消订单失败:', message)
+    ElMessage.error(message)
+  } catch (error) {
+    debugError('取消订单失败:', error)
+    ElMessage.error(getErrorMessage(error, '取消订单失败'))
+  }
+}
+const requestCancelOrder = async () => {
+  if (!order.value) return
+  try {
+    const res = await orderApi.requestCancelOrder(order.value.id)
+    if (res?.code === 200) {
+      invalidateOrderRequests()
+      applyLocalOrder((current) => ({
+        ...current,
+        orderStatus: 6,
+        orderStatusName: '申请取消中'
+      }))
+      ElMessage.success('取消申请已提交')
+      await refreshOrderAfterSuccess('提交取消申请')
+      return
+    }
+    const message = res?.message || '申请取消失败'
+    debugError('申请取消订单失败:', message)
+    ElMessage.error(message)
+  } catch (error) {
+    debugError('申请取消订单失败:', error)
+    ElMessage.error(getErrorMessage(error, '申请取消失败'))
+  }
 }
 const confirmReceive = async () => {
+  if (!order.value) return
   try {
-    await orderApi.confirmReceive(order.value.id)
-    order.value.orderStatus = 3
-    ElMessage.success('已确认收货')
-  } catch { ElMessage.error('操作失败') }
+    const res = await orderApi.confirmReceive(order.value.id)
+    if (res?.code === 200) {
+      invalidateOrderRequests()
+      applyLocalOrder((current) => ({
+        ...current,
+        orderStatus: 3,
+        orderStatusName: '已完成'
+      }))
+      ElMessage.success('已确认收货')
+      await refreshOrderAfterSuccess('确认收货')
+      return
+    }
+    const message = res?.message || '确认收货失败'
+    debugError('确认收货失败:', message)
+    ElMessage.error(message)
+  } catch (error) {
+    debugError('确认收货失败:', error)
+    ElMessage.error(getErrorMessage(error, '确认收货失败'))
+  }
+}
+
+const reloadOrderDetailFromRoute = async () => {
+  resetOrderDetailState()
+  await fetchOrder()
 }
 
 onMounted(async () => {
   try {
-    const res: any = await orderApi.getOrderById(Number(route.params.id))
-    if (res?.code === 200) order.value = res.data
-  } catch { ElMessage.error('获取订单详情失败'); router.back() }
+    await reloadOrderDetailFromRoute()
+  } catch (error) {
+    debugError('初始化订单详情失败:', error)
+    ElMessage.error(getErrorMessage(error, '获取订单详情失败'))
+    router.back()
+  }
 })
+
+watch(
+  () => route.params.id,
+  async (newId, oldId) => {
+    if (newId === oldId) {
+      return
+    }
+    try {
+      await reloadOrderDetailFromRoute()
+    } catch (error) {
+      debugError('切换订单详情失败:', error)
+      ElMessage.error(getErrorMessage(error, '获取订单详情失败'))
+      router.back()
+    }
+  }
+)
 </script>
 
 <style scoped>

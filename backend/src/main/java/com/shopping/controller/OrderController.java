@@ -2,11 +2,10 @@ package com.shopping.controller;
 
 import com.shopping.dto.*;
 import com.shopping.service.OrderService;
+import com.shopping.utils.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -36,17 +35,12 @@ public class OrderController {
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "1000") int size) {
-        try {
-            String username = getCurrentUsername();
-            logger.info("Fetching orders for user: {}, status: {}, page: {}, size: {}", username, status, page, size);
+        String username = getCurrentUsername();
+        logger.info("Fetching orders for user: {}, status: {}, page: {}, size: {}", username, status, page, size);
 
-            List<OrderDto> orders = orderService.getUserOrders(username, status, page, size);
-            logger.info("Found {} orders for user {}", orders.size(), username);
-            return Response.success("获取订单列表成功", orders);
-        } catch (Exception e) {
-            logger.error("获取订单列表失败", e);
-            throw e;
-        }
+        List<OrderDto> orders = orderService.getUserOrders(username, status, page, size);
+        logger.info("Found {} orders for user {}", orders.size(), username);
+        return Response.success("获取订单列表成功", orders);
     }
 
     /**
@@ -166,6 +160,21 @@ public class OrderController {
 
         orderService.deleteOrder(id, username);
         logger.info("Order {} deleted successfully", id);
+        return Response.success("订单删除成功");
+    }
+
+    /**
+     * 【管理员】删除订单（仅限已取消或已完成的订单）
+     * @param id 订单ID
+     * @return 操作结果
+     */
+    @DeleteMapping("/{id}/admin")
+    public Response<String> adminDeleteOrder(@PathVariable Long id) {
+        com.shopping.utils.AdminUtils.requireAdmin();
+        logger.info("Admin deleting order {}", id);
+
+        orderService.adminDeleteOrder(id);
+        logger.info("Admin deleted order {} successfully", id);
         return Response.success("订单删除成功");
     }
 
@@ -299,11 +308,9 @@ public class OrderController {
      * @return 当前用户名
      */
     private String getCurrentUsername() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated() ||
-            authentication.getPrincipal().equals("anonymousUser")) {
+        if (!SecurityUtils.isAuthenticated()) {
             throw new com.shopping.exception.AuthenticationException("用户未认证");
         }
-        return authentication.getName();
+        return SecurityUtils.getCurrentUsername();
     }
 }

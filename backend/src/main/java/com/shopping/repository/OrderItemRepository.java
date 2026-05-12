@@ -34,4 +34,6 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
     // 统计卖家待发货订单项数量（只统计订单状态=1的）
     @Query("SELECT COUNT(oi) FROM OrderItem oi JOIN oi.order o WHERE oi.sellerId = :sellerId AND oi.shipStatus = :shipStatus AND o.orderStatus = 1")
     long countBySellerIdAndShipStatus(@Param("sellerId") Long sellerId, @Param("shipStatus") Integer shipStatus);
+
+    long countByOrderIdAndShipStatus(Long orderId, Integer shipStatus);
 }

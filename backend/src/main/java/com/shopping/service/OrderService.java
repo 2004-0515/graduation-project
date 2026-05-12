@@ -4,6 +4,7 @@ import com.shopping.constants.OrderConstants;
 import com.shopping.constants.ProductConstants;
 import com.shopping.dto.*;
 import com.shopping.entity.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.shopping.exception.ResourceNotFoundException;
 import com.shopping.exception.ValidationException;
 import com.shopping.repository.*;
@@ -87,8 +88,10 @@ public class OrderService {
      */
     public OrderDto getOrderByIdAndUser(Long id, String username) {
         User user = userService.getUserByUsername(username);
-        Order order = orderRepository.findById(id).orElseThrow(
-            () -> new ResourceNotFoundException("订单", id));
+        Order order = orderRepository.findByIdWithDetails(id);
+        if (order == null) {
+            throw new ResourceNotFoundException("订单", id);
+        }
 
         // 验证订单属于当前用户
         if (!order.getUser().getId().equals(user.getId())) {
@@ -155,7 +158,7 @@ public class OrderService {
 
             // 验证商品状态和库存
             if (!ProductConstants.Status.isAvailable(product.getStatus())) {
-                throw new ValidationException("商品[" + product.getName() + "]已下架");
+                throw new ValidationException("商品[" + product.getName() + "]已下架，当前不可购买");
             }
             if (itemRequest.getQuantity() > product.getStock()) {
                 throw new ValidationException("商品[" + product.getName() + "]库存不足");
@@ -170,12 +173,16 @@ public class OrderService {
             orderItem.setPrice(product.getPrice());
             orderItem.setQuantity(itemRequest.getQuantity());
             orderItem.setTotalPrice(product.getPrice().multiply(BigDecimal.valueOf(itemRequest.getQuantity())));
+            orderItem.setSellerId(product.getSellerId());
+            orderItem.setSellerName(product.getSellerName());
+            orderItem.setShipStatus(0);
 
             order.getItems().add(orderItem);
             totalAmount = totalAmount.add(orderItem.getTotalPrice());
         }
 
         order.setTotalAmount(totalAmount);
+        order.setPayAmount(totalAmount.subtract(order.getCouponDiscount() != null ? order.getCouponDiscount() : BigDecimal.ZERO));
         Order savedOrder = orderRepository.save(order);
 
         logger.info("Order created successfully: {}", savedOrder.getOrderNo());
@@ -193,7 +200,7 @@ public class OrderService {
 
         // 只能取消待支付和待发货的订单
         if (!OrderConstants.OrderStatus.canCancel(order.getOrderStatus())) {
-            throw new ValidationException("订单无法取消");
+            throw new ValidationException("只有待支付订单才可直接取消");
         }
 
         order.setOrderStatus(OrderConstants.OrderStatus.CANCELLED);
@@ -218,7 +225,7 @@ public class OrderService {
 
         // 只能确认待收货的订单
         if (!OrderConstants.OrderStatus.canConfirm(order.getOrderStatus())) {
-            throw new ValidationException("订单状态不允许确认收货");
+            throw new ValidationException("只有待收货订单才可确认收货");
         }
 
         order.setOrderStatus(OrderConstants.OrderStatus.COMPLETED);
@@ -237,7 +244,23 @@ public class OrderService {
 
         // 只能删除已取消或已完成的订单
         if (!OrderConstants.OrderStatus.canDelete(order.getOrderStatus())) {
-            throw new ValidationException("订单无法删除");
+            throw new ValidationException("只有已完成或已取消的订单才可删除");
+        }
+
+        orderRepository.delete(order);
+    }
+
+    /**
+     * 【管理员】删除订单
+     * @param orderId 订单ID
+     */
+    @Transactional
+    public void adminDeleteOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId).orElseThrow(
+            () -> new ResourceNotFoundException("订单", orderId));
+
+        if (!OrderConstants.OrderStatus.canDelete(order.getOrderStatus())) {
+            throw new ValidationException("只有已完成或已取消的订单才可删除");
         }
 
         orderRepository.delete(order);
@@ -350,7 +373,7 @@ public class OrderService {
     private AddressDto parseAddressJson(String json) {
         try {
             return objectMapper.readValue(json, AddressDto.class);
-        } catch (Exception e) {
+        } catch (JsonProcessingException e) {
             logger.warn("Failed to parse address JSON: {}", json, e);
             return new AddressDto();
         }
@@ -411,6 +434,8 @@ public class OrderService {
         dto.setProductImage(item.getProductImage());
         dto.setPrice(item.getPrice());
         dto.setQuantity(item.getQuantity());
+        dto.setShipStatus(item.getShipStatus());
+        dto.setShipTime(item.getShipTime());
         return dto;
     }
 
@@ -441,15 +466,22 @@ public class OrderService {
         return OrderConstants.OrderStatus.getName(orderStatus);
     }
 
-    // Stub methods for features to be implemented in later tasks
-    // These are referenced by OrderController but not yet implemented
-
     /**
-     * 申请取消订单（待发货订单）- STUB
-     * TODO: Implement in Bug 2 fix
+     * 申请取消订单（待发货订单）
      */
+    @Transactional
     public void requestCancelOrder(Long orderId, String username) {
-        throw new UnsupportedOperationException("功能尚未实现");
+        Order order = getOrderEntityByIdAndUser(orderId, username);
+
+        if (order.getPaymentStatus() != OrderConstants.PaymentStatus.PAID) {
+            throw new ValidationException("仅已支付订单可申请取消");
+        }
+        if (!OrderConstants.OrderStatus.canRequestCancel(order.getOrderStatus())) {
+            throw new ValidationException("当前订单状态不允许申请取消");
+        }
+
+        order.setOrderStatus(OrderConstants.OrderStatus.CANCEL_REQUESTED);
+        orderRepository.save(order);
     }
 
     /**
@@ -471,6 +503,9 @@ public class OrderService {
         if (order.getPaymentStatus() == OrderConstants.PaymentStatus.PAID) {
             throw new ValidationException("订单已支付");
         }
+        if (paymentMethod == null) {
+            throw new ValidationException("支付方式不能为空");
+        }
         
         // 扣减库存
         for (OrderItem item : order.getItems()) {
@@ -482,6 +517,7 @@ public class OrderService {
         order.setOrderStatus(OrderConstants.OrderStatus.PENDING_SHIPMENT);
         order.setPaymentTime(LocalDateTime.now());
         order.setPaymentMethod(paymentMethod);
+        order.setPayAmount(order.getTotalAmount().subtract(order.getCouponDiscount() != null ? order.getCouponDiscount() : BigDecimal.ZERO));
         
         Order savedOrder = orderRepository.save(order);
         
@@ -495,50 +531,106 @@ public class OrderService {
     }
 
     /**
-     * 获取待发货订单数量 - STUB
-     * TODO: Implement if needed
+     * 获取待发货订单数量
      */
     public long getPendingOrderCount() {
         return orderRepository.countByOrderStatus(OrderConstants.OrderStatus.PENDING_SHIPMENT);
     }
 
     /**
-     * 获取待审核取消申请数量 - STUB
-     * TODO: Implement if needed
+     * 获取待审核取消申请数量
      */
     public long getCancelRequestCount() {
         return orderRepository.countByOrderStatus(OrderConstants.OrderStatus.CANCEL_REQUESTED);
     }
 
     /**
-     * 审核取消申请 - STUB
-     * TODO: Implement if needed
+     * 审核取消申请
      */
+    @Transactional
     public void reviewCancelRequest(Long orderId, boolean approved) {
-        throw new UnsupportedOperationException("功能尚未实现");
+        Order order = orderRepository.findByIdWithDetails(orderId);
+        if (order == null) {
+            throw new ResourceNotFoundException("订单", orderId);
+        }
+        if (order.getOrderStatus() != OrderConstants.OrderStatus.CANCEL_REQUESTED) {
+            throw new ValidationException("当前订单没有待审核的取消申请");
+        }
+
+        if (approved) {
+            for (OrderItem item : order.getItems()) {
+                productService.increaseStock(item.getProduct().getId(), item.getQuantity());
+                productService.decreaseSales(item.getProduct().getId(), item.getQuantity());
+            }
+            order.setOrderStatus(OrderConstants.OrderStatus.CANCELLED);
+        } else {
+            order.setOrderStatus(OrderConstants.OrderStatus.PENDING_SHIPMENT);
+        }
+
+        orderRepository.save(order);
     }
 
     /**
-     * 获取卖家的订单项列表 - STUB
-     * TODO: Implement if needed
+     * 获取卖家的订单项列表
      */
     public List<OrderItemDto> getSellerOrderItems(String username, Integer shipStatus) {
-        throw new UnsupportedOperationException("功能尚未实现");
+        User seller = userService.getUserByUsername(username);
+        List<OrderItem> items = shipStatus == null
+                ? orderItemRepository.findBySellerIdOrderByCreatedTimeDesc(seller.getId())
+                : orderItemRepository.findBySellerIdAndShipStatusOrderByCreatedTimeDesc(seller.getId(), shipStatus);
+
+        return items.stream().map(this::convertSellerOrderItemToDto).collect(Collectors.toList());
     }
 
     /**
-     * 卖家发货 - STUB
-     * TODO: Implement if needed
+     * 卖家发货
      */
+    @Transactional
     public void sellerShipItem(Long itemId, String username) {
-        throw new UnsupportedOperationException("功能尚未实现");
+        User seller = userService.getUserByUsername(username);
+        OrderItem item = orderItemRepository.findById(itemId).orElseThrow(
+                () -> new ResourceNotFoundException("订单项", itemId));
+
+        if (item.getSellerId() == null || !item.getSellerId().equals(seller.getId())) {
+            throw new ValidationException("无权操作此订单项");
+        }
+        if (item.getShipStatus() != null && item.getShipStatus() == 1) {
+            throw new ValidationException("该订单项已发货");
+        }
+        if (item.getOrder().getOrderStatus() != OrderConstants.OrderStatus.PENDING_SHIPMENT) {
+            throw new ValidationException("当前订单状态不允许发货");
+        }
+
+        item.setShipStatus(1);
+        item.setShipTime(LocalDateTime.now());
+        orderItemRepository.save(item);
+
+        long pendingItems = orderItemRepository.countByOrderIdAndShipStatus(item.getOrder().getId(), 0);
+        if (pendingItems == 0) {
+            Order order = item.getOrder();
+            order.setOrderStatus(OrderConstants.OrderStatus.PENDING_RECEIPT);
+            order.setShippingTime(LocalDateTime.now());
+            orderRepository.save(order);
+        }
     }
 
     /**
-     * 获取卖家待发货订单项数量 - STUB
-     * TODO: Implement if needed
+     * 获取卖家待发货订单项数量
      */
     public long getSellerPendingShipCount(String username) {
-        throw new UnsupportedOperationException("功能尚未实现");
+        User seller = userService.getUserByUsername(username);
+        return orderItemRepository.countBySellerIdAndShipStatus(seller.getId(), 0);
+    }
+
+    private OrderItemDto convertSellerOrderItemToDto(OrderItem item) {
+        OrderItemDto dto = convertOrderItemToDto(item);
+        dto.setShipStatus(item.getShipStatus());
+        dto.setShipTime(item.getShipTime());
+        dto.setOrderNo(item.getOrder().getOrderNo());
+        dto.setOrderStatus(item.getOrder().getOrderStatus());
+        dto.setBuyerName(item.getOrder().getUser().getUsername());
+        dto.setCreatedTime(item.getOrder().getCreatedTime());
+        dto.setShippingAddress(parseAddressJson(item.getOrder().getShippingAddress()));
+        return dto;
     }
 }

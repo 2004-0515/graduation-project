@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -110,7 +111,7 @@ public class CartService {
      * @return 更新后的购物车DTO
      */
     @Transactional
-    public CartDto updateCartItem(String username, Long cartId, UpdateCartRequest request) {
+    public Optional<CartDto> updateCartItem(String username, Long cartId, UpdateCartRequest request) {
         logger.debug("Updating cart item {} for user {}", cartId, username);
 
         User user = userService.getUserByUsername(username);
@@ -128,7 +129,7 @@ public class CartService {
                 // 删除购物车项
                 cartRepository.delete(cart);
                 logger.debug("Cart item {} deleted for user {}", cartId, username);
-                return null;
+                return Optional.empty();
             }
 
             // 检查库存
@@ -146,7 +147,7 @@ public class CartService {
 
         Cart updatedCart = cartRepository.save(cart);
         logger.debug("Cart item {} updated successfully for user {}", cartId, username);
-        return convertToDto(updatedCart);
+        return Optional.of(convertToDto(updatedCart));
     }
 
     /**

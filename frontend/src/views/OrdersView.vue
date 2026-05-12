@@ -40,6 +40,7 @@
                 v-model="searchKeyword"
                 type="text"
                 placeholder="搜索订单号或商品名称"
+                data-testid="orders-search-input"
               />
             </div>
           </div>
@@ -57,7 +58,12 @@
         </div>
 
         <div v-else-if="filteredOrders.length > 0" class="orders-list">
-          <div v-for="order in paginatedOrders" :key="order.id" class="order-card">
+          <div
+            v-for="order in paginatedOrders"
+            :key="order.id"
+            class="order-card"
+            :data-testid="`order-card-${order.id}`"
+          >
             <div class="order-header">
               <div class="header-left">
                 <span class="order-no">订单号：{{ order.orderNo }}</span>
@@ -113,6 +119,7 @@
                   <button
                     v-if="order.orderStatus === 0"
                     class="btn-cancel"
+                    :data-testid="`order-cancel-${order.id}`"
                     @click="cancelOrder(order)"
                   >
                     取消订单
@@ -120,6 +127,7 @@
                   <button
                     v-if="order.orderStatus === 1"
                     class="btn-cancel"
+                    :data-testid="`order-request-cancel-${order.id}`"
                     @click="requestCancelOrder(order)"
                   >
                     申请取消
@@ -127,6 +135,7 @@
                   <button
                     v-if="order.orderStatus === 0"
                     class="btn-pay"
+                    :data-testid="`order-pay-${order.id}`"
                     @click="payOrder(order)"
                   >
                     立即支付
@@ -134,6 +143,7 @@
                   <button
                     v-if="order.orderStatus === 2"
                     class="btn-confirm"
+                    :data-testid="`order-confirm-${order.id}`"
                     @click="confirmReceive(order)"
                   >
                     确认收货
@@ -201,7 +211,7 @@
             </div>
           </div>
           <template #footer>
-            <el-button @click="reviewDialogVisible = false">取消</el-button>
+            <el-button @click="closeReviewDialog">取消</el-button>
             <el-button type="primary" :loading="submittingReview" @click="submitReview">
               提交评价
             </el-button>
@@ -220,23 +230,30 @@ import { ElMessage } from 'element-plus'
 import orderApi from '../api/orderApi'
 import reviewApi from '../api/reviewApi'
 import fileApi from '../api/fileApi'
+import { debugError } from '../utils/debug'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import type { ApiResponse, Order, OrderItem } from '../types'
 
 const route = useRoute()
 const router = useRouter()
 
-const orders = ref<any[]>([])
+const orders = ref<Order[]>([])
 const activeTab = ref(-1)
 const searchKeyword = ref('')
 const loading = ref(true)
 const errorMsg = ref('')
 const currentPage = ref(1)
 const pageSize = ref(5)
+let latestOrdersRequestId = 0
+const invalidateOrderRequests = () => {
+  latestOrdersRequestId += 1
+}
+const RETRYABLE_ORDER_ERROR_CODES = new Set([0, 429, 500, 502, 503, 504])
 
 const reviewDialogVisible = ref(false)
-const currentReviewOrder = ref<any>(null)
-const currentReviewItem = ref<any>(null)
+const currentReviewOrder = ref<Order | null>(null)
+const currentReviewItem = ref<OrderItem | null>(null)
 const submittingReview = ref(false)
 const ratingTexts = ['很差', '较差', '一般', '不错', '非常好']
 const reviewForm = reactive({
@@ -258,6 +275,42 @@ const tabs = [
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 const formatMoney = (amount: number | string) => Number(amount || 0).toFixed(2)
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  if (error instanceof Error) {
+    const response = (error as Error & { response?: { data?: { message?: string } } }).response
+    return response?.data?.message || error.message || fallback
+  }
+  return fallback
+}
+
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
+
+const isRetryableOrderError = (error: unknown) => {
+  if (error && typeof error === 'object') {
+    const code = Number((error as { code?: number | string }).code)
+    if (RETRYABLE_ORDER_ERROR_CODES.has(code)) {
+      return true
+    }
+    const responseCode = Number(
+      (error as { response?: { data?: { code?: number | string } } }).response?.data?.code
+    )
+    if (RETRYABLE_ORDER_ERROR_CODES.has(responseCode)) {
+      return true
+    }
+  }
+  return false
+}
+
+const isRetryableOrderPayload = (response: ApiResponse<Order[]> | null | undefined) => {
+  const code = Number(response?.code)
+  return RETRYABLE_ORDER_ERROR_CODES.has(code)
+}
+
 const pendingCount = computed(() =>
   orders.value.filter((item) => [0, 1, 2, 6].includes(item.orderStatus)).length
 )
@@ -273,7 +326,7 @@ const filteredOrders = computed(() => {
     const keyword = searchKeyword.value.trim().toLowerCase()
     result = result.filter((order) => {
       const orderNoMatched = String(order.orderNo || '').toLowerCase().includes(keyword)
-      const productMatched = (order.items || []).some((item: any) =>
+      const productMatched = (order.items || []).some((item) =>
         String(item.productName || '').toLowerCase().includes(keyword)
       )
       return orderNoMatched || productMatched
@@ -306,10 +359,10 @@ const getTabCount = (value: number) =>
     ? orders.value.length
     : orders.value.filter((item) => item.orderStatus === value).length
 
-const getTotalQuantity = (order: any) =>
-  (order.items || []).reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0)
+const getTotalQuantity = (order: Order) =>
+  (order.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0)
 
-const getActualPayAmount = (order: any) => {
+const getActualPayAmount = (order: Order) => {
   if (order.payAmount != null) {
     return Math.max(0, Number(order.payAmount))
   }
@@ -352,70 +405,165 @@ const formatDate = (dateStr: string) => {
   ).padStart(2, '0')}`
 }
 
-const fetchOrders = async () => {
+const fetchOrders = async (allowRetry: boolean = true) => {
+  const requestId = ++latestOrdersRequestId
   loading.value = true
   errorMsg.value = ''
   try {
-    const res: any = await orderApi.getUserOrders()
+    const res = (await orderApi.getUserOrders()) as ApiResponse<Order[]>
+    if (requestId !== latestOrdersRequestId) {
+      return
+    }
     if (res?.code === 200) {
       orders.value = Array.isArray(res.data) ? res.data : []
+      reconcileReviewContext()
     } else {
+      if (allowRetry && isRetryableOrderPayload(res)) {
+        debugError('获取订单列表失败，准备重试:', res?.message || '业务返回异常')
+        await wait(600)
+        if (requestId !== latestOrdersRequestId) {
+          return
+        }
+        await fetchOrders(false)
+        return
+      }
+      debugError('获取订单列表失败:', res?.message || '业务返回异常')
       errorMsg.value = res?.message || '获取订单失败'
     }
-  } catch (error: any) {
-    errorMsg.value = error?.response?.data?.message || error?.message || '获取订单失败'
+  } catch (error: unknown) {
+    if (requestId !== latestOrdersRequestId) {
+      return
+    }
+    if (allowRetry && isRetryableOrderError(error)) {
+      debugError('获取订单列表失败，准备重试:', error)
+      await wait(600)
+      if (requestId !== latestOrdersRequestId) {
+        return
+      }
+      await fetchOrders(false)
+      return
+    }
+    debugError('获取订单列表失败:', error)
+    errorMsg.value = getErrorMessage(error, '获取订单失败')
   } finally {
-    loading.value = false
+    if (requestId === latestOrdersRequestId) {
+      loading.value = false
+    }
   }
 }
 
-const payOrder = (order: any) => {
+const payOrder = (order: Order) => {
   router.push(`/payment/${order.id}`)
 }
 
-const cancelOrder = async (order: any) => {
+const refreshOrdersAfterSuccess = async (actionLabel: string) => {
   try {
-    const res: any = await orderApi.cancelOrder(order.id)
+    await fetchOrders()
+  } catch (error) {
+    debugError(`${actionLabel}后刷新订单列表失败:`, error)
+  }
+}
+
+const closeReviewDialog = () => {
+  reviewDialogVisible.value = false
+  currentReviewOrder.value = null
+  currentReviewItem.value = null
+  reviewForm.rating = 5
+  reviewForm.content = ''
+  reviewForm.anonymous = false
+}
+
+const reconcileReviewContext = () => {
+  if (!currentReviewOrder.value || !currentReviewItem.value) return
+  const nextOrder = orders.value.find((item) => item.id === currentReviewOrder.value?.id) || null
+  if (!nextOrder) {
+    closeReviewDialog()
+    return
+  }
+  const nextItem = (nextOrder.items || []).find((item) => item.id === currentReviewItem.value?.id) || null
+  if (!nextItem || nextItem.reviewed) {
+    closeReviewDialog()
+    return
+  }
+  currentReviewOrder.value = nextOrder
+  currentReviewItem.value = nextItem
+}
+
+const applyLocalOrder = (orderId: number, updater: (order: Order) => Order) => {
+  orders.value = orders.value.map((item) => (item.id === orderId ? updater(item) : item))
+  reconcileReviewContext()
+}
+
+const cancelOrder = async (order: Order) => {
+  try {
+    const res = await orderApi.cancelOrder(order.id)
     if (res?.code === 200) {
+      invalidateOrderRequests()
+      applyLocalOrder(order.id, (item) => ({
+        ...item,
+        orderStatus: 4,
+        orderStatusName: '已取消'
+      }))
       ElMessage.success('订单已取消')
-      await fetchOrders()
+      await refreshOrdersAfterSuccess('取消订单')
       return
     }
-    ElMessage.error(res?.message || '取消订单失败')
-  } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || '取消订单失败')
+    const message = res?.message || '取消订单失败'
+    debugError('取消订单失败:', message)
+    ElMessage.error(message)
+  } catch (error: unknown) {
+    debugError('取消订单失败:', error)
+    ElMessage.error(getErrorMessage(error, '取消订单失败'))
   }
 }
 
-const requestCancelOrder = async (order: any) => {
+const requestCancelOrder = async (order: Order) => {
   try {
-    const res: any = await orderApi.requestCancelOrder(order.id)
+    const res = await orderApi.requestCancelOrder(order.id)
     if (res?.code === 200) {
+      invalidateOrderRequests()
+      applyLocalOrder(order.id, (item) => ({
+        ...item,
+        orderStatus: 6,
+        orderStatusName: '申请取消中'
+      }))
       ElMessage.success('取消申请已提交')
-      await fetchOrders()
+      await refreshOrdersAfterSuccess('提交取消申请')
       return
     }
-    ElMessage.error(res?.message || '提交申请失败')
-  } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || '提交申请失败')
+    const message = res?.message || '提交申请失败'
+    debugError('提交取消申请失败:', message)
+    ElMessage.error(message)
+  } catch (error: unknown) {
+    debugError('提交取消申请失败:', error)
+    ElMessage.error(getErrorMessage(error, '提交申请失败'))
   }
 }
 
-const confirmReceive = async (order: any) => {
+const confirmReceive = async (order: Order) => {
   try {
-    const res: any = await orderApi.confirmReceive(order.id)
+    const res = await orderApi.confirmReceive(order.id)
     if (res?.code === 200) {
+      invalidateOrderRequests()
+      applyLocalOrder(order.id, (item) => ({
+        ...item,
+        orderStatus: 3,
+        orderStatusName: '已完成'
+      }))
       ElMessage.success('已确认收货')
-      await fetchOrders()
+      await refreshOrdersAfterSuccess('确认收货')
       return
     }
-    ElMessage.error(res?.message || '操作失败')
-  } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || '操作失败')
+    const message = res?.message || '操作失败'
+    debugError('确认收货失败:', message)
+    ElMessage.error(message)
+  } catch (error: unknown) {
+    debugError('确认收货失败:', error)
+    ElMessage.error(getErrorMessage(error, '操作失败'))
   }
 }
 
-const openReviewDialog = (order: any, item: any) => {
+const openReviewDialog = (order: Order, item: OrderItem) => {
   if (item.reviewed) return
   currentReviewOrder.value = order
   currentReviewItem.value = item
@@ -432,26 +580,41 @@ const submitReview = async () => {
     return
   }
 
+  const reviewOrderId = currentReviewOrder.value.id
+  const reviewItemId = currentReviewItem.value.id
+  const reviewProductId = currentReviewItem.value.productId
   submittingReview.value = true
   try {
-    const res: any = await reviewApi.createReview({
-      productId: currentReviewItem.value.productId,
-      orderId: currentReviewOrder.value.id,
-      orderItemId: currentReviewItem.value.id,
+    const res = await reviewApi.createReview({
+      productId: reviewProductId,
+      orderId: reviewOrderId,
+      orderItemId: reviewItemId,
       rating: reviewForm.rating,
       content: reviewForm.content,
       anonymous: reviewForm.anonymous
     })
 
     if (res?.code === 200) {
+      invalidateOrderRequests()
+      applyLocalOrder(reviewOrderId, (item) => ({
+        ...item,
+        items: item.items.map((orderItem) =>
+          orderItem.id === reviewItemId
+            ? { ...orderItem, reviewed: true }
+            : orderItem
+        )
+      }))
       ElMessage.success('评价提交成功')
-      currentReviewItem.value.reviewed = true
-      reviewDialogVisible.value = false
+      closeReviewDialog()
+      await refreshOrdersAfterSuccess('提交评价')
     } else {
-      ElMessage.error(res?.message || '评价提交失败')
+      const message = res?.message || '评价提交失败'
+      debugError('提交评价失败:', message)
+      ElMessage.error(message)
     }
-  } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || '评价提交失败')
+  } catch (error: unknown) {
+    debugError('提交评价失败:', error)
+    ElMessage.error(getErrorMessage(error, '评价提交失败'))
   } finally {
     submittingReview.value = false
   }

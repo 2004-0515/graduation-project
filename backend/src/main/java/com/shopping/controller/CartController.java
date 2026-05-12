@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 购物车控制器，处理购物车相关API请求
@@ -65,9 +66,12 @@ public class CartController {
         logger.info("User {} updating cart item {}: quantity={}, selected={}",
                    username, id, request.getQuantity(), request.getSelected());
 
-        CartDto updatedItem = cartService.updateCartItem(username, id, request);
+        Optional<CartDto> updatedItem = cartService.updateCartItem(username, id, request);
         logger.info("Cart item updated successfully for user: {}", username);
-        return Response.success("购物车更新成功", updatedItem);
+        if (updatedItem.isEmpty()) {
+            return Response.success("购物车商品已删除", null);
+        }
+        return Response.success("购物车更新成功", updatedItem.get());
     }
 
     /**
