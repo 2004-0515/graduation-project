@@ -7,12 +7,27 @@ USE shopping_mall;
 -- =====================================================
 -- 插入测试用户
 -- 密码: 123456 (BCrypt加密)
--- 可用账号: admin / testuser / demo，密码都是 123456
+-- 可用账号: admin / zhangsan / lisi / testuser / demo，密码都是 123456
 -- =====================================================
 INSERT INTO tb_user (username, password, email, phone, nickname, avatar, bio, points, growth_value, member_days, status) VALUES
 ('admin', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'admin@menggo.com', '13800138000', '管理员', '/seed/avatar-user.svg', '系统管理员', 10000, 5000, 365, 1),
-('testuser', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'test@menggo.com', '13800138001', '测试用户', '/seed/avatar-user.svg', '我是测试用户', 500, 200, 30, 1),
-('demo', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'demo@menggo.com', '13800138002', '演示账号', '/seed/avatar-user.svg', '演示账号', 100, 50, 7, 1);
+('zhangsan', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'zhangsan@menggo.com', '13800138001', '张三', '/seed/avatar-user.svg', '日常买家账号', 800, 320, 60, 1),
+('lisi', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'lisi@menggo.com', '13800138002', '李四', '/seed/avatar-user.svg', '演示卖家账号', 1200, 540, 120, 1),
+('wangwu', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'wangwu@menggo.com', '13800138003', '王五', '/seed/avatar-user.svg', '价格提醒测试用户', 460, 180, 28, 1),
+('zhaoliu', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'zhaoliu@menggo.com', '13800138004', '赵六', '/seed/avatar-user.svg', '订单流程演示用户', 520, 210, 35, 1),
+('sunqi', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'sunqi@menggo.com', '13800138005', '孙七', '/seed/avatar-user.svg', '商品互动演示用户', 610, 260, 42, 1),
+('testuser', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'test@menggo.com', '13800138006', '测试用户', '/seed/avatar-user.svg', '我是测试用户', 500, 200, 30, 1),
+('demo', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'demo@menggo.com', '13800138007', '演示账号', '/seed/avatar-user.svg', '通用演示账号', 100, 50, 7, 1),
+('chenmo', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'chenmo@menggo.com', '13800138008', '陈默', '/seed/avatar-user.svg', '演示数据补充用户', 300, 120, 21, 1),
+('xiaoming', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'xiaoming@menggo.com', '13800138009', '小明', '/seed/avatar-user.svg', '高曝光内容互动用户', 760, 310, 48, 1),
+('xiaohong', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'xiaohong@menggo.com', '13800138010', '小红', '/seed/avatar-user.svg', '高曝光内容互动用户', 680, 280, 44, 1),
+('xiaoliang', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'xiaoliang@menggo.com', '13800138011', '小亮', '/seed/avatar-user.svg', '高曝光内容互动用户', 640, 255, 39, 1),
+('xiaomei', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'xiaomei@menggo.com', '13800138012', '小美', '/seed/avatar-user.svg', '高曝光内容互动用户', 720, 295, 46, 1),
+('xiaogang', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'xiaogang@menggo.com', '13800138013', '小刚', '/seed/avatar-user.svg', '高曝光内容互动用户', 590, 240, 33, 1),
+('xiaoyu', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'xiaoyu@menggo.com', '13800138014', '小雨', '/seed/avatar-user.svg', '高曝光内容互动用户', 610, 248, 36, 1),
+('xiaoran', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'xiaoran@menggo.com', '13800138015', '小冉', '/seed/avatar-user.svg', '高曝光内容互动用户', 575, 230, 31, 1),
+('xiaoxue', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'xiaoxue@menggo.com', '13800138016', '小雪', '/seed/avatar-user.svg', '高曝光内容互动用户', 605, 245, 34, 1),
+('xiaobei', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'xiaobei@menggo.com', '13800138017', '小北', '/seed/avatar-user.svg', '高曝光内容互动用户', 625, 252, 37, 1);
 
 -- =====================================================
 -- 插入商品分类
