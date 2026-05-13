@@ -1,25 +1,22 @@
 param(
-    [int]$FrontendPort = 5173,
-    [int]$BackendPort = 8081
+    [int]$FrontendPort = 5178,
+    [int]$BackendPort = 8085
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = Split-Path $PSScriptRoot -Parent
-$stackStateFile = Join-Path $projectRoot 'tmp-browser-stack.json'
+$stackStateFile = Join-Path $projectRoot 'tmp-demo-browser-stack.json'
 
 function Get-ListeningProcessIds {
     param([int[]]$Ports)
 
     $ids = [System.Collections.Generic.HashSet[int]]::new()
-    $patterns = $Ports | ForEach-Object { ":$_\s" }
-    $matches = netstat -ano | Select-String -Pattern $patterns
-
-    foreach ($line in $matches) {
-        $parts = (($line.ToString() -replace '^\s+', '') -split '\s+')
-        if ($parts.Length -ge 5 -and $parts[0] -eq 'TCP' -and $parts[3] -eq 'LISTENING') {
-            [void]$ids.Add([int]$parts[4])
+    foreach ($port in $Ports) {
+        $connections = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
+        foreach ($connection in $connections) {
+            [void]$ids.Add([int]$connection.OwningProcess)
         }
     }
 
@@ -36,44 +33,93 @@ function Get-ProcessCommandLine {
     }
 }
 
-function Stop-ProjectProcessOnPorts {
-    param([int[]]$Ports)
+function Test-ManagedProcessIdentity {
+    param(
+        [int]$ProcessId,
+        [int]$ExpectedPort,
+        [string[]]$CommandMarkers
+    )
 
-    foreach ($processId in (Get-ListeningProcessIds -Ports $Ports)) {
-        $commandLine = Get-ProcessCommandLine -ProcessId $processId
-        if (-not $commandLine) {
-            continue
-        }
+    if (-not (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) {
+        return $false
+    }
 
-        $isProjectProcess =
-            $commandLine.Contains($projectRoot) -or
-            $commandLine.Contains('ShoppingMallApplication') -or
-            $commandLine.Contains('vite.js') -or
-            $commandLine.Contains('spring-boot:run')
+    if (@(Get-ListeningProcessIds -Ports @($ExpectedPort)) -contains $ProcessId) {
+        return $true
+    }
 
-        if (-not $isProjectProcess) {
-            continue
-        }
+    $commandLine = Get-ProcessCommandLine -ProcessId $ProcessId
+    if (-not $commandLine) {
+        return $false
+    }
 
-        if (Get-Process -Id $processId -ErrorAction SilentlyContinue) {
-            Stop-Process -Id $processId -Force
+    if ($commandLine.Contains($projectRoot)) {
+        return $true
+    }
+
+    foreach ($marker in $CommandMarkers) {
+        if ($commandLine.Contains($marker)) {
+            return $true
         }
     }
+
+    return $false
 }
 
 if (Test-Path $stackStateFile) {
     try {
         $state = Get-Content $stackStateFile | ConvertFrom-Json
-        foreach ($pid in @($state.frontendPid, $state.backendPid)) {
-            if ($pid -and (Get-Process -Id $pid -ErrorAction SilentlyContinue)) {
-                Stop-Process -Id $pid -Force
+        $managedTargets = @(
+            [pscustomobject]@{
+                Name = 'frontend'
+                Pid = $state.frontendPid
+                Port = if ($state.frontendPort) { [int]$state.frontendPort } else { $FrontendPort }
+                Managed = if ($null -ne $state.frontendManaged) { [bool]$state.frontendManaged } else { $null -ne $state.frontendPid }
+                CommandMarkers = @(
+                    'vite.js',
+                    "--port $FrontendPort",
+                    "http://127.0.0.1:$FrontendPort",
+                    "http://localhost:$FrontendPort"
+                )
+            }
+            [pscustomobject]@{
+                Name = 'backend'
+                Pid = $state.backendPid
+                Port = if ($state.backendPort) { [int]$state.backendPort } else { $BackendPort }
+                Managed = if ($null -ne $state.backendManaged) { [bool]$state.backendManaged } else { $null -ne $state.backendPid }
+                CommandMarkers = @(
+                    'ShoppingMallApplication',
+                    'spring-boot:run',
+                    "--server.port=$BackendPort",
+                    "http://127.0.0.1:$BackendPort/api",
+                    "http://localhost:$BackendPort/api"
+                )
+            }
+        )
+
+        foreach ($target in $managedTargets) {
+            if (-not $target.Managed -or -not $target.Pid) {
+                continue
+            }
+
+            if (Test-ManagedProcessIdentity -ProcessId ([int]$target.Pid) -ExpectedPort ([int]$target.Port) -CommandMarkers $target.CommandMarkers) {
+                try {
+                    $process = Get-Process -Id ([int]$target.Pid) -ErrorAction Stop
+                    Stop-Process -Id $process.Id -Force -ErrorAction Stop
+                    Wait-Process -Id $process.Id -Timeout 5 -ErrorAction SilentlyContinue
+                    Write-Host "Stopped managed $($target.Name) PID $($process.Id)."
+                } catch {
+                    Write-Host "Failed to stop managed $($target.Name) PID $($target.Pid): $($_.Exception.Message)"
+                }
+            } else {
+                Write-Host "Skipping $($target.Name) PID $($target.Pid): state file does not match a current project-owned process."
             }
         }
     } catch {
+        Write-Host "Failed to parse or inspect ${stackStateFile}: $($_.Exception.Message)"
     }
+    Remove-Item $stackStateFile -ErrorAction SilentlyContinue
+    Write-Host "Stopped managed browser stack from $stackStateFile."
+} else {
+    Write-Host "No managed browser stack state found. No processes were stopped."
 }
-
-Stop-ProjectProcessOnPorts -Ports @($FrontendPort, $BackendPort)
-Remove-Item $stackStateFile -ErrorAction SilentlyContinue
-
-Write-Host "Stopped project browser stack on ports $FrontendPort and $BackendPort."

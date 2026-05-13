@@ -1,6 +1,6 @@
-param(
-    [int]$FrontendPort = 5173,
-    [int]$BackendPort = 8081
+﻿param(
+    [int]$FrontendPort = 5178,
+    [int]$BackendPort = 8085
 )
 
 Set-StrictMode -Version Latest
