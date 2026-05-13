@@ -191,6 +191,21 @@ jobs:
           set -euo pipefail
           mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/01-tb_user.sql
 
+      - name: Inspect imported tb_user ids
+        shell: bash
+        run: |
+          set -euo pipefail
+          user_snapshot="$(
+            mysql --default-character-set=utf8mb4 -N -h 127.0.0.1 -uroot -p123456 shopping_mall_demo \
+              -e "SELECT GROUP_CONCAT(CONCAT(id, ':', username) ORDER BY id SEPARATOR ', ') FROM tb_user"
+          )"
+          wangwu_id="$(
+            mysql --default-character-set=utf8mb4 -N -h 127.0.0.1 -uroot -p123456 shopping_mall_demo \
+              -e "SELECT COALESCE(CAST(id AS CHAR), 'missing') FROM tb_user WHERE username = 'wangwu'"
+          )"
+          echo "::notice title=tb_user ids::${user_snapshot}"
+          echo "::notice title=wangwu id::${wangwu_id}"
+
       - name: Import 02-tb_category.sql
         shell: bash
         run: |
