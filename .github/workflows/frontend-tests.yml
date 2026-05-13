@@ -243,49 +243,81 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/10-tb_price_alert.sql
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/10-tb_price_alert.sql 2>mysql-import-10.stderr; then
+            echo "::error title=Import 10-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-10.stderr)"
+            cat mysql-import-10.stderr
+            exit 1
+          fi
 
       - name: Import 11-tb_price_alert.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/11-tb_price_alert.sql
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/11-tb_price_alert.sql 2>mysql-import-11.stderr; then
+            echo "::error title=Import 11-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-11.stderr)"
+            cat mysql-import-11.stderr
+            exit 1
+          fi
 
       - name: Import 12-tb_price_alert.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/12-tb_price_alert.sql
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/12-tb_price_alert.sql 2>mysql-import-12.stderr; then
+            echo "::error title=Import 12-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-12.stderr)"
+            cat mysql-import-12.stderr
+            exit 1
+          fi
 
       - name: Import 13-tb_price_alert.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/13-tb_price_alert.sql
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/13-tb_price_alert.sql 2>mysql-import-13.stderr; then
+            echo "::error title=Import 13-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-13.stderr)"
+            cat mysql-import-13.stderr
+            exit 1
+          fi
 
       - name: Import 14-tb_price_alert.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/14-tb_price_alert.sql
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/14-tb_price_alert.sql 2>mysql-import-14.stderr; then
+            echo "::error title=Import 14-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-14.stderr)"
+            cat mysql-import-14.stderr
+            exit 1
+          fi
 
       - name: Import 15-tb_price_alert.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/15-tb_price_alert.sql
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/15-tb_price_alert.sql 2>mysql-import-15.stderr; then
+            echo "::error title=Import 15-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-15.stderr)"
+            cat mysql-import-15.stderr
+            exit 1
+          fi
 
       - name: Import 16-tb_price_alert.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/16-tb_price_alert.sql
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/16-tb_price_alert.sql 2>mysql-import-16.stderr; then
+            echo "::error title=Import 16-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-16.stderr)"
+            cat mysql-import-16.stderr
+            exit 1
+          fi
 
       - name: Import 17-tb_price_alert.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/17-tb_price_alert.sql
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/17-tb_price_alert.sql 2>mysql-import-17.stderr; then
+            echo "::error title=Import 17-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-17.stderr)"
+            cat mysql-import-17.stderr
+            exit 1
+          fi
 
       - name: Import demo enhancement SQL
         shell: bash
