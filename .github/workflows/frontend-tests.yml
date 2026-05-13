@@ -150,20 +150,20 @@ jobs:
           )
 
           # Split data.sql into individual INSERT statements for easier CI diagnostics.
-          chunks = [chunk.strip() for chunk in data_source.split(";\n") if chunk.strip()]
+          insert_statements = re.findall(
+              r"(^INSERT INTO .*?;)\s*$",
+              data_source,
+              flags=re.M | re.S,
+          )
           data_step_dir = Path("backend/src/main/resources/data-ci-steps")
           data_step_dir.mkdir(exist_ok=True)
           for old_file in data_step_dir.glob("*.sql"):
               old_file.unlink()
-          step_index = 1
-          for chunk in chunks:
-              if not chunk.lstrip().upper().startswith("INSERT INTO "):
-                  continue
+          for step_index, chunk in enumerate(insert_statements, start=1):
               first_line = chunk.splitlines()[0]
               table_name = first_line.split()[2]
               target = data_step_dir / f"{step_index:02d}-{table_name}.sql"
-              target.write_text(chunk + ";\n", encoding="utf-8")
-              step_index += 1
+              target.write_text(chunk + "\n", encoding="utf-8")
           PY
 
       - name: Create demo database
