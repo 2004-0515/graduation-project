@@ -105,10 +105,26 @@ jobs:
       - name: Initialize demo database
         shell: bash
         run: |
-          mysql -h 127.0.0.1 -uroot -p123456 -e "DROP DATABASE IF EXISTS shopping_mall_demo; CREATE DATABASE shopping_mall_demo DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci;"
-          perl -0pe 's/CREATE DATABASE IF NOT EXISTS shopping_mall/CREATE DATABASE IF NOT EXISTS shopping_mall_demo/g; s/USE shopping_mall;/USE shopping_mall_demo;/g' backend/src/main/resources/schema.sql | mysql -h 127.0.0.1 -uroot -p123456
-          perl -0pe 's/CREATE DATABASE IF NOT EXISTS shopping_mall/CREATE DATABASE IF NOT EXISTS shopping_mall_demo/g; s/USE shopping_mall;/USE shopping_mall_demo;/g' backend/src/main/resources/data.sql | mysql -h 127.0.0.1 -uroot -p123456
-          mysql -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < scripts/demo-data-enhancement.sql
+          set -euo pipefail
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 -e "DROP DATABASE IF EXISTS shopping_mall_demo; CREATE DATABASE shopping_mall_demo DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci;"
+          python3 - <<'PY'
+          from pathlib import Path
+          replacements = {
+              "backend/src/main/resources/schema.sql": "backend/src/main/resources/schema-ci.sql",
+              "backend/src/main/resources/data.sql": "backend/src/main/resources/data-ci.sql",
+          }
+          for source, target in replacements.items():
+              content = Path(source).read_text(encoding="utf-8")
+              content = content.replace(
+                  "CREATE DATABASE IF NOT EXISTS shopping_mall",
+                  "CREATE DATABASE IF NOT EXISTS shopping_mall_demo",
+              )
+              content = content.replace("USE shopping_mall;", "USE shopping_mall_demo;")
+              Path(target).write_text(content, encoding="utf-8")
+          PY
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 < backend/src/main/resources/schema-ci.sql
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 < backend/src/main/resources/data-ci.sql
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < scripts/demo-data-enhancement.sql
 
       - name: Start backend
         working-directory: backend
