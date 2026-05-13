@@ -102,11 +102,10 @@ jobs:
       - name: Install MySQL client
         run: sudo apt-get update && sudo apt-get install -y mysql-client
 
-      - name: Initialize demo database
+      - name: Prepare CI demo SQL files
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 -e "DROP DATABASE IF EXISTS shopping_mall_demo; CREATE DATABASE shopping_mall_demo DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci;"
           python3 - <<'PY'
           from pathlib import Path
           replacements = {
@@ -122,8 +121,29 @@ jobs:
               content = content.replace("USE shopping_mall;", "USE shopping_mall_demo;")
               Path(target).write_text(content, encoding="utf-8")
           PY
+
+      - name: Create demo database
+        shell: bash
+        run: |
+          set -euo pipefail
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 -e "DROP DATABASE IF EXISTS shopping_mall_demo; CREATE DATABASE shopping_mall_demo DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci;"
+
+      - name: Import schema.sql into demo database
+        shell: bash
+        run: |
+          set -euo pipefail
           mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 < backend/src/main/resources/schema-ci.sql
+
+      - name: Import data.sql into demo database
+        shell: bash
+        run: |
+          set -euo pipefail
           mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 < backend/src/main/resources/data-ci.sql
+
+      - name: Import demo enhancement SQL
+        shell: bash
+        run: |
+          set -euo pipefail
           mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < scripts/demo-data-enhancement.sql
 
       - name: Start backend
