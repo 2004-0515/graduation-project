@@ -62,17 +62,18 @@ DROP TABLE IF EXISTS tb_product;
 CREATE TABLE tb_product (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '商品ID',
     name VARCHAR(100) NOT NULL COMMENT '商品名称',
-    description TEXT DEFAULT NULL COMMENT '商品描述',
+    description TEXT COMMENT '商品描述',
     category_id BIGINT NOT NULL COMMENT '分类ID',
     price DECIMAL(10, 2) NOT NULL COMMENT '商品价格',
     original_price DECIMAL(10, 2) DEFAULT NULL COMMENT '原价',
     pending_price DECIMAL(10, 2) DEFAULT NULL COMMENT '待审核价格',
     pending_original_price DECIMAL(10, 2) DEFAULT NULL COMMENT '待审核原价',
     stock INT DEFAULT 0 NOT NULL COMMENT '库存数量',
+    version BIGINT DEFAULT 0 NOT NULL COMMENT '乐观锁版本号',
     sales INT DEFAULT 0 NOT NULL COMMENT '销量',
     status TINYINT DEFAULT 1 NOT NULL COMMENT '状态：1-上架，0-下架',
     main_image VARCHAR(200) DEFAULT NULL COMMENT '主图URL',
-    images TEXT DEFAULT NULL COMMENT '商品图片列表（JSON格式）',
+    images TEXT COMMENT '商品图片列表（JSON格式）',
     seller_id BIGINT DEFAULT NULL COMMENT '卖家用户ID',
     seller_name VARCHAR(50) DEFAULT NULL COMMENT '卖家用户名',
     audit_status TINYINT DEFAULT 1 NOT NULL COMMENT '审核状态：0-待审核，1-已通过，2-已拒绝',
@@ -123,7 +124,7 @@ CREATE TABLE tb_order (
     payment_method TINYINT DEFAULT 1 NOT NULL COMMENT '支付方式：1-微信，2-支付宝，3-银行卡',
     payment_status TINYINT DEFAULT 0 NOT NULL COMMENT '支付状态：0-未支付，1-已支付，2-已退款',
     order_status TINYINT DEFAULT 0 NOT NULL COMMENT '订单状态：0-待付款，1-待发货，2-待收货，3-已完成，4-已取消，5-已退款',
-    shipping_address TEXT DEFAULT NULL COMMENT '收货地址（JSON格式）',
+    shipping_address TEXT COMMENT '收货地址（JSON格式）',
     payment_time DATETIME DEFAULT NULL COMMENT '支付时间',
     shipping_time DATETIME DEFAULT NULL COMMENT '发货时间',
     end_time DATETIME DEFAULT NULL COMMENT '完成时间',
@@ -228,7 +229,7 @@ CREATE TABLE notification_settings (
     notify_end_time INT DEFAULT 22 COMMENT '通知结束时间（小时）',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT fk_notification_settings_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知设置表';
 
 -- =====================================================
@@ -247,7 +248,7 @@ CREATE TABLE notifications (
     INDEX idx_notification_user (user_id),
     INDEX idx_notification_read (is_read),
     INDEX idx_notification_type (type),
-    CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息通知表';
 
 
@@ -390,7 +391,7 @@ CREATE TABLE tb_review (
     order_item_id BIGINT DEFAULT NULL COMMENT '订单项ID',
     rating INT NOT NULL COMMENT '评分1-5星',
     content VARCHAR(500) DEFAULT NULL COMMENT '评价内容',
-    images TEXT DEFAULT NULL COMMENT '评价图片（JSON数组）',
+    images TEXT COMMENT '评价图片（JSON数组）',
     is_anonymous TINYINT DEFAULT 0 NOT NULL COMMENT '是否匿名：0-否，1-是',
     reply VARCHAR(500) DEFAULT NULL COMMENT '商家回复',
     reply_time DATETIME DEFAULT NULL COMMENT '回复时间',
