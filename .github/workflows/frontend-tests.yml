@@ -160,7 +160,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 < backend/src/main/resources/schema-ci.sql
+          mysql --version
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 < backend/src/main/resources/schema-ci.sql 2>schema-import.stderr; then
+            echo "Schema import failed. MySQL stderr:"
+            cat schema-import.stderr
+            echo "First 80 lines of schema-ci.sql:"
+            nl -ba backend/src/main/resources/schema-ci.sql | sed -n '1,80p'
+            exit 1
+          fi
 
       - name: Import data.sql into demo database
         shell: bash
