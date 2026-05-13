@@ -23,12 +23,21 @@
 
 ## 当前本地栈基线
 
-- 前端默认地址：`http://127.0.0.1:5173`
+- Node 版本建议：`20.19+` 或 `22.12+`
+
+- 开发模式默认地址：
+  - 前端：`http://127.0.0.1:5173`
+  - 后端：`http://127.0.0.1:8080/api`
+- 演示 / E2E 固定脚本地址：
+  - 前端：`http://127.0.0.1:5178`
+  - 后端：`http://127.0.0.1:8085/api`
 - 后端默认地址：
   - 日常本地直连常见为 `http://127.0.0.1:8080/api`
-  - 固定端口真实浏览器回归脚本使用 `http://127.0.0.1:8081/api`
+  - 固定端口真实浏览器回归脚本使用 `http://127.0.0.1:8085/api`
 - 重要约束：
-  - 浏览器巡检与 Playwright E2E 的默认目标应该是你正在使用的真实 MySQL 环境
+  - `5173 + 8080` 只留给正常开发，不让 E2E 脚本抢占
+  - `5178 + 8085` 专门留给演示 / E2E / 浏览器巡检
+  - 浏览器巡检与 Playwright E2E 的默认目标应该是独立演示库，而不是当前真实业务库
   - `application-local.properties` / `data-local.sql` 只用于临时隔离调试，不应被当成真实联调基线
 - Playwright `baseURL`：
   - 默认读取 `PLAYWRIGHT_BASE_URL`
@@ -55,6 +64,10 @@ cd D:\graduation project\frontend
 npm run test:e2e
 ```
 
+现在 `npm run test:e2e`、`test:e2e:all`、`test:e2e:public`、`test:e2e:user`、`test:e2e:orders`、`test:e2e:admin`、`test:e2e:smoke`
+都会统一走 `scripts/run-real-browser-e2e.ps1`，默认复用或拉起固定端口真实浏览器栈 `5178 -> 8085`，不再依赖手工先设
+`PLAYWRIGHT_BASE_URL`。
+
 如果要强制走“固定端口 + 自动回收”的真实浏览器栈，优先使用：
 
 ```powershell
@@ -62,9 +75,9 @@ powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\run-real-
 ```
 
 这个脚本会：
-- 先清理项目残留的 `5173 / 8081`
-- 用真实 MySQL 配置启动后端到 `8081`
-- 用 Vite 代理固定启动前端到 `5173`
+- 默认启动独立演示栈到 `5178 / 8085`
+- 后端使用 `demo,browser` profile，并默认连到 `shopping_mall_demo`
+- 如果端口上已经是本项目实例，则复用；如果不是本项目实例，则直接报错
 - 跑完 Playwright 后自动回收前后端进程
 
 如果你要给 `@浏览器`、手工巡检或独立调试先单独拉起固定端口栈，可以直接用：
@@ -75,8 +88,8 @@ powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\start-rea
 
 启动成功后默认地址固定为：
 
-- 前端：`http://127.0.0.1:5173`
-- 后端：`http://127.0.0.1:8081/api`
+- 前端：`http://127.0.0.1:5178`
+- 后端：`http://127.0.0.1:8085/api`
 
 巡检或调试结束后，用下面的脚本回收固定端口实例，避免端口残留后一路自增：
 
@@ -103,9 +116,39 @@ powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\run-real-
 按分组执行：
 
 ```powershell
+npm run test:e2e:public
 npm run test:e2e:user
+npm run test:e2e:orders
 npm run test:e2e:admin
 npm run test:e2e:smoke
+```
+
+## CI 基线
+
+- 仓库已新增 GitHub Actions 工作流：
+  - `.github/workflows/frontend-tests.yml`
+- 触发时机：
+  - push 到 `main` / `master`
+  - 所有 pull request
+- 工作流内容：
+  - `Vitest`：Node `20.19.0` 下执行 `npm run test:run`
+  - `Playwright E2E`：
+    - 起 MySQL 8 与 Redis 7 service
+    - 初始化 `shopping_mall_demo`
+    - 启动后端到 `127.0.0.1:8085`
+    - 启动前端到 `127.0.0.1:5178`
+    - 执行 `npx playwright test tests/e2e`
+    - 失败时上传 Playwright 报告和前后端日志
+- 本地与 CI 的端口语义保持一致：
+  - 前端 `5178`
+  - 后端 `8085`
+  - 演示库 `shopping_mall_demo`
+
+如果要在本地尽量贴近 CI，优先使用：
+
+```powershell
+cd D:\graduation project\frontend
+npm run test:e2e:all
 ```
 
 有头模式：
@@ -120,6 +163,27 @@ npm run test:e2e:headed
 $env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:5174'
 npm run test:e2e:smoke
 ```
+
+## 演示库初始化
+
+独立演示库推荐库名：`shopping_mall_demo`
+
+```powershell
+powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\reset-demo-environment.ps1
+```
+
+这个脚本会：
+- 重建 `shopping_mall_demo`
+- 导入 `schema.sql` 和 `data.sql`
+- 再应用 `demo-data-enhancement.sql`
+
+如果只想补演示增强数据：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\apply-demo-data-enhancement.ps1
+```
+
+默认会拒绝直接修改主库 `shopping_mall`，除非你显式传 `-AllowPrimaryDatabase`。
 
 ## 当前脚本分组
 
