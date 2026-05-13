@@ -1,15 +1,58 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   E2E_PASSWORD,
-  E2E_PRODUCTS,
   E2E_USERS,
+  authedPost,
   attachPageWatchers,
   expectNoBlockingBrowserIssues,
+  getSession,
   login,
   logout,
-  neutralizeFloatingUi,
-  resolveProduct
+  neutralizeFloatingUi
 } from './helpers/session'
+
+async function resolveCategoryId(page: Page) {
+  const response = await page.request.get('/api/categories')
+  expect(response.ok(), `获取分类失败: ${response.status()} ${response.url()}`).toBeTruthy()
+
+  const payload = await response.json()
+  expect(payload?.code).toBe(200)
+  const categories = Array.isArray(payload?.data) ? payload.data : []
+  expect(categories.length, '真实环境中至少需要一个分类供商品提交流程使用').toBeGreaterThan(0)
+  return Number(categories[0].id)
+}
+
+async function createApprovedSellerProduct(page: Page) {
+  const categoryId = await resolveCategoryId(page)
+  const sellerSession = await getSession(page, E2E_USERS.seller, E2E_PASSWORD)
+  const adminSession = await getSession(page, E2E_USERS.admin, E2E_PASSWORD)
+  const uniqueName = `E2E-SELLER-ORDER-${Date.now()}`
+
+  const submitResponse = await authedPost(page.request, sellerSession.token, '/api/products/submit', {
+    name: uniqueName,
+    description: 'real-browser-seller-orders',
+    price: '88.00',
+    stock: 5,
+    categoryId
+  })
+  expect(submitResponse.ok(), `提交商品失败: ${submitResponse.status()} ${submitResponse.url()}`).toBeTruthy()
+
+  const submitPayload = await submitResponse.json()
+  expect(submitPayload?.code).toBe(200)
+  const productId = Number(submitPayload?.data?.id || 0)
+  expect(productId).toBeGreaterThan(0)
+
+  const auditResponse = await authedPost(page.request, adminSession.token, `/api/products/${productId}/audit`, {
+    auditStatus: 1,
+    remark: 'e2e auto approve'
+  })
+  expect(auditResponse.ok(), `审核商品失败: ${auditResponse.status()} ${auditResponse.url()}`).toBeTruthy()
+
+  const auditPayload = await auditResponse.json()
+  expect(auditPayload?.code).toBe(200)
+
+  return productId
+}
 
 async function createPaidOrder(page: Page, productId: number, remark: string) {
   await page.goto(`/product/${productId}`)
@@ -54,19 +97,14 @@ async function createPaidOrder(page: Page, productId: number, remark: string) {
 test('卖家可在发货页查看待发货订单、切换筛选并完成发货', async ({ page }) => {
   const { consoleErrors, failedRequests } = attachPageWatchers(page)
   const remark = `E2E-SELLER-ORDERS-${Date.now()}`
-  const shippingProduct = await resolveProduct(page, 'seller-orders-shipping', {
-    explicitId: E2E_PRODUCTS.shipping,
-    sellerUsername: process.env.E2E_SELLER_USERNAME || undefined
-  })
-  const productId = Number(shippingProduct.id)
-  const sellerUsername = shippingProduct.sellerName || E2E_USERS.seller
+  const productId = await createApprovedSellerProduct(page)
 
   await login(page, E2E_USERS.buyer, E2E_PASSWORD)
   const orderNo = await createPaidOrder(page, productId, remark)
 
   await logout(page)
 
-  await login(page, sellerUsername, E2E_PASSWORD)
+  await login(page, E2E_USERS.seller, E2E_PASSWORD)
   await page.goto('/seller-orders')
   await neutralizeFloatingUi(page)
 

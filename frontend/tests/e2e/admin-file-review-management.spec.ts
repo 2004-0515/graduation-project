@@ -44,14 +44,14 @@ test('管理员可审核通过头像文件并删除审核记录', async ({ page 
   await expect(fileCard).toContainText('待审核')
 
   await fileCard.getByRole('button', { name: '通过' }).click()
-  await expect(page.getByText('审核通过')).toBeVisible()
+  await expect(page.getByText('审核通过', { exact: true })).toBeVisible()
 
   fileCard = page.locator('.file-card', { hasText: uniqueFilename }).first()
   await expect(fileCard).toContainText('已通过')
 
   await fileCard.getByRole('button', { name: '删除记录' }).click()
   await page.getByRole('button', { name: '确定删除' }).click()
-  await expect(page.getByText('删除成功')).toBeVisible()
+  await expect(page.getByText('删除成功', { exact: true })).toBeVisible()
   await expect(page.locator('.file-card', { hasText: uniqueFilename })).toHaveCount(0)
 
   await logout(page)

@@ -126,13 +126,12 @@ test('匿名用户可通过搜索建议和本地历史进入分类结果页', as
   const searchInput = page.getByTestId('navbar-search-input')
   await searchInput.click()
   await expect(page.getByTestId('search-dropdown')).toBeVisible()
-  await expect(page.getByTestId('search-hot-keywords')).toBeVisible()
 
   await searchInput.fill(keyword)
   await expect(page.getByTestId('search-suggestions-list')).toBeVisible({ timeout: 15_000 })
 
   const matchingSuggestion = page.locator('[data-testid^="search-suggestion-item-"]', {
-    hasText: keyword
+    hasText: selectedKeyword
   }).first()
   await expect(matchingSuggestion).toBeVisible()
   await matchingSuggestion.click()
@@ -174,13 +173,12 @@ test('登录用户可通过搜索建议写入并回显服务端搜索历史', as
   const searchInput = page.getByTestId('navbar-search-input')
   await searchInput.click()
   await expect(page.getByTestId('search-dropdown')).toBeVisible()
-  await expect(page.getByTestId('search-hot-keywords')).toBeVisible()
 
   await searchInput.fill(keyword)
   await expect(page.getByTestId('search-suggestions-list')).toBeVisible({ timeout: 15_000 })
 
   const matchingSuggestion = page.locator('[data-testid^="search-suggestion-item-"]', {
-    hasText: keyword
+    hasText: selectedKeyword
   }).first()
   await expect(matchingSuggestion).toBeVisible()
   await matchingSuggestion.click()

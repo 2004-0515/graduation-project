@@ -10,14 +10,36 @@ import {
   neutralizeFloatingUi
 } from './helpers/session'
 
-async function getFirstCouponId(page: Page) {
-  const response = await page.request.get('/api/coupons')
-  expect(response.ok()).toBeTruthy()
-  const payload = await response.json()
-  expect(payload?.code).toBe(200)
-  const coupons = Array.isArray(payload?.data) ? payload.data : []
-  expect(coupons.length).toBeGreaterThan(0)
-  return Number(coupons[0].id)
+function formatLocalDateTime(offsetDays: number) {
+  const date = new Date()
+  date.setDate(date.getDate() + offsetDays)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`
+}
+
+async function createActiveCoupon(page: Page) {
+  const adminSession = await getSession(page, E2E_USERS.admin, E2E_PASSWORD)
+  const uniqueName = `E2E-NOTIFICATION-COUPON-${Date.now()}`
+
+  const createResponse = await authedPost(page.request, adminSession.token, '/api/coupons/admin', {
+    name: uniqueName,
+    type: 1,
+    discountAmount: 15,
+    minAmount: 100,
+    totalCount: 30,
+    limitPerUser: 1,
+    description: 'real-browser-notification-routing',
+    status: 1,
+    startTime: formatLocalDateTime(-1),
+    endTime: formatLocalDateTime(30)
+  })
+  expect(createResponse.ok(), `创建优惠券失败: ${createResponse.status()} ${createResponse.url()}`).toBeTruthy()
+
+  const createPayload = await createResponse.json()
+  expect(createPayload?.code).toBe(200)
+  const couponId = Number(createPayload?.data?.id || 0)
+  expect(couponId).toBeGreaterThan(0)
+
+  return { adminSession, couponId }
 }
 
 async function sendNotification(page: Page, targetUserId: number, payload: Record<string, unknown>) {
@@ -50,36 +72,40 @@ test('促销通知和文件审核通知跳转到正确的用户页面', async ({
 
   await authedDelete(page.request, buyerSession.token, '/api/notifications/clear')
 
-  const couponId = await getFirstCouponId(page)
+  const { adminSession, couponId } = await createActiveCoupon(page)
   const promotionTitle = `E2E-COUPON-ROUTE-${Date.now()}`
   const fileReviewTitle = `E2E-FILE-ROUTE-${Date.now()}`
 
-  await sendNotification(page, buyerUserId, {
-    type: 'promotion',
-    title: promotionTitle,
-    message: '请查看这张优惠券详情页',
-    relatedId: couponId
-  })
+  try {
+    await sendNotification(page, buyerUserId, {
+      type: 'promotion',
+      title: promotionTitle,
+      message: '请查看这张优惠券详情页',
+      relatedId: couponId
+    })
 
-  await sendNotification(page, buyerUserId, {
-    type: 'file_review',
-    title: fileReviewTitle,
-    message: '您的头像审核结果已更新'
-  })
+    await sendNotification(page, buyerUserId, {
+      type: 'file_review',
+      title: fileReviewTitle,
+      message: '您的头像审核结果已更新'
+    })
 
-  await login(page, E2E_USERS.buyer, E2E_PASSWORD)
+    await login(page, E2E_USERS.buyer, E2E_PASSWORD)
 
-  await openNotificationByTitle(page, promotionTitle)
-  await page.getByTestId('notification-detail-promotion-action').click()
-  await page.waitForURL(new RegExp(`/coupon/${couponId}$`))
-  await expect(page.getByTestId('coupon-detail-view')).toBeVisible()
+    await openNotificationByTitle(page, promotionTitle)
+    await page.getByTestId('notification-detail-promotion-action').click()
+    await page.waitForURL(new RegExp(`/coupon/${couponId}$`))
+    await expect(page.getByTestId('coupon-detail-view')).toBeVisible()
 
-  await openNotificationByTitle(page, fileReviewTitle)
-  await page.getByTestId('notification-detail-profile-action').click()
-  await page.waitForURL(/\/profile$/)
-  await expect(page.getByTestId('profile-view')).toBeVisible()
+    await openNotificationByTitle(page, fileReviewTitle)
+    await page.getByTestId('notification-detail-profile-action').click()
+    await page.waitForURL(/\/profile$/)
+    await expect(page.getByTestId('profile-view')).toBeVisible()
 
-  await logout(page)
+    await logout(page)
+  } finally {
+    await authedDelete(page.request, adminSession.token, `/api/coupons/admin/${couponId}`).catch(() => {})
+  }
 })
 
 test('卖家订单通知和管理员商品审核通知跳转到正确的后台页面', async ({ page }) => {
