@@ -103,16 +103,11 @@ test('普通用户主链路冒烟', async ({ page }) => {
   const submitButton = page.getByTestId('checkout-submit')
   await expect(submitButton).toBeVisible()
   await expect(submitButton).toBeEnabled()
-  const createOrderResponse = page.waitForResponse((response) =>
-    response.url().includes('/api/orders') &&
-    response.request().method() === 'POST'
-  )
   await submitButton.click()
   const continueSubmitButton = page.getByRole('button', { name: '继续提交' })
   if (await continueSubmitButton.isVisible({ timeout: 3_000 }).catch(() => false)) {
     await continueSubmitButton.click()
   }
-  await createOrderResponse
 
   await page.waitForURL(/\/payment\/\d+/)
   await expect(page.getByTestId('payment-view')).toBeVisible()

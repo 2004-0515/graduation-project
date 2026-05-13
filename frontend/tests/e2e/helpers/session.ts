@@ -40,8 +40,31 @@ const productSelectionCache = new Map<string, number>()
 
 export async function neutralizeFloatingUi(page: Page) {
   await page.addStyleTag({
-    content: '[data-testid="global-music-player"]{pointer-events:none !important;}'
+    content: `
+      [data-testid="global-music-player"] {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+
+      [data-testid="global-music-player"] * {
+        pointer-events: none !important;
+      }
+    `
   }).catch(() => {})
+
+  await page
+    .locator('[data-testid="global-music-player"]')
+    .evaluateAll((elements) => {
+      for (const element of elements) {
+        if (element instanceof HTMLElement) {
+          element.style.display = 'none'
+          element.style.visibility = 'hidden'
+          element.style.pointerEvents = 'none'
+        }
+      }
+    })
+    .catch(() => {})
 }
 
 export function attachPageWatchers(page: Page) {

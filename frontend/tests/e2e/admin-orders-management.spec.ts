@@ -20,18 +20,12 @@ async function createPaidOrder(page: Page, productId: number, remark: string) {
 
   await page.locator('textarea').fill(remark)
 
-  const createOrderResponse = page.waitForResponse((response) =>
-    response.url().includes('/api/orders') &&
-    response.request().method() === 'POST'
-  )
   await page.getByTestId('checkout-submit').click()
 
   const continueSubmitButton = page.getByRole('button', { name: '继续提交' })
   if (await continueSubmitButton.isVisible().catch(() => false)) {
     await continueSubmitButton.click()
   }
-
-  await createOrderResponse
 
   await page.waitForURL(/\/payment\/\d+/)
   await expect(page.getByTestId('payment-view')).toBeVisible()
