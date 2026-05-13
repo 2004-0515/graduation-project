@@ -185,65 +185,15 @@ jobs:
             exit 1
           fi
 
-      - name: Import 01-tb_user.sql
+      - name: Import split data SQL files
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/01-tb_user.sql
-
-      - name: Import 02-tb_category.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/02-tb_category.sql
-
-      - name: Import 03-tb_product.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/03-tb_product.sql
-
-      - name: Import 04-addresses.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/04-addresses.sql
-
-      - name: Import 05-security_settings.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/05-security_settings.sql
-
-      - name: Import 06-privacy_settings.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/06-privacy_settings.sql
-
-      - name: Import 07-notification_settings.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/07-notification_settings.sql
-
-      - name: Import 08-tb_coupon.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/08-tb_coupon.sql
-
-      - name: Import 09-tb_price_history.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/09-tb_price_history.sql
-
-      - name: Import 10-tb_price_alert.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/10-tb_price_alert.sql
+          shopt -s nullglob
+          for sql_file in backend/src/main/resources/data-ci-steps/*.sql; do
+            echo "Importing ${sql_file##*/}"
+            mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < "$sql_file"
+          done
 
       - name: Import demo enhancement SQL
         shell: bash

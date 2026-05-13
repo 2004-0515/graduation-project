@@ -210,24 +210,33 @@ INSERT INTO tb_price_history (product_id, price, original_price, recorded_time, 
 -- 用户: zhangsan(2), lisi(3), wangwu(4), zhaoliu(5), sunqi(6), xiaoming(10)
 -- 状态: 0=监控中, 1=已触发, 2=已取消
 -- =====================================================
-INSERT INTO tb_price_alert (user_id, product_id, target_price, current_price, status, notified, created_time, updated_time) VALUES
 -- zhangsan(ID=2)的降价提醒
-(2, 1, 9500.00, 9999.00, 0, 0, '2026-01-08 10:30:00', '2026-01-08 10:30:00'),
-(2, 4, 14500.00, 14999.00, 0, 0, '2026-01-09 14:20:00', '2026-01-09 14:20:00'),
+INSERT INTO tb_price_alert (user_id, product_id, target_price, current_price, status, notified, created_time, updated_time) VALUES
+(2, 1, 9500.00, 9999.00, 0, 0, '2026-01-08 10:30:00', '2026-01-08 10:30:00');
+
+INSERT INTO tb_price_alert (user_id, product_id, target_price, current_price, status, notified, created_time, updated_time) VALUES
+(2, 4, 14500.00, 14999.00, 0, 0, '2026-01-09 14:20:00', '2026-01-09 14:20:00');
 
 -- lisi(ID=3)的降价提醒
-(3, 2, 6500.00, 6999.00, 0, 0, '2026-01-07 09:15:00', '2026-01-07 09:15:00'),
-(3, 10, 850.00, 899.00, 0, 0, '2026-01-10 11:00:00', '2026-01-10 11:00:00'),
+INSERT INTO tb_price_alert (user_id, product_id, target_price, current_price, status, notified, created_time, updated_time) VALUES
+(3, 2, 6500.00, 6999.00, 0, 0, '2026-01-07 09:15:00', '2026-01-07 09:15:00');
+
+INSERT INTO tb_price_alert (user_id, product_id, target_price, current_price, status, notified, created_time, updated_time) VALUES
+(3, 10, 850.00, 899.00, 0, 0, '2026-01-10 11:00:00', '2026-01-10 11:00:00');
 
 -- wangwu(ID=4)的降价提醒
-(4, 3, 5500.00, 5999.00, 0, 0, '2026-01-08 15:00:00', '2026-01-08 15:00:00'),
+INSERT INTO tb_price_alert (user_id, product_id, target_price, current_price, status, notified, created_time, updated_time) VALUES
+(4, 3, 5500.00, 5999.00, 0, 0, '2026-01-08 15:00:00', '2026-01-08 15:00:00');
 
 -- zhaoliu(ID=5)的降价提醒
-(5, 5, 8000.00, 8499.00, 0, 0, '2026-01-09 09:00:00', '2026-01-09 09:00:00'),
+INSERT INTO tb_price_alert (user_id, product_id, target_price, current_price, status, notified, created_time, updated_time) VALUES
+(5, 5, 8000.00, 8499.00, 0, 0, '2026-01-09 09:00:00', '2026-01-09 09:00:00');
 
 -- sunqi(ID=6)的降价提醒
-(6, 13, 1500.00, 1590.00, 0, 0, '2026-01-10 14:00:00', '2026-01-10 14:00:00'),
+INSERT INTO tb_price_alert (user_id, product_id, target_price, current_price, status, notified, created_time, updated_time) VALUES
+(6, 13, 1500.00, 1590.00, 0, 0, '2026-01-10 14:00:00', '2026-01-10 14:00:00');
 
 -- xiaoming(ID=10)的降价提醒
+INSERT INTO tb_price_alert (user_id, product_id, target_price, current_price, status, notified, created_time, updated_time) VALUES
 (10, 19, 89.00, 99.00, 0, 0, '2026-01-10 16:00:00', '2026-01-10 16:00:00');
 
