@@ -192,7 +192,7 @@ jobs:
           shopt -s nullglob
           for sql_file in backend/src/main/resources/data-ci-steps/*.sql; do
             echo "Importing ${sql_file##*/}"
-            if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 < "$sql_file" 2>data-import.stderr; then
+            if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < "$sql_file" 2>data-import.stderr; then
               echo "Data import failed on ${sql_file##*/}. MySQL stderr:"
               cat data-import.stderr
               echo "File contents:"
