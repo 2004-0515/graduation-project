@@ -148,6 +148,22 @@ jobs:
               data_source,
               encoding="utf-8",
           )
+
+          # Split data.sql into individual INSERT statements for easier CI diagnostics.
+          chunks = [chunk.strip() for chunk in data_source.split(";\n") if chunk.strip()]
+          data_step_dir = Path("backend/src/main/resources/data-ci-steps")
+          data_step_dir.mkdir(exist_ok=True)
+          for old_file in data_step_dir.glob("*.sql"):
+              old_file.unlink()
+          step_index = 1
+          for chunk in chunks:
+              if not chunk.lstrip().upper().startswith("INSERT INTO "):
+                  continue
+              first_line = chunk.splitlines()[0]
+              table_name = first_line.split()[2]
+              target = data_step_dir / f"{step_index:02d}-{table_name}.sql"
+              target.write_text(chunk + ";\n", encoding="utf-8")
+              step_index += 1
           PY
 
       - name: Create demo database
@@ -173,7 +189,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 < backend/src/main/resources/data-ci.sql
+          shopt -s nullglob
+          for sql_file in backend/src/main/resources/data-ci-steps/*.sql; do
+            echo "Importing ${sql_file##*/}"
+            if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 < "$sql_file" 2>data-import.stderr; then
+              echo "Data import failed on ${sql_file##*/}. MySQL stderr:"
+              cat data-import.stderr
+              echo "File contents:"
+              nl -ba "$sql_file"
+              exit 1
+            fi
+          done
 
       - name: Import demo enhancement SQL
         shell: bash
