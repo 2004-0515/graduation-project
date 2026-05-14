@@ -261,10 +261,15 @@ const volumeIcon = computed(() => {
   if (volume.value < 50) return 'vol-low'
   return 'vol-high'
 })
-const isRouteLockedToMinimized = computed(() => shouldForceMinimizeForRoute(route.path))
+const isRouteLockedToMinimized = computed(() => shouldForceMinimizeForRoute(currentRoutePath.value))
 
 const shouldForceMinimizeForRoute = (path: string) =>
-  path.startsWith('/checkout') || path.startsWith('/payment/')
+  path === '/login' ||
+  path === '/register' ||
+  path.startsWith('/profile') ||
+  path.startsWith('/settings') ||
+  path.startsWith('/checkout') ||
+  path.startsWith('/payment/')
 
 const syncPlayerLayoutForRoute = (path: string) => {
   if (!shouldForceMinimizeForRoute(path)) {
@@ -774,7 +779,7 @@ onUnmounted(() => {
   z-index: 9999;
   font-family: 'Inter', -apple-system, sans-serif;
   user-select: none;
-  transform: scale(1.2);
+  transform: scale(1);
   transform-origin: top left;
 }
 

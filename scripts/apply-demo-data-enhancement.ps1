@@ -1,6 +1,6 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
-    [string]$Database = "shopping_mall_demo",
+    [string]$Database = "shopping_mall",
     [string]$Username = "root",
     [string]$Password = "123456",
     [switch]$AllowPrimaryDatabase
@@ -9,64 +9,68 @@ param(
 $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$projectRoot = Split-Path -Parent $scriptDir
 $sqlFile = Join-Path $scriptDir "demo-data-enhancement.sql"
 
 if (-not (Test-Path $sqlFile)) {
     throw "Enhancement SQL not found: $sqlFile"
 }
 
-if ($Database -eq 'shopping_mall' -and -not $AllowPrimaryDatabase) {
-    throw "默认禁止直接修改主库 shopping_mall。请改用独立演示库，或明确传入 -AllowPrimaryDatabase。"
+if ($Database -eq "shopping_mall" -and -not $AllowPrimaryDatabase) {
+    throw "Refusing to modify shopping_mall without -AllowPrimaryDatabase."
 }
 
 $mysql = (Get-Command mysql.exe -ErrorAction Stop).Source
 $mysqldump = (Get-Command mysqldump.exe -ErrorAction Stop).Source
 
-$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$backupDir = Join-Path $scriptDir "backups\demo-enhancement-$timestamp"
-New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+$backupTables = @(
+    "tb_user",
+    "tb_product",
+    "tb_coupon",
+    "tb_user_coupon",
+    "tb_order",
+    "tb_order_item",
+    "tb_review",
+    "notifications",
+    "tb_wishlist",
+    "tb_consumption_budget",
+    "tb_consumption_achievement",
+    "tb_price_alert",
+    "tb_price_history",
+    "tb_upload_file"
+)
 
-$productIds = "15,24,25,40,44,45,46,51"
-$userIds = "10,11,12,13,14,15,16,17,18"
-$demoOrderWhere = "order_no LIKE 'DEMO-2026-0513-%'"
-$demoOrderIdSubquery = "SELECT id FROM tb_order WHERE order_no LIKE 'DEMO-2026-0513-%'"
+$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$backupDir = Join-Path $scriptDir "backups\shopping-mall-enhancement-$timestamp"
+New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
 
 Write-Host "Backup directory: $backupDir"
 
 $commonDumpArgs = @(
     "--default-character-set=utf8mb4",
-    "--skip-triggers",
-    "--no-create-info",
-    "--complete-insert",
     "--single-transaction",
+    "--skip-triggers",
+    "--complete-insert",
     "-u$Username",
     "-p$Password",
     $Database
 )
 
-& $mysqldump @commonDumpArgs "--where=id IN ($productIds)" "tb_product" | Out-File -FilePath (Join-Path $backupDir "tb_product.sql") -Encoding utf8
-& $mysqldump @commonDumpArgs "--where=id IN ($userIds)" "tb_user" | Out-File -FilePath (Join-Path $backupDir "tb_user.sql") -Encoding utf8
-& $mysqldump @commonDumpArgs "--where=$demoOrderWhere" "tb_order" | Out-File -FilePath (Join-Path $backupDir "tb_order.sql") -Encoding utf8
-& $mysqldump @commonDumpArgs "--where=order_id IN ($demoOrderIdSubquery)" "tb_order_item" | Out-File -FilePath (Join-Path $backupDir "tb_order_item.sql") -Encoding utf8
-& $mysqldump @commonDumpArgs "--where=order_id IN ($demoOrderIdSubquery)" "tb_review" | Out-File -FilePath (Join-Path $backupDir "tb_review.sql") -Encoding utf8
+foreach ($table in $backupTables) {
+    Write-Host "Backing up $table ..."
+    & $mysqldump @commonDumpArgs $table | Out-File -FilePath (Join-Path $backupDir "$table.sql") -Encoding utf8
+}
 
 $restoreNote = @"
-Backup created before demo enhancement.
+Temporary backup created before shopping_mall enhancement.
 
-Restore with commands similar to:
-  mysql -u $Username -p $Database < path\to\tb_product.sql
-  mysql -u $Username -p $Database < path\to\tb_user.sql
-  mysql -u $Username -p $Database < path\to\tb_order.sql
-  mysql -u $Username -p $Database < path\to\tb_order_item.sql
-  mysql -u $Username -p $Database < path\to\tb_review.sql
+Restore example:
+  mysql -u USER -p DATABASE < tb_product.sql
 
-Because this enhancement updates existing products and users inside the target demo database, keep this backup folder if you want a rollback point.
+Tables backed up:
+  $($backupTables -join ", ")
 "@
-
 $restoreNote | Out-File -FilePath (Join-Path $backupDir "README.txt") -Encoding utf8
 
-Write-Host "Applying demo enhancement SQL..."
 $tempFile = [System.IO.Path]::GetTempFileName()
 $tempSqlFile = [System.IO.Path]::ChangeExtension($tempFile, ".sql")
 Move-Item -LiteralPath $tempFile -Destination $tempSqlFile -Force
@@ -75,14 +79,50 @@ try {
     $utf8Bom = New-Object System.Text.UTF8Encoding($true)
     [System.IO.File]::WriteAllText($tempSqlFile, (Get-Content -Raw -Encoding utf8 $sqlFile), $utf8Bom)
 
+    Write-Host "Applying enhancement SQL to $Database ..."
     $command = "`"$mysql`" --default-character-set=utf8mb4 -u$Username -p$Password $Database < `"$tempSqlFile`""
     & cmd.exe /c $command
     if ($LASTEXITCODE -ne 0) {
-        throw "mysql 执行失败，退出码: $LASTEXITCODE"
+        throw "mysql execution failed with exit code $LASTEXITCODE"
     }
-} finally {
+}
+finally {
     Remove-Item -LiteralPath $tempSqlFile -ErrorAction SilentlyContinue
 }
 
+$auditSql = @"
+SELECT 'tb_user.avatar' AS metric, COUNT(*) AS value FROM tb_user WHERE avatar IS NULL OR avatar = ''
+UNION ALL
+SELECT 'tb_product.images', COUNT(*) FROM tb_product WHERE images IS NULL OR images = ''
+UNION ALL
+SELECT 'tb_review.images', COUNT(*) FROM tb_review WHERE images IS NULL OR images = ''
+UNION ALL
+SELECT 'tb_review.reply', COUNT(*) FROM tb_review WHERE reply IS NULL OR reply = ''
+UNION ALL
+SELECT 'notifications.related_id', COUNT(*) FROM notifications WHERE related_id IS NULL
+UNION ALL
+SELECT 'tb_wishlist.reason', COUNT(*) FROM tb_wishlist WHERE reason IS NULL OR reason = ''
+UNION ALL
+SELECT 'new_products', COUNT(*) FROM tb_product WHERE created_time IN ('2026-05-06 10:00:00','2026-05-07 09:20:00','2026-05-08 11:10:00','2026-05-09 14:40:00','2026-05-10 09:30:00','2026-05-11 16:10:00')
+UNION ALL
+SELECT 'new_orders', COUNT(*) FROM tb_order WHERE order_no IN ('ORD202605140001','ORD202605140002','ORD202605140003','ORD202605140004')
+UNION ALL
+SELECT 'new_coupons', COUNT(*) FROM tb_coupon WHERE created_time IN ('2026-05-10 09:00:00.000000','2026-05-10 09:10:00.000000')
+UNION ALL
+SELECT 'e2e_products', COUNT(*) FROM tb_product WHERE name LIKE 'E2E-%'
+UNION ALL
+SELECT 'e2e_notifications', COUNT(*) FROM notifications WHERE title LIKE 'E2E-%' OR message LIKE '%E2E-%'
+UNION ALL
+SELECT 'e2e_wishlist', COUNT(*) FROM tb_wishlist WHERE reason LIKE 'E2E%';
+"@
+
+Write-Host ""
+Write-Host "Post-run audit:"
+& $mysql "--default-character-set=utf8mb4" "-u$Username" "-p$Password" "-e" $auditSql $Database
+if ($LASTEXITCODE -ne 0) {
+    throw "audit query failed with exit code $LASTEXITCODE"
+}
+
+Write-Host ""
 Write-Host "Done. Backup saved to $backupDir"
 Write-Host "Target database: $Database"

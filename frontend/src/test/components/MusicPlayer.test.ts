@@ -346,6 +346,28 @@ describe('MusicPlayer', () => {
     expect(vm.isMinimized).toBe(true)
   })
 
+  it('keeps login and settings routes locked to mini mode', async () => {
+    mockRoute.path = '/login'
+    musicApi.getEnabledMusic.mockResolvedValue({ code: 200, data: [] })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    expect(vm.isMinimized).toBe(true)
+    expect(vm.isExpanded).toBe(false)
+
+    routeState.path = '/settings'
+    vm.isMinimized = false
+    await flushPromises()
+    expect(vm.isMinimized).toBe(true)
+
+    vm.isExpanded = true
+    await flushPromises()
+    expect(vm.isExpanded).toBe(false)
+    expect(vm.isMinimized).toBe(true)
+  })
+
   it('allows reopening after leaving checkout or payment routes', async () => {
     mockRoute.path = '/checkout'
     musicApi.getEnabledMusic.mockResolvedValue({ code: 200, data: [] })
@@ -356,7 +378,8 @@ describe('MusicPlayer', () => {
     const vm = wrapper.vm as any
     expect(vm.isMinimized).toBe(true)
 
-    mockRoute.path = '/'
+    routeState.path = '/'
+    await flushPromises()
     vm.handleMiniClick()
     expect(vm.isMinimized).toBe(false)
   })
