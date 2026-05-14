@@ -121,14 +121,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, reactive, computed, inject, onMounted, onUnmounted, watch } from 'vue'
+import { routeLocationKey } from 'vue-router'
+import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import musicApi, { type Music } from '@/api/musicApi'
 import { debugError, debugLog } from '@/utils/debug'
 
 const defaultCover = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%239b87f5" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="white" font-size="30">♪</text></svg>'
-const route = useRoute()
+const route = inject<RouteLocationNormalizedLoaded | null>(routeLocationKey, null)
 const isE2E = import.meta.env.VITE_E2E === 'true'
+const currentRoutePath = computed(() => route?.path ?? '/')
 
 const playerRef = ref<HTMLElement>()
 const audioRef = ref<HTMLAudioElement>()
@@ -738,14 +740,14 @@ watch(isExpanded, (expanded) => {
   }
 })
 
-watch(() => route.path, (path) => {
+watch(currentRoutePath, (path) => {
   syncPlayerLayoutForRoute(path)
 })
 
 onMounted(() => {
   restorePlayerState()
   initPosition()
-  syncPlayerLayoutForRoute(route.path)
+  syncPlayerLayoutForRoute(currentRoutePath.value)
   scheduleInitialLoad()
   window.addEventListener('resize', onResize)
   window.addEventListener('beforeunload', handleBeforeUnload)
