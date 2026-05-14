@@ -17,6 +17,9 @@ $projectRoot = Split-Path $PSScriptRoot -Parent
 $frontendRoot = Join-Path $projectRoot 'frontend'
 $backendRoot = Join-Path $projectRoot 'backend'
 $stackStateFile = Join-Path $projectRoot 'tmp-demo-browser-stack.json'
+$uploadsRoot = Join-Path $projectRoot 'uploads'
+$tempRoot = Join-Path $projectRoot '.tmp'
+$e2eUploadsRoot = Join-Path $tempRoot 'e2e-uploads'
 
 function Resolve-CommandPath {
     param(
@@ -161,6 +164,26 @@ function Wait-HttpReady {
     throw "服务未就绪: $Url"
 }
 
+function Reset-E2EUploadsDirectory {
+    param(
+        [string]$SourcePath,
+        [string]$TargetPath
+    )
+
+    if (-not (Test-Path $SourcePath)) {
+        throw "上传资源目录不存在: $SourcePath"
+    }
+
+    New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
+
+    if (Test-Path $TargetPath) {
+        Remove-Item -LiteralPath $TargetPath -Recurse -Force
+    }
+
+    New-Item -ItemType Directory -Force -Path $TargetPath | Out-Null
+    Copy-Item -Path (Join-Path $SourcePath '*') -Destination $TargetPath -Recurse -Force
+}
+
 $frontendProc = $null
 $backendProc = $null
 $startedFrontend = $false
@@ -186,6 +209,9 @@ try {
     if (-not $env:REDIS_DB) {
         $env:REDIS_DB = '1'
     }
+
+    Reset-E2EUploadsDirectory -SourcePath $uploadsRoot -TargetPath $e2eUploadsRoot
+    $env:FILE_UPLOAD_DIR = $e2eUploadsRoot
 
     $frontendPortOccupied = @(Get-ListeningProcessIds -Ports @($FrontendPort)).Count -gt 0
     $backendPortOccupied = @(Get-ListeningProcessIds -Ports @($BackendPort)).Count -gt 0
