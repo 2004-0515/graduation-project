@@ -96,6 +96,8 @@ describe('PromotionsView', () => {
     const wrapper = mountView()
     await flushPromises()
 
+    expect(productApi.getProducts).toHaveBeenCalledWith({ pageNo: 0, pageSize: 4, sort: 'sales' })
+
     await (wrapper.vm as unknown as { claimCoupon: (coupon: { id: number; claimed: boolean; remaining: number }) => Promise<void> })
       .claimCoupon({ id: 2, claimed: false, remaining: 5 })
 
@@ -248,5 +250,24 @@ describe('PromotionsView', () => {
     await flushPromises()
 
     expect((wrapper.vm as any).myCoupons).toEqual([{ id: 2, name: '新券', claimed: true, remaining: 4 }])
+  })
+
+  it('renders hot products from a single-page sales payload', async () => {
+    productApi.getProducts.mockResolvedValue({
+      code: 200,
+      data: {
+        content: [
+          { id: 11, name: '热销商品一', price: 88, sales: 320, mainImage: '/a.png' },
+          { id: 12, name: '热销商品二', price: 66, sales: 280, mainImage: '/b.png' }
+        ]
+      }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('热销商品一')
+    expect(wrapper.text()).toContain('热销商品二')
+    expect(wrapper.findAll('.flash-card')).toHaveLength(2)
   })
 })

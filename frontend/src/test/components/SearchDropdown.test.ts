@@ -295,7 +295,6 @@ describe('SearchDropdown', () => {
 
     it('游客模式下遇到损坏的本地历史时会清理并继续渲染', async () => {
       window.localStorage.getItem = vi.fn(() => 'not-json')
-      window.localStorage.removeItem = vi.fn()
 
       mockIsLoggedIn.value = false
       wrapper = createWrapper({ visible: false, keyword: '' })

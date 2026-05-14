@@ -62,7 +62,7 @@
           
           <div class="rank-list" v-if="products.length" data-testid="hot-rank-list">
             <div v-for="(p, i) in products" :key="p.id" class="rank-item" :data-testid="`hot-rank-item-${p.id}`" @click="$router.push(`/product/${p.id}`)">
-              <span :class="['rank-num', { top: i < 3 }]">{{ i + 1 }}</span>
+              <span :class="['rank-num', `rank-num-${i + 1}`, { top: i < 3 }]">{{ i + 1 }}</span>
               <img :src="getImageUrl(p.mainImage)" class="rank-img" @error="imgErr" />
               <div class="rank-info">
                 <h4>{{ p.name }}</h4>
@@ -223,17 +223,33 @@ onMounted(async () => {
 .update { font-size: 14px; color: var(--text-muted); }
 
 .rank-list { display: flex; flex-direction: column; gap: 12px; }
-.rank-item { display: flex; align-items: center; gap: 16px; padding: 16px; background: rgba(255,255,255,0.5); border-radius: var(--radius-md); cursor: pointer; transition: all 0.3s; }
+.rank-item { display: flex; align-items: center; gap: 16px; padding: 16px; background: rgba(255,255,255,0.72); border: 1px solid rgba(155, 135, 245, 0.08); border-radius: var(--radius-md); cursor: pointer; transition: all 0.3s; }
 .rank-item:hover { background: rgba(155, 135, 245, 0.1); transform: translateX(4px); }
 
-.rank-num { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; color: var(--text-muted); background: rgba(255,255,255,0.8); border-radius: var(--radius-sm); }
-.rank-num.top { background: var(--sakura); color: white; }
+.rank-num {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #4f566b;
+  background: linear-gradient(180deg, #ffffff 0%, #f3f4f8 100%);
+  border: 1px solid rgba(79, 86, 107, 0.12);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.75);
+}
+.rank-num.top { color: #fff; border-color: transparent; text-shadow: 0 1px 2px rgba(0,0,0,0.18); }
+.rank-num-1 { background: linear-gradient(135deg, #ffcc3e 0%, #ff9f1c 100%); }
+.rank-num-2 { background: linear-gradient(135deg, #c7d2e3 0%, #8f9bb3 100%); }
+.rank-num-3 { background: linear-gradient(135deg, #d99058 0%, #b96a33 100%); }
 
 .rank-img { width: 64px; height: 64px; border-radius: var(--radius-md); object-fit: cover; }
 .rank-info { flex: 1; min-width: 0; }
-.rank-info h4 { font-size: 15px; font-weight: 600; color: var(--text-title); margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rank-info p { font-size: 13px; color: var(--text-muted); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rank-stats { font-size: 14px; color: var(--text-muted); min-width: 80px; }
+.rank-info h4 { font-size: 15px; font-weight: 600; color: var(--text-title); margin: 0 0 4px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-info p { font-size: 13px; color: var(--text-body); margin: 0; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-stats { font-size: 14px; color: var(--text-body); min-width: 88px; }
 .rank-price { font-size: 20px; font-weight: 600; color: var(--primary); min-width: 80px; text-align: right; }
 .btn-sm { padding: 10px 20px; font-size: 13px; }
 

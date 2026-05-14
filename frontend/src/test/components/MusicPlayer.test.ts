@@ -1,12 +1,17 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { reactive } from 'vue'
+import { routeLocationKey } from 'vue-router'
 
-const { musicApi, debugError, debugLog } = vi.hoisted(() => ({
+const { musicApi, debugError, debugLog, mockRoute } = vi.hoisted(() => ({
   musicApi: {
     getEnabledMusic: vi.fn()
   },
   debugError: vi.fn(),
-  debugLog: vi.fn()
+  debugLog: vi.fn(),
+  mockRoute: {
+    path: '/'
+  }
 }))
 
 vi.mock('@/api/musicApi', () => ({
@@ -19,6 +24,8 @@ vi.mock('@/utils/debug', () => ({
 }))
 
 import MusicPlayer from '@/components/MusicPlayer.vue'
+
+const routeState = reactive(mockRoute)
 
 const deferred = <T>() => {
   let resolve!: (value: T) => void
@@ -33,6 +40,7 @@ const deferred = <T>() => {
 describe('MusicPlayer', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockRoute.path = '/'
     Object.defineProperty(window, 'requestIdleCallback', {
       value: undefined,
       configurable: true
@@ -42,7 +50,14 @@ describe('MusicPlayer', () => {
     window.localStorage.removeItem = vi.fn()
   })
 
-  const mountView = () => mount(MusicPlayer)
+  const mountView = () =>
+    mount(MusicPlayer, {
+      global: {
+        provide: {
+          [routeLocationKey as symbol]: routeState
+        }
+      }
+    })
 
   it('loads enabled music list successfully', async () => {
     musicApi.getEnabledMusic.mockResolvedValue({
@@ -295,5 +310,54 @@ describe('MusicPlayer', () => {
     expect(vm.position.y).toBe(220)
     expect(vm.isDragging).toBe(false)
     expect(debugError).toHaveBeenCalledWith('保存播放器位置失败', expect.any(Error))
+  })
+
+  it('auto-minimizes on checkout route and blocks reopening from mini mode', async () => {
+    mockRoute.path = '/checkout'
+    musicApi.getEnabledMusic.mockResolvedValue({ code: 200, data: [] })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    expect(vm.isMinimized).toBe(true)
+    expect(vm.isExpanded).toBe(false)
+
+    vm.handleMiniClick()
+    expect(vm.isMinimized).toBe(true)
+    expect(vm.isExpanded).toBe(false)
+  })
+
+  it('keeps payment route locked to mini mode even if state is toggled back', async () => {
+    mockRoute.path = '/payment/99'
+    musicApi.getEnabledMusic.mockResolvedValue({ code: 200, data: [] })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    vm.isMinimized = false
+    await flushPromises()
+    expect(vm.isMinimized).toBe(true)
+
+    vm.isExpanded = true
+    await flushPromises()
+    expect(vm.isExpanded).toBe(false)
+    expect(vm.isMinimized).toBe(true)
+  })
+
+  it('allows reopening after leaving checkout or payment routes', async () => {
+    mockRoute.path = '/checkout'
+    musicApi.getEnabledMusic.mockResolvedValue({ code: 200, data: [] })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    expect(vm.isMinimized).toBe(true)
+
+    mockRoute.path = '/'
+    vm.handleMiniClick()
+    expect(vm.isMinimized).toBe(false)
   })
 })

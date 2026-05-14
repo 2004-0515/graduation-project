@@ -130,6 +130,9 @@ const createWrapper = () =>
 describe('SettingsView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.localStorage.getItem = vi.fn(() => null)
+    window.localStorage.setItem = vi.fn()
+    window.localStorage.removeItem = vi.fn()
     mockUserStore.updateUserInfo.mockResolvedValue({
       id: 1,
       username: 'buyer',
@@ -204,7 +207,6 @@ describe('SettingsView', () => {
       if (key === 'theme') return 'sepia'
       return null
     })
-    window.localStorage.removeItem = vi.fn()
 
     const wrapper = createWrapper()
     await flushPromises()

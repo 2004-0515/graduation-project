@@ -262,7 +262,7 @@ const fetchCoupons = async () => {
 const fetchProducts = async () => {
   loadingProducts.value = true
   try {
-    const res: any = await productApi.getProducts({ page: 1, size: 8, sort: 'sales' })
+    const res: any = await productApi.getProducts({ pageNo: 0, pageSize: 8, sort: 'sales' })
     if (res?.code === 200) {
       products.value = res.data?.content || res.data?.records || res.data || []
     } else {
@@ -589,7 +589,16 @@ watch(() => route.params.id, async () => {
 .product-info h3 {
   margin: 0 0 8px;
   font-size: 16px;
+  line-height: 1.4;
   color: var(--text-title);
+}
+
+.product-info h3 {
+  min-height: 44px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .coupon-body p,

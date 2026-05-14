@@ -239,9 +239,9 @@ const fetchMyCoupons = async () => {
 
 const fetchHotProducts = async () => {
   try {
-    const res: any = await productApi.getProducts({ page: 1, size: 4, sort: 'sales' })
+    const res: any = await productApi.getProducts({ pageNo: 0, pageSize: 4, sort: 'sales' })
     if (res?.code === 200) {
-      hotProducts.value = res.data?.content || []
+      hotProducts.value = res.data?.content || res.data?.records || res.data || []
     } else {
       debugError('获取热销商品失败', res?.message || '热销商品返回异常')
     }
@@ -350,6 +350,7 @@ onMounted(() => {
 .more:hover { color: var(--primary); }
 
 .loading-state, .empty-state { text-align: center; padding: 60px; color: var(--text-muted); }
+.empty-state p { margin: 0; font-size: 15px; color: var(--text-body); }
 
 .coupon-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
 .coupon-card { display: flex; overflow: hidden; transition: all 0.3s; cursor: pointer; }
@@ -390,10 +391,21 @@ onMounted(() => {
 .flash-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
 .flash-card:hover .flash-img img { transform: scale(1.05); }
 .flash-info { padding: 14px; }
-.flash-info h4 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--text-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flash-info h4 {
+  margin: 0 0 8px;
+  min-height: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-title);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
 .flash-price { margin-bottom: 4px; }
 .flash-price .current { font-size: 18px; font-weight: 600; color: var(--primary); }
-.sales-text { font-size: 12px; color: var(--text-muted); }
+.sales-text { font-size: 12px; color: var(--text-body); }
 
 @media (max-width: 1024px) { .flash-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 768px) { 

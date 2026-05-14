@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent } from 'vue'
 
 const { mockUserStore } = vi.hoisted(() => ({
   mockUserStore: {
@@ -11,6 +12,17 @@ const { mockUserStore } = vi.hoisted(() => ({
 vi.mock('@/stores/userStore', () => ({
   useUserStore: () => mockUserStore
 }))
+
+const routeStub = (name: string) => defineComponent({
+  name,
+  template: `<div>${name}</div>`
+})
+
+vi.mock('@/views/HomeView.vue', () => ({ default: routeStub('HomeView') }))
+vi.mock('@/views/LoginView.vue', () => ({ default: routeStub('LoginView') }))
+vi.mock('@/views/OrdersView.vue', () => ({ default: routeStub('OrdersView') }))
+vi.mock('@/views/ProfileView.vue', () => ({ default: routeStub('ProfileView') }))
+vi.mock('@/views/admin/DashboardView.vue', () => ({ default: routeStub('AdminDashboardView') }))
 
 import router from '@/router'
 

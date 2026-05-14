@@ -129,7 +129,7 @@
               </button>
             </div>
             
-            <div class="products-grid">
+            <div v-if="recommendProducts.length" class="products-grid">
               <div v-for="product in recommendProducts" :key="product.id" class="product-card" @click="goToProduct(product.id)">
                 <div class="product-image">
                   <img :src="getImageUrl(product.mainImage)" :alt="product.name" />
@@ -145,6 +145,10 @@
                   </div>
                 </div>
               </div>
+            </div>
+            <div v-else class="products-empty">
+              <p>当前暂无可展示商品</p>
+              <span>请稍后刷新，或前往分类页浏览全部商品。</span>
             </div>
 
             <div class="panel-footer">
@@ -386,7 +390,7 @@ onMounted(async () => {
   // 并行加载所有数据
   try {
     const [productsRes, categoriesRes, couponsRes] = await Promise.all([
-      productApi.getProducts({ page: 1, size: 100 }).catch((error) => {
+      productApi.getProducts({ pageNo: 0, pageSize: 100, sort: 'sales' }).catch((error) => {
         debugError('获取 AI 商品数据失败:', error)
         return { data: { content: [] } }
       }),
@@ -889,6 +893,31 @@ onMounted(async () => {
   align-content: start;
 }
 
+.products-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-height: 240px;
+  padding: 24px 20px;
+  text-align: center;
+  color: #6d7285;
+}
+
+.products-empty p {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #4b5164;
+}
+
+.products-empty span {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .product-card {
   background: #fff;
   border-radius: 14px;
@@ -939,18 +968,22 @@ onMounted(async () => {
 
 .product-card h4 {
   margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 500;
+  min-height: 34px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
   color: #333;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .product-bottom {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .product-bottom .price {
@@ -964,8 +997,10 @@ onMounted(async () => {
 }
 
 .product-bottom .sales {
-  font-size: 10px;
-  color: #999;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #7a7f8f;
+  text-align: right;
 }
 
 .panel-footer {

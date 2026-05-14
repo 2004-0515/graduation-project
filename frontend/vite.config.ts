@@ -10,68 +10,81 @@ import path from 'path'
 const apiProxyTarget = process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8080'
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [
-    vue(),
-    AutoImport({
-      dts: 'src/auto-imports.d.ts',
-      imports: ['vue', 'vue-router'],
-      resolvers: [ElementPlusResolver()],
-      eslintrc: {
-        enabled: false
+export default defineConfig(({ mode }) => {
+  const isTest = mode === 'test'
+
+  return {
+    plugins: [
+      vue(),
+      AutoImport({
+        dts: 'src/auto-imports.d.ts',
+        imports: ['vue', 'vue-router'],
+        resolvers: [ElementPlusResolver()],
+        eslintrc: {
+          enabled: false
+        }
+      }),
+      ...(
+        isTest
+          ? []
+          : [
+              Components({
+                dts: 'src/components.d.ts',
+                resolvers: [ElementPlusResolver({ importStyle: 'css' })]
+              })
+            ]
+      )
+    ],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src')
       }
-    }),
-    Components({
-      dts: 'src/components.d.ts',
-      resolvers: [ElementPlusResolver({ importStyle: 'css' })]
-    })
-  ],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src')
-    }
-  },
-  server: {
-    proxy: {
-      '/api': {
-        target: apiProxyTarget,
-        changeOrigin: true
-      },
-      '/uploads': {
-        target: `${apiProxyTarget}/api`,
-        changeOrigin: true
+    },
+    server: {
+      proxy: {
+        '/api': {
+          target: apiProxyTarget,
+          changeOrigin: true
+        },
+        '/uploads': {
+          target: `${apiProxyTarget}/api`,
+          changeOrigin: true
+        }
       }
-    }
-  },
-  test: {
-    exclude: ['tests/**', 'node_modules/**', 'dist/**']
-  },
-  build: {
-    chunkSizeWarningLimit: 700,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) {
-            return undefined
-          }
+    },
+    test: {
+      globals: true,
+      environment: 'jsdom',
+      setupFiles: ['./src/test/setup.ts'],
+      exclude: ['tests/**', 'node_modules/**', 'dist/**']
+    },
+    build: {
+      chunkSizeWarningLimit: 700,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) {
+              return undefined
+            }
 
-          if (id.includes('echarts') || id.includes('zrender') || id.includes('vue-echarts')) {
-            return 'charts'
-          }
+            if (id.includes('echarts') || id.includes('zrender') || id.includes('vue-echarts')) {
+              return 'charts'
+            }
 
-          if (
-            id.includes('/vue/') ||
-            id.includes('/vue-router/') ||
-            id.includes('/pinia/')
-          ) {
-            return 'vue-core'
-          }
+            if (
+              id.includes('/vue/') ||
+              id.includes('/vue-router/') ||
+              id.includes('/pinia/')
+            ) {
+              return 'vue-core'
+            }
 
-          if (id.includes('/axios/')) {
-            return 'network'
-          }
+            if (id.includes('/axios/')) {
+              return 'network'
+            }
 
-          return 'vendor'
+            return 'vendor'
+          }
         }
       }
     }

@@ -97,6 +97,26 @@ describe('AiRecommendView', () => {
     expect(wrapper.text()).not.toContain('为您提供个性化推荐')
   })
 
+  it('requests first page with 0-based pagination and renders discovered products from a single page payload', async () => {
+    const wrapper = mount(AiRecommendView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: {
+            template: '<a><slot /></a>'
+          }
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(productApi.getProducts).toHaveBeenCalledWith({ pageNo: 0, pageSize: 100, sort: 'sales' })
+    expect(wrapper.findAll('.product-card')).toHaveLength(2)
+    expect(wrapper.text()).toContain('商品B')
+  })
+
   it('does not claim success when api key is empty', async () => {
     const wrapper = mount(AiRecommendView, {
       global: {
@@ -164,6 +184,32 @@ describe('AiRecommendView', () => {
       coupons: []
     })
     expect(wrapper.text()).toContain('基于当前商品数据提供问答和选购参考')
+  })
+
+  it('shows an explicit empty state when no products are available', async () => {
+    productApi.getProducts.mockResolvedValue({
+      code: 200,
+      data: {
+        content: []
+      }
+    })
+
+    const wrapper = mount(AiRecommendView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: {
+            template: '<a><slot /></a>'
+          }
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('当前暂无可展示商品')
+    expect(wrapper.findAll('.product-card')).toHaveLength(0)
   })
 
   it('logs and falls back when ai chat request fails', async () => {

@@ -36,7 +36,7 @@ describe('App', () => {
           }
         }
       }
-    })
+  })
 
   it('keeps app mount working when reading appearance storage throws', async () => {
     window.localStorage.getItem = vi.fn((key: string) => {

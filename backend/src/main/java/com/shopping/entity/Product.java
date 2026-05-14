@@ -117,12 +117,18 @@ public class Product {
     
     @PrePersist
     protected void onCreate() {
+        if (this.version == null) {
+            this.version = 0L;
+        }
         this.createdTime = LocalDateTime.now();
         this.updatedTime = LocalDateTime.now();
     }
     
     @PreUpdate
     protected void onUpdate() {
+        if (this.version == null) {
+            this.version = 0L;
+        }
         this.updatedTime = LocalDateTime.now();
     }
 }

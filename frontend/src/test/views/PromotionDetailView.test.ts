@@ -137,6 +137,7 @@ describe('PromotionDetailView', () => {
 
     await flushPromises()
 
+    expect(productApi.getProducts).toHaveBeenCalledWith({ pageNo: 0, pageSize: 8, sort: 'sales' })
     expect(wrapper.text()).toContain('618 满减券')
     expect(wrapper.text()).toContain('真实商品A')
     expect(wrapper.text()).toContain('¥99.00')
@@ -258,6 +259,35 @@ describe('PromotionDetailView', () => {
 
     expect(ElMessage.error).toHaveBeenCalledWith('活动已结束')
     expect(debugError).toHaveBeenCalled()
+  })
+
+  it('renders hot products from the first sales page without emptying the section', async () => {
+    productApi.getProducts.mockResolvedValue({
+      code: 200,
+      data: {
+        content: [
+          { id: 101, name: '真实商品A', price: 99, sales: 12, mainImage: '/a.png' },
+          { id: 102, name: '真实商品B', price: 199, sales: 21, mainImage: '/b.png' }
+        ]
+      }
+    })
+
+    const wrapper = mount(PromotionDetailView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          ElImage: {
+            template: '<img />'
+          }
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(wrapper.findAll('.product-card')).toHaveLength(2)
+    expect(wrapper.text()).toContain('真实商品B')
   })
 
   it('logs backend message when claiming returns non-200 payload', async () => {

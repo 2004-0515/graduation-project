@@ -87,6 +87,18 @@ describe('HotProductsView', () => {
     expect(debugError).toHaveBeenCalledWith('获取热销排行榜失败:', '榜单读取失败')
   })
 
+  it('requests the first sales page and renders ranking classes for top three items', async () => {
+    const wrapper = mountView()
+
+    await flushPromises()
+
+    expect(productApi.getProducts).toHaveBeenCalledWith({ pageNo: 0, pageSize: 20, sort: 'sales' })
+    expect(wrapper.find('.rank-num-1').text()).toBe('1')
+    expect(wrapper.find('.rank-num-2').text()).toBe('2')
+    expect(wrapper.find('.rank-num-3').text()).toBe('3')
+    expect(wrapper.find('[data-testid="hot-rank-list"]').exists()).toBe(true)
+  })
+
   it('warns guest user to login before adding hot product to cart', async () => {
     userStore.isLoggedIn = false
     const wrapper = mountView()
