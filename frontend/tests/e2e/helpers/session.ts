@@ -39,6 +39,32 @@ const sessionCache = new Map<string, Session>()
 const productSelectionCache = new Map<string, number>()
 
 export async function neutralizeFloatingUi(page: Page) {
+  await page
+    .addInitScript(() => {
+      const marker = '__E2E_HIDE_GLOBAL_MUSIC_PLAYER__'
+      if ((window as Record<string, unknown>)[marker]) {
+        return
+      }
+      ;(window as Record<string, unknown>)[marker] = true
+
+      const hideMusicPlayer = () => {
+        const elements = document.querySelectorAll<HTMLElement>('[data-testid="global-music-player"]')
+        for (const element of elements) {
+          element.style.setProperty('display', 'none', 'important')
+          element.style.setProperty('visibility', 'hidden', 'important')
+          element.style.setProperty('pointer-events', 'none', 'important')
+        }
+      }
+
+      hideMusicPlayer()
+      new MutationObserver(() => hideMusicPlayer()).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true
+      })
+    })
+    .catch(() => {})
+
   await page.addStyleTag({
     content: `
       [data-testid="global-music-player"] {
@@ -58,9 +84,9 @@ export async function neutralizeFloatingUi(page: Page) {
     .evaluateAll((elements) => {
       for (const element of elements) {
         if (element instanceof HTMLElement) {
-          element.style.display = 'none'
-          element.style.visibility = 'hidden'
-          element.style.pointerEvents = 'none'
+          element.style.setProperty('display', 'none', 'important')
+          element.style.setProperty('visibility', 'hidden', 'important')
+          element.style.setProperty('pointer-events', 'none', 'important')
         }
       }
     })
