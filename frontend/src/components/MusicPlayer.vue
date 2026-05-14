@@ -2,7 +2,7 @@
   <div 
     class="music-player" 
     data-testid="global-music-player"
-    :class="{ expanded: isExpanded, minimized: isMinimized, dragging: isDragging }"
+    :class="{ expanded: isExpanded, minimized: isMinimized, dragging: isDragging, 'e2e-passive': isE2E }"
     :style="{ left: position.x + 'px', top: position.y + 'px' }"
     ref="playerRef"
   >
@@ -122,10 +122,13 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import musicApi, { type Music } from '@/api/musicApi'
 import { debugError, debugLog } from '@/utils/debug'
 
 const defaultCover = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%239b87f5" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="white" font-size="30">♪</text></svg>'
+const route = useRoute()
+const isE2E = import.meta.env.VITE_E2E === 'true'
 
 const playerRef = ref<HTMLElement>()
 const audioRef = ref<HTMLAudioElement>()
@@ -256,6 +259,22 @@ const volumeIcon = computed(() => {
   if (volume.value < 50) return 'vol-low'
   return 'vol-high'
 })
+const isRouteLockedToMinimized = computed(() => shouldForceMinimizeForRoute(route.path))
+
+const shouldForceMinimizeForRoute = (path: string) =>
+  path.startsWith('/checkout') || path.startsWith('/payment/')
+
+const syncPlayerLayoutForRoute = (path: string) => {
+  if (!shouldForceMinimizeForRoute(path)) {
+    return
+  }
+
+  if (!isMinimized.value || isExpanded.value) {
+    isExpanded.value = false
+    isMinimized.value = true
+    showVolumePanel.value = false
+  }
+}
 
 // 初始化位置
 const initPosition = () => {
@@ -318,6 +337,11 @@ const stopDrag = () => {
 }
 
 const handleMiniClick = () => {
+  if (isRouteLockedToMinimized.value) {
+    showVolumePanel.value = false
+    return
+  }
+
   if (!hasDragged.value) {
     isMinimized.value = false
   }
@@ -693,16 +717,35 @@ const handleBeforeUnload = () => {
 
 // 监听最小化和展开状态变化
 watch(isMinimized, () => savePlayerState())
+watch(isMinimized, (minimized) => {
+  if (!minimized && isRouteLockedToMinimized.value) {
+    isMinimized.value = true
+    isExpanded.value = false
+    showVolumePanel.value = false
+  }
+})
 watch(isExpanded, () => savePlayerState())
 watch(isExpanded, (expanded) => {
+  if (expanded && isRouteLockedToMinimized.value) {
+    isExpanded.value = false
+    isMinimized.value = true
+    showVolumePanel.value = false
+    return
+  }
+
   if (expanded && !hasLoadedMusic.value) {
     void ensureMusicLoaded()
   }
 })
 
+watch(() => route.path, (path) => {
+  syncPlayerLayoutForRoute(path)
+})
+
 onMounted(() => {
   restorePlayerState()
   initPosition()
+  syncPlayerLayoutForRoute(route.path)
   scheduleInitialLoad()
   window.addEventListener('resize', onResize)
   window.addEventListener('beforeunload', handleBeforeUnload)
@@ -731,6 +774,11 @@ onUnmounted(() => {
   user-select: none;
   transform: scale(1.2);
   transform-origin: top left;
+}
+
+.music-player.e2e-passive,
+.music-player.e2e-passive * {
+  pointer-events: none !important;
 }
 
 .music-player.dragging {

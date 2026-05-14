@@ -72,6 +72,7 @@ jobs:
       REDIS_PORT: 6379
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:5178
       VITE_PROXY_TARGET: http://127.0.0.1:8085
+      VITE_E2E: 'true'
       FILE_UPLOAD_DIR: ${{ github.workspace }}/.tmp/e2e-uploads
       CI: true
     steps:

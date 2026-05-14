@@ -265,6 +265,7 @@ try {
 
     if (-not $reusedFrontend) {
         $env:VITE_PROXY_TARGET = "http://127.0.0.1:$BackendPort"
+        $env:VITE_E2E = 'true'
         $frontendArgs = @('.\node_modules\vite\bin\vite.js', '--host', '127.0.0.1', '--port', "$FrontendPort")
         $frontendProc = Start-Process -FilePath $node -ArgumentList $frontendArgs -WorkingDirectory $frontendRoot -PassThru -WindowStyle Hidden -RedirectStandardOutput $frontendLog -RedirectStandardError $frontendErrLog
         $startedFrontend = $true
