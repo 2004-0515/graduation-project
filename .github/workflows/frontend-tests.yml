@@ -72,6 +72,7 @@ jobs:
       REDIS_PORT: 6379
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:5178
       VITE_PROXY_TARGET: http://127.0.0.1:8085
+      FILE_UPLOAD_DIR: ${{ runner.temp }}/e2e-uploads
       CI: true
     steps:
       - name: Checkout
@@ -339,6 +340,14 @@ jobs:
         run: |
           set -euo pipefail
           mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < scripts/demo-data-enhancement.sql
+
+      - name: Prepare isolated uploads directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$FILE_UPLOAD_DIR"
+          mkdir -p "$FILE_UPLOAD_DIR"
+          cp -R uploads/. "$FILE_UPLOAD_DIR"/
 
       - name: Start backend
         working-directory: backend
