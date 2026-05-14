@@ -539,6 +539,8 @@ const getCategoryName = (id: number) => categories.value.find(c => c.id === id)?
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
+const buildProductImagesPayload = () => JSON.stringify(form.mainImage ? [form.mainImage] : [])
+
 const getVideoUrl = (path: string) => {
   if (!path) return ''
   if (path.startsWith('http://') || path.startsWith('https://')) return path
@@ -785,6 +787,7 @@ const saveProduct = async () => {
       originalPrice: form.originalPrice,
       stock: form.stock,
       mainImage: form.mainImage,
+      images: buildProductImagesPayload(),
       description: form.description,
       status: form.status,
       adVideo: form.adVideo,

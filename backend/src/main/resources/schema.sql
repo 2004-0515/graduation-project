@@ -319,6 +319,9 @@ CREATE TABLE music (
     artist VARCHAR(100) DEFAULT NULL COMMENT '歌手',
     url VARCHAR(500) NOT NULL COMMENT '音乐文件URL',
     cover VARCHAR(500) DEFAULT NULL COMMENT '封面图片URL',
+    asset_source VARCHAR(50) DEFAULT NULL COMMENT '素材来源平台',
+    license_code VARCHAR(40) DEFAULT NULL COMMENT '授权代码',
+    license_version VARCHAR(20) DEFAULT NULL COMMENT '授权版本',
     duration INT DEFAULT NULL COMMENT '时长(秒)',
     sort_order INT DEFAULT 0 COMMENT '排序',
     status TINYINT DEFAULT 1 COMMENT '状态：1-启用，0-禁用',
@@ -332,6 +335,51 @@ CREATE TABLE music (
 INSERT INTO music (title, artist, url, cover, sort_order, status) VALUES
 ('轻音乐1', '纯音乐', 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=', NULL, 1, 1),
 ('轻音乐2', '纯音乐', 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=', NULL, 2, 1);
+
+-- =====================================================
+-- 14.1 演示数据导入批次表 (demo_import_batch)
+-- =====================================================
+DROP TABLE IF EXISTS demo_import_batch;
+CREATE TABLE demo_import_batch (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    batch_id VARCHAR(64) NOT NULL UNIQUE COMMENT '批次标识',
+    batch_type VARCHAR(50) NOT NULL COMMENT '批次类型',
+    status VARCHAR(20) NOT NULL COMMENT '状态',
+    summary VARCHAR(500) DEFAULT NULL COMMENT '摘要',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_demo_import_batch_type (batch_type),
+    INDEX idx_demo_import_batch_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='演示数据导入批次表';
+
+-- =====================================================
+-- 14.2 演示导入资产审计表 (demo_imported_asset)
+-- =====================================================
+DROP TABLE IF EXISTS demo_imported_asset;
+CREATE TABLE demo_imported_asset (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    asset_type VARCHAR(30) NOT NULL COMMENT '资产类型',
+    business_type VARCHAR(30) NOT NULL COMMENT '业务类型',
+    business_id BIGINT DEFAULT NULL COMMENT '业务ID',
+    source_platform VARCHAR(50) NOT NULL COMMENT '来源平台',
+    source_url VARCHAR(1000) NOT NULL COMMENT '源资源URL',
+    foreign_landing_url VARCHAR(1000) DEFAULT NULL COMMENT '来源落地页',
+    license_code VARCHAR(40) DEFAULT NULL COMMENT '授权代码',
+    license_version VARCHAR(20) DEFAULT NULL COMMENT '授权版本',
+    creator_name VARCHAR(200) DEFAULT NULL COMMENT '作者/创作者',
+    content_hash VARCHAR(64) NOT NULL COMMENT '内容哈希',
+    file_path VARCHAR(500) NOT NULL COMMENT '本地文件路径',
+    file_size BIGINT DEFAULT NULL COMMENT '文件大小',
+    batch_id VARCHAR(64) NOT NULL COMMENT '导入批次',
+    status VARCHAR(20) NOT NULL COMMENT '导入状态',
+    failure_reason VARCHAR(500) DEFAULT NULL COMMENT '失败原因',
+    created_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_demo_asset_source_hash (source_url(255), content_hash),
+    INDEX idx_demo_asset_business (business_type, business_id),
+    INDEX idx_demo_asset_batch (batch_id),
+    INDEX idx_demo_asset_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='演示导入资产审计表';
 
 
 -- =====================================================

@@ -4,6 +4,7 @@ import com.shopping.entity.UploadFile;
 import com.shopping.entity.Product;
 import com.shopping.entity.User;
 import com.shopping.service.NotificationService;
+import com.shopping.service.MediaGovernanceService;
 import com.shopping.service.ProductService;
 import com.shopping.service.UploadFileService;
 import com.shopping.service.UserService;
@@ -53,6 +54,8 @@ class FileControllerTest {
     private UploadFileService uploadFileService;
     @Mock
     private ProductService productService;
+    @Mock
+    private MediaGovernanceService mediaGovernanceService;
 
     @InjectMocks
     private FileController fileController;
@@ -271,6 +274,8 @@ class FileControllerTest {
                 "image/png",
                 "demo".getBytes()
         );
+        when(mediaGovernanceService.storeMultipartFile(any(), eq(MediaGovernanceService.StoredMediaKind.PRODUCT_IMAGE), eq("数码")))
+                .thenReturn(new MediaGovernanceService.StoredMedia("/uploads/products/数码/2026/05/demo.png", null, file.getSize(), "hash"));
 
         mockMvc.perform(multipart("/files/product")
                         .file(file)

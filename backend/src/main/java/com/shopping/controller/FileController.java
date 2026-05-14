@@ -6,6 +6,8 @@ import com.shopping.entity.UploadFile;
 import com.shopping.entity.User;
 import com.shopping.exception.BusinessException;
 import com.shopping.exception.ResourceNotFoundException;
+import com.shopping.exception.ValidationException;
+import com.shopping.service.MediaGovernanceService;
 import com.shopping.service.NotificationService;
 import com.shopping.service.ProductService;
 import com.shopping.service.UploadFileService;
@@ -62,6 +64,9 @@ public class FileController {
     
     @Autowired
     private ProductService productService;
+
+    @Autowired
+    private MediaGovernanceService mediaGovernanceService;
 
     private Path getUploadBasePath() {
         return Paths.get(uploadDir).toAbsolutePath().normalize();
@@ -168,29 +173,10 @@ public class FileController {
             }
             User user = currentUser.get();
 
-            // 按年月存储
-            String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
-            Path uploadPath = getUploadBasePath().resolve("videos").resolve(datePath);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-
-            // 生成唯一文件名
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
-            }
-            String newFilename = UUID.randomUUID().toString() + extension;
-
-            // 保存文件
-            Path filePath = uploadPath.resolve(newFilename);
-            Files.copy(file.getInputStream(), filePath);
-
-            // 生成访问URL
-            String fileUrl = "/uploads/videos/" + datePath + "/" + newFilename;
-
-            return Response.success("视频上传成功", fileUrl);
+            var stored = mediaGovernanceService.storeMultipartFile(file, MediaGovernanceService.StoredMediaKind.AD_VIDEO, null);
+            return Response.success("视频上传成功", stored.url());
+        } catch (ValidationException e) {
+            return Response.fail(400, e.getMessage());
         } catch (IOException e) {
             log.error("上传广告视频失败", e);
             return Response.fail(500, "视频上传失败");
@@ -469,33 +455,8 @@ public class FileController {
             // 判断是否为管理员
             boolean isAdmin = "admin".equals(username.get());
 
-            // 年月路径
-            String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
-            
-            // 确定存储路径：分类名/年月 或 其他/年月
-            String categoryFolder = (categoryName != null && !categoryName.trim().isEmpty()) 
-                ? sanitizeFolderName(categoryName) 
-                : "其他";
-            
-            Path uploadPath = getUploadBasePath().resolve("products").resolve(categoryFolder).resolve(datePath);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-
-            // 生成唯一文件名
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
-            }
-            String newFilename = UUID.randomUUID().toString() + extension;
-
-            // 保存文件
-            Path filePath = uploadPath.resolve(newFilename);
-            Files.copy(file.getInputStream(), filePath);
-
-            // 生成访问URL
-            String fileUrl = "/uploads/products/" + categoryFolder + "/" + datePath + "/" + newFilename;
+            var stored = mediaGovernanceService.storeMultipartFile(file, MediaGovernanceService.StoredMediaKind.PRODUCT_IMAGE, categoryName);
+            String fileUrl = stored.url();
 
             // 商品图片不需要单独审核，跟随商品审核流程
             // 直接返回URL，不创建审核记录
@@ -514,23 +475,13 @@ public class FileController {
             }
 
             return Response.success("上传成功", fileUrl);
+        } catch (ValidationException e) {
+            return Response.fail(400, e.getMessage());
         } catch (IOException e) {
             log.error("上传商品图片失败: categoryName={}, productId={}, originalName={}",
                     categoryName, productId, file.getOriginalFilename(), e);
             return Response.fail(500, "文件上传失败");
         }
-    }
-    
-    /**
-     * 将分类名转换为安全的文件夹名
-     */
-    private String sanitizeFolderName(String name) {
-        if (name == null) return "other";
-        // 移除特殊字符，只保留中文、字母、数字
-        String sanitized = name.trim()
-                .replaceAll("[\\\\/:*?\"<>|]", "")  // 移除Windows不允许的字符
-                .replaceAll("\\s+", "_");           // 空格替换为下划线
-        return sanitized.isEmpty() ? "other" : sanitized;
     }
 
     private void deletePhysicalFile(UploadFile file) {
@@ -540,7 +491,7 @@ public class FileController {
         }
 
         try {
-            Path path = getUploadBasePath().resolve(filePath.substring("/uploads/".length())).normalize();
+            Path path = mediaGovernanceService.resolveAbsoluteUploadPath(filePath);
             Files.deleteIfExists(path);
         } catch (IOException e) {
             log.error("删除物理文件失败: id={}, filePath={}", file.getId(), filePath, e);

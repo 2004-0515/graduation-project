@@ -25,12 +25,20 @@
       </el-table-column>
       <el-table-column label="封面" width="80">
         <template #default="{ row }">
-          <img v-if="row.cover" :src="row.cover" class="cover-img" />
+          <img v-if="row.cover" :src="getImageUrl(row.cover)" class="cover-img" />
           <span v-else class="no-cover">无</span>
         </template>
       </el-table-column>
       <el-table-column prop="title" label="歌曲名称" min-width="150" />
       <el-table-column prop="artist" label="歌手" width="120" />
+      <el-table-column label="来源/授权" min-width="150">
+        <template #default="{ row }">
+          <div class="asset-meta">
+            <span>{{ row.assetSource || '手动上传' }}</span>
+            <span v-if="row.licenseCode">{{ row.licenseCode }}{{ row.licenseVersion ? ` ${row.licenseVersion}` : '' }}</span>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column label="音乐文件" min-width="200">
         <template #default="{ row }">
           <span class="file-path">{{ row.url }}</span>
@@ -91,7 +99,7 @@
                 {{ uploadingCover ? '上传中...' : '选择封面图片' }}
               </el-button>
             </el-upload>
-            <img v-if="form.cover" :src="form.cover" class="cover-preview" />
+            <img v-if="form.cover" :src="getImageUrl(form.cover)" class="cover-preview" />
           </div>
           <el-input v-model="form.cover" placeholder="封面图片地址（可选）" class="mt-8" />
         </el-form-item>
@@ -160,6 +168,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
 import musicApi, { type Music } from '@/api/musicApi'
+import fileApi from '@/api/fileApi'
 import { debugError } from '@/utils/debug'
 
 const defaultCover = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%235A8FD4" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="white" font-size="30">♪</text></svg>'
@@ -190,6 +199,7 @@ const invalidateMusicRequests = () => {
 }
 const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
 const getErrorMessage = (error: any, fallback: string) => error?.response?.data?.message || error?.message || fallback
+const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
 const form = reactive({
   title: '',
@@ -650,6 +660,14 @@ onMounted(() => { loadMusic() })
   font-size: 12px;
   color: #666;
   word-break: break-all;
+}
+
+.asset-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #666;
 }
 
 .upload-area {

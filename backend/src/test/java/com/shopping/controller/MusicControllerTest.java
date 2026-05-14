@@ -2,6 +2,8 @@ package com.shopping.controller;
 
 import com.shopping.entity.Music;
 import com.shopping.handler.GlobalExceptionHandler;
+import com.shopping.exception.ValidationException;
+import com.shopping.service.MediaGovernanceService;
 import com.shopping.service.MusicService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,13 +22,14 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -44,16 +47,17 @@ class MusicControllerTest {
 
     @Mock
     private MusicService musicService;
+    @Mock
+    private MediaGovernanceService mediaGovernanceService;
 
     @InjectMocks
     private MusicController musicController;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(musicController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
-        setPrivateField(musicController, "uploadDir", "C:\\tmp\\music-controller-test");
     }
 
     @AfterEach
@@ -110,10 +114,14 @@ class MusicControllerTest {
                 "demo".getBytes(StandardCharsets.UTF_8)
         );
 
+        doThrow(new ValidationException("media", "文件扩展名无效"))
+                .when(mediaGovernanceService)
+                .storeMultipartFile(any(MultipartFile.class), eq(MediaGovernanceService.StoredMediaKind.MUSIC_FILE), eq(null));
+
         mockMvc.perform(multipart("/music/upload").file(file))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("文件类型无效"));
+                .andExpect(jsonPath("$.message").value("Validation failed for field 'media': 文件扩展名无效"));
     }
 
     @Test
@@ -127,10 +135,14 @@ class MusicControllerTest {
                 "demo".getBytes(StandardCharsets.UTF_8)
         );
 
+        doThrow(new ValidationException("media", "文件扩展名不受支持"))
+                .when(mediaGovernanceService)
+                .storeMultipartFile(any(MultipartFile.class), eq(MediaGovernanceService.StoredMediaKind.MUSIC_FILE), eq(null));
+
         mockMvc.perform(multipart("/music/upload").file(file))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("仅支持 mp3、wav、ogg、m4a 格式"));
+                .andExpect(jsonPath("$.message").value("Validation failed for field 'media': 文件扩展名不受支持"));
     }
 
     @Test
@@ -144,10 +156,14 @@ class MusicControllerTest {
                 "demo".getBytes(StandardCharsets.UTF_8)
         );
 
+        doThrow(new ValidationException("media", "文件扩展名不受支持"))
+                .when(mediaGovernanceService)
+                .storeMultipartFile(any(MultipartFile.class), eq(MediaGovernanceService.StoredMediaKind.MUSIC_COVER), eq(null));
+
         mockMvc.perform(multipart("/music/upload-cover").file(file))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("仅支持 jpg、jpeg、png、webp 格式"));
+                .andExpect(jsonPath("$.message").value("Validation failed for field 'media': 文件扩展名不受支持"));
     }
 
     @Test
@@ -195,6 +211,13 @@ class MusicControllerTest {
                 throw new IOException("disk full");
             }
         };
+
+        try {
+            when(mediaGovernanceService.storeMultipartFile(any(MultipartFile.class), eq(MediaGovernanceService.StoredMediaKind.MUSIC_COVER), eq(null)))
+                    .thenThrow(new IOException("disk full"));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         var response = musicController.uploadCover(file);
         org.junit.jupiter.api.Assertions.assertEquals(500, response.getCode());
@@ -273,11 +296,5 @@ class MusicControllerTest {
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList());
         SecurityContextHolder.getContext().setAuthentication(authentication);
-    }
-
-    private void setPrivateField(Object target, String fieldName, Object value) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(target, value);
     }
 }

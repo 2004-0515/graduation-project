@@ -141,6 +141,8 @@ const invalidateProductRequests = () => {
 }
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+
+const buildProductImagesPayload = () => JSON.stringify(form.mainImage ? [form.mainImage] : [])
 const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
 const getErrorMessage = (error: any, fallback: string) => error?.response?.data?.message || error?.message || fallback
 const isSuccessfulResponse = (res: any) => res?.code === 200
@@ -362,6 +364,7 @@ const submitProduct = async () => {
     const actionLabel = isEdit.value ? '编辑商品' : '提交商品'
     const productData = {
       ...form,
+      images: buildProductImagesPayload(),
       adVideo: form.adVideo || null
     }
     

@@ -21,8 +21,17 @@ public class Music {
     
     @Column(nullable = false)
     private String url;
-    
+
     private String cover;
+
+    @Column(name = "asset_source", length = 50)
+    private String assetSource;
+
+    @Column(name = "license_code", length = 40)
+    private String licenseCode;
+
+    @Column(name = "license_version", length = 20)
+    private String licenseVersion;
     
     private Integer duration; // 时长(秒)
     
@@ -63,6 +72,15 @@ public class Music {
     
     public String getCover() { return cover; }
     public void setCover(String cover) { this.cover = cover; }
+
+    public String getAssetSource() { return assetSource; }
+    public void setAssetSource(String assetSource) { this.assetSource = assetSource; }
+
+    public String getLicenseCode() { return licenseCode; }
+    public void setLicenseCode(String licenseCode) { this.licenseCode = licenseCode; }
+
+    public String getLicenseVersion() { return licenseVersion; }
+    public void setLicenseVersion(String licenseVersion) { this.licenseVersion = licenseVersion; }
     
     public Integer getDuration() { return duration; }
     public void setDuration(Integer duration) { this.duration = duration; }

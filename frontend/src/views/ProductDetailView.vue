@@ -587,11 +587,43 @@ const parseImages = (images: string) => {
   if (!images) return []
   try {
     const parsed = JSON.parse(images)
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : images.split(',').filter(Boolean)
+    if (!Array.isArray(parsed)) {
+      debugError('评价图片不是数组格式', parsed)
+      return images.split(',').filter(Boolean)
+    }
+    return parsed.filter((item): item is string => typeof item === 'string')
   } catch (error) {
     debugError('解析评价图片失败', error)
     return images.split(',').filter(Boolean)
   }
+}
+
+const parseProductImages = (images: unknown, mainImage: string) => {
+  const normalizedMain = mainImage ? getImageUrl(mainImage) : ''
+  let parsed: string[] = []
+
+  if (Array.isArray(images)) {
+    parsed = images.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+  } else if (typeof images === 'string' && images.trim()) {
+    try {
+      const payload = JSON.parse(images)
+      if (Array.isArray(payload)) {
+        parsed = payload.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      } else {
+        debugError('商品图片字段不是 JSON 数组，按历史兼容只读展示', payload)
+        parsed = images.split(',').filter(Boolean)
+      }
+    } catch (error) {
+      debugError('商品图片字段不是规范 JSON 数组，按历史兼容只读展示', error)
+      parsed = images.split(',').filter(Boolean)
+    }
+  }
+
+  const mapped = parsed.map((img) => getImageUrl(img))
+  if (normalizedMain && !mapped.includes(normalizedMain)) {
+    mapped.unshift(normalizedMain)
+  }
+  return mapped.length > 0 ? mapped : (normalizedMain ? [normalizedMain] : [])
 }
 
 const buildReviewStatsFromList = (reviewList: any[]) => {
@@ -626,13 +658,8 @@ const fetchProduct = async () => {
     }
     if (res?.code === 200) {
       product.value = res.data
-      currentImage.value = getImageUrl(product.value.mainImage)
-      if (!product.value.images) product.value.images = [product.value.mainImage]
-      else if (typeof product.value.images === 'string') {
-        product.value.images = product.value.images.split(',').filter(Boolean)
-      }
-      // 转换所有图片URL
-      product.value.images = product.value.images.map((img: string) => getImageUrl(img))
+      product.value.images = parseProductImages(product.value.images, product.value.mainImage)
+      currentImage.value = product.value.images[0] || getImageUrl(product.value.mainImage)
     }
   } catch (error) {
     if (requestId !== latestProductRequestId) {

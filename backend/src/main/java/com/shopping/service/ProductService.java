@@ -1,6 +1,7 @@
 package com.shopping.service;
 
 import com.shopping.entity.Product;
+import com.shopping.exception.ValidationException;
 import com.shopping.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -32,6 +33,9 @@ public class ProductService {
     @Autowired
     @Lazy
     private NotificationService notificationService;
+
+    @Autowired
+    private MediaGovernanceService mediaGovernanceService;
 
     private void ensureVersionInitialized(Product product) {
         if (product != null && product.getVersion() == null) {
@@ -114,6 +118,7 @@ public class ProductService {
      */
     public Product saveProduct(Product product) {
         ensureVersionInitialized(product);
+        validateProduct(product);
 
         // 检查是否是价格变动
         if (product.getId() != null) {
@@ -146,6 +151,25 @@ public class ProductService {
         }
         
         return productRepository.save(product);
+    }
+
+    private void validateProduct(Product product) {
+        if (product == null) {
+            throw new ValidationException("product", "商品不能为空");
+        }
+        if (product.getCategory() == null) {
+            throw new ValidationException("categoryId", "商品分类不能为空");
+        }
+        if (product.getPrice() == null || product.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ValidationException("price", "商品价格必须大于0");
+        }
+        if (product.getStock() == null || product.getStock() < 0) {
+            throw new ValidationException("stock", "商品库存不能小于0");
+        }
+        if (product.getSales() == null || product.getSales() < 0) {
+            product.setSales(0);
+        }
+        mediaGovernanceService.normalizeProductMedia(product);
     }
     
     /**

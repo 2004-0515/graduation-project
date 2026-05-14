@@ -4,6 +4,7 @@ import com.shopping.dto.Response;
 import com.shopping.entity.Product;
 import com.shopping.entity.Category;
 import com.shopping.entity.User;
+import com.shopping.service.MediaGovernanceService;
 import com.shopping.service.ProductService;
 import com.shopping.service.UserService;
 import com.shopping.service.NotificationService;
@@ -39,6 +40,9 @@ public class ProductController {
     
     @Autowired
     private NotificationService notificationService;
+
+    @Autowired
+    private MediaGovernanceService mediaGovernanceService;
 
     private Response<?> unauthorized() {
         return Response.fail(401, "用户未登录");
@@ -280,7 +284,7 @@ public class ProductController {
             product.setStock(Integer.parseInt(data.get("stock").toString()));
         }
         product.setMainImage((String) data.get("mainImage"));
-        product.setImages((String) data.get("images"));
+        product.setImages(resolveProductImagesPayload(data, product.getMainImage()));
         product.setSales(0); // 新商品销量为0
         
         // 设置状态
@@ -400,8 +404,8 @@ public class ProductController {
         if (data.get("mainImage") != null) {
             product.setMainImage((String) data.get("mainImage"));
         }
-        if (data.get("images") != null) {
-            product.setImages((String) data.get("images"));
+        if (data.containsKey("images") || data.containsKey("mainImage")) {
+            product.setImages(resolveProductImagesPayload(data, product.getMainImage()));
         }
         if (data.get("status") != null) {
             product.setStatus(Integer.parseInt(data.get("status").toString()));
@@ -527,7 +531,7 @@ public class ProductController {
             return Response.fail(400, e.getMessage());
         }
         product.setMainImage((String) data.get("mainImage"));
-        product.setImages((String) data.get("images"));
+        product.setImages(resolveProductImagesPayload(data, product.getMainImage()));
         product.setSellerId(user.getId());
         product.setSellerName(currentUsername);
         product.setSales(0);
@@ -660,5 +664,21 @@ public class ProductController {
             return java.util.Optional.empty();
         }
         return java.util.Optional.ofNullable(SecurityUtils.getCurrentUsername());
+    }
+
+    private String resolveProductImagesPayload(Map<String, Object> data, String mainImage) {
+        Object imagesValue = data.get("images");
+        if (imagesValue == null) {
+            if (mainImage == null || mainImage.isBlank()) {
+                return mediaGovernanceService.normalizeImageListJson(List.of());
+            }
+            return mediaGovernanceService.normalizeImageListJson(List.of(mainImage));
+        }
+
+        List<String> normalized = new java.util.ArrayList<>(mediaGovernanceService.normalizeImageList(imagesValue));
+        if ((mainImage != null && !mainImage.isBlank()) && normalized.stream().noneMatch(mainImage::equals)) {
+            normalized.add(0, mainImage);
+        }
+        return mediaGovernanceService.normalizeImageListJson(normalized);
     }
 }

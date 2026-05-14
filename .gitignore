@@ -48,6 +48,8 @@ coverage/
 *.temp
 BUG_REPORT.md
 settings.xml
+scripts/__pycache__/
+scripts/openverse-asset-manifest.json
 
 # Gradle缓存（不应该提交）
 .gradle/
@@ -106,6 +108,7 @@ dist/
 *.swo
 *~
 .cache/
+.tmp/
 .vite/
 tmp-browser-pids.json
 backend/.jqwik-database

@@ -7,6 +7,9 @@ export interface Music {
   artist: string
   url: string
   cover: string
+  assetSource?: string
+  licenseCode?: string
+  licenseVersion?: string
   duration: number
   sortOrder: number
   status: number

@@ -6,6 +6,7 @@ import com.shopping.entity.Product;
 import com.shopping.entity.User;
 import com.shopping.handler.GlobalExceptionHandler;
 import com.shopping.repository.CategoryRepository;
+import com.shopping.service.MediaGovernanceService;
 import com.shopping.service.NotificationService;
 import com.shopping.service.ProductService;
 import com.shopping.service.UserService;
@@ -29,6 +30,7 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -53,12 +55,36 @@ class ProductControllerTest {
     private UserService userService;
     @Mock
     private NotificationService notificationService;
+    @Mock
+    private MediaGovernanceService mediaGovernanceService;
 
     @InjectMocks
     private ProductController productController;
 
     @BeforeEach
     void setUp() {
+        lenient().when(mediaGovernanceService.normalizeImageListJson(any())).thenAnswer(invocation -> {
+            Object value = invocation.getArgument(0);
+            if (value instanceof List<?> list) {
+                try {
+                    return objectMapper.writeValueAsString(list);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            return "[]";
+        });
+        lenient().when(mediaGovernanceService.normalizeImageList(any())).thenAnswer(invocation -> {
+            Object value = invocation.getArgument(0);
+            if (value instanceof List<?> list) {
+                return list.stream().map(String::valueOf).toList();
+            }
+            if (value instanceof String text && !text.isBlank()) {
+                return List.of(text);
+            }
+            return List.of();
+        });
+
         mockMvc = MockMvcBuilders.standaloneSetup(productController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();

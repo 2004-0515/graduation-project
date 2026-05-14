@@ -61,7 +61,7 @@ export interface Product {
   sales: number
   status: ProductStatus
   mainImage?: string
-  images?: string
+  images?: string | string[]
   discount?: number
   createdTime: string
   updatedTime: string
