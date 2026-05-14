@@ -16,7 +16,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $frontendRoot = Join-Path $projectRoot 'frontend'
 $backendRoot = Join-Path $projectRoot 'backend'
-$stackStateFile = Join-Path $projectRoot 'tmp-demo-browser-stack.json'
+$stackStateFile = Join-Path $projectRoot 'tmp-browser-stack.json'
 $uploadsRoot = Join-Path $projectRoot 'uploads'
 $tempRoot = Join-Path $projectRoot '.tmp'
 $e2eUploadsRoot = Join-Path $tempRoot 'e2e-uploads'
@@ -204,7 +204,7 @@ try {
     Remove-StaleManagedStackState
 
     if (-not $env:DB_NAME) {
-        $env:DB_NAME = 'shopping_mall_demo'
+        $env:DB_NAME = 'shopping_mall_test'
     }
     if (-not $env:REDIS_DB) {
         $env:REDIS_DB = '1'
@@ -240,10 +240,10 @@ try {
         throw "前端端口 $FrontendPort 上已经有本项目实例，但后端端口 $BackendPort 未就绪。为避免代理错连，请先释放该前端实例或补齐匹配后端。"
     }
 
-    $backendLog = Join-Path $backendRoot "spring-demo.log"
-    $backendErrLog = Join-Path $backendRoot "spring-demo.err.log"
-    $frontendLog = Join-Path $frontendRoot "vite-demo.log"
-    $frontendErrLog = Join-Path $frontendRoot "vite-demo.err.log"
+    $backendLog = Join-Path $backendRoot "spring-browser.log"
+    $backendErrLog = Join-Path $backendRoot "spring-browser.err.log"
+    $frontendLog = Join-Path $frontendRoot "vite-browser.log"
+    $frontendErrLog = Join-Path $frontendRoot "vite-browser.err.log"
     Remove-Item $backendLog, $backendErrLog, $frontendLog, $frontendErrLog -ErrorAction SilentlyContinue
 
     if (-not $reusedBackend) {
@@ -278,7 +278,7 @@ try {
 
     if ($KeepRunning -or $startedFrontend -or $startedBackend) {
         @{
-            stackKind = 'demo-browser'
+            stackKind = 'browser-stack'
             frontendPort = $FrontendPort
             backendPort = $BackendPort
             frontendPid = if ($activeFrontendPid) { [int]$activeFrontendPid } else { $null }
@@ -298,7 +298,7 @@ try {
 
     if ($SkipPlaywright) {
         if ($KeepRunning) {
-            Write-Host "Demo/E2E stack is running and has been left active."
+            Write-Host "Managed browser/E2E stack is running and has been left active."
             if ($startedFrontend -or $startedBackend) {
                 Write-Host "Use scripts\\stop-real-browser-stack.ps1 to stop the managed instance."
             } else {
@@ -357,3 +357,4 @@ finally {
         Remove-Item $stackStateFile -ErrorAction SilentlyContinue
     }
 }
+

@@ -1,4 +1,4 @@
-param(
+﻿param(
     [int]$FrontendPort = 5178,
     [int]$BackendPort = 8085
 )
@@ -7,7 +7,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = Split-Path $PSScriptRoot -Parent
-$stackStateFile = Join-Path $projectRoot 'tmp-demo-browser-stack.json'
+$stackStateFile = Join-Path $projectRoot 'tmp-browser-stack.json'
 
 function Get-ListeningProcessIds {
     param([int[]]$Ports)
@@ -123,3 +123,4 @@ if (Test-Path $stackStateFile) {
 } else {
     Write-Host "No managed browser stack state found. No processes were stopped."
 }
+

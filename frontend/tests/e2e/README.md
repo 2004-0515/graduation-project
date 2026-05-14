@@ -1,4 +1,4 @@
-# 浏览器测试与 E2E 运行说明
+﻿# 浏览器测试与 E2E 运行说明
 
 ## 两层验证怎么用
 
@@ -28,7 +28,7 @@
 - 开发模式默认地址：
   - 前端：`http://127.0.0.1:5173`
   - 后端：`http://127.0.0.1:8080/api`
-- 演示 / E2E 固定脚本地址：
+- 浏览器 / E2E 固定脚本地址：
   - 前端：`http://127.0.0.1:5178`
   - 后端：`http://127.0.0.1:8085/api`
 - 后端默认地址：
@@ -37,7 +37,7 @@
 - 重要约束：
   - `5173 + 8080` 只留给正常开发，不让 E2E 脚本抢占
   - `5178 + 8085` 专门留给演示 / E2E / 浏览器巡检
-  - 浏览器巡检与 Playwright E2E 的默认目标应该是独立演示库，而不是当前真实业务库
+  - 浏览器巡检与 Playwright E2E 的默认目标应该是隔离测试库，而不是当前真实业务库
   - `application-local.properties` / `data-local.sql` 只用于临时隔离调试，不应被当成真实联调基线
 - Playwright `baseURL`：
   - 默认读取 `PLAYWRIGHT_BASE_URL`
@@ -75,8 +75,8 @@ powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\run-real-
 ```
 
 这个脚本会：
-- 默认启动独立演示栈到 `5178 / 8085`
-- 后端使用 `demo,browser` profile，并默认连到 `shopping_mall_demo`
+- 默认启动隔离测试栈到 `5178 / 8085`
+- 后端使用 `demo,browser` profile，并默认连到 `shopping_mall_test`
 - 如果端口上已经是本项目实例，则复用；如果不是本项目实例，则直接报错
 - 跑完 Playwright 后自动回收前后端进程
 
@@ -134,7 +134,7 @@ npm run test:e2e:smoke
   - `Vitest`：Node `20.19.0` 下执行 `npm run test:run`
   - `Playwright E2E`：
     - 起 MySQL 8 与 Redis 7 service
-    - 初始化 `shopping_mall_demo`
+    - 初始化 `shopping_mall_test`
     - 启动后端到 `127.0.0.1:8085`
     - 启动前端到 `127.0.0.1:5178`
     - 执行 `npx playwright test tests/e2e`
@@ -142,7 +142,7 @@ npm run test:e2e:smoke
 - 本地与 CI 的端口语义保持一致：
   - 前端 `5178`
   - 后端 `8085`
-  - 演示库 `shopping_mall_demo`
+  - 隔离测试库 `shopping_mall_test`
 
 如果要在本地尽量贴近 CI，优先使用：
 
@@ -164,26 +164,17 @@ $env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:5174'
 npm run test:e2e:smoke
 ```
 
-## 演示库初始化
+## 隔离测试库初始化
 
-独立演示库推荐库名：`shopping_mall_demo`
-
-```powershell
-powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\reset-demo-environment.ps1
-```
-
-这个脚本会：
-- 重建 `shopping_mall_demo`
-- 导入 `schema.sql` 和 `data.sql`
-- 再应用 `demo-data-enhancement.sql`
-
-如果只想补演示增强数据：
+浏览器巡检与 E2E 默认建议使用单独的 `shopping_mall_test`，不要直接指向真实业务库。
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\apply-demo-data-enhancement.ps1
+mysql --default-character-set=utf8mb4 -uroot -p -e "DROP DATABASE IF EXISTS shopping_mall_test; CREATE DATABASE shopping_mall_test DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci;"
+mysql --default-character-set=utf8mb4 -uroot -p shopping_mall_test < backend/src/main/resources/schema.sql
+mysql --default-character-set=utf8mb4 -uroot -p shopping_mall_test < backend/src/main/resources/data.sql
 ```
 
-默认会拒绝直接修改主库 `shopping_mall`，除非你显式传 `-AllowPrimaryDatabase`。
+如果需要更丰富的订单、评价、通知或价格提醒数据，建议从当前稳定库导出必要记录，再导入 `shopping_mall_test`，而不是长期保留一次性补库脚本。
 
 ## 当前脚本分组
 
@@ -411,3 +402,4 @@ powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\apply-dem
   - 固定测试账号
   - 固定商品与订单前置数据
   - 固定运行命令
+

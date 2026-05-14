@@ -1,4 +1,4 @@
-name: Frontend Tests
+﻿name: Frontend Tests
 
 on:
   push:
@@ -65,7 +65,7 @@ jobs:
     env:
       DB_HOST: 127.0.0.1
       DB_PORT: 3306
-      DB_NAME: shopping_mall_demo
+      DB_NAME: shopping_mall_test
       DB_USERNAME: root
       DB_PASSWORD: 123456
       REDIS_HOST: 127.0.0.1
@@ -104,7 +104,7 @@ jobs:
       - name: Install MySQL client
         run: sudo apt-get update && sudo apt-get install -y mysql-client
 
-      - name: Prepare CI demo SQL files
+      - name: Prepare CI SQL files
         shell: bash
         run: |
           set -euo pipefail
@@ -115,9 +115,9 @@ jobs:
           def normalize_database(content: str) -> str:
               content = content.replace(
                   "CREATE DATABASE IF NOT EXISTS shopping_mall",
-                  "CREATE DATABASE IF NOT EXISTS shopping_mall_demo",
+                  "CREATE DATABASE IF NOT EXISTS shopping_mall_test",
               )
-              return content.replace("USE shopping_mall;", "USE shopping_mall_demo;")
+              return content.replace("USE shopping_mall;", "USE shopping_mall_test;")
 
           schema_source = normalize_database(
               Path("backend/src/main/resources/schema.sql").read_text(encoding="utf-8")
@@ -168,13 +168,13 @@ jobs:
               target.write_text(chunk + "\n", encoding="utf-8")
           PY
 
-      - name: Create demo database
+      - name: Create test database
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 -e "DROP DATABASE IF EXISTS shopping_mall_demo; CREATE DATABASE shopping_mall_demo DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci;"
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 -e "DROP DATABASE IF EXISTS shopping_mall_test; CREATE DATABASE shopping_mall_test DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci;"
 
-      - name: Import schema.sql into demo database
+      - name: Import schema.sql into test database
         shell: bash
         run: |
           set -euo pipefail
@@ -191,18 +191,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/01-tb_user.sql
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/01-tb_user.sql
 
       - name: Inspect imported tb_user ids
         shell: bash
         run: |
           set -euo pipefail
           user_snapshot="$(
-            mysql --default-character-set=utf8mb4 -N -h 127.0.0.1 -uroot -p123456 shopping_mall_demo \
+            mysql --default-character-set=utf8mb4 -N -h 127.0.0.1 -uroot -p123456 shopping_mall_test \
               -e "SELECT GROUP_CONCAT(CONCAT(id, ':', username) ORDER BY id SEPARATOR ', ') FROM tb_user"
           )"
           wangwu_id="$(
-            mysql --default-character-set=utf8mb4 -N -h 127.0.0.1 -uroot -p123456 shopping_mall_demo \
+            mysql --default-character-set=utf8mb4 -N -h 127.0.0.1 -uroot -p123456 shopping_mall_test \
               -e "SELECT COALESCE(CAST(id AS CHAR), 'missing') FROM tb_user WHERE username = 'wangwu'"
           )"
           echo "::notice title=tb_user ids::${user_snapshot}"
@@ -212,55 +212,55 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/02-tb_category.sql
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/02-tb_category.sql
 
       - name: Import 03-tb_product.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/03-tb_product.sql
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/03-tb_product.sql
 
       - name: Import 04-addresses.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/04-addresses.sql
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/04-addresses.sql
 
       - name: Import 05-security_settings.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/05-security_settings.sql
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/05-security_settings.sql
 
       - name: Import 06-privacy_settings.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/06-privacy_settings.sql
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/06-privacy_settings.sql
 
       - name: Import 07-notification_settings.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/07-notification_settings.sql
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/07-notification_settings.sql
 
       - name: Import 08-tb_coupon.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/08-tb_coupon.sql
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/08-tb_coupon.sql
 
       - name: Import 09-tb_price_history.sql
         shell: bash
         run: |
           set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/09-tb_price_history.sql
+          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/09-tb_price_history.sql
 
       - name: Import 10-tb_price_alert.sql
         shell: bash
         run: |
           set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/10-tb_price_alert.sql 2>mysql-import-10.stderr; then
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/10-tb_price_alert.sql 2>mysql-import-10.stderr; then
             echo "::error title=Import 10-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-10.stderr)"
             cat mysql-import-10.stderr
             exit 1
@@ -270,7 +270,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/11-tb_price_alert.sql 2>mysql-import-11.stderr; then
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/11-tb_price_alert.sql 2>mysql-import-11.stderr; then
             echo "::error title=Import 11-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-11.stderr)"
             cat mysql-import-11.stderr
             exit 1
@@ -280,7 +280,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/12-tb_price_alert.sql 2>mysql-import-12.stderr; then
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/12-tb_price_alert.sql 2>mysql-import-12.stderr; then
             echo "::error title=Import 12-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-12.stderr)"
             cat mysql-import-12.stderr
             exit 1
@@ -290,7 +290,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/13-tb_price_alert.sql 2>mysql-import-13.stderr; then
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/13-tb_price_alert.sql 2>mysql-import-13.stderr; then
             echo "::error title=Import 13-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-13.stderr)"
             cat mysql-import-13.stderr
             exit 1
@@ -300,7 +300,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/14-tb_price_alert.sql 2>mysql-import-14.stderr; then
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/14-tb_price_alert.sql 2>mysql-import-14.stderr; then
             echo "::error title=Import 14-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-14.stderr)"
             cat mysql-import-14.stderr
             exit 1
@@ -310,7 +310,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/15-tb_price_alert.sql 2>mysql-import-15.stderr; then
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/15-tb_price_alert.sql 2>mysql-import-15.stderr; then
             echo "::error title=Import 15-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-15.stderr)"
             cat mysql-import-15.stderr
             exit 1
@@ -320,7 +320,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/16-tb_price_alert.sql 2>mysql-import-16.stderr; then
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/16-tb_price_alert.sql 2>mysql-import-16.stderr; then
             echo "::error title=Import 16-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-16.stderr)"
             cat mysql-import-16.stderr
             exit 1
@@ -330,17 +330,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < backend/src/main/resources/data-ci-steps/17-tb_price_alert.sql 2>mysql-import-17.stderr; then
+          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/17-tb_price_alert.sql 2>mysql-import-17.stderr; then
             echo "::error title=Import 17-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-17.stderr)"
             cat mysql-import-17.stderr
             exit 1
           fi
-
-      - name: Import demo enhancement SQL
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_demo < scripts/demo-data-enhancement.sql
 
       - name: Prepare isolated uploads directory
         shell: bash
@@ -405,3 +399,4 @@ jobs:
             backend/spring-ci.err.log
             frontend/vite-ci.log
             frontend/vite-ci.err.log
+
