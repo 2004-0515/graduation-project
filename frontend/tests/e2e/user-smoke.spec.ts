@@ -21,7 +21,15 @@ async function gotoAuthed(page: Page, path: string, testId: string) {
     }
 
     const pageRoot = page.getByTestId(testId)
-    if (await pageRoot.isVisible({ timeout: 8_000 }).catch(() => false)) {
+    if (
+      await pageRoot
+        .waitFor({
+          state: 'visible',
+          timeout: 15_000
+        })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       return
     }
 
