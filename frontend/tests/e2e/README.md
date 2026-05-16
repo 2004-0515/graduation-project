@@ -77,6 +77,7 @@ powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\run-real-
 这个脚本会：
 - 默认启动隔离测试栈到 `5178 / 8085`
 - 后端使用 `demo,browser` profile，并默认连到 `shopping_mall_test`
+- 先校验本地化测试数据；如果 `shopping_mall_test` 已被上一次真实回归写脏，会自动重建到目标快照
 - 如果端口上已经是本项目实例，则复用；如果不是本项目实例，则直接报错
 - 跑完 Playwright 后自动回收前后端进程
 
@@ -84,6 +85,12 @@ powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\run-real-
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\start-real-browser-stack.ps1
+```
+
+如果测试库不在本地默认 MySQL 实例上，可以直接带上同一套 DB 参数：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\start-real-browser-stack.ps1 -DatabaseName shopping_mall_test -DatabaseHost 127.0.0.1 -DatabasePort 3306
 ```
 
 启动成功后默认地址固定为：
@@ -134,7 +141,8 @@ npm run test:e2e:smoke
   - `Vitest`：Node `20.19.0` 下执行 `npm run test:run`
   - `Playwright E2E`：
     - 起 MySQL 8 与 Redis 7 service
-    - 初始化 `shopping_mall_test`
+    - 导入 `schema.sql` 的 DDL-only CI 变体
+    - 运行 `scripts/rebuild-graduation-data.ps1 -Mode execute` 重建 `shopping_mall_test`
     - 启动后端到 `127.0.0.1:8085`
     - 启动前端到 `127.0.0.1:5178`
     - 执行 `npx playwright test tests/e2e`
@@ -171,10 +179,10 @@ npm run test:e2e:smoke
 ```powershell
 mysql --default-character-set=utf8mb4 -uroot -p -e "DROP DATABASE IF EXISTS shopping_mall_test; CREATE DATABASE shopping_mall_test DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci;"
 mysql --default-character-set=utf8mb4 -uroot -p shopping_mall_test < backend/src/main/resources/schema.sql
-mysql --default-character-set=utf8mb4 -uroot -p shopping_mall_test < backend/src/main/resources/data.sql
+powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\rebuild-graduation-data.ps1 -Mode execute -DatabaseName shopping_mall_test
 ```
 
-如果需要更丰富的订单、评价、通知或价格提醒数据，建议从当前稳定库导出必要记录，再导入 `shopping_mall_test`，而不是长期保留一次性补库脚本。
+如果 MySQL 不是本地默认实例，可以补上 `-DatabaseHost 127.0.0.1 -DatabasePort 3306`。
 
 ## 当前脚本分组
 

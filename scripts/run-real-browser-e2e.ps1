@@ -20,6 +20,7 @@ $stackStateFile = Join-Path $projectRoot 'tmp-browser-stack.json'
 $uploadsRoot = Join-Path $projectRoot 'uploads'
 $tempRoot = Join-Path $projectRoot '.tmp'
 $e2eUploadsRoot = Join-Path $tempRoot 'e2e-uploads'
+$seedScript = Join-Path $PSScriptRoot 'rebuild-graduation-data.ps1'
 
 function Resolve-CommandPath {
     param(
@@ -184,6 +185,108 @@ function Reset-E2EUploadsDirectory {
     Copy-Item -Path (Join-Path $SourcePath '*') -Destination $TargetPath -Recurse -Force
 }
 
+function ConvertTo-GraduationDatasetStatus {
+    param([string[]]$Lines)
+
+    $startIndex = -1
+    for ($i = 0; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i].Trim().StartsWith("{")) {
+            $startIndex = $i
+            break
+        }
+    }
+
+    if ($startIndex -lt 0) {
+        return $null
+    }
+
+    $jsonText = ($Lines[$startIndex..($Lines.Count - 1)] -join [Environment]::NewLine)
+    return $jsonText | ConvertFrom-Json
+}
+
+function Get-GraduationDatasetStatus {
+    param(
+        [string]$DatabaseName,
+        [string]$DatabaseUser,
+        [string]$DatabasePassword,
+        [string]$DatabaseHost = "",
+        [string]$DatabasePort = ""
+    )
+
+    $seedArgs = @{
+        Mode = "verify"
+        DatabaseName = $DatabaseName
+        DatabaseUser = $DatabaseUser
+        DatabasePassword = $DatabasePassword
+    }
+    if ($DatabaseHost) {
+        $seedArgs.DatabaseHost = $DatabaseHost
+    }
+    if ($DatabasePort) {
+        $seedArgs.DatabasePort = $DatabasePort
+    }
+
+    $output = & $seedScript @seedArgs 2>&1
+    $verifyExitCode = $LASTEXITCODE
+    $lines = @($output | ForEach-Object { "$_" })
+    $status = ConvertTo-GraduationDatasetStatus -Lines $lines
+    if ($status) {
+        return $status
+    }
+
+    return [pscustomobject]@{
+        ready = $false
+        database = $DatabaseName
+        verifyExitCode = $verifyExitCode
+        verifyError = ($lines -join [Environment]::NewLine).Trim()
+    }
+}
+
+function Ensure-GraduationDatasetReady {
+    param(
+        [string]$DatabaseName,
+        [string]$DatabaseUser,
+        [string]$DatabasePassword,
+        [string]$DatabaseHost = "",
+        [string]$DatabasePort = ""
+    )
+
+    if (-not (Test-Path $seedScript)) {
+        throw "未找到脚本: $seedScript"
+    }
+
+    Write-Host "Checking localized graduation dataset in $DatabaseName"
+    $status = Get-GraduationDatasetStatus -DatabaseName $DatabaseName -DatabaseUser $DatabaseUser -DatabasePassword $DatabasePassword -DatabaseHost $DatabaseHost -DatabasePort $DatabasePort
+    if ([bool]$status.ready) {
+        Write-Host "Localized graduation dataset already matches the target snapshot."
+        return
+    }
+
+    if ($status.PSObject.Properties.Name -contains 'verifyError' -and $status.verifyError) {
+        Write-Host "Localized dataset verification failed. Rebuilding local database content."
+    } else {
+        Write-Host "Localized dataset is incomplete. Rebuilding local database content."
+    }
+
+    $seedArgs = @{
+        Mode = "execute"
+        DatabaseName = $DatabaseName
+        DatabaseUser = $DatabaseUser
+        DatabasePassword = $DatabasePassword
+    }
+    if ($DatabaseHost) {
+        $seedArgs.DatabaseHost = $DatabaseHost
+    }
+    if ($DatabasePort) {
+        $seedArgs.DatabasePort = $DatabasePort
+    }
+
+    & $seedScript @seedArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "本地化数据重建失败，退出码: $LASTEXITCODE"
+    }
+}
+
 $frontendProc = $null
 $backendProc = $null
 $startedFrontend = $false
@@ -209,6 +312,12 @@ try {
     if (-not $env:REDIS_DB) {
         $env:REDIS_DB = '1'
     }
+
+    $dbUser = if ($env:DB_USERNAME) { $env:DB_USERNAME } else { 'root' }
+    $dbPassword = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { '123456' }
+    $dbHost = if ($env:DB_HOST) { $env:DB_HOST } else { '' }
+    $dbPort = if ($env:DB_PORT) { $env:DB_PORT } else { '' }
+    Ensure-GraduationDatasetReady -DatabaseName $env:DB_NAME -DatabaseUser $dbUser -DatabasePassword $dbPassword -DatabaseHost $dbHost -DatabasePort $dbPort
 
     Reset-E2EUploadsDirectory -SourcePath $uploadsRoot -TargetPath $e2eUploadsRoot
     $env:FILE_UPLOAD_DIR = $e2eUploadsRoot

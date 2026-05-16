@@ -93,6 +93,11 @@ jobs:
           java-version: '17'
           cache: maven
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
@@ -108,7 +113,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
+          python - <<'PY'
           import re
           from pathlib import Path
 
@@ -121,9 +126,6 @@ jobs:
 
           schema_source = normalize_database(
               Path("backend/src/main/resources/schema.sql").read_text(encoding="utf-8")
-          )
-          data_source = normalize_database(
-              Path("backend/src/main/resources/data.sql").read_text(encoding="utf-8")
           )
 
           # Keep CI schema import DDL-only so step failures map to actual schema problems.
@@ -146,26 +148,6 @@ jobs:
               schema_ci,
               encoding="utf-8",
           )
-          Path("backend/src/main/resources/data-ci.sql").write_text(
-              data_source,
-              encoding="utf-8",
-          )
-
-          # Split data.sql into individual INSERT statements for easier CI diagnostics.
-          insert_statements = re.findall(
-              r"(^INSERT INTO .*?;)\s*$",
-              data_source,
-              flags=re.M | re.S,
-          )
-          data_step_dir = Path("backend/src/main/resources/data-ci-steps")
-          data_step_dir.mkdir(exist_ok=True)
-          for old_file in data_step_dir.glob("*.sql"):
-              old_file.unlink()
-          for step_index, chunk in enumerate(insert_statements, start=1):
-              first_line = chunk.splitlines()[0]
-              table_name = first_line.split()[2]
-              target = data_step_dir / f"{step_index:02d}-{table_name}.sql"
-              target.write_text(chunk + "\n", encoding="utf-8")
           PY
 
       - name: Create test database
@@ -187,154 +169,16 @@ jobs:
             exit 1
           fi
 
-      - name: Import 01-tb_user.sql
-        shell: bash
+      - name: Rebuild localized test dataset
+        shell: pwsh
         run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/01-tb_user.sql
-
-      - name: Inspect imported tb_user ids
-        shell: bash
-        run: |
-          set -euo pipefail
-          user_snapshot="$(
-            mysql --default-character-set=utf8mb4 -N -h 127.0.0.1 -uroot -p123456 shopping_mall_test \
-              -e "SELECT GROUP_CONCAT(CONCAT(id, ':', username) ORDER BY id SEPARATOR ', ') FROM tb_user"
-          )"
-          wangwu_id="$(
-            mysql --default-character-set=utf8mb4 -N -h 127.0.0.1 -uroot -p123456 shopping_mall_test \
-              -e "SELECT COALESCE(CAST(id AS CHAR), 'missing') FROM tb_user WHERE username = 'wangwu'"
-          )"
-          echo "::notice title=tb_user ids::${user_snapshot}"
-          echo "::notice title=wangwu id::${wangwu_id}"
-
-      - name: Import 02-tb_category.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/02-tb_category.sql
-
-      - name: Import 03-tb_product.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/03-tb_product.sql
-
-      - name: Import 04-addresses.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/04-addresses.sql
-
-      - name: Import 05-security_settings.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/05-security_settings.sql
-
-      - name: Import 06-privacy_settings.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/06-privacy_settings.sql
-
-      - name: Import 07-notification_settings.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/07-notification_settings.sql
-
-      - name: Import 08-tb_coupon.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/08-tb_coupon.sql
-
-      - name: Import 09-tb_price_history.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/09-tb_price_history.sql
-
-      - name: Import 10-tb_price_alert.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/10-tb_price_alert.sql 2>mysql-import-10.stderr; then
-            echo "::error title=Import 10-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-10.stderr)"
-            cat mysql-import-10.stderr
-            exit 1
-          fi
-
-      - name: Import 11-tb_price_alert.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/11-tb_price_alert.sql 2>mysql-import-11.stderr; then
-            echo "::error title=Import 11-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-11.stderr)"
-            cat mysql-import-11.stderr
-            exit 1
-          fi
-
-      - name: Import 12-tb_price_alert.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/12-tb_price_alert.sql 2>mysql-import-12.stderr; then
-            echo "::error title=Import 12-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-12.stderr)"
-            cat mysql-import-12.stderr
-            exit 1
-          fi
-
-      - name: Import 13-tb_price_alert.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/13-tb_price_alert.sql 2>mysql-import-13.stderr; then
-            echo "::error title=Import 13-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-13.stderr)"
-            cat mysql-import-13.stderr
-            exit 1
-          fi
-
-      - name: Import 14-tb_price_alert.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/14-tb_price_alert.sql 2>mysql-import-14.stderr; then
-            echo "::error title=Import 14-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-14.stderr)"
-            cat mysql-import-14.stderr
-            exit 1
-          fi
-
-      - name: Import 15-tb_price_alert.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/15-tb_price_alert.sql 2>mysql-import-15.stderr; then
-            echo "::error title=Import 15-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-15.stderr)"
-            cat mysql-import-15.stderr
-            exit 1
-          fi
-
-      - name: Import 16-tb_price_alert.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/16-tb_price_alert.sql 2>mysql-import-16.stderr; then
-            echo "::error title=Import 16-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-16.stderr)"
-            cat mysql-import-16.stderr
-            exit 1
-          fi
-
-      - name: Import 17-tb_price_alert.sql
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! mysql --default-character-set=utf8mb4 -h 127.0.0.1 -uroot -p123456 shopping_mall_test < backend/src/main/resources/data-ci-steps/17-tb_price_alert.sql 2>mysql-import-17.stderr; then
-            echo "::error title=Import 17-tb_price_alert.sql::$(tr '\r\n' '  ' < mysql-import-17.stderr)"
-            cat mysql-import-17.stderr
-            exit 1
-          fi
+          ./scripts/rebuild-graduation-data.ps1 `
+            -Mode execute `
+            -DatabaseName shopping_mall_test `
+            -DatabaseUser root `
+            -DatabasePassword 123456 `
+            -DatabaseHost 127.0.0.1 `
+            -DatabasePort 3306
 
       - name: Prepare isolated uploads directory
         shell: bash
