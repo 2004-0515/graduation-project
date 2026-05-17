@@ -1,5 +1,6 @@
-﻿param(
+param(
     [string[]]$Specs = @(),
+    [string]$Suite = '',
     [int]$FrontendPort = 5178,
     [int]$BackendPort = 8085,
     [string]$BuyerUsername = 'zhangsan',
@@ -21,6 +22,63 @@ $uploadsRoot = Join-Path $projectRoot 'uploads'
 $tempRoot = Join-Path $projectRoot '.tmp'
 $e2eUploadsRoot = Join-Path $tempRoot 'e2e-uploads'
 $seedScript = Join-Path $PSScriptRoot 'rebuild-graduation-data.ps1'
+$viteCli = './node_modules/vite/bin/vite.js'
+$playwrightCli = './node_modules/playwright/cli.js'
+$isWindowsPlatform = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
+$suiteSpecsMap = @{
+    smoke = @(
+        'tests/e2e/smoke.spec.ts',
+        'tests/e2e/user-smoke.spec.ts',
+        'tests/e2e/admin-smoke.spec.ts'
+    )
+    public = @(
+        'tests/e2e/public-routes-smoke.spec.ts',
+        'tests/e2e/route-guard-smoke.spec.ts',
+        'tests/e2e/footer-navigation.spec.ts',
+        'tests/e2e/help-and-terms.spec.ts',
+        'tests/e2e/category-browse.spec.ts',
+        'tests/e2e/hot-products-browse.spec.ts',
+        'tests/e2e/search-dropdown-flow.spec.ts'
+    )
+    user = @(
+        'tests/e2e/account-settings.spec.ts',
+        'tests/e2e/profile-persistence.spec.ts',
+        'tests/e2e/profile-quick-actions.spec.ts',
+        'tests/e2e/address-management.spec.ts',
+        'tests/e2e/settings-persistence.spec.ts',
+        'tests/e2e/notifications-operations.spec.ts',
+        'tests/e2e/rational-consumption-flow.spec.ts',
+        'tests/e2e/cart-management.spec.ts',
+        'tests/e2e/product-detail-cart.spec.ts',
+        'tests/e2e/product-detail-wishlist.spec.ts',
+        'tests/e2e/product-detail-price-alert.spec.ts',
+        'tests/e2e/price-alerts-operations.spec.ts',
+        'tests/e2e/price-alert-notification.spec.ts',
+        'tests/e2e/coupon-flow.spec.ts',
+        'tests/e2e/contact-message-management.spec.ts'
+    )
+    orders = @(
+        'tests/e2e/payment-management.spec.ts',
+        'tests/e2e/orders-management.spec.ts',
+        'tests/e2e/order-detail-management.spec.ts',
+        'tests/e2e/seller-orders-management.spec.ts',
+        'tests/e2e/order-phase2.spec.ts'
+    )
+    admin = @(
+        'tests/e2e/admin-smoke.spec.ts',
+        'tests/e2e/admin-categories-management.spec.ts',
+        'tests/e2e/admin-users-management.spec.ts',
+        'tests/e2e/admin-notifications-management.spec.ts',
+        'tests/e2e/admin-rational-management.spec.ts',
+        'tests/e2e/admin-coupons-management.spec.ts',
+        'tests/e2e/admin-product-review-management.spec.ts',
+        'tests/e2e/admin-file-review-management.spec.ts',
+        'tests/e2e/admin-orders-management.spec.ts',
+        'tests/e2e/admin-price-alert-management.spec.ts',
+        'tests/e2e/my-products-management.spec.ts',
+        'tests/e2e/notification-routing.spec.ts'
+    )
+}
 
 function Resolve-CommandPath {
     param(
@@ -43,37 +101,79 @@ function Resolve-CommandPath {
         }
     }
 
-    throw "未找到 $Label，可通过 PATH 或环境变量提供。候选项: $($Candidates -join ', ')"
+    throw "Unable to locate $Label via PATH or environment variables. Candidates: $($Candidates -join ', ')"
 }
 
-$node = Resolve-CommandPath -Candidates @(
-    $env:NODE_EXE,
-    'node',
-    'C:\Program Files\cursor\resources\app\resources\helpers\node.exe'
-) -Label 'Node'
+$nodeCandidates = @(
+    $env:NODE_EXE
+)
+if ($isWindowsPlatform) {
+    $nodeCandidates += @(
+        'C:\Users\Administrator\AppData\Local\Programs\cursor\resources\app\resources\helpers\node.exe',
+        'C:\Program Files\cursor\resources\app\resources\helpers\node.exe',
+        'node'
+    )
+} else {
+    $nodeCandidates += 'node'
+}
+$node = Resolve-CommandPath -Candidates $nodeCandidates -Label 'Node'
 
-$maven = Resolve-CommandPath -Candidates @(
-    $env:MAVEN_CMD,
-    'mvn.cmd',
-    'mvn',
-    'D:\apache-maven-3.9.9\bin\mvn.cmd'
-) -Label 'Maven'
+$mavenCandidates = @($env:MAVEN_CMD)
+if ($isWindowsPlatform) {
+    $mavenCandidates += @(
+        'mvn.cmd',
+        'mvn',
+        'D:\apache-maven-3.9.9\bin\mvn.cmd'
+    )
+} else {
+    $mavenCandidates += 'mvn'
+}
+$maven = Resolve-CommandPath -Candidates $mavenCandidates -Label 'Maven'
 
 function Get-ListeningProcessIds {
     param([int[]]$Ports)
 
     $ids = [System.Collections.Generic.HashSet[int]]::new()
-    $patterns = $Ports | ForEach-Object { ":$_\s" }
-    $matches = netstat -ano | Select-String -Pattern $patterns
+    if ($isWindowsPlatform) {
+        $patterns = $Ports | ForEach-Object { ":$_\s" }
+        $matches = netstat -ano | Select-String -Pattern $patterns
 
-    foreach ($line in $matches) {
-        $parts = (($line.ToString() -replace '^\s+', '') -split '\s+')
-        if ($parts.Length -ge 5 -and $parts[0] -eq 'TCP' -and $parts[3] -eq 'LISTENING') {
-            [void]$ids.Add([int]$parts[4])
+        foreach ($line in $matches) {
+            $parts = (($line.ToString() -replace '^\s+', '') -split '\s+')
+            if ($parts.Length -ge 5 -and $parts[0] -eq 'TCP' -and $parts[3] -eq 'LISTENING') {
+                [void]$ids.Add([int]$parts[4])
+            }
         }
+
+        return @($ids)
     }
 
-    return @($ids)
+    if (Get-Command 'ss' -ErrorAction SilentlyContinue) {
+        $matches = ss -ltnp 2>$null
+        foreach ($line in $matches) {
+            if ($line -match 'LISTEN' -and $line -match ':(?<port>\d+)\s+\S+.*pid=(?<pid>\d+)') {
+                if ($Ports -contains [int]$Matches.port) {
+                    [void]$ids.Add([int]$Matches.pid)
+                }
+            }
+        }
+        return @($ids)
+    }
+
+    if (Get-Command 'netstat' -ErrorAction SilentlyContinue) {
+        $matches = netstat -ltnp 2>$null
+        foreach ($line in $matches) {
+            if ($line -match ':(?<port>\d+)\s+\S+\s+LISTEN\s+(?<pid>\d+)') {
+                if ($Ports -contains [int]$Matches.port) {
+                    [void]$ids.Add([int]$Matches.pid)
+                }
+            }
+        }
+
+        return @($ids)
+    }
+
+    throw 'No supported port inspection command was found. Install ss or netstat.'
 }
 
 function Get-ListeningProcessId {
@@ -87,7 +187,7 @@ function Get-PortProcessSummary {
 
     $processIds = @(Get-ListeningProcessIds -Ports @($Port))
     if ($processIds.Count -eq 0) {
-        return '无'
+        return 'none'
     }
 
     $processList = foreach ($processId in $processIds | Sort-Object -Unique) {
@@ -162,7 +262,32 @@ function Wait-HttpReady {
         Start-Sleep -Seconds 2
     }
 
-    throw "服务未就绪: $Url"
+    throw "Service did not become ready: $Url"
+}
+
+function Start-ManagedProcess {
+    param(
+        [string]$FilePath,
+        [string[]]$ArgumentList,
+        [string]$WorkingDirectory,
+        [string]$StdoutPath,
+        [string]$StderrPath
+    )
+
+    $params = @{
+        FilePath = $FilePath
+        ArgumentList = $ArgumentList
+        WorkingDirectory = $WorkingDirectory
+        PassThru = $true
+        RedirectStandardOutput = $StdoutPath
+        RedirectStandardError = $StderrPath
+    }
+
+    if ($isWindowsPlatform) {
+        $params.WindowStyle = 'Hidden'
+    }
+
+    return Start-Process @params
 }
 
 function Reset-E2EUploadsDirectory {
@@ -172,7 +297,7 @@ function Reset-E2EUploadsDirectory {
     )
 
     if (-not (Test-Path $SourcePath)) {
-        throw "上传资源目录不存在: $SourcePath"
+        throw "Upload asset source directory does not exist: $SourcePath"
     }
 
     New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
@@ -252,7 +377,7 @@ function Ensure-GraduationDatasetReady {
     )
 
     if (-not (Test-Path $seedScript)) {
-        throw "未找到脚本: $seedScript"
+        throw "Required script was not found: $seedScript"
     }
 
     Write-Host "Checking localized graduation dataset in $DatabaseName"
@@ -283,7 +408,7 @@ function Ensure-GraduationDatasetReady {
 
     & $seedScript @seedArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "本地化数据重建失败，退出码: $LASTEXITCODE"
+        throw "Localized dataset rebuild failed with exit code: $LASTEXITCODE"
     }
 }
 
@@ -295,6 +420,14 @@ $reusedFrontend = $false
 $reusedBackend = $false
 $activeFrontendPid = $null
 $activeBackendPid = $null
+if ($Suite) {
+    if (-not $suiteSpecsMap.ContainsKey($Suite)) {
+        throw "Unknown E2E suite: $Suite. Allowed values: $($suiteSpecsMap.Keys -join ', ')"
+    }
+
+    $Specs = @($suiteSpecsMap[$Suite]) + @($Specs)
+}
+
 $Specs = @(
     $Specs |
         Where-Object { $_ } |
@@ -331,7 +464,7 @@ try {
             $activeFrontendPid = Get-ListeningProcessId -Port $FrontendPort
             Write-Host "Reusing existing project frontend on http://127.0.0.1:$FrontendPort"
         } else {
-            throw ('前端端口 {0} 已被非本项目实例占用: {1}' -f $FrontendPort, (Get-PortProcessSummary -Port $FrontendPort))
+            throw ('Frontend port {0} is already occupied by a non-project process: {1}' -f $FrontendPort, (Get-PortProcessSummary -Port $FrontendPort))
         }
     }
 
@@ -341,12 +474,12 @@ try {
             $activeBackendPid = Get-ListeningProcessId -Port $BackendPort
             Write-Host "Reusing existing project backend on http://127.0.0.1:$BackendPort/api"
         } else {
-            throw ('后端端口 {0} 已被非本项目实例占用: {1}' -f $BackendPort, (Get-PortProcessSummary -Port $BackendPort))
+            throw ('Backend port {0} is already occupied by a non-project process: {1}' -f $BackendPort, (Get-PortProcessSummary -Port $BackendPort))
         }
     }
 
     if ($reusedFrontend -and -not $reusedBackend) {
-        throw "前端端口 $FrontendPort 上已经有本项目实例，但后端端口 $BackendPort 未就绪。为避免代理错连，请先释放该前端实例或补齐匹配后端。"
+        throw "A project frontend is already listening on port $FrontendPort, but the matching backend on port $BackendPort is not ready. Release the frontend instance or start the matching backend first."
     }
 
     $backendLog = Join-Path $backendRoot "spring-browser.log"
@@ -356,14 +489,25 @@ try {
     Remove-Item $backendLog, $backendErrLog, $frontendLog, $frontendErrLog -ErrorAction SilentlyContinue
 
     if (-not $reusedBackend) {
-        $backendArgs = @(
-            '/c',
-            "`"$maven`"",
-            'spring-boot:run',
-            '-Dspring-boot.run.profiles=demo,browser',
-            "-Dspring-boot.run.arguments=--server.port=$BackendPort"
-        )
-        $backendProc = Start-Process -FilePath 'cmd.exe' -ArgumentList $backendArgs -WorkingDirectory $backendRoot -PassThru -WindowStyle Hidden -RedirectStandardOutput $backendLog -RedirectStandardError $backendErrLog
+        if ($isWindowsPlatform) {
+            $backendFilePath = 'cmd.exe'
+            $backendArgs = @(
+                '/c',
+                "`"$maven`"",
+                'spring-boot:run',
+                '-Dspring-boot.run.profiles=demo,browser',
+                "-Dspring-boot.run.arguments=--server.port=$BackendPort"
+            )
+        } else {
+            $backendFilePath = $maven
+            $backendArgs = @(
+                'spring-boot:run',
+                '-Dspring-boot.run.profiles=demo,browser',
+                "-Dspring-boot.run.arguments=--server.port=$BackendPort"
+            )
+        }
+
+        $backendProc = Start-ManagedProcess -FilePath $backendFilePath -ArgumentList $backendArgs -WorkingDirectory $backendRoot -StdoutPath $backendLog -StderrPath $backendErrLog
         $startedBackend = $true
     }
 
@@ -375,8 +519,8 @@ try {
     if (-not $reusedFrontend) {
         $env:VITE_PROXY_TARGET = "http://127.0.0.1:$BackendPort"
         $env:VITE_E2E = 'true'
-        $frontendArgs = @('.\node_modules\vite\bin\vite.js', '--host', '127.0.0.1', '--port', "$FrontendPort")
-        $frontendProc = Start-Process -FilePath $node -ArgumentList $frontendArgs -WorkingDirectory $frontendRoot -PassThru -WindowStyle Hidden -RedirectStandardOutput $frontendLog -RedirectStandardError $frontendErrLog
+        $frontendArgs = @($viteCli, '--host', '127.0.0.1', '--port', "$FrontendPort")
+        $frontendProc = Start-ManagedProcess -FilePath $node -ArgumentList $frontendArgs -WorkingDirectory $frontendRoot -StdoutPath $frontendLog -StderrPath $frontendErrLog
         $startedFrontend = $true
     }
 
@@ -429,7 +573,7 @@ try {
     $env:E2E_ADMIN_USERNAME = $AdminUsername
     $env:E2E_PASSWORD = $Password
 
-    $playwrightArgs = @('.\node_modules\playwright\cli.js', 'test')
+    $playwrightArgs = @($playwrightCli, 'test')
     if ($Specs.Count -gt 0) {
         $playwrightArgs += $Specs
     }
@@ -441,7 +585,7 @@ try {
     try {
         & $node @playwrightArgs
         if ($LASTEXITCODE -ne 0) {
-            throw "Playwright 失败，退出码: $LASTEXITCODE"
+            throw "Playwright failed with exit code: $LASTEXITCODE"
         }
     } finally {
         Pop-Location
@@ -449,17 +593,28 @@ try {
 }
 finally {
     if (-not $KeepRunning) {
-        $managedProcesses = @()
-        if ($startedFrontend -and $frontendProc) {
-            $managedProcesses += $frontendProc
+        $managedProcessIds = [System.Collections.Generic.HashSet[int]]::new()
+        if ($startedFrontend) {
+            if ($frontendProc) {
+                [void]$managedProcessIds.Add([int]$frontendProc.Id)
+            }
+            if ($activeFrontendPid) {
+                [void]$managedProcessIds.Add([int]$activeFrontendPid)
+            }
         }
-        if ($startedBackend -and $backendProc) {
-            $managedProcesses += $backendProc
+        if ($startedBackend) {
+            if ($backendProc) {
+                [void]$managedProcessIds.Add([int]$backendProc.Id)
+            }
+            if ($activeBackendPid) {
+                [void]$managedProcessIds.Add([int]$activeBackendPid)
+            }
         }
 
-        foreach ($process in $managedProcesses) {
+        foreach ($processId in $managedProcessIds) {
+            $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
             if ($process -and -not $process.HasExited) {
-                Stop-Process -Id $process.Id -Force
+                Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
             }
         }
 

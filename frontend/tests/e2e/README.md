@@ -142,11 +142,11 @@ npm run test:e2e:smoke
   - `Playwright E2E`：
     - 起 MySQL 8 与 Redis 7 service
     - 导入 `schema.sql` 的 DDL-only CI 变体
-    - 运行 `scripts/rebuild-graduation-data.ps1 -Mode execute` 重建 `shopping_mall_test`
-    - 启动后端到 `127.0.0.1:8085`
-    - 启动前端到 `127.0.0.1:5178`
-    - 执行 `npx playwright test tests/e2e`
-    - 失败时上传 Playwright 报告和前后端日志
+    - 按 `smoke / public / user / orders / admin` 五组矩阵并行执行
+    - 每组统一调用 `scripts/run-real-browser-e2e.ps1 -Suite <name>`
+    - 由脚本校验或重建 `shopping_mall_test`，并管理 `127.0.0.1:5178 -> 8085` 浏览器栈
+    - 失败时上传 Playwright 报告和浏览器栈日志
+    - 本地 `npm run test:e2e:smoke/public/user/orders/admin` 与 CI 共用同一份 suite 映射，避免分组漂移
 - 本地与 CI 的端口语义保持一致：
   - 前端 `5178`
   - 后端 `8085`

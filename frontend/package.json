@@ -11,16 +11,16 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest src/test",
-    "test:run": "vitest run src/test",
+    "test:run": "vitest run src/test --maxWorkers=1 --minWorkers=1",
     "test:coverage": "vitest run src/test --coverage",
     "test:e2e": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\run-real-browser-e2e.ps1",
     "test:e2e:all": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\run-real-browser-e2e.ps1",
     "test:e2e:headed": "playwright test --headed",
-    "test:e2e:smoke": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\run-real-browser-e2e.ps1 -Specs tests/e2e/smoke.spec.ts,tests/e2e/user-smoke.spec.ts,tests/e2e/admin-smoke.spec.ts",
-    "test:e2e:public": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\run-real-browser-e2e.ps1 -Specs tests/e2e/public-routes-smoke.spec.ts,tests/e2e/route-guard-smoke.spec.ts,tests/e2e/footer-navigation.spec.ts,tests/e2e/help-and-terms.spec.ts,tests/e2e/category-browse.spec.ts,tests/e2e/hot-products-browse.spec.ts,tests/e2e/search-dropdown-flow.spec.ts",
-    "test:e2e:user": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\run-real-browser-e2e.ps1 -Specs tests/e2e/account-settings.spec.ts,tests/e2e/profile-persistence.spec.ts,tests/e2e/profile-quick-actions.spec.ts,tests/e2e/address-management.spec.ts,tests/e2e/settings-persistence.spec.ts,tests/e2e/notifications-operations.spec.ts,tests/e2e/rational-consumption-flow.spec.ts,tests/e2e/cart-management.spec.ts,tests/e2e/product-detail-cart.spec.ts,tests/e2e/product-detail-wishlist.spec.ts,tests/e2e/product-detail-price-alert.spec.ts,tests/e2e/price-alerts-operations.spec.ts,tests/e2e/price-alert-notification.spec.ts,tests/e2e/coupon-flow.spec.ts,tests/e2e/contact-message-management.spec.ts",
-    "test:e2e:orders": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\run-real-browser-e2e.ps1 -Specs tests/e2e/payment-management.spec.ts,tests/e2e/orders-management.spec.ts,tests/e2e/order-detail-management.spec.ts,tests/e2e/seller-orders-management.spec.ts,tests/e2e/order-phase2.spec.ts",
-    "test:e2e:admin": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\run-real-browser-e2e.ps1 -Specs tests/e2e/admin-smoke.spec.ts,tests/e2e/admin-categories-management.spec.ts,tests/e2e/admin-users-management.spec.ts,tests/e2e/admin-notifications-management.spec.ts,tests/e2e/admin-rational-management.spec.ts,tests/e2e/admin-coupons-management.spec.ts,tests/e2e/admin-product-review-management.spec.ts,tests/e2e/admin-file-review-management.spec.ts,tests/e2e/admin-orders-management.spec.ts,tests/e2e/admin-price-alert-management.spec.ts,tests/e2e/my-products-management.spec.ts,tests/e2e/notification-routing.spec.ts"
+    "test:e2e:smoke": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\run-real-browser-e2e.ps1 -Suite smoke",
+    "test:e2e:public": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\run-real-browser-e2e.ps1 -Suite public",
+    "test:e2e:user": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\run-real-browser-e2e.ps1 -Suite user",
+    "test:e2e:orders": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\run-real-browser-e2e.ps1 -Suite orders",
+    "test:e2e:admin": "powershell -ExecutionPolicy Bypass -File ..\\scripts\\run-real-browser-e2e.ps1 -Suite admin"
   },
   "dependencies": {
     "axios": "^1.13.2",

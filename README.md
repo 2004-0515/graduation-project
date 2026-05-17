@@ -168,7 +168,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-real-browser-stack.ps1 
 
 ## Notes
 
-- The localized dataset flow targets Windows PowerShell and auto-discovers `mysql`, `python`, or `python3`. Set `MYSQL_EXE` or `PYTHON_EXE` only when auto-discovery is insufficient.
+- The localized dataset flow is validated in PowerShell 7 for CI and remains compatible with local Windows PowerShell. It auto-discovers `mysql`, `python`, or `python3`; set `MYSQL_EXE` or `PYTHON_EXE` only when auto-discovery is insufficient.
 - `execute` is a deterministic rebuild of business data, not an additive fill.
 - The script rebuilds the requested target database from a clean business snapshot while keeping local uploaded assets in place.
 - `frontend/.env.development` intentionally does not contain a real AI API key. Configure one locally only when testing the optional AI assistant.

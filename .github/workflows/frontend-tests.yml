@@ -37,10 +37,14 @@ jobs:
         run: npm run test:run
 
   playwright:
-    name: Playwright E2E
+    name: Playwright E2E (${{ matrix.suite }})
     runs-on: ubuntu-latest
     needs: vitest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [smoke, public, user, orders, admin]
     services:
       mysql:
         image: mysql:8.0
@@ -70,10 +74,6 @@ jobs:
       DB_PASSWORD: 123456
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: 6379
-      PLAYWRIGHT_BASE_URL: http://127.0.0.1:5178
-      VITE_PROXY_TARGET: http://127.0.0.1:8085
-      VITE_E2E: 'true'
-      FILE_UPLOAD_DIR: ${{ github.workspace }}/.tmp/e2e-uploads
       CI: true
     steps:
       - name: Checkout
@@ -169,78 +169,21 @@ jobs:
             exit 1
           fi
 
-      - name: Rebuild localized test dataset
+      - name: Run Playwright suite through browser stack wrapper
         shell: pwsh
         run: |
-          ./scripts/rebuild-graduation-data.ps1 `
-            -Mode execute `
-            -DatabaseName shopping_mall_test `
-            -DatabaseUser root `
-            -DatabasePassword 123456 `
-            -DatabaseHost 127.0.0.1 `
-            -DatabasePort 3306
-
-      - name: Prepare isolated uploads directory
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf "$FILE_UPLOAD_DIR"
-          mkdir -p "$FILE_UPLOAD_DIR"
-          cp -R uploads/. "$FILE_UPLOAD_DIR"/
-
-      - name: Start backend
-        working-directory: backend
-        shell: bash
-        run: |
-          nohup mvn spring-boot:run \
-            -Dspring-boot.run.profiles=demo,browser \
-            -Dspring-boot.run.arguments=--server.port=8085 \
-            > spring-ci.log 2> spring-ci.err.log &
-
-      - name: Wait for backend
-        shell: bash
-        run: |
-          for i in {1..120}; do
-            if curl -fsS "http://127.0.0.1:8085/api/products?pageNo=0&pageSize=1" >/dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Backend did not become ready"
-          exit 1
-
-      - name: Start frontend
-        working-directory: frontend
-        shell: bash
-        run: |
-          nohup npm run dev -- --host 127.0.0.1 --port 5178 > vite-ci.log 2> vite-ci.err.log &
-
-      - name: Wait for frontend
-        shell: bash
-        run: |
-          for i in {1..60}; do
-            if curl -fsS "http://127.0.0.1:5178" >/dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Frontend did not become ready"
-          exit 1
-
-      - name: Run full Playwright suite
-        working-directory: frontend
-        run: npx playwright test tests/e2e
+          ./scripts/run-real-browser-e2e.ps1 -Suite ${{ matrix.suite }}
 
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.suite }}
           path: |
             frontend/playwright-report
             frontend/test-results
-            backend/spring-ci.log
-            backend/spring-ci.err.log
-            frontend/vite-ci.log
-            frontend/vite-ci.err.log
+            backend/spring-browser.log
+            backend/spring-browser.err.log
+            frontend/vite-browser.log
+            frontend/vite-browser.err.log
 
