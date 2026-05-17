@@ -172,7 +172,25 @@ jobs:
       - name: Run Playwright suite through browser stack wrapper
         shell: pwsh
         run: |
-          ./scripts/run-real-browser-e2e.ps1 -Suite ${{ matrix.suite }}
+          $wrapperLog = Join-Path $PWD 'wrapper-browser.log'
+          Remove-Item $wrapperLog -ErrorAction SilentlyContinue
+
+          & pwsh -NoProfile -File ./scripts/run-real-browser-e2e.ps1 -Suite ${{ matrix.suite }} *> $wrapperLog
+          $exitCode = $LASTEXITCODE
+
+          if ($exitCode -ne 0) {
+            $tailLines = if (Test-Path $wrapperLog) {
+              @(Get-Content $wrapperLog | Select-Object -Last 25)
+            } else {
+              @('wrapper-browser.log was not created.')
+            }
+            $summary = ($tailLines -join ' | ').Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Host "::error::run-real-browser-e2e.ps1 failed with exit code $exitCode. Tail: $summary"
+            if (Test-Path $wrapperLog) {
+              Get-Content $wrapperLog -Tail 80
+            }
+            exit $exitCode
+          }
 
       - name: Upload Playwright report
         if: always()
@@ -186,4 +204,5 @@ jobs:
             backend/spring-browser.err.log
             frontend/vite-browser.log
             frontend/vite-browser.err.log
+            wrapper-browser.log
 
