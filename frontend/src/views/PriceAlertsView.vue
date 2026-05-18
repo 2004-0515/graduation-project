@@ -6,7 +6,7 @@
       <div class="container">
         <div class="page-header">
           <div class="header-left">
-            <button class="back-btn" @click="$router.back()">
+            <button class="back-btn" @click="goBack">
               <span>&larr;</span>
               <span>返回</span>
             </button>
@@ -129,6 +129,7 @@ import Footer from '@/components/Footer.vue'
 import priceApi from '@/api/priceApi'
 import fileApi from '@/api/fileApi'
 import { debugError } from '@/utils/debug'
+import { goBackOr } from '@/utils/navigation'
 
 const router = useRouter()
 const loading = ref(false)
@@ -149,6 +150,8 @@ const tabs = [
   { label: '已触发', value: 'triggered' },
   { label: '已取消', value: 'cancelled' }
 ]
+
+const goBack = () => goBackOr(router, '/')
 
 const activeCount = computed(() => alerts.value.filter(a => a.status === 0).length)
 const triggeredCount = computed(() => alerts.value.filter(a => a.status === 1).length)

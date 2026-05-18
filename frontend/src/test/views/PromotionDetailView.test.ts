@@ -5,7 +5,7 @@ import { ElMessage } from 'element-plus'
 const { mockPush, mockBack, mockRoute, couponApi, productApi, showcaseApi, cartStore, userStore, debugError } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockBack: vi.fn(),
-  mockRoute: { params: { id: '12' } },
+  mockRoute: { params: { id: '12' }, fullPath: '/promotion/12' },
   couponApi: {
     getAvailableCoupons: vi.fn(),
     claimCoupon: vi.fn()
@@ -67,6 +67,11 @@ vi.mock('@/api/fileApi', () => ({
 
 vi.mock('@/utils/debug', () => ({
   debugError
+}))
+
+vi.mock('@/utils/navigation', () => ({
+  buildLoginLocation: (redirect: string) => ({ path: '/login', query: { redirect } }),
+  goBackOr: vi.fn()
 }))
 
 import PromotionDetailView from '@/views/PromotionDetailView.vue'
@@ -179,7 +184,7 @@ describe('PromotionDetailView', () => {
     await wrapper.find('button.primary-btn').trigger('click')
 
     expect(ElMessage.warning).toHaveBeenCalledWith('请先登录')
-    expect(mockPush).toHaveBeenCalledWith('/login')
+    expect(mockPush).toHaveBeenCalledWith({ path: '/login', query: { redirect: '/promotion/12' } })
     expect(couponApi.claimCoupon).not.toHaveBeenCalled()
   })
 

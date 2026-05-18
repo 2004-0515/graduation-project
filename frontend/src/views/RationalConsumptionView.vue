@@ -393,6 +393,7 @@ import fileApi from '@/api/fileApi'
 import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
 import { debugError } from '@/utils/debug'
+import { buildLoginLocation } from '@/utils/navigation'
 
 const route = useRoute()
 const router = useRouter()
@@ -787,7 +788,7 @@ watch(activeTab, (newTab) => {
 onMounted(() => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
-    router.push('/login')
+    router.push(buildLoginLocation(route.fullPath))
     return
   }
   

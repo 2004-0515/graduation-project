@@ -10,10 +10,13 @@
     <main class="main">
       <div class="container">
         <!-- 返回按钮 -->
-        <div class="back-bar" v-if="canGoBack">
+        <div class="back-bar">
           <button class="back-btn" @click="goBack">
             <span class="back-icon">&larr;</span>
             <span>返回</span>
+          </button>
+          <button class="back-btn secondary" @click="router.push('/category')">
+            <span>全部商品</span>
           </button>
         </div>
         
@@ -410,6 +413,7 @@ import { useUserStore } from '../stores/userStore'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 import { debugError, debugLog } from '@/utils/debug'
+import { buildLoginLocation, goBackOr } from '@/utils/navigation'
 
 use([CanvasRenderer, LineChart, GridComponent, LegendComponent, TooltipComponent])
 
@@ -471,9 +475,8 @@ const invalidateWishlistStatusRequests = () => {
 }
 
 // 返回按钮相关
-const canGoBack = computed(() => window.history.length > 1)
 const goBack = () => {
-  router.back()
+  goBackOr(router, '/category')
 }
 
 const userId = computed(() => userStore.userInfo?.id)
@@ -725,7 +728,7 @@ const addToCart = async () => {
   try {
     if (!userStore.isLoggedIn) { 
       ElMessage.warning('请先登录')
-      router.push('/login')
+      router.push(buildLoginLocation(route.fullPath))
       return 
     }
     
@@ -759,7 +762,7 @@ const addToCart = async () => {
 const buyNow = () => {
   if (!userStore.isLoggedIn) { 
     ElMessage.warning('请先登录')
-    router.push('/login')
+    router.push(buildLoginLocation(route.fullPath))
     return 
   }
   
@@ -1061,7 +1064,7 @@ const togglePriceChart = () => {
 const openAlertDialog = () => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
-    router.push('/login')
+    router.push(buildLoginLocation(route.fullPath))
     return
   }
   targetPrice.value = Math.floor(product.value.price * 0.9 * 100) / 100
@@ -1143,7 +1146,7 @@ const formatMoney = (val: number | undefined) => {
 const addToWishlist = async () => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
-    router.push('/login')
+    router.push(buildLoginLocation(route.fullPath))
     return
   }
   
@@ -1212,7 +1215,7 @@ const refreshWishlistStatusAfterSuccess = async () => {
 const handleWishlistClick = () => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
-    router.push('/login')
+    router.push(buildLoginLocation(route.fullPath))
     return
   }
   
@@ -1304,7 +1307,7 @@ onUnmounted(() => {
 .detail-page { min-height: 100vh; background: var(--white); position: relative; }
 
 /* 返回按钮 */
-.back-bar { margin-bottom: 20px; }
+.back-bar { margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; }
 .back-btn {
   display: inline-flex;
   align-items: center;
@@ -1321,6 +1324,9 @@ onUnmounted(() => {
 .back-btn:hover {
   background: var(--primary);
   color: var(--white);
+}
+.back-btn.secondary {
+  background: rgba(255, 255, 255, 0.84);
 }
 .back-icon { font-size: 16px; }
 

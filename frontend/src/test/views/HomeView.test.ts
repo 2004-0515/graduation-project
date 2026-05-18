@@ -26,6 +26,10 @@ const getPublicBannersSpy = vi.spyOn(showcaseApi, 'getPublicBanners')
 const getImageUrlSpy = vi.spyOn(fileApi, 'getImageUrl')
 const debugError = vi.spyOn(debugModule, 'debugError').mockImplementation(() => {})
 
+vi.mock('@/utils/navigation', () => ({
+  buildLoginLocation: (redirect: string) => ({ path: '/login', query: { redirect } })
+}))
+
 describe('HomeView', () => {
   let pinia: ReturnType<typeof createPinia>
   let userStore: ReturnType<typeof useUserStore>
@@ -105,7 +109,8 @@ describe('HomeView', () => {
     await flushPromises()
 
     expect(messages.warning).toHaveBeenCalledWith('请先登录')
-    expect(router.currentRoute.value.fullPath).toBe('/login')
+    expect(router.currentRoute.value.path).toBe('/login')
+    expect(router.currentRoute.value.query.redirect).toBe('/')
     expect(claimCouponSpy).not.toHaveBeenCalled()
   })
 

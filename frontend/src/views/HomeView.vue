@@ -227,7 +227,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
@@ -238,7 +238,9 @@ import fileApi from '@/api/fileApi'
 import showcaseApi, { type ShowcaseBanner } from '@/api/showcaseApi'
 import { useUserStore } from '@/stores/userStore'
 import { debugError } from '@/utils/debug'
+import { buildLoginLocation } from '@/utils/navigation'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const loading = ref(true)
@@ -365,7 +367,7 @@ const claimQuickCoupon = async (coupon: any) => {
   if (coupon.claimed) return
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
-    router.push('/login')
+    router.push(buildLoginLocation(route.fullPath))
     return
   }
 

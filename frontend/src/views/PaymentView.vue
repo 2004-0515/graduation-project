@@ -161,6 +161,7 @@ import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 import { debugError } from '@/utils/debug'
 import { OrderStatus, PaymentStatus, type ApiResponse, type Order } from '@/types'
+import { goBackOr } from '@/utils/navigation'
 
 const route = useRoute()
 const router = useRouter()
@@ -393,7 +394,7 @@ const goToOrders = () => {
 }
 
 const goBack = () => {
-  router.back()
+  goBackOr(router, order.value ? `/order/${order.value.id}` : '/orders')
 }
 
 const reloadPaymentOrderFromRoute = () => {

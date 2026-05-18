@@ -4,12 +4,13 @@
     <main class="main-content">
       <div class="container">
         <div class="page-header">
-          <button class="back-btn" @click="$router.back()">
+          <button class="back-btn" @click="goBack">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
             返回
           </button>
+          <button class="back-btn secondary" @click="router.push('/orders')">订单列表</button>
           <h1>订单详情</h1>
         </div>
 
@@ -82,6 +83,7 @@ import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 import { debugError } from '@/utils/debug'
 import type { Order } from '@/types'
+import { goBackOr } from '@/utils/navigation'
 
 const getImageUrl = (path?: string) => fileApi.getImageUrl(path || '')
 
@@ -129,6 +131,10 @@ const payOrder = () => {
   router.push(`/payment/${order.value.id}`)
 }
 
+const goBack = () => {
+  goBackOr(router, '/orders')
+}
+
 const resetOrderDetailState = () => {
   order.value = null
 }
@@ -150,7 +156,7 @@ const fetchOrder = async () => {
   const orderId = Number(route.params.id)
   if (!orderId) {
     ElMessage.error('订单不存在')
-    router.back()
+    goBackOr(router, '/orders')
     return
   }
 
@@ -249,7 +255,7 @@ onMounted(async () => {
   } catch (error) {
     debugError('初始化订单详情失败:', error)
     ElMessage.error(getErrorMessage(error, '获取订单详情失败'))
-    router.back()
+    goBackOr(router, '/orders')
   }
 })
 
@@ -264,7 +270,7 @@ watch(
     } catch (error) {
       debugError('切换订单详情失败:', error)
       ElMessage.error(getErrorMessage(error, '获取订单详情失败'))
-      router.back()
+      goBackOr(router, '/orders')
     }
   }
 )
@@ -279,6 +285,7 @@ watch(
 
 .page-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
 .back-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: none; border: 1px solid rgba(200, 220, 255, 0.5); border-radius: 20px; font-size: 14px; color: var(--text-body); cursor: pointer; }
+.back-btn.secondary { background: rgba(255, 255, 255, 0.82); }
 .back-btn:hover { border-color: var(--sakura); color: var(--sakura); }
 .page-header h1 { font-size: 1.5rem; font-weight: 600; color: var(--text-title); margin: 0; }
 
