@@ -5,6 +5,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import adminApi from '@/api/adminApi'
 import fileApi from '@/api/fileApi'
 import { useAdminStore } from '@/stores/adminStore'
+import { buildCategory, buildProduct, buildUser, okPageResponse, okResponse } from '@/test/helpers/factories'
 import * as debugModule from '@/utils/debug'
 
 const messages = {
@@ -16,6 +17,9 @@ const messages = {
 const messageBox = {
   confirm: vi.spyOn(ElMessageBox, 'confirm')
 }
+
+const mockedAdminApi = vi.mocked(adminApi) as any
+const mockedFileApi = vi.mocked(fileApi) as any
 
 const getProductsSpy = vi.spyOn(adminApi, 'getProducts')
 const getPendingProductsSpy = vi.spyOn(adminApi, 'getPendingProducts')
@@ -53,30 +57,18 @@ describe('ProductsView', () => {
     setActivePinia(pinia)
     adminStore = useAdminStore()
     vi.clearAllMocks()
-    messageBox.confirm.mockResolvedValue(undefined)
+    messageBox.confirm.mockResolvedValue(undefined as any)
     vi.spyOn(adminStore, 'fetchPendingProductCount').mockResolvedValue(undefined)
     vi.spyOn(adminStore, 'decreasePendingProductCount').mockImplementation(() => {})
-    getCategoriesSpy.mockResolvedValue({
-      code: 200,
-      data: [{ id: 1, name: '分类A' }]
-    })
-    getUsersSpy.mockResolvedValue({
-      code: 200,
-      data: {
-        content: [{ id: 2, username: 'lisi', nickname: '李四', role: 'SELLER' }]
-      }
-    })
-    getProductsSpy.mockResolvedValue({
-      code: 200,
-      data: {
-        content: [
-          { id: 1, name: '商品A', status: 0, auditStatus: 0, stock: 10, price: 99 }
-        ],
-        totalElements: 1
-      }
-    })
-    getPendingProductCountSpy.mockResolvedValue({ code: 200, data: 0 })
-    getPendingProductsSpy.mockResolvedValue({ code: 200, data: [] })
+    mockedAdminApi.getCategories.mockResolvedValue(okResponse([buildCategory()]))
+    mockedAdminApi.getUsers.mockResolvedValue(
+      okPageResponse([buildUser({ id: 2, username: 'lisi', nickname: '李四', role: 'SELLER' })])
+    )
+    mockedAdminApi.getProducts.mockResolvedValue(
+      okPageResponse([buildProduct({ id: 1, name: '商品A', status: 0, auditStatus: 0, stock: 10, price: 99 })])
+    )
+    mockedAdminApi.getPendingProductCount.mockResolvedValue(okResponse(0))
+    mockedAdminApi.getPendingProducts.mockResolvedValue(okResponse([]))
     updateProductSpy.mockResolvedValue({ code: 200 } as any)
     batchUpdateAllProductStatusSpy.mockResolvedValue({ code: 200 } as any)
     reviewProductSpy.mockResolvedValue({ code: 200 } as any)
@@ -131,12 +123,12 @@ describe('ProductsView', () => {
       .handleDelete({ id: 1, name: '商品A' })
     await flushPromises()
 
-    expect(adminApi.deleteProduct).not.toHaveBeenCalled()
+    expect(mockedAdminApi.deleteProduct).not.toHaveBeenCalled()
     expect(messages.error).not.toHaveBeenCalled()
   })
 
   it('shows an error when deleting a product fails', async () => {
-    adminApi.deleteProduct.mockRejectedValue({ response: { data: { message: '商品删除失败' } } })
+    mockedAdminApi.deleteProduct.mockRejectedValue({ response: { data: { message: '商品删除失败' } } })
     const wrapper = mountView()
 
     await flushPromises()
@@ -149,7 +141,7 @@ describe('ProductsView', () => {
   })
 
   it('shows a partial success summary when batch status update has failures', async () => {
-    adminApi.updateProduct
+    mockedAdminApi.updateProduct
       .mockResolvedValueOnce({ code: 200 })
       .mockRejectedValueOnce(new Error('boom'))
     const wrapper = mountView()
@@ -163,13 +155,13 @@ describe('ProductsView', () => {
     await (wrapper.vm as unknown as { batchUpdateStatus: (status: number) => Promise<void> }).batchUpdateStatus(1)
     await flushPromises()
 
-    expect(adminApi.updateProduct).toHaveBeenCalledTimes(2)
+    expect(mockedAdminApi.updateProduct).toHaveBeenCalledTimes(2)
     expect(messages.warning).toHaveBeenCalledWith('批量上架完成：成功 1 个，失败 1 个')
     expect(debugError).toHaveBeenCalled()
   })
 
   it('shows an error when approving a product without ad video fails', async () => {
-    adminApi.reviewProduct.mockRejectedValue({ response: { data: { message: '审核服务暂不可用' } } })
+    mockedAdminApi.reviewProduct.mockRejectedValue({ response: { data: { message: '审核服务暂不可用' } } })
     const wrapper = mountView()
 
     await flushPromises()
@@ -182,7 +174,7 @@ describe('ProductsView', () => {
   })
 
   it('shows backend message when deleting a product returns non-200 payload', async () => {
-    adminApi.deleteProduct.mockResolvedValue({ code: 500, message: '商品删除失败' })
+    mockedAdminApi.deleteProduct.mockResolvedValue({ code: 500, message: '商品删除失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -195,7 +187,7 @@ describe('ProductsView', () => {
   })
 
   it('shows backend message when approving a product without ad video returns non-200 payload', async () => {
-    adminApi.reviewProduct.mockResolvedValue({ code: 500, message: '审核未通过，请重试' })
+    mockedAdminApi.reviewProduct.mockResolvedValue({ code: 500, message: '审核未通过，请重试' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -264,7 +256,7 @@ describe('ProductsView', () => {
   })
 
   it('logs backend message when toggling product status returns non-200 payload', async () => {
-    adminApi.updateProduct.mockResolvedValue({ code: 500, message: '商品状态切换失败' })
+    mockedAdminApi.updateProduct.mockResolvedValue({ code: 500, message: '商品状态切换失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -277,8 +269,8 @@ describe('ProductsView', () => {
   })
 
   it('refreshes products after toggling product status successfully', async () => {
-    adminApi.updateProduct.mockResolvedValue({ code: 200 })
-    adminApi.getProducts
+    mockedAdminApi.updateProduct.mockResolvedValue({ code: 200 })
+    mockedAdminApi.getProducts
       .mockResolvedValueOnce({
         code: 200,
         data: {
@@ -304,12 +296,12 @@ describe('ProductsView', () => {
     await (wrapper.vm as unknown as { toggleStatus: (product: { id: number; status: number }) => Promise<void> }).toggleStatus(product)
     await flushPromises()
 
-    expect(adminApi.getProducts).toHaveBeenCalledTimes(2)
+    expect(mockedAdminApi.getProducts).toHaveBeenCalledTimes(2)
     expect(messages.success).toHaveBeenCalledWith('已上架')
   })
 
   it('logs backend message when confirming approve returns non-200 payload', async () => {
-    adminApi.reviewProduct.mockResolvedValue({ code: 500, message: '审核确认失败' })
+    mockedAdminApi.reviewProduct.mockResolvedValue({ code: 500, message: '审核确认失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -332,8 +324,8 @@ describe('ProductsView', () => {
       },
       configurable: true
     })
-    adminApi.reviewProduct.mockResolvedValue({ code: 200 })
-    adminApi.getProducts
+    mockedAdminApi.reviewProduct.mockResolvedValue({ code: 200 })
+    mockedAdminApi.getProducts
       .mockResolvedValueOnce({
         code: 200,
         data: {
@@ -358,7 +350,7 @@ describe('ProductsView', () => {
     await flushPromises()
 
     expect(messages.success).toHaveBeenCalledWith('审核通过，广告已启用')
-    expect(adminApi.reviewProduct).toHaveBeenCalledWith(1, {
+    expect(mockedAdminApi.reviewProduct).toHaveBeenCalledWith(1, {
       auditStatus: 1,
       adVideoEnabled: 1,
       adVideoDuration: 5
@@ -372,7 +364,7 @@ describe('ProductsView', () => {
   })
 
   it('logs backend message when confirming reject returns non-200 payload', async () => {
-    adminApi.reviewProduct.mockResolvedValue({ code: 500, message: '拒绝审核失败' })
+    mockedAdminApi.reviewProduct.mockResolvedValue({ code: 500, message: '拒绝审核失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -386,8 +378,8 @@ describe('ProductsView', () => {
   })
 
   it('keeps approve success when pending badge refresh rejects afterward', async () => {
-    adminApi.reviewProduct.mockResolvedValue({ code: 200 })
-    adminStore.fetchPendingProductCount.mockRejectedValueOnce(new Error('badge refresh failed'))
+    mockedAdminApi.reviewProduct.mockResolvedValue({ code: 200 })
+    ;(adminStore.fetchPendingProductCount as any).mockRejectedValueOnce(new Error('badge refresh failed'))
     const wrapper = mountView()
 
     await flushPromises()
@@ -403,7 +395,7 @@ describe('ProductsView', () => {
   })
 
   it('clears audit dialog state after approve and reject succeed', async () => {
-    adminApi.reviewProduct.mockResolvedValue({ code: 200 })
+    mockedAdminApi.reviewProduct.mockResolvedValue({ code: 200 })
     const wrapper = mountView()
 
     await flushPromises()
@@ -429,7 +421,7 @@ describe('ProductsView', () => {
   })
 
   it('logs when product categories return non-200 payload', async () => {
-    adminApi.getCategories.mockResolvedValue({ code: 500, message: '分类读取失败' })
+    mockedAdminApi.getCategories.mockResolvedValue({ code: 500, message: '分类读取失败' })
 
     mountView()
     await flushPromises()
@@ -438,8 +430,8 @@ describe('ProductsView', () => {
   })
 
   it('logs when pending count returns non-200 payload', async () => {
-    adminApi.getPendingProductCount.mockResolvedValue({ code: 500, message: '待审核数读取失败' })
-    adminApi.getPendingProducts.mockResolvedValue({ code: 200, data: [] })
+    mockedAdminApi.getPendingProductCount.mockResolvedValue({ code: 500, message: '待审核数读取失败' })
+    mockedAdminApi.getPendingProducts.mockResolvedValue({ code: 200, data: [] })
 
     mountView()
     await flushPromises()
@@ -448,8 +440,8 @@ describe('ProductsView', () => {
   })
 
   it('logs when pending products list returns non-200 payload', async () => {
-    adminApi.getPendingProductCount.mockResolvedValue({ code: 200, data: 0 })
-    adminApi.getPendingProducts.mockResolvedValue({ code: 500, message: '待审核列表读取失败' })
+    mockedAdminApi.getPendingProductCount.mockResolvedValue({ code: 200, data: 0 })
+    mockedAdminApi.getPendingProducts.mockResolvedValue({ code: 500, message: '待审核列表读取失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -461,8 +453,8 @@ describe('ProductsView', () => {
   })
 
   it('refreshes products after saving a product successfully', async () => {
-    adminApi.createProduct.mockResolvedValue({ code: 200 })
-    adminApi.getProducts
+    mockedAdminApi.createProduct.mockResolvedValue({ code: 200 })
+    mockedAdminApi.getProducts
       .mockResolvedValueOnce({
         code: 200,
         data: {
@@ -497,7 +489,7 @@ describe('ProductsView', () => {
     await (wrapper.vm as any).saveProduct()
     await flushPromises()
 
-    expect(adminApi.getProducts).toHaveBeenCalledTimes(2)
+    expect(mockedAdminApi.getProducts).toHaveBeenCalledTimes(2)
     expect(messages.success).toHaveBeenCalledWith('商品添加成功')
   })
 
@@ -518,17 +510,17 @@ describe('ProductsView', () => {
     await (wrapper.vm as any).saveProduct()
     await flushPromises()
 
-    expect(adminApi.createProduct).not.toHaveBeenCalled()
-    expect(adminApi.updateProduct).not.toHaveBeenCalled()
+    expect(mockedAdminApi.createProduct).not.toHaveBeenCalled()
+    expect(mockedAdminApi.updateProduct).not.toHaveBeenCalled()
     expect((wrapper.vm as any).saving).toBe(false)
   })
 
   it('keeps product create successful with local append when refresh fails afterward', async () => {
-    adminApi.createProduct.mockResolvedValue({
+    mockedAdminApi.createProduct.mockResolvedValue({
       code: 200,
       data: { id: 2, name: '商品B', status: 1, auditStatus: 0, stock: 5, price: 199, categoryId: 1, mainImage: '/b.png', description: '描述' }
     })
-    adminApi.getProducts
+    mockedAdminApi.getProducts
       .mockResolvedValueOnce({
         code: 200,
         data: {
@@ -563,11 +555,11 @@ describe('ProductsView', () => {
   })
 
   it('keeps product edit successful with local update when refresh fails afterward', async () => {
-    adminApi.updateProduct.mockResolvedValue({
+    mockedAdminApi.updateProduct.mockResolvedValue({
       code: 200,
       data: { id: 1, name: '商品A-新版', status: 1, auditStatus: 0, stock: 8, price: 129, categoryId: 1, mainImage: '/a-new.png', description: '新版描述' }
     })
-    adminApi.getProducts
+    mockedAdminApi.getProducts
       .mockResolvedValueOnce({
         code: 200,
         data: {
@@ -605,7 +597,7 @@ describe('ProductsView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    adminApi.getProducts
+    mockedAdminApi.getProducts
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
 
@@ -648,10 +640,10 @@ describe('ProductsView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    adminApi.getProducts
+    mockedAdminApi.getProducts
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
-    adminApi.updateProduct.mockResolvedValue({
+    mockedAdminApi.updateProduct.mockResolvedValue({
       code: 200,
       data: { id: 1, name: '商品A-新版', status: 1, auditStatus: 0, stock: 8, price: 129, categoryId: 1, mainImage: '/a-new.png', description: '新版描述' }
     })
@@ -706,8 +698,8 @@ describe('ProductsView', () => {
     const secondCountRequest = createDeferred<any>()
     let countCall = 0
 
-    adminApi.getPendingProducts.mockResolvedValue({ code: 200, data: [] })
-    adminApi.getPendingProductCount.mockImplementation(() => {
+    mockedAdminApi.getPendingProducts.mockResolvedValue({ code: 200, data: [] })
+    mockedAdminApi.getPendingProductCount.mockImplementation(() => {
       countCall += 1
       return countCall === 1 ? firstCountRequest.promise : secondCountRequest.promise
     })
@@ -738,10 +730,10 @@ describe('ProductsView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    adminApi.getProducts
+    mockedAdminApi.getProducts
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
-    adminApi.deleteProduct.mockResolvedValue({ code: 200 })
+    mockedAdminApi.deleteProduct.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -775,15 +767,15 @@ describe('ProductsView', () => {
     let pendingCall = 0
     let pendingCountCall = 0
 
-    adminApi.getPendingProductCount.mockImplementation(() => {
+    mockedAdminApi.getPendingProductCount.mockImplementation(() => {
       pendingCountCall += 1
       return Promise.resolve({ code: 200, data: pendingCountCall >= 2 ? 0 : 1 })
     })
-    adminApi.getPendingProducts.mockImplementation(() => {
+    mockedAdminApi.getPendingProducts.mockImplementation(() => {
       pendingCall += 1
       return pendingCall === 1 ? firstPendingRequest.promise : secondPendingRequest.promise
     })
-    adminApi.reviewProduct.mockResolvedValue({ code: 200 })
+    mockedAdminApi.reviewProduct.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()

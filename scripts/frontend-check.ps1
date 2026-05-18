@@ -10,6 +10,32 @@ Write-ProjectNodeToolingDiagnostics -Tooling $nodeTooling
 
 $frontendRoot = Get-FrontendRoot
 
+$typeCheckInvocation = Resolve-ProjectNodeInvocation -CommandName "node" -Arguments @(
+    (Join-Path $frontendRoot "node_modules\vue-tsc\bin\vue-tsc.js"),
+    "--noEmit",
+    "-p",
+    "tsconfig.json"
+) -Tooling $nodeTooling
+Write-Host "Frontend app type-check launcher: $(Format-NodeInvocation -Invocation $typeCheckInvocation)"
+
+Invoke-ProjectNodeInvocation -Invocation $typeCheckInvocation -WorkingDirectory $frontendRoot
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
+$testTypeCheckInvocation = Resolve-ProjectNodeInvocation -CommandName "node" -Arguments @(
+    (Join-Path $frontendRoot "node_modules\vue-tsc\bin\vue-tsc.js"),
+    "--noEmit",
+    "-p",
+    "tsconfig.test.json"
+) -Tooling $nodeTooling
+Write-Host "Frontend test type-check launcher: $(Format-NodeInvocation -Invocation $testTypeCheckInvocation)"
+
+Invoke-ProjectNodeInvocation -Invocation $testTypeCheckInvocation -WorkingDirectory $frontendRoot
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
 $buildInvocation = Resolve-ProjectNodeInvocation -CommandName "npx" -Arguments @("vite", "build") -Tooling $nodeTooling
 Write-Host "Frontend build launcher: $(Format-NodeInvocation -Invocation $buildInvocation)"
 

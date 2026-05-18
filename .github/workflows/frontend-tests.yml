@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   vitest:
-    name: Vitest
+    name: Type Check + Build + Vitest
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -32,6 +32,15 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Run app type check
+        run: npm run type-check
+
+      - name: Run test type check
+        run: npm run type-check:test
+
+      - name: Run frontend build
+        run: npm run build
 
       - name: Run Vitest
         run: npm run test:run

@@ -10,6 +10,7 @@ import reviewApi from '@/api/reviewApi'
 import priceApi from '@/api/priceApi'
 import rationalApi from '@/api/rationalApi'
 import fileApi from '@/api/fileApi'
+import { buildUser } from '@/test/helpers/factories'
 import * as debugModule from '@/utils/debug'
 
 const windowEvents = vi.hoisted(() => ({
@@ -26,6 +27,12 @@ const messages = {
 const messageBox = {
   confirm: vi.spyOn(ElMessageBox, 'confirm')
 }
+
+const mockedProductApi = vi.mocked(productApi) as any
+const mockedReviewApi = vi.mocked(reviewApi) as any
+const mockedPriceApi = vi.mocked(priceApi) as any
+const mockedRationalApi = vi.mocked(rationalApi) as any
+const mockedFileApi = vi.mocked(fileApi) as any
 
 const getProductByIdSpy = vi.spyOn(productApi, 'getProductById')
 const getAllProductReviewsSpy = vi.spyOn(reviewApi, 'getAllProductReviews')
@@ -101,13 +108,13 @@ function buildProduct(overrides: Record<string, unknown> = {}) {
 describe('ProductDetailView', () => {
   let pinia: ReturnType<typeof createPinia>
   let router: Router
-  let routerPushSpy: ReturnType<typeof vi.spyOn>
+  let routerPushSpy: any
 
   beforeEach(async () => {
     vi.clearAllMocks()
     pinia = createPinia()
     setActivePinia(pinia)
-    messageBox.confirm.mockResolvedValue('confirm')
+    messageBox.confirm.mockResolvedValue('confirm' as any)
     Object.defineProperty(window, 'addEventListener', { value: windowEvents.add, configurable: true })
     Object.defineProperty(window, 'removeEventListener', { value: windowEvents.remove, configurable: true })
 
@@ -126,17 +133,7 @@ describe('ProductDetailView', () => {
 
     const userStore = useUserStore()
     userStore.token = 'token'
-    userStore.userInfo = {
-      id: 1,
-      username: 'buyer',
-      role: 'BUYER',
-      email: 'buyer@example.com',
-      points: 0,
-      growthValue: 0,
-      memberDays: 0,
-      createdTime: '2026-05-07T10:00:00',
-      updatedTime: '2026-05-07T10:00:00'
-    }
+    userStore.userInfo = buildUser({ id: 1, username: 'buyer', role: 'BUYER' })
 
     const cartStore = useCartStore()
     cartStore.addToCart = vi.fn().mockResolvedValue({})
@@ -163,7 +160,7 @@ describe('ProductDetailView', () => {
     getUserProductAlertSpy.mockResolvedValue({ code: 200, data: null } as any)
     checkDuplicateSpy.mockResolvedValue({ code: 200, data: [] } as any)
     checkInWishlistSpy.mockResolvedValue({ code: 200, data: { inWishlist: false } } as any)
-    getImageUrlSpy.mockImplementation((path: string) => path || '/placeholder.png')
+    getImageUrlSpy.mockImplementation((path: string | null | undefined) => path || '/placeholder.png')
     debugError.mockImplementation(() => {})
     debugLog.mockImplementation(() => {})
   })
@@ -183,7 +180,7 @@ describe('ProductDetailView', () => {
     })
 
   it('disables quantity and purchase actions when stock is zero', async () => {
-    productApi.getProductById.mockResolvedValue({ code: 200, data: buildProduct({ stock: 0 }) })
+    mockedProductApi.getProductById.mockResolvedValue({ code: 200, data: buildProduct({ stock: 0 }) })
 
     const wrapper = mountView()
 
@@ -195,7 +192,7 @@ describe('ProductDetailView', () => {
   })
 
   it('normalizes decimal quantity and caps it at stock on blur', async () => {
-    productApi.getProductById.mockResolvedValue({ code: 200, data: buildProduct({ stock: 3 }) })
+    mockedProductApi.getProductById.mockResolvedValue({ code: 200, data: buildProduct({ stock: 3 }) })
 
     const wrapper = mountView()
 
@@ -229,12 +226,12 @@ describe('ProductDetailView', () => {
     await flushPromises()
     await (wrapper.vm as any).deleteReview({ id: 9, userId: 1 })
 
-    expect(reviewApi.deleteReview).not.toHaveBeenCalled()
+    expect(mockedReviewApi.deleteReview).not.toHaveBeenCalled()
     expect(messages.error).not.toHaveBeenCalled()
   })
 
   it('shows backend chinese message when creating alert fails', async () => {
-    priceApi.createAlert.mockRejectedValueOnce({
+    mockedPriceApi.createAlert.mockRejectedValueOnce({
       response: { data: { message: '已存在提醒' } }
     })
 
@@ -249,10 +246,10 @@ describe('ProductDetailView', () => {
   })
 
   it('refreshes real alert state after cancelling a price alert', async () => {
-    priceApi.getUserProductAlert
+    mockedPriceApi.getUserProductAlert
       .mockResolvedValueOnce({ code: 200, data: { id: 1, productId: 1, targetPrice: 80, currentPrice: 99, status: 0 } })
       .mockResolvedValueOnce({ code: 200, data: null })
-    priceApi.cancelAlert.mockResolvedValueOnce({ code: 200 })
+    mockedPriceApi.cancelAlert.mockResolvedValueOnce({ code: 200 })
 
     const wrapper = mountView()
 
@@ -260,14 +257,14 @@ describe('ProductDetailView', () => {
     await (wrapper.vm as any).cancelAlert()
     await flushPromises()
 
-    expect(priceApi.cancelAlert).toHaveBeenCalledWith(1)
-    expect(priceApi.getUserProductAlert).toHaveBeenCalledTimes(2)
+    expect(mockedPriceApi.cancelAlert).toHaveBeenCalledWith(1)
+    expect(mockedPriceApi.getUserProductAlert).toHaveBeenCalledTimes(2)
     expect(messages.success).toHaveBeenCalledWith('已取消降价提醒')
   })
 
   it('keeps alert creation successful when alert refresh fails afterward', async () => {
-    priceApi.createAlert.mockResolvedValueOnce({ code: 200 })
-    priceApi.getUserProductAlert
+    mockedPriceApi.createAlert.mockResolvedValueOnce({ code: 200 })
+    mockedPriceApi.getUserProductAlert
       .mockResolvedValueOnce({ code: 200, data: null })
       .mockRejectedValueOnce(new Error('refresh failed'))
 
@@ -284,7 +281,7 @@ describe('ProductDetailView', () => {
   })
 
   it('shows backend chinese message when adding to wishlist fails', async () => {
-    rationalApi.addToWishlist.mockRejectedValueOnce({
+    mockedRationalApi.addToWishlist.mockRejectedValueOnce({
       response: { data: { message: '商品已在清单中' } }
     })
 
@@ -298,10 +295,10 @@ describe('ProductDetailView', () => {
   })
 
   it('refreshes real wishlist state after adding successfully', async () => {
-    rationalApi.checkInWishlist
+    mockedRationalApi.checkInWishlist
       .mockResolvedValueOnce({ code: 200, data: { inWishlist: false } })
       .mockResolvedValueOnce({ code: 200, data: { inWishlist: true } })
-    rationalApi.addToWishlist.mockResolvedValueOnce({ code: 200 })
+    mockedRationalApi.addToWishlist.mockResolvedValueOnce({ code: 200 })
 
     const wrapper = mountView()
 
@@ -309,16 +306,16 @@ describe('ProductDetailView', () => {
     await (wrapper.vm as any).addToWishlist()
     await flushPromises()
 
-    expect(rationalApi.addToWishlist).toHaveBeenCalled()
-    expect(rationalApi.checkInWishlist).toHaveBeenCalledTimes(2)
+    expect(mockedRationalApi.addToWishlist).toHaveBeenCalled()
+    expect(mockedRationalApi.checkInWishlist).toHaveBeenCalledTimes(2)
     expect(messages.success).toHaveBeenCalledWith('已加入想要清单，冷静期3天')
   })
 
   it('keeps wishlist add successful when wishlist status refresh fails afterward', async () => {
-    rationalApi.checkInWishlist
+    mockedRationalApi.checkInWishlist
       .mockResolvedValueOnce({ code: 200, data: { inWishlist: false } })
       .mockRejectedValueOnce(new Error('refresh failed'))
-    rationalApi.addToWishlist.mockResolvedValueOnce({ code: 200 })
+    mockedRationalApi.addToWishlist.mockResolvedValueOnce({ code: 200 })
 
     const wrapper = mountView()
 
@@ -332,11 +329,11 @@ describe('ProductDetailView', () => {
   })
 
   it('logs backend message when deleting review returns non-200', async () => {
-    reviewApi.getAllProductReviews.mockResolvedValue({
+    mockedReviewApi.getAllProductReviews.mockResolvedValue({
       code: 200,
       data: [{ id: 9, userId: 1, username: 'buyer', rating: 5, content: '好评' }]
     })
-    reviewApi.deleteReview.mockResolvedValueOnce({ code: 500, message: '评价删除失败' })
+    mockedReviewApi.deleteReview.mockResolvedValueOnce({ code: 500, message: '评价删除失败' })
 
     const wrapper = mountView()
 
@@ -349,20 +346,20 @@ describe('ProductDetailView', () => {
   })
 
   it('removes review locally and keeps deletion success when review refresh fails afterward', async () => {
-    reviewApi.getAllProductReviews.mockResolvedValueOnce({
+    mockedReviewApi.getAllProductReviews.mockResolvedValueOnce({
       code: 200,
       data: [
         { id: 9, userId: 1, username: 'buyer', rating: 5, content: '好评' },
         { id: 10, userId: 2, username: 'other', rating: 3, content: '一般' }
       ]
     })
-    reviewApi.getProductReviewStats.mockResolvedValueOnce({
+    mockedReviewApi.getProductReviewStats.mockResolvedValueOnce({
       code: 200,
       data: { total: 2, avgRating: 4, goodRate: 50, ratingCounts: { 5: 1, 3: 1 } }
     })
-    reviewApi.deleteReview.mockResolvedValueOnce({ code: 200 })
-    reviewApi.getAllProductReviews.mockRejectedValueOnce(new Error('refresh failed'))
-    reviewApi.getProductReviewStats.mockRejectedValueOnce(new Error('refresh failed'))
+    mockedReviewApi.deleteReview.mockResolvedValueOnce({ code: 200 })
+    mockedReviewApi.getAllProductReviews.mockRejectedValueOnce(new Error('refresh failed'))
+    mockedReviewApi.getProductReviewStats.mockRejectedValueOnce(new Error('refresh failed'))
 
     const wrapper = mountView()
 
@@ -385,7 +382,7 @@ describe('ProductDetailView', () => {
   })
 
   it('logs backend message when creating alert returns non-200', async () => {
-    priceApi.createAlert.mockResolvedValueOnce({ code: 500, message: '降价提醒已存在' })
+    mockedPriceApi.createAlert.mockResolvedValueOnce({ code: 500, message: '降价提醒已存在' })
 
     const wrapper = mountView()
 
@@ -398,10 +395,10 @@ describe('ProductDetailView', () => {
   })
 
   it('logs backend message when cancelling alert returns non-200', async () => {
-    priceApi.getUserProductAlert
+    mockedPriceApi.getUserProductAlert
       .mockResolvedValueOnce({ code: 200, data: { id: 1, productId: 1, targetPrice: 80, currentPrice: 99, status: 0 } })
       .mockResolvedValueOnce({ code: 200, data: { id: 1, productId: 1, targetPrice: 80, currentPrice: 99, status: 0 } })
-    priceApi.cancelAlert.mockResolvedValueOnce({ code: 500, message: '当前提醒无法取消' })
+    mockedPriceApi.cancelAlert.mockResolvedValueOnce({ code: 500, message: '当前提醒无法取消' })
 
     const wrapper = mountView()
 
@@ -414,7 +411,7 @@ describe('ProductDetailView', () => {
   })
 
   it('logs backend message when adding to wishlist returns non-200', async () => {
-    rationalApi.addToWishlist.mockResolvedValueOnce({ code: 500, message: '想要清单已存在该商品' })
+    mockedRationalApi.addToWishlist.mockResolvedValueOnce({ code: 500, message: '想要清单已存在该商品' })
 
     const wrapper = mountView()
 
@@ -439,8 +436,8 @@ describe('ProductDetailView', () => {
   })
 
   it('logs backend message when price history payload returns non-200', async () => {
-    priceApi.getPriceHistory.mockResolvedValueOnce({ code: 500, message: '价格历史读取失败' })
-    priceApi.getPriceStats.mockResolvedValueOnce({ code: 500, message: '价格统计读取失败' })
+    mockedPriceApi.getPriceHistory.mockResolvedValueOnce({ code: 500, message: '价格历史读取失败' })
+    mockedPriceApi.getPriceStats.mockResolvedValueOnce({ code: 500, message: '价格统计读取失败' })
 
     mountView()
 
@@ -451,7 +448,7 @@ describe('ProductDetailView', () => {
   })
 
   it('logs backend message when price alert payload returns non-200', async () => {
-    priceApi.getUserProductAlert.mockResolvedValueOnce({ code: 500, message: '提醒状态读取失败' })
+    mockedPriceApi.getUserProductAlert.mockResolvedValueOnce({ code: 500, message: '提醒状态读取失败' })
 
     mountView()
 
@@ -461,8 +458,8 @@ describe('ProductDetailView', () => {
   })
 
   it('logs backend message when wishlist and duplicate checks return non-200', async () => {
-    rationalApi.checkDuplicate.mockResolvedValueOnce({ code: 500, message: '重复购买检测失败' })
-    rationalApi.checkInWishlist.mockResolvedValueOnce({ code: 500, message: '想要清单状态读取失败' })
+    mockedRationalApi.checkDuplicate.mockResolvedValueOnce({ code: 500, message: '重复购买检测失败' })
+    mockedRationalApi.checkInWishlist.mockResolvedValueOnce({ code: 500, message: '想要清单状态读取失败' })
 
     mountView()
 
@@ -473,7 +470,7 @@ describe('ProductDetailView', () => {
   })
 
   it('falls back to comma-separated review images and logs when review image json is broken', async () => {
-    reviewApi.getAllProductReviews.mockResolvedValue({
+    mockedReviewApi.getAllProductReviews.mockResolvedValue({
       code: 200,
       data: [{
         id: 41,
@@ -496,7 +493,7 @@ describe('ProductDetailView', () => {
   })
 
   it('falls back when parsed review images payload is not an array', async () => {
-    reviewApi.getAllProductReviews.mockResolvedValue({
+    mockedReviewApi.getAllProductReviews.mockResolvedValue({
       code: 200,
       data: [{
         id: 42,
@@ -519,8 +516,8 @@ describe('ProductDetailView', () => {
   })
 
   it('shows unavailable hint instead of empty history when price history data fails', async () => {
-    priceApi.getPriceHistory.mockResolvedValueOnce({ code: 500, message: 'history failed' })
-    priceApi.getPriceStats.mockResolvedValueOnce({ code: 500, message: 'stats failed' })
+    mockedPriceApi.getPriceHistory.mockResolvedValueOnce({ code: 500, message: 'history failed' })
+    mockedPriceApi.getPriceStats.mockResolvedValueOnce({ code: 500, message: 'stats failed' })
 
     const wrapper = mountView()
 
@@ -535,7 +532,7 @@ describe('ProductDetailView', () => {
   })
 
   it('shows backend chinese message when fetching product fails', async () => {
-    productApi.getProductById.mockRejectedValueOnce({
+    mockedProductApi.getProductById.mockRejectedValueOnce({
       response: { data: { message: '商品不存在' } }
     })
 
@@ -550,7 +547,7 @@ describe('ProductDetailView', () => {
   it('keeps newer product detail when older request resolves later', async () => {
     const first = deferred<any>()
     const second = deferred<any>()
-    productApi.getProductById
+    mockedProductApi.getProductById
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
 
@@ -577,7 +574,7 @@ describe('ProductDetailView', () => {
   it('keeps newer price alert state when older request resolves later', async () => {
     const first = deferred<any>()
     const second = deferred<any>()
-    priceApi.getUserProductAlert
+    mockedPriceApi.getUserProductAlert
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
 
@@ -604,10 +601,10 @@ describe('ProductDetailView', () => {
   it('does not let an in-flight alert request overwrite alert creation success', async () => {
     const first = deferred<any>()
     const second = deferred<any>()
-    priceApi.getUserProductAlert
+    mockedPriceApi.getUserProductAlert
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
-    priceApi.createAlert.mockResolvedValueOnce({ code: 200 })
+    mockedPriceApi.createAlert.mockResolvedValueOnce({ code: 200 })
 
     const wrapper = mountView()
 
@@ -631,10 +628,10 @@ describe('ProductDetailView', () => {
   it('does not let an in-flight alert request restore cancelled alert state', async () => {
     const first = deferred<any>()
     const second = deferred<any>()
-    priceApi.getUserProductAlert
+    mockedPriceApi.getUserProductAlert
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
-    priceApi.cancelAlert.mockResolvedValueOnce({ code: 200 })
+    mockedPriceApi.cancelAlert.mockResolvedValueOnce({ code: 200 })
 
     const wrapper = mountView()
 
@@ -657,10 +654,10 @@ describe('ProductDetailView', () => {
   it('does not let an in-flight wishlist request overwrite wishlist add success', async () => {
     const first = deferred<any>()
     const second = deferred<any>()
-    rationalApi.checkInWishlist
+    mockedRationalApi.checkInWishlist
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
-    rationalApi.addToWishlist.mockResolvedValueOnce({ code: 200 })
+    mockedRationalApi.addToWishlist.mockResolvedValueOnce({ code: 200 })
 
     const wrapper = mountView()
 
@@ -686,13 +683,13 @@ describe('ProductDetailView', () => {
     const secondReviews = deferred<any>()
     const secondStats = deferred<any>()
 
-    reviewApi.getAllProductReviews
+    mockedReviewApi.getAllProductReviews
       .mockImplementationOnce(() => firstReviews.promise)
       .mockImplementationOnce(() => secondReviews.promise)
-    reviewApi.getProductReviewStats
+    mockedReviewApi.getProductReviewStats
       .mockImplementationOnce(() => firstStats.promise)
       .mockImplementationOnce(() => secondStats.promise)
-    reviewApi.deleteReview.mockResolvedValueOnce({ code: 200 })
+    mockedReviewApi.deleteReview.mockResolvedValueOnce({ code: 200 })
 
     const wrapper = mountView()
 
@@ -757,7 +754,7 @@ describe('ProductDetailView', () => {
   })
 
   it('reloads product detail and clears page-local state when route product id changes', async () => {
-    productApi.getProductById
+    mockedProductApi.getProductById
       .mockResolvedValueOnce({
         code: 200,
         data: buildProduct({ id: 1, name: '商品一', mainImage: '/a.png', images: '' })
@@ -766,16 +763,16 @@ describe('ProductDetailView', () => {
         code: 200,
         data: buildProduct({ id: 2, name: '商品二', mainImage: '/b.png', images: '' })
       })
-    reviewApi.getAllProductReviews
+    mockedReviewApi.getAllProductReviews
       .mockResolvedValueOnce({ code: 200, data: [{ id: 1, userId: 2, username: 'u1', rating: 5, content: '旧评价' }] })
       .mockResolvedValueOnce({ code: 200, data: [] })
-    reviewApi.getProductReviewStats
+    mockedReviewApi.getProductReviewStats
       .mockResolvedValueOnce({ code: 200, data: { total: 1, avgRating: 5, goodRate: 100 } })
       .mockResolvedValueOnce({ code: 200, data: { total: 0, avgRating: 0, goodRate: 100 } })
-    priceApi.getPriceHistory
+    mockedPriceApi.getPriceHistory
       .mockResolvedValueOnce({ code: 200, data: [{ price: 99, recordedTime: '2026-05-01T10:00:00' }] })
       .mockResolvedValueOnce({ code: 200, data: [] })
-    priceApi.getPriceStats
+    mockedPriceApi.getPriceStats
       .mockResolvedValueOnce({
         code: 200,
         data: {
@@ -800,13 +797,13 @@ describe('ProductDetailView', () => {
           isLowestPrice: false
         }
       })
-    priceApi.getUserProductAlert
+    mockedPriceApi.getUserProductAlert
       .mockResolvedValueOnce({ code: 200, data: { id: 1, productId: 1, targetPrice: 80, currentPrice: 99, status: 0 } })
       .mockResolvedValueOnce({ code: 200, data: null })
-    rationalApi.checkDuplicate
+    mockedRationalApi.checkDuplicate
       .mockResolvedValueOnce({ code: 200, data: [{ type: 'same', message: '旧提醒' }] })
       .mockResolvedValueOnce({ code: 200, data: [] })
-    rationalApi.checkInWishlist
+    mockedRationalApi.checkInWishlist
       .mockResolvedValueOnce({ code: 200, data: { inWishlist: true } })
       .mockResolvedValueOnce({ code: 200, data: { inWishlist: false } })
 
@@ -826,8 +823,8 @@ describe('ProductDetailView', () => {
     await router.push('/product/2')
     await flushPromises()
 
-    expect(productApi.getProductById).toHaveBeenNthCalledWith(1, 1)
-    expect(productApi.getProductById).toHaveBeenNthCalledWith(2, 2)
+    expect(mockedProductApi.getProductById).toHaveBeenNthCalledWith(1, 1)
+    expect(mockedProductApi.getProductById).toHaveBeenNthCalledWith(2, 2)
     expect(vm.product.id).toBe(2)
     expect(vm.product.name).toBe('商品二')
     expect(vm.quantity).toBe(1)

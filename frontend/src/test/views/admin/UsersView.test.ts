@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/adminApi'
 import fileApi from '@/api/fileApi'
+import { buildUser, okPageResponse, okResponse } from '@/test/helpers/factories'
 import * as debugModule from '@/utils/debug'
 import UsersView from '@/views/admin/UsersView.vue'
 
@@ -14,6 +15,9 @@ const messages = {
 const messageBox = {
   confirm: vi.spyOn(ElMessageBox, 'confirm')
 }
+
+const mockedAdminApi = vi.mocked(adminApi) as any
+const mockedFileApi = vi.mocked(fileApi) as any
 
 vi.spyOn(adminApi, 'getUsers')
 vi.spyOn(adminApi, 'updateUserStatus')
@@ -36,28 +40,23 @@ describe('UsersView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     messageBox.confirm.mockResolvedValue('confirm' as any)
-    fileApi.getImageUrl.mockReturnValue('/avatar.png')
-    adminApi.getUsers.mockResolvedValue({
-      code: 200,
-      data: {
-        content: [
-          {
-            id: 1,
-            username: 'alice',
-            nickname: 'Alice',
-            email: 'alice@example.com',
-            phone: '13800138000',
-            role: 'BUYER',
-            status: 1,
-            createdTime: '2026-05-07T10:00:00'
-          }
-        ],
-        totalElements: 1
-      }
-    })
-    adminApi.updateUserStatus.mockResolvedValue({ code: 200 } as any)
-    adminApi.updateUserRole.mockResolvedValue({ code: 200, data: { id: 1, role: 'BUYER' } } as any)
-    adminApi.resetUserCoupons.mockResolvedValue({ code: 200, message: '重置成功' } as any)
+    mockedFileApi.getImageUrl.mockReturnValue('/avatar.png')
+    mockedAdminApi.getUsers.mockResolvedValue(
+      okPageResponse([
+        buildUser({
+          id: 1,
+          username: 'alice',
+          nickname: 'Alice',
+          email: 'alice@example.com',
+          phone: '13800138000',
+          role: 'BUYER',
+          status: 1
+        })
+      ])
+    )
+    mockedAdminApi.updateUserStatus.mockResolvedValue(okResponse(undefined))
+    mockedAdminApi.updateUserRole.mockResolvedValue(okResponse(buildUser({ id: 1, role: 'BUYER' })))
+    mockedAdminApi.resetUserCoupons.mockResolvedValue(okResponse(1, '重置成功'))
     debugError.mockImplementation(() => {})
   })
 
@@ -95,12 +94,12 @@ describe('UsersView', () => {
       .toggleStatus({ id: 1, username: 'alice', status: 1 }, 0)
     await flushPromises()
 
-    expect(adminApi.updateUserStatus).not.toHaveBeenCalled()
+    expect(mockedAdminApi.updateUserStatus).not.toHaveBeenCalled()
     expect(messages.error).not.toHaveBeenCalled()
   })
 
   it('shows an error when toggling user status fails', async () => {
-    adminApi.updateUserStatus.mockRejectedValue(new Error('boom'))
+    mockedAdminApi.updateUserStatus.mockRejectedValue(new Error('boom'))
     const wrapper = mountView()
 
     await flushPromises()
@@ -113,7 +112,7 @@ describe('UsersView', () => {
   })
 
   it('shows an error when resetting coupons fails', async () => {
-    adminApi.resetUserCoupons.mockRejectedValue(new Error('boom'))
+    mockedAdminApi.resetUserCoupons.mockRejectedValue(new Error('boom'))
     const wrapper = mountView()
 
     await flushPromises()
@@ -126,7 +125,7 @@ describe('UsersView', () => {
   })
 
   it('logs backend message when toggling user status returns non-200 payload', async () => {
-    adminApi.updateUserStatus.mockResolvedValue({ code: 500, message: '用户状态更新失败' })
+    mockedAdminApi.updateUserStatus.mockResolvedValue({ code: 500, message: '用户状态更新失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -139,8 +138,8 @@ describe('UsersView', () => {
   })
 
   it('refreshes users after toggling user status successfully', async () => {
-    adminApi.updateUserStatus.mockResolvedValue({ code: 200 })
-    adminApi.getUsers
+    mockedAdminApi.updateUserStatus.mockResolvedValue({ code: 200 })
+    mockedAdminApi.getUsers
       .mockResolvedValueOnce({
         code: 200,
         data: {
@@ -182,13 +181,13 @@ describe('UsersView', () => {
       .toggleStatus({ id: 1, username: 'alice', status: 1 }, 0)
     await flushPromises()
 
-    expect(adminApi.getUsers).toHaveBeenCalledTimes(2)
+    expect(mockedAdminApi.getUsers).toHaveBeenCalledTimes(2)
     expect(messages.success).toHaveBeenCalledWith('用户已禁用')
   })
 
   it('keeps toggle user status successful when users refresh fails afterward', async () => {
-    adminApi.updateUserStatus.mockResolvedValue({ code: 200 })
-    adminApi.getUsers
+    mockedAdminApi.updateUserStatus.mockResolvedValue({ code: 200 })
+    mockedAdminApi.getUsers
       .mockResolvedValueOnce({
         code: 200,
         data: {
@@ -220,7 +219,7 @@ describe('UsersView', () => {
   })
 
   it('logs backend message when resetting coupons returns non-200 payload', async () => {
-    adminApi.resetUserCoupons.mockResolvedValue({ code: 500, message: '重置优惠券失败' })
+    mockedAdminApi.resetUserCoupons.mockResolvedValue({ code: 500, message: '重置优惠券失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -233,7 +232,7 @@ describe('UsersView', () => {
   })
 
   it('logs when user list returns non-200 payload', async () => {
-    adminApi.getUsers.mockResolvedValue({ code: 500, message: '用户列表读取失败' })
+    mockedAdminApi.getUsers.mockResolvedValue({ code: 500, message: '用户列表读取失败' })
 
     mountView()
     await flushPromises()
@@ -245,7 +244,7 @@ describe('UsersView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    adminApi.getUsers
+    mockedAdminApi.getUsers
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
 
@@ -304,10 +303,10 @@ describe('UsersView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    adminApi.getUsers
+    mockedAdminApi.getUsers
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
-    adminApi.updateUserStatus.mockResolvedValue({ code: 200 })
+    mockedAdminApi.updateUserStatus.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -371,7 +370,7 @@ describe('UsersView', () => {
   })
 
   it('closes current user detail when refreshed list no longer contains that user', async () => {
-    adminApi.getUsers
+    mockedAdminApi.getUsers
       .mockResolvedValueOnce({
         code: 200,
         data: {
@@ -413,8 +412,8 @@ describe('UsersView', () => {
   })
 
   it('updates user role and refreshes list successfully', async () => {
-    adminApi.updateUserRole.mockResolvedValue({ code: 200, data: { id: 1, role: 'SELLER' } })
-    adminApi.getUsers
+    mockedAdminApi.updateUserRole.mockResolvedValue({ code: 200, data: { id: 1, role: 'SELLER' } })
+    mockedAdminApi.getUsers
       .mockResolvedValueOnce({
         code: 200,
         data: {
@@ -458,13 +457,13 @@ describe('UsersView', () => {
       .changeRole({ id: 1, username: 'alice', role: 'BUYER' }, 'SELLER')
     await flushPromises()
 
-    expect(adminApi.updateUserRole).toHaveBeenCalledWith(1, 'SELLER')
+    expect(mockedAdminApi.updateUserRole).toHaveBeenCalledWith(1, 'SELLER')
     expect(messages.success).toHaveBeenCalledWith('用户角色已更新')
     expect((wrapper.vm as any).users[0].role).toBe('SELLER')
   })
 
   it('shows backend message when updating user role returns non-200 payload', async () => {
-    adminApi.updateUserRole.mockResolvedValue({ code: 422, message: '至少保留一个管理员' })
+    mockedAdminApi.updateUserRole.mockResolvedValue({ code: 422, message: '至少保留一个管理员' })
     const wrapper = mountView()
 
     await flushPromises()
