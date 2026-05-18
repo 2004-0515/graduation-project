@@ -109,6 +109,16 @@ public class UserController {
         userService.updateUserStatus(id, status);
         return Response.success("用户状态更新成功");
     }
+
+    /**
+     * 【管理员】更新用户角色
+     */
+    @PutMapping("/{id}/role")
+    public Response<User> updateUserRole(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
+        AdminUtils.requireAdmin();
+        User updatedUser = userService.updateUserRole(id, body.get("role"));
+        return Response.success("用户角色更新成功", updatedUser);
+    }
     
     /**
      * 【管理员】删除用户

@@ -11,6 +11,7 @@ import com.shopping.service.PriceAlertService;
 import com.shopping.service.PriceHistoryService;
 import com.shopping.service.ProductService;
 import com.shopping.service.UserService;
+import com.shopping.utils.RoleUtils;
 import com.shopping.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,11 +56,7 @@ public class PriceHistoryController {
      * 检查是否是管理员
      */
     private boolean isAdmin() {
-        if (!SecurityUtils.isAuthenticated()) {
-            return false;
-        }
-        String username = SecurityUtils.getCurrentUsername();
-        return "admin".equals(username);
+        return RoleUtils.isCurrentAdmin();
     }
 
     private <T> Response<T> unauthorized() {

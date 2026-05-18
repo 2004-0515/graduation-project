@@ -88,7 +88,7 @@ class AuthControllerTest {
      */
     private void setAuthenticatedUser(String username) {
         UsernamePasswordAuthenticationToken authentication = 
-            new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
+            com.shopping.test.TestSecurityContexts.authentication(username);
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 

@@ -30,6 +30,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
           AND (:status IS NULL OR u.status = :status)
         """)
     Page<User> searchUsers(@Param("keyword") String keyword, @Param("status") Integer status, Pageable pageable);
+
+    List<User> findByRole(String role);
+
+    long countByRole(String role);
     
     // 直接更新用户密码
     @Modifying(clearAutomatically = true, flushAutomatically = true)

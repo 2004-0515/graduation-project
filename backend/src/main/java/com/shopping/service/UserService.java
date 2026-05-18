@@ -1,14 +1,35 @@
 package com.shopping.service;
 
+import com.shopping.constants.UserRole;
 import com.shopping.entity.User;
+import com.shopping.exception.ValidationException;
+import com.shopping.repository.AddressRepository;
+import com.shopping.repository.CartRepository;
+import com.shopping.repository.ConsumptionAchievementRepository;
+import com.shopping.repository.ConsumptionBudgetRepository;
+import com.shopping.repository.NotificationRepository;
+import com.shopping.repository.OrderItemRepository;
+import com.shopping.repository.OrderRepository;
+import com.shopping.repository.PriceAlertRepository;
+import com.shopping.repository.PrivacySettingsRepository;
+import com.shopping.repository.ProductRepository;
+import com.shopping.repository.ReviewRepository;
+import com.shopping.repository.SearchHistoryRepository;
+import com.shopping.repository.SecuritySettingsRepository;
+import com.shopping.repository.UploadFileRepository;
+import com.shopping.repository.UserCouponRepository;
 import com.shopping.repository.UserRepository;
+import com.shopping.repository.WishlistRepository;
+import com.shopping.repository.NotificationSettingsRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -23,6 +44,57 @@ public class UserService {
     
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private AddressRepository addressRepository;
+
+    @Autowired
+    private CartRepository cartRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
+    private PriceAlertRepository priceAlertRepository;
+
+    @Autowired
+    private SearchHistoryRepository searchHistoryRepository;
+
+    @Autowired
+    private UserCouponRepository userCouponRepository;
+
+    @Autowired
+    private WishlistRepository wishlistRepository;
+
+    @Autowired
+    private ConsumptionBudgetRepository consumptionBudgetRepository;
+
+    @Autowired
+    private ConsumptionAchievementRepository consumptionAchievementRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private OrderItemRepository orderItemRepository;
+
+    @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
+    private ReviewRepository reviewRepository;
+
+    @Autowired
+    private UploadFileRepository uploadFileRepository;
+
+    @Autowired
+    private SecuritySettingsRepository securitySettingsRepository;
+
+    @Autowired
+    private PrivacySettingsRepository privacySettingsRepository;
+
+    @Autowired
+    private NotificationSettingsRepository notificationSettingsRepository;
     
     /**
      * 获取用户列表，支持分页
@@ -83,6 +155,14 @@ public class UserService {
      * @return 保存后的用户信息
      */
     public User saveUser(User user) {
+        String normalizedRole = UserRole.normalize(user.getRole());
+        if (normalizedRole == null || normalizedRole.isBlank()) {
+            normalizedRole = UserRole.BUYER;
+        }
+        if (!UserRole.isValid(normalizedRole)) {
+            throw new ValidationException("用户角色无效");
+        }
+        user.setRole(normalizedRole);
         // 如果是新用户且密码未加密，则加密密码
         if (user.getId() == null && user.getPassword() != null) {
             user.setPassword(passwordEncoder.encode(user.getPassword()));
@@ -134,8 +214,9 @@ public class UserService {
      * 删除用户账号
      * @param user 用户对象
      */
+    @Transactional
     public void deleteAccount(User user) {
-        userRepository.delete(user);
+        deleteUserInternal(user);
     }
     
     /**
@@ -149,20 +230,39 @@ public class UserService {
         user.setStatus(status);
         userRepository.save(user);
     }
+
+    /**
+     * 【管理员】更新用户角色
+     */
+    public User updateUserRole(Long userId, String role) {
+        String normalizedRole = UserRole.normalize(role);
+        if (!UserRole.isValid(normalizedRole)) {
+            throw new ValidationException("用户角色无效");
+        }
+
+        User user = userRepository.findById(userId).orElseThrow(
+            () -> new com.shopping.exception.ResourceNotFoundException("用户", userId));
+
+        if (UserRole.ADMIN.equals(user.getRole()) && !UserRole.ADMIN.equals(normalizedRole)
+                && userRepository.countByRole(UserRole.ADMIN) <= 1) {
+            throw new ValidationException("至少保留一个管理员");
+        }
+
+        user.setRole(normalizedRole);
+        return userRepository.save(user);
+    }
     
     /**
      * 【管理员】根据ID删除用户
      * @param userId 用户ID
      */
+    @Transactional
     public void deleteUserById(Long userId) {
-        if (!userRepository.existsById(userId)) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
             throw new com.shopping.exception.ResourceNotFoundException("用户", userId);
         }
-        try {
-            userRepository.deleteById(userId);
-        } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            throw new com.shopping.exception.ValidationException("该用户有关联数据，无法删除");
-        }
+        deleteUserInternal(user);
     }
     
     /**
@@ -170,11 +270,54 @@ public class UserService {
      * @return 管理员用户列表
      */
     public List<User> getAdminUsers() {
-        // 在这个系统中，管理员是username为"admin"的用户
-        User admin = userRepository.findByUsername("admin");
-        if (admin != null) {
-            return List.of(admin);
+        return userRepository.findByRole(UserRole.ADMIN);
+    }
+
+    private void deleteUserInternal(User user) {
+        validateDeleteAllowed(user);
+        cleanupOwnedUserData(user);
+
+        try {
+            userRepository.delete(user);
+            userRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new ValidationException("该用户有关联数据，无法删除");
         }
-        return List.of();
+    }
+
+    private void validateDeleteAllowed(User user) {
+        if (UserRole.ADMIN.equals(user.getRole()) && userRepository.countByRole(UserRole.ADMIN) <= 1) {
+            throw new ValidationException("至少保留一个管理员");
+        }
+
+        Long userId = user.getId();
+        boolean hasBlockingData =
+                !orderRepository.findByUserId(userId).isEmpty()
+                        || !productRepository.findBySellerIdOrSellerName(userId, user.getUsername()).isEmpty()
+                        || orderItemRepository.existsBySellerId(userId)
+                        || !reviewRepository.findByUserIdOrderByCreatedTimeDesc(userId).isEmpty();
+
+        if (hasBlockingData) {
+            throw new ValidationException("该用户有关联数据，无法删除");
+        }
+    }
+
+    private void cleanupOwnedUserData(User user) {
+        Long userId = user.getId();
+
+        addressRepository.deleteAll(addressRepository.findByUser(user));
+        cartRepository.deleteByUserId(userId);
+        notificationRepository.deleteAllByUserId(userId);
+        searchHistoryRepository.deleteByUserId(userId);
+        priceAlertRepository.deleteAll(priceAlertRepository.findByUserIdOrderByCreatedTimeDesc(userId));
+        userCouponRepository.deleteAll(userCouponRepository.findByUserId(userId));
+        wishlistRepository.deleteAll(wishlistRepository.findByUserId(userId));
+        consumptionBudgetRepository.deleteAll(consumptionBudgetRepository.findByUserId(userId));
+        consumptionAchievementRepository.deleteAll(consumptionAchievementRepository.findByUserIdOrderByAchievedTimeDesc(userId));
+        uploadFileRepository.deleteAll(uploadFileRepository.findByUserId(userId));
+
+        securitySettingsRepository.findByUserId(userId).ifPresent(securitySettingsRepository::delete);
+        privacySettingsRepository.findByUserId(userId).ifPresent(privacySettingsRepository::delete);
+        notificationSettingsRepository.findByUserId(userId).ifPresent(notificationSettingsRepository::delete);
     }
 }

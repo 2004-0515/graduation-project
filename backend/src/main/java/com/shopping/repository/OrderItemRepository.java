@@ -35,5 +35,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
     @Query("SELECT COUNT(oi) FROM OrderItem oi JOIN oi.order o WHERE oi.sellerId = :sellerId AND oi.shipStatus = :shipStatus AND o.orderStatus = 1")
     long countBySellerIdAndShipStatus(@Param("sellerId") Long sellerId, @Param("shipStatus") Integer shipStatus);
 
+    boolean existsBySellerId(Long sellerId);
+
     long countByOrderIdAndShipStatus(Long orderId, Integer shipStatus);
 }

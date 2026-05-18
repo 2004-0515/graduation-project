@@ -1,6 +1,7 @@
 package com.shopping.entity;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.shopping.constants.UserRole;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -62,6 +63,9 @@ public class User {
     
     @Column(name = "status", nullable = false, columnDefinition = "tinyint default 1")
     private Integer status;
+
+    @Column(name = "role", nullable = false, length = 20)
+    private String role = UserRole.BUYER;
     
     @Column(name = "created_time", nullable = false, updatable = false)
     private LocalDateTime createdTime;
@@ -77,12 +81,22 @@ public class User {
     
     @PrePersist
     protected void onCreate() {
+        if (this.role == null || this.role.isBlank()) {
+            this.role = UserRole.BUYER;
+        } else {
+            this.role = UserRole.normalize(this.role);
+        }
         this.createdTime = LocalDateTime.now();
         this.updatedTime = LocalDateTime.now();
     }
     
     @PreUpdate
     protected void onUpdate() {
+        if (this.role == null || this.role.isBlank()) {
+            this.role = UserRole.BUYER;
+        } else {
+            this.role = UserRole.normalize(this.role);
+        }
         this.updatedTime = LocalDateTime.now();
     }
     

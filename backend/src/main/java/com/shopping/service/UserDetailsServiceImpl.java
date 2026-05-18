@@ -6,9 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {
@@ -23,12 +24,12 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         if (user == null) {
             throw new UsernameNotFoundException("User not found with username: " + username);
         }
-        // 这里简化处理，实际项目中应该返回完整的UserDetails实现，包含权限信息
         // 使用数据库中存储的真实用户名，确保认证和生成JWT时使用的是同一值
+        String role = user.getRole() == null ? "BUYER" : user.getRole();
         return new org.springframework.security.core.userdetails.User(
             user.getUsername(),
             user.getPassword(),
-            new ArrayList<>()
+            List.of(new SimpleGrantedAuthority("ROLE_" + role))
         );
     }
 }

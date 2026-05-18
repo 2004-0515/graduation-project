@@ -9,18 +9,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
  */
 public class AdminUtils {
     
-    private static final String ADMIN_USERNAME = "admin";
-    
     /**
      * 检查当前用户是否为管理员
      * @return true 如果是管理员
      */
     public static boolean isAdmin() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            return false;
-        }
-        return ADMIN_USERNAME.equals(auth.getName());
+        return RoleUtils.isCurrentAdmin();
     }
     
     /**
@@ -28,9 +22,7 @@ public class AdminUtils {
      * @throws AuthenticationException 如果不是管理员
      */
     public static void requireAdmin() {
-        if (!isAdmin()) {
-            throw new AuthenticationException("需要管理员权限");
-        }
+        RoleUtils.requireAdmin();
     }
     
     /**

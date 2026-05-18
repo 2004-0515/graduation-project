@@ -12,6 +12,8 @@ import java.util.Optional;
 
 @Repository
 public interface ConsumptionBudgetRepository extends JpaRepository<ConsumptionBudget, Long> {
+
+    List<ConsumptionBudget> findByUserId(Long userId);
     
     Optional<ConsumptionBudget> findByUserIdAndBudgetMonth(Long userId, String budgetMonth);
     

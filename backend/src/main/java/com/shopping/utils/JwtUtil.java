@@ -60,9 +60,9 @@ public class JwtUtil {
         Date expiryDate = new Date(now.getTime() + jwtProperties.getExpiration());
         
         return Jwts.builder()
-                .setSubject(username)
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
+                .subject(username)
+                .issuedAt(now)
+                .expiration(expiryDate)
                 .signWith(getSigningKey())
                 .compact();
     }

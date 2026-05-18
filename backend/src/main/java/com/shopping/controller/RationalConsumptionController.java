@@ -4,6 +4,7 @@ import com.shopping.dto.ConsumptionReportDto;
 import com.shopping.dto.Response;
 import com.shopping.entity.ConsumptionBudget;
 import com.shopping.service.RationalConsumptionService;
+import com.shopping.utils.AdminUtils;
 import com.shopping.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -249,8 +250,7 @@ public class RationalConsumptionController {
      */
     @GetMapping("/admin/stats")
     public Response<?> getAdminStats() {
-        String username = currentUsernameOrNull();
-        if (!"admin".equals(username)) {
+        if (!AdminUtils.isAdmin()) {
             return forbidden();
         }
         
@@ -263,8 +263,7 @@ public class RationalConsumptionController {
      */
     @GetMapping("/admin/consumption-trend")
     public Response<?> getConsumptionTrend() {
-        String username = currentUsernameOrNull();
-        if (!"admin".equals(username)) {
+        if (!AdminUtils.isAdmin()) {
             return forbidden();
         }
         
@@ -277,8 +276,7 @@ public class RationalConsumptionController {
      */
     @GetMapping("/admin/wishlist-activity")
     public Response<?> getWishlistActivity() {
-        String username = currentUsernameOrNull();
-        if (!"admin".equals(username)) {
+        if (!AdminUtils.isAdmin()) {
             return forbidden();
         }
         
@@ -291,8 +289,7 @@ public class RationalConsumptionController {
      */
     @GetMapping("/admin/recent-achievements")
     public Response<?> getRecentAchievements() {
-        String username = currentUsernameOrNull();
-        if (!"admin".equals(username)) {
+        if (!AdminUtils.isAdmin()) {
             return forbidden();
         }
         
@@ -305,8 +302,7 @@ public class RationalConsumptionController {
      */
     @PostMapping("/admin/grant-achievement")
     public Response<?> grantAchievement(@RequestBody Map<String, Object> params) {
-        String username = currentUsernameOrNull();
-        if (!"admin".equals(username)) {
+        if (!AdminUtils.isAdmin()) {
             return forbidden();
         }
 
@@ -322,8 +318,7 @@ public class RationalConsumptionController {
      */
     @PostMapping("/admin/revoke-achievement")
     public Response<?> revokeAchievement(@RequestBody Map<String, Object> params) {
-        String username = currentUsernameOrNull();
-        if (!"admin".equals(username)) {
+        if (!AdminUtils.isAdmin()) {
             return forbidden();
         }
 

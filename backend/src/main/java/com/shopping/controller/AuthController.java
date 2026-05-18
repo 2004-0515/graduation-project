@@ -125,6 +125,7 @@ public class AuthController {
         dto.setNickname(user.getNickname());
         dto.setBio(user.getBio());
         dto.setAvatar(user.getAvatar());
+        dto.setRole(user.getRole());
         dto.setPoints(user.getPoints());
         dto.setGrowthValue(user.getGrowthValue());
         dto.setMemberDays(user.getMemberDays());

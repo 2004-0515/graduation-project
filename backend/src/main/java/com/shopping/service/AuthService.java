@@ -1,6 +1,7 @@
 package com.shopping.service;
 
 import com.shopping.constants.AuditConstants;
+import com.shopping.constants.UserRole;
 import com.shopping.exception.BusinessException;
 import com.shopping.dto.RegisterRequest;
 import com.shopping.dto.UserUpdateRequest;
@@ -69,6 +70,7 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
+        user.setRole(UserRole.BUYER);
         user.setStatus(AuditConstants.UserStatus.ENABLED);
         user.setPoints(0);
         user.setGrowthValue(0);
@@ -170,7 +172,7 @@ public class AuthService {
         try {
             securitySettingsService.recordPasswordChange(user.getId());
         } catch (Exception e) {
-            logger.warn("Failed to record password change for user: {}", username, e);
+            logger.warn("Failed to record password change for user: {}, reason={}", username, e.getMessage());
             // 不影响密码修改成功
         }
 

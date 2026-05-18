@@ -2,6 +2,7 @@ package com.shopping.controller;
 
 import com.shopping.handler.GlobalExceptionHandler;
 import com.shopping.entity.User;
+import com.shopping.exception.ValidationException;
 import com.shopping.service.UserService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,10 +22,13 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -53,7 +57,7 @@ class UserControllerTest {
 
     private void setAuthenticatedUser(String username) {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication(username);
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
@@ -94,6 +98,24 @@ class UserControllerTest {
     }
 
     @Test
+    void deleteCurrentUser_WhenServiceRejects_ShouldReturnValidationMessage() throws Exception {
+        setAuthenticatedUser("buyer");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("buyer");
+        when(userService.findByUsername("buyer")).thenReturn(user);
+        doThrow(new ValidationException("该用户有关联数据，无法删除"))
+                .when(userService)
+                .deleteAccount(user);
+
+        mockMvc.perform(delete("/users/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(422))
+                .andExpect(jsonPath("$.message").value("该用户有关联数据，无法删除"));
+    }
+
+    @Test
     void getUsers_WhenAdminWithKeywordAndStatus_ShouldDelegateWithFilters() throws Exception {
         setAuthenticatedUser("admin");
 
@@ -115,5 +137,41 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.content[0].status").value(1));
 
         verify(userService).fetchUsers(eq(0), eq(10), eq("ali"), eq(1));
+    }
+
+    @Test
+    void updateUserRole_WhenBuyer_ShouldReturn403() throws Exception {
+        setAuthenticatedUser("buyer");
+
+        mockMvc.perform(put("/users/1/role")
+                        .contentType("application/json")
+                        .content("{\"role\":\"SELLER\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.message").value("需要管理员权限"));
+
+        verify(userService, never()).updateUserRole(eq(1L), eq("SELLER"));
+    }
+
+    @Test
+    void updateUserRole_WhenAdmin_ShouldDelegateAndReturnUser() throws Exception {
+        setAuthenticatedUser("admin");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("alice");
+        user.setRole("SELLER");
+        when(userService.updateUserRole(1L, "SELLER")).thenReturn(user);
+
+        mockMvc.perform(put("/users/1/role")
+                        .contentType("application/json")
+                        .content("{\"role\":\"SELLER\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message").value("用户角色更新成功"))
+                .andExpect(jsonPath("$.data.username").value("alice"))
+                .andExpect(jsonPath("$.data.role").value("SELLER"));
+
+        verify(userService).updateUserRole(1L, "SELLER");
     }
 }
