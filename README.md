@@ -87,6 +87,14 @@ cd backend
 mvn spring-boot:run
 ```
 
+Packaged jar startup on Windows:
+
+```powershell
+cd backend
+mvn -DskipTests package
+.\run-local.cmd
+```
+
 ## Node Tooling Entry Points
 
 Project scripts support two explicit Node tooling entry modes:
