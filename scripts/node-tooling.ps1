@@ -326,8 +326,10 @@ function Resolve-ToolExecutableCandidate {
 
         $command = Get-Command $value -ErrorAction SilentlyContinue
         if ($command) {
-            $commandPath = if ($command.Source) { [string]$command.Source } elseif ($command.Path) { [string]$command.Path } else { $value }
-            if ($command.Source -and (Test-IsNodeToolShimCandidate -ResolvedPath $command.Source)) {
+            $commandSource = if ($command.PSObject.Properties.Name -contains 'Source') { [string]$command.Source } else { '' }
+            $commandPathProperty = if ($command.PSObject.Properties.Name -contains 'Path') { [string]$command.Path } else { '' }
+            $commandPath = if ($commandSource) { $commandSource } elseif ($commandPathProperty) { $commandPathProperty } else { $value }
+            if ($commandSource -and (Test-IsNodeToolShimCandidate -ResolvedPath $commandSource)) {
                 continue
             }
 
