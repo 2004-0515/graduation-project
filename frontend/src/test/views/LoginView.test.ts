@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 
-const { routerPush, messages, userStore, generateRandomCode, debugError } = vi.hoisted(() => ({
+const { routerPush, messages, userStore, generateRandomCode, debugError, routeState } = vi.hoisted(() => ({
   routerPush: vi.fn(),
   messages: {
     success: vi.fn(),
@@ -13,11 +13,15 @@ const { routerPush, messages, userStore, generateRandomCode, debugError } = vi.h
     error: null as string | null
   },
   generateRandomCode: vi.fn(),
-  debugError: vi.fn()
+  debugError: vi.fn(),
+  routeState: {
+    query: {}
+  }
 }))
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: routerPush })
+  useRouter: () => ({ push: routerPush }),
+  useRoute: () => routeState
 }))
 
 vi.mock('element-plus', () => ({
@@ -36,6 +40,13 @@ vi.mock('@/utils/debug', () => ({
   debugError
 }))
 
+vi.mock('@/utils/navigation', () => ({
+  resolveRedirectTarget: (route: { query?: Record<string, unknown> }, fallback = '/') => {
+    const redirect = route.query?.redirect
+    return typeof redirect === 'string' ? redirect : fallback
+  }
+}))
+
 const ElFormStub = defineComponent({
   setup(_, { slots, expose }) {
     expose({
@@ -51,6 +62,7 @@ describe('LoginView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     userStore.error = null
+    routeState.query = {}
     generateRandomCode.mockReturnValue('ABC123')
     Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
       value: vi.fn(() => ({
@@ -86,11 +98,12 @@ describe('LoginView', () => {
       }
     })
 
-  it('shows success message and redirects to home after login succeeds', async () => {
+  it('shows success message and redirects to original target after login succeeds', async () => {
     userStore.login.mockResolvedValue({
       token: 'token',
       user: { id: 1, username: 'buyer' }
     })
+    routeState.query = { redirect: '/orders' }
     const wrapper = mountView()
 
     ;(wrapper.vm as any).loginForm.username = 'buyer'
@@ -101,7 +114,7 @@ describe('LoginView', () => {
 
     expect(userStore.login).toHaveBeenCalledWith({ username: 'buyer', password: 'secret123' })
     expect(messages.success).toHaveBeenCalledWith('登录成功')
-    expect(routerPush).toHaveBeenCalledWith('/')
+    expect(routerPush).toHaveBeenCalledWith('/orders')
   })
 
   it('shows backend chinese error and refreshes captcha after login fails', async () => {

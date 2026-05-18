@@ -51,7 +51,7 @@
           <el-table-column label="操作" width="240" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link size="small" @click="viewDetail(row)">详情</el-button>
-              <el-dropdown trigger="click" @command="(role) => changeRole(row, role as string)">
+              <el-dropdown trigger="click" @command="(role: string | number) => changeRole(row, String(role))">
                 <el-button type="primary" link size="small">角色</el-button>
                 <template #dropdown>
                   <el-dropdown-menu>

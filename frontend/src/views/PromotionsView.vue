@@ -162,7 +162,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 import couponApi from '../api/couponApi'
@@ -170,7 +170,9 @@ import productApi from '../api/productApi'
 import fileApi from '../api/fileApi'
 import showcaseApi, { type ShowcaseBanner } from '../api/showcaseApi'
 import { debugError } from '../utils/debug'
+import { buildLoginLocation } from '../utils/navigation'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const loading = ref(true)
@@ -333,7 +335,7 @@ const applyLocalMyCoupons = (nextCoupons: any[]) => {
 const claimCoupon = async (coupon: any) => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
-    router.push('/login')
+    router.push(buildLoginLocation(route.fullPath))
     return
   }
   

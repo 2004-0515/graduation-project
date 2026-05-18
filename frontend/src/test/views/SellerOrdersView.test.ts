@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import orderApi from '@/api/orderApi'
 import fileApi from '@/api/fileApi'
 import type { ApiResponse, SellerOrderItem } from '@/types'
+import { buildSellerOrderItem, okResponse } from '@/test/helpers/factories'
 import * as debugModule from '@/utils/debug'
 import SellerOrdersView from '@/views/SellerOrdersView.vue'
 
@@ -16,6 +17,9 @@ const messages = {
 const messageBox = {
   confirm: vi.spyOn(ElMessageBox, 'confirm')
 }
+
+const mockedOrderApi = vi.mocked(orderApi) as any
+const mockedFileApi = vi.mocked(fileApi) as any
 
 vi.spyOn(orderApi, 'getSellerOrderItems')
 vi.spyOn(orderApi, 'getSellerPendingCount')
@@ -33,50 +37,23 @@ function createDeferred<T>() {
   return { promise, resolve, reject }
 }
 
-function buildSellerItem(overrides: Partial<SellerOrderItem> = {}): SellerOrderItem {
-  return {
-    id: 11,
-    orderId: 1,
-    productId: 100,
-    productName: '商品A',
-    productImage: '/a.png',
-    price: 99,
-    quantity: 1,
-    shipStatus: 0,
-    orderNo: 'ORD-1',
-    orderStatus: 1,
-    buyerName: 'buyer',
-    createdTime: '2026-05-07T10:00:00',
-    shippingAddress: {
-      id: 1,
-      userId: 1,
-      name: '张三',
-      receiver: '张三',
-      phone: '13800138000',
-      province: '广东',
-      city: '深圳',
-      district: '南山',
-      detail: '科技园',
-      isDefault: true
-    },
-    ...overrides
-  }
-}
+const buildSellerItem = (overrides: Partial<SellerOrderItem> = {}): SellerOrderItem =>
+  buildSellerOrderItem(overrides)
 
 describe('SellerOrdersView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     messageBox.confirm.mockResolvedValue('confirm' as any)
-    orderApi.getSellerOrderItems.mockResolvedValue({ code: 200, data: [] } as ApiResponse<SellerOrderItem[]>)
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 0 } as ApiResponse<number>)
-    orderApi.shipSellerOrderItem.mockResolvedValue({ code: 200 } as any)
-    fileApi.getImageUrl.mockReturnValue('/img.png')
+    mockedOrderApi.getSellerOrderItems.mockResolvedValue(okResponse([]))
+    mockedOrderApi.getSellerPendingCount.mockResolvedValue(okResponse(0))
+    mockedOrderApi.shipSellerOrderItem.mockResolvedValue({ code: 200 } as any)
+    mockedFileApi.getImageUrl.mockReturnValue('/img.png')
     debugError.mockImplementation(() => {})
   })
 
   it('loads seller items and pending count on mount', async () => {
-    orderApi.getSellerOrderItems.mockResolvedValue({ code: 200, data: [buildSellerItem()] } as ApiResponse<SellerOrderItem[]>)
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 3 } as ApiResponse<number>)
+    mockedOrderApi.getSellerOrderItems.mockResolvedValue({ code: 200, data: [buildSellerItem()] } as ApiResponse<SellerOrderItem[]>)
+    mockedOrderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 3 } as ApiResponse<number>)
 
     const wrapper = mount(SellerOrdersView, {
       global: {
@@ -97,16 +74,16 @@ describe('SellerOrdersView', () => {
 
     await flushPromises()
 
-    expect(orderApi.getSellerOrderItems).toHaveBeenCalledWith(undefined)
-    expect(orderApi.getSellerPendingCount).toHaveBeenCalled()
+    expect(mockedOrderApi.getSellerOrderItems).toHaveBeenCalledWith(undefined)
+    expect(mockedOrderApi.getSellerPendingCount).toHaveBeenCalled()
     expect(wrapper.text()).toContain('订单号: ORD-1')
   })
 
   it('passes shipStatus filter to seller items query', async () => {
-    orderApi.getSellerOrderItems
+    mockedOrderApi.getSellerOrderItems
       .mockResolvedValueOnce({ code: 200, message: 'success', success: true, data: [] as SellerOrderItem[] } as ApiResponse<SellerOrderItem[]>)
       .mockResolvedValueOnce({ code: 200, message: 'success', success: true, data: [] as SellerOrderItem[] } as ApiResponse<SellerOrderItem[]>)
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 0 } as ApiResponse<number>)
+    mockedOrderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 0 } as ApiResponse<number>)
 
     const wrapper = mount(SellerOrdersView, {
       global: {
@@ -131,17 +108,17 @@ describe('SellerOrdersView', () => {
     await (wrapper.vm as unknown as { handleFilterChange: () => void }).handleFilterChange()
     await flushPromises()
 
-    expect(orderApi.getSellerOrderItems).toHaveBeenLastCalledWith(0)
+    expect(mockedOrderApi.getSellerOrderItems).toHaveBeenLastCalledWith(0)
   })
 
   it('ships item and refreshes list and count', async () => {
-    orderApi.getSellerOrderItems
+    mockedOrderApi.getSellerOrderItems
       .mockResolvedValueOnce({ code: 200, data: [buildSellerItem()] } as ApiResponse<SellerOrderItem[]>)
       .mockResolvedValueOnce({ code: 200, data: [buildSellerItem({ shipStatus: 1 })] } as ApiResponse<SellerOrderItem[]>)
-    orderApi.getSellerPendingCount
+    mockedOrderApi.getSellerPendingCount
       .mockResolvedValueOnce({ code: 200, data: 1 } as ApiResponse<number>)
       .mockResolvedValueOnce({ code: 200, data: 0 } as ApiResponse<number>)
-    orderApi.shipSellerOrderItem.mockResolvedValue({ code: 200 })
+    mockedOrderApi.shipSellerOrderItem.mockResolvedValue({ code: 200 })
 
     const wrapper = mount(SellerOrdersView, {
       global: {
@@ -164,17 +141,17 @@ describe('SellerOrdersView', () => {
     await (wrapper.vm as unknown as { handleShip: (item: SellerOrderItem) => Promise<void> }).handleShip(buildSellerItem())
     await flushPromises()
 
-    expect(orderApi.shipSellerOrderItem).toHaveBeenCalledWith(11)
+    expect(mockedOrderApi.shipSellerOrderItem).toHaveBeenCalledWith(11)
     expect(messages.success).toHaveBeenCalledWith('发货成功')
-    expect(orderApi.getSellerPendingCount).toHaveBeenCalledTimes(2)
+    expect(mockedOrderApi.getSellerPendingCount).toHaveBeenCalledTimes(2)
   })
 
   it('keeps shipping success when refreshing seller data fails afterward', async () => {
-    orderApi.getSellerOrderItems
+    mockedOrderApi.getSellerOrderItems
       .mockResolvedValueOnce({ code: 200, data: [buildSellerItem()] } as ApiResponse<SellerOrderItem[]>)
       .mockRejectedValue(new Error('刷新失败'))
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 1 } as ApiResponse<number>)
-    orderApi.shipSellerOrderItem.mockResolvedValue({ code: 200 })
+    mockedOrderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 1 } as ApiResponse<number>)
+    mockedOrderApi.shipSellerOrderItem.mockResolvedValue({ code: 200 })
 
     const wrapper = mount(SellerOrdersView, {
       global: {
@@ -203,11 +180,11 @@ describe('SellerOrdersView', () => {
   })
 
   it('removes shipped item from pending filter locally when refresh fails afterward', async () => {
-    orderApi.getSellerOrderItems
+    mockedOrderApi.getSellerOrderItems
       .mockResolvedValueOnce({ code: 200, data: [buildSellerItem()] } as ApiResponse<SellerOrderItem[]>)
       .mockRejectedValue(new Error('刷新失败'))
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 1 } as ApiResponse<number>)
-    orderApi.shipSellerOrderItem.mockResolvedValue({ code: 200 })
+    mockedOrderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 1 } as ApiResponse<number>)
+    mockedOrderApi.shipSellerOrderItem.mockResolvedValue({ code: 200 })
 
     const wrapper = mount(SellerOrdersView, {
       global: {
@@ -238,8 +215,8 @@ describe('SellerOrdersView', () => {
   })
 
   it('does not show an error when seller cancels shipping confirmation', async () => {
-    orderApi.getSellerOrderItems.mockResolvedValue({ code: 200, data: [buildSellerItem()] } as ApiResponse<SellerOrderItem[]>)
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 1 } as ApiResponse<number>)
+    mockedOrderApi.getSellerOrderItems.mockResolvedValue({ code: 200, data: [buildSellerItem()] } as ApiResponse<SellerOrderItem[]>)
+    mockedOrderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 1 } as ApiResponse<number>)
     messageBox.confirm.mockRejectedValue('cancel')
 
     const wrapper = mount(SellerOrdersView, {
@@ -263,14 +240,14 @@ describe('SellerOrdersView', () => {
     await (wrapper.vm as unknown as { handleShip: (item: SellerOrderItem) => Promise<void> }).handleShip(buildSellerItem())
     await flushPromises()
 
-    expect(orderApi.shipSellerOrderItem).not.toHaveBeenCalled()
+    expect(mockedOrderApi.shipSellerOrderItem).not.toHaveBeenCalled()
     expect(messages.error).not.toHaveBeenCalled()
   })
 
   it('shows an error when shipping request fails', async () => {
-    orderApi.getSellerOrderItems.mockResolvedValue({ code: 200, data: [buildSellerItem()] } as ApiResponse<SellerOrderItem[]>)
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 1 } as ApiResponse<number>)
-    orderApi.shipSellerOrderItem.mockRejectedValue({
+    mockedOrderApi.getSellerOrderItems.mockResolvedValue({ code: 200, data: [buildSellerItem()] } as ApiResponse<SellerOrderItem[]>)
+    mockedOrderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 1 } as ApiResponse<number>)
+    mockedOrderApi.shipSellerOrderItem.mockRejectedValue({
       response: { data: { message: '当前订单状态不允许发货' } }
     })
 
@@ -300,8 +277,8 @@ describe('SellerOrdersView', () => {
   })
 
   it('shows an error when loading seller items fails', async () => {
-    orderApi.getSellerOrderItems.mockRejectedValue({ response: { data: { message: '请先登录' } } })
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 0 } as ApiResponse<number>)
+    mockedOrderApi.getSellerOrderItems.mockRejectedValue({ response: { data: { message: '请先登录' } } })
+    mockedOrderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 0 } as ApiResponse<number>)
 
     mount(SellerOrdersView, {
       global: {
@@ -327,8 +304,8 @@ describe('SellerOrdersView', () => {
   })
 
   it('shows backend message when loading seller items returns non-200 payload', async () => {
-    orderApi.getSellerOrderItems.mockResolvedValue({ code: 500, message: '卖家订单列表加载失败' })
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 0 } as ApiResponse<number>)
+    mockedOrderApi.getSellerOrderItems.mockResolvedValue({ code: 500, message: '卖家订单列表加载失败' })
+    mockedOrderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 0 } as ApiResponse<number>)
 
     mount(SellerOrdersView, {
       global: {
@@ -352,9 +329,9 @@ describe('SellerOrdersView', () => {
   })
 
   it('shows backend message when shipping returns non-200 payload', async () => {
-    orderApi.getSellerOrderItems.mockResolvedValue({ code: 200, data: [buildSellerItem()] } as ApiResponse<SellerOrderItem[]>)
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 1 } as ApiResponse<number>)
-    orderApi.shipSellerOrderItem.mockResolvedValue({ code: 500, message: '订单项发货失败' })
+    mockedOrderApi.getSellerOrderItems.mockResolvedValue({ code: 200, data: [buildSellerItem()] } as ApiResponse<SellerOrderItem[]>)
+    mockedOrderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 1 } as ApiResponse<number>)
+    mockedOrderApi.shipSellerOrderItem.mockResolvedValue({ code: 500, message: '订单项发货失败' })
 
     const wrapper = mount(SellerOrdersView, {
       global: {
@@ -383,10 +360,10 @@ describe('SellerOrdersView', () => {
     const firstItemsRequest = createDeferred<ApiResponse<SellerOrderItem[]>>()
     const secondItemsRequest = createDeferred<ApiResponse<SellerOrderItem[]>>()
 
-    orderApi.getSellerOrderItems
+    mockedOrderApi.getSellerOrderItems
       .mockImplementationOnce(() => firstItemsRequest.promise)
       .mockImplementationOnce(() => secondItemsRequest.promise)
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 0 } as ApiResponse<number>)
+    mockedOrderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 0 } as ApiResponse<number>)
 
     const wrapper = mount(SellerOrdersView, {
       global: {
@@ -426,13 +403,13 @@ describe('SellerOrdersView', () => {
     const firstItemsRequest = createDeferred<ApiResponse<SellerOrderItem[]>>()
     const secondItemsRequest = createDeferred<ApiResponse<SellerOrderItem[]>>()
 
-    orderApi.getSellerOrderItems
+    mockedOrderApi.getSellerOrderItems
       .mockImplementationOnce(() => firstItemsRequest.promise)
       .mockImplementationOnce(() => secondItemsRequest.promise)
-    orderApi.getSellerPendingCount
+    mockedOrderApi.getSellerPendingCount
       .mockResolvedValueOnce({ code: 200, data: 1 } as ApiResponse<number>)
       .mockResolvedValueOnce({ code: 200, data: 0 } as ApiResponse<number>)
-    orderApi.shipSellerOrderItem.mockResolvedValue({ code: 200 })
+    mockedOrderApi.shipSellerOrderItem.mockResolvedValue({ code: 200 })
 
     const wrapper = mount(SellerOrdersView, {
       global: {

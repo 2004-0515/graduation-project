@@ -119,8 +119,9 @@ public class MediaGovernanceService {
     }
 
     public void normalizeShowcaseImagePaths(com.shopping.entity.ShowcaseBanner banner) {
-        banner.setImagePath(validateMediaUrl(banner.getImagePath(), StoredMediaKind.BANNER_IMAGE));
-        banner.setMobileImagePath(validateOptionalMediaUrl(banner.getMobileImagePath(), StoredMediaKind.BANNER_IMAGE));
+        StoredMediaKind showcaseKind = resolveShowcaseImageKind(banner == null ? null : banner.getPlacement());
+        banner.setImagePath(validateMediaUrl(banner.getImagePath(), showcaseKind));
+        banner.setMobileImagePath(validateOptionalMediaUrl(banner.getMobileImagePath(), showcaseKind));
     }
 
     public String validateOptionalMediaUrl(String value, StoredMediaKind kind) {
@@ -267,6 +268,13 @@ public class MediaGovernanceService {
             .replaceAll("[\\\\/:*?\"<>|]", "")
             .replaceAll("\\s+", "_");
         return sanitized.isBlank() ? "other" : sanitized;
+    }
+
+    private StoredMediaKind resolveShowcaseImageKind(String placement) {
+        if ("PROMOTION_HERO".equalsIgnoreCase(placement)) {
+            return StoredMediaKind.PROMOTION_IMAGE;
+        }
+        return StoredMediaKind.BANNER_IMAGE;
     }
 
     private Path getUploadBasePath() {

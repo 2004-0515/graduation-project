@@ -15,6 +15,9 @@ public class CategoryService {
     
     @Autowired
     private CategoryRepository categoryRepository;
+
+    @Autowired
+    private MediaGovernanceService mediaGovernanceService;
     
     /**
      * 获取所有商品分类
@@ -48,6 +51,12 @@ public class CategoryService {
      * @return 保存后的商品分类信息
      */
     public Category saveCategory(Category category) {
+        category.setIcon(
+                mediaGovernanceService.validateOptionalMediaUrl(
+                        category.getIcon(),
+                        MediaGovernanceService.StoredMediaKind.CATEGORY_IMAGE
+                )
+        );
         return categoryRepository.save(category);
     }
     

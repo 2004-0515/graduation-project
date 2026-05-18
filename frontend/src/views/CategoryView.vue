@@ -318,7 +318,7 @@ onMounted(() => {
 <style scoped>
 .category-page { min-height: 100vh; background: var(--white); position: relative; }
 .deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-.deco-bg { position: absolute; top: 0; right: -10%; width: 50%; height: 60%; background: url('/external-cache/category-bg.jpg') center/cover; opacity: 0.1; filter: blur(50px); }
+.deco-bg { position: absolute; top: 0; right: -10%; width: 50%; height: 60%; background: radial-gradient(circle at center, rgba(92, 170, 255, 0.18), rgba(92, 170, 255, 0) 72%); opacity: 0.95; filter: blur(50px); }
 .shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; }
 .s1 { width: 600px; height: 600px; top: 10%; left: -10%; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.5; }
 .s2 { width: 500px; height: 500px; bottom: 5%; right: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.5; animation-delay: -10s; }

@@ -268,7 +268,8 @@ describe('OrderDetailView', () => {
       '初始化订单详情失败:',
       expect.objectContaining({ response: { data: { message: '订单不存在' } } })
     )
-    expect(mockBack).toHaveBeenCalled()
+    expect(mockPush).toHaveBeenCalledWith('/orders')
+    expect(mockBack).not.toHaveBeenCalled()
   })
 
   it('logs backend message when confirm receive returns non-200 payload', async () => {

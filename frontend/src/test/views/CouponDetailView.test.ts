@@ -12,7 +12,7 @@ const {
 } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockBack: vi.fn(),
-  mockRoute: { params: { id: '8' } },
+  mockRoute: { params: { id: '8' }, fullPath: '/coupon/8' },
   couponApi: {
     getCouponById: vi.fn(),
     claimCoupon: vi.fn()
@@ -46,6 +46,11 @@ vi.mock('@/api/couponApi', () => ({
 
 vi.mock('@/utils/debug', () => ({
   debugError
+}))
+
+vi.mock('@/utils/navigation', () => ({
+  buildLoginLocation: (redirect: string) => ({ path: '/login', query: { redirect } }),
+  goBackOr: vi.fn()
 }))
 
 import CouponDetailView from '@/views/CouponDetailView.vue'
@@ -104,7 +109,7 @@ describe('CouponDetailView', () => {
     await (wrapper.vm as unknown as { handleClaim: () => Promise<void> }).handleClaim()
 
     expect(ElMessage.warning).toHaveBeenCalledWith('请先登录')
-    expect(mockPush).toHaveBeenCalledWith('/login')
+    expect(mockPush).toHaveBeenCalledWith({ path: '/login', query: { redirect: '/coupon/8' } })
     expect(couponApi.claimCoupon).not.toHaveBeenCalled()
   })
 

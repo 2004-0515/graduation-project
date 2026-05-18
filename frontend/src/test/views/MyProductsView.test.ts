@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import categoryApi from '@/api/categoryApi'
 import productApi from '@/api/productApi'
 import fileApi from '@/api/fileApi'
+import { buildProduct, okResponse } from '@/test/helpers/factories'
 import * as debugModule from '@/utils/debug'
 
 const messages = {
@@ -15,6 +16,10 @@ const messages = {
 const messageBox = {
   confirm: vi.spyOn(ElMessageBox, 'confirm')
 }
+
+const mockedCategoryApi = vi.mocked(categoryApi) as any
+const mockedProductApi = vi.mocked(productApi) as any
+const mockedFileApi = vi.mocked(fileApi) as any
 
 const getMyProductsSpy = vi.spyOn(productApi, 'getMyProducts')
 const deleteProductSpy = vi.spyOn(productApi, 'deleteProduct')
@@ -45,22 +50,11 @@ const deferred = <T>() => {
 describe('MyProductsView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    messageBox.confirm.mockResolvedValue(undefined)
-    getCategoriesSpy.mockResolvedValue({ code: 200, data: [] })
-    getMyProductsSpy.mockResolvedValue({
-      code: 200,
-      data: [
-        {
-          id: 5,
-          name: '商品A',
-          price: 99,
-          stock: 5,
-          sales: 1,
-          auditStatus: 1,
-          mainImage: '/a.png'
-        }
-      ]
-    })
+    messageBox.confirm.mockResolvedValue(undefined as any)
+    mockedCategoryApi.getCategories.mockResolvedValue(okResponse([]))
+    mockedProductApi.getMyProducts.mockResolvedValue(
+      okResponse([buildProduct({ id: 5, name: '商品A', price: 99, stock: 5, sales: 1, auditStatus: 1, mainImage: '/a.png' })])
+    )
     deleteProductSpy.mockResolvedValue({ code: 200, message: '删除成功' } as any)
     submitProductSpy.mockResolvedValue({ code: 200, data: { id: 8, auditStatus: 0, sales: 0 } } as any)
     updateProductSpy.mockResolvedValue({ code: 200, data: { id: 5, auditStatus: 0 } } as any)
@@ -104,12 +98,12 @@ describe('MyProductsView', () => {
       .handleDelete({ id: 5, name: '商品A' })
     await flushPromises()
 
-    expect(productApi.deleteProduct).not.toHaveBeenCalled()
+    expect(mockedProductApi.deleteProduct).not.toHaveBeenCalled()
     expect(messages.error).not.toHaveBeenCalled()
   })
 
   it('shows an error when product deletion fails', async () => {
-    productApi.deleteProduct.mockRejectedValue(new Error('boom'))
+    mockedProductApi.deleteProduct.mockRejectedValue(new Error('boom'))
     const wrapper = mountView()
 
     await flushPromises()
@@ -122,7 +116,7 @@ describe('MyProductsView', () => {
   })
 
   it('shows backend message when deleting product returns non-200 payload', async () => {
-    productApi.deleteProduct.mockResolvedValue({ code: 500, message: '删除被拒绝' })
+    mockedProductApi.deleteProduct.mockResolvedValue({ code: 500, message: '删除被拒绝' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -135,7 +129,7 @@ describe('MyProductsView', () => {
   })
 
   it('logs when my products list returns non-200 payload', async () => {
-    productApi.getMyProducts.mockResolvedValue({ code: 500, message: '读取失败' })
+    mockedProductApi.getMyProducts.mockResolvedValue({ code: 500, message: '读取失败' })
 
     mountView()
     await flushPromises()
@@ -144,7 +138,7 @@ describe('MyProductsView', () => {
   })
 
   it('logs backend message when submitting product returns non-200 payload', async () => {
-    productApi.submitProduct.mockResolvedValue({ code: 500, message: '商品提交失败' })
+    mockedProductApi.submitProduct.mockResolvedValue({ code: 500, message: '商品提交失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -177,13 +171,13 @@ describe('MyProductsView', () => {
     await (wrapper.vm as any).submitProduct()
     await flushPromises()
 
-    expect(productApi.submitProduct).not.toHaveBeenCalled()
-    expect(productApi.updateProduct).not.toHaveBeenCalled()
+    expect(mockedProductApi.submitProduct).not.toHaveBeenCalled()
+    expect(mockedProductApi.updateProduct).not.toHaveBeenCalled()
     expect((wrapper.vm as any).saving).toBe(false)
   })
 
   it('does not treat success flag without 200 code as a real submit success', async () => {
-    productApi.submitProduct.mockResolvedValue({ code: 500, success: true, message: '商品提交失败' })
+    mockedProductApi.submitProduct.mockResolvedValue({ code: 500, success: true, message: '商品提交失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -202,7 +196,7 @@ describe('MyProductsView', () => {
   })
 
   it('does not treat success flag without 200 code as a real delete success', async () => {
-    productApi.deleteProduct.mockResolvedValue({ code: 500, success: true, message: '删除失败' })
+    mockedProductApi.deleteProduct.mockResolvedValue({ code: 500, success: true, message: '删除失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -215,10 +209,10 @@ describe('MyProductsView', () => {
   })
 
   it('keeps submit success when refreshing my products fails afterward', async () => {
-    productApi.getMyProducts
+    mockedProductApi.getMyProducts
       .mockResolvedValueOnce({ code: 200, data: [] })
       .mockRejectedValue(new Error('刷新失败'))
-    productApi.submitProduct.mockResolvedValue({
+    mockedProductApi.submitProduct.mockResolvedValue({
       code: 200,
       message: '商品提交成功，等待管理员审核',
       data: { id: 8, auditStatus: 0, sales: 0 }
@@ -250,7 +244,7 @@ describe('MyProductsView', () => {
   })
 
   it('keeps edit success with local update when refreshing my products fails afterward', async () => {
-    productApi.getMyProducts
+    mockedProductApi.getMyProducts
       .mockResolvedValueOnce({
         code: 200,
         data: [
@@ -266,7 +260,7 @@ describe('MyProductsView', () => {
         ]
       })
       .mockRejectedValue(new Error('刷新失败'))
-    productApi.updateProduct.mockResolvedValue({
+    mockedProductApi.updateProduct.mockResolvedValue({
       code: 200,
       message: '商品修改成功，等待管理员审核',
       data: { id: 5, auditStatus: 0 }
@@ -300,7 +294,7 @@ describe('MyProductsView', () => {
   })
 
   it('keeps delete success when refreshing my products fails afterward', async () => {
-    productApi.getMyProducts
+    mockedProductApi.getMyProducts
       .mockResolvedValueOnce({
         code: 200,
         data: [
@@ -316,7 +310,7 @@ describe('MyProductsView', () => {
         ]
       })
       .mockRejectedValue(new Error('刷新失败'))
-    productApi.deleteProduct.mockResolvedValue({ code: 200, message: '删除成功' })
+    mockedProductApi.deleteProduct.mockResolvedValue({ code: 200, message: '删除成功' })
 
     const wrapper = mountView()
 
@@ -333,7 +327,7 @@ describe('MyProductsView', () => {
   it('keeps newer product list when older request resolves later', async () => {
     const first = deferred<any>()
     const second = deferred<any>()
-    productApi.getMyProducts
+    mockedProductApi.getMyProducts
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
 
@@ -369,10 +363,10 @@ describe('MyProductsView', () => {
   it('does not let an in-flight products request overwrite local delete success', async () => {
     const first = deferred<any>()
     const second = deferred<any>()
-    productApi.getMyProducts
+    mockedProductApi.getMyProducts
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
-    productApi.deleteProduct.mockResolvedValue({ code: 200, message: '删除成功' })
+    mockedProductApi.deleteProduct.mockResolvedValue({ code: 200, message: '删除成功' })
 
     const wrapper = mountView()
     await flushPromises()
@@ -401,10 +395,10 @@ describe('MyProductsView', () => {
   it('does not let an in-flight products request overwrite local submit success', async () => {
     const first = deferred<any>()
     const second = deferred<any>()
-    productApi.getMyProducts
+    mockedProductApi.getMyProducts
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
-    productApi.submitProduct.mockResolvedValue({
+    mockedProductApi.submitProduct.mockResolvedValue({
       code: 200,
       message: '商品提交成功，等待管理员审核',
       data: { id: 8, auditStatus: 0, sales: 0 }
@@ -460,7 +454,7 @@ describe('MyProductsView', () => {
   })
 
   it('closes product dialog when refreshed list no longer contains the editing product', async () => {
-    productApi.getMyProducts
+    mockedProductApi.getMyProducts
       .mockResolvedValueOnce({
         code: 200,
         data: [

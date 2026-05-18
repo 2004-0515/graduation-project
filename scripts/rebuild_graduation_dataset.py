@@ -54,6 +54,7 @@ TARGETS = {
     "achievements": 10,
     "search_history": 12,
     "search_stats": 18,
+    "showcase_banners": 12,
 }
 
 CATEGORY_DEFINITIONS = [
@@ -197,6 +198,107 @@ HOT_SHOWCASE_SLUGS = [
     "culture-vinyl-decor",
     "wear-canvas-crossbody",
 ]
+HOME_SHOWCASE_SPECS = [
+    {
+        "slug": "desk-keycaps-soda",
+        "title": "桌搭焕新精选",
+        "subtitle": "键帽、耳机和桌面配件本周上新",
+        "description": "适合宿舍、工位和轻量游戏场景的常用装备，直接从真实商品库挑选。",
+        "badge_text": "首页精选",
+        "button_text": "查看商品",
+        "link_type": "PRODUCT",
+    },
+    {
+        "slug": "home-floor-lamp",
+        "title": "房间氛围轻改造",
+        "subtitle": "香薰、灯光和软装小件配齐",
+        "description": "从起居角落开始调整，用真实到货的家居单品把空间整理得更舒服。",
+        "badge_text": "居家推荐",
+        "button_text": "逛逛家居",
+        "link_type": "CATEGORY",
+        "category_name": "香氛家居",
+    },
+    {
+        "slug": "beauty-lotion-soft",
+        "title": "护肤补货清单",
+        "subtitle": "面霜、乳液和基础护理集中更新",
+        "description": "把常用护肤品放到同一页，方便按价格和评价快速比较。",
+        "badge_text": "人气补货",
+        "button_text": "查看分类",
+        "link_type": "CATEGORY",
+        "category_name": "美妆个护",
+    },
+    {
+        "slug": "wear-canvas-crossbody",
+        "title": "通勤穿搭与随身装备",
+        "subtitle": "鞋包和轻便配件一起看",
+        "description": "覆盖日常出门高频单品，适合直接跳转到真实商品详情页继续浏览。",
+        "badge_text": "本周热度",
+        "button_text": "进入活动页",
+        "link_type": "ROUTE",
+        "link_target": "/promotions",
+    },
+]
+PROMOTION_SHOWCASE_SPECS = [
+    {
+        "slug": "anime-badge-book",
+        "title": "满199减30专区",
+        "subtitle": "轻文创与桌面摆件可先领券再下单",
+        "description": "专题页会同步展示可领取优惠券和同主题商品，避免空白活动页。",
+        "badge_text": "限时领券",
+    },
+    {
+        "slug": "travel-vacuum",
+        "title": "收纳焕新周",
+        "subtitle": "家居清洁与出行整理一起省",
+        "description": "把收纳、清洁和随身整理的高频商品放到同一组活动里，方便集中挑选。",
+        "badge_text": "活动专题",
+    },
+    {
+        "slug": "beauty-lotion-soft",
+        "title": "夏季护肤折扣场",
+        "subtitle": "基础补水与修护护理有券可领",
+        "description": "适合先领折扣券，再对比不同价格带的日常护理商品。",
+        "badge_text": "美妆专场",
+    },
+    {
+        "slug": "culture-vinyl-decor",
+        "title": "兴趣收藏轻上新",
+        "subtitle": "装饰、周边和生活小件集中更新",
+        "description": "补齐活动页专题卡片，让活动详情页能从真实内容继续往下浏览。",
+        "badge_text": "新主题",
+    },
+]
+CATEGORY_SHOWCASE_SPECS = [
+    {
+        "slug": "desk-headphones-shell",
+        "title": "桌搭数码专题",
+        "subtitle": "耳机、键盘和桌面设备",
+        "description": "适合高频办公与娱乐的数码设备合集。",
+        "category_name": "桌搭数码",
+    },
+    {
+        "slug": "home-side-table",
+        "title": "香氛家居专题",
+        "subtitle": "香薰、边几和软装小件",
+        "description": "整理居家空间时最常一起比较的一批单品。",
+        "category_name": "香氛家居",
+    },
+    {
+        "slug": "wear-sneaker-retro",
+        "title": "潮流穿搭专题",
+        "subtitle": "通勤穿搭与轻量出行",
+        "description": "鞋服配件组合浏览更顺手。",
+        "category_name": "潮流穿搭",
+    },
+    {
+        "slug": "snack-sparkling",
+        "title": "零食饮品专题",
+        "subtitle": "零食、饮品和家庭囤货",
+        "description": "适合从活动页快速切回分类继续挑选。",
+        "category_name": "零食饮品",
+    },
+]
 
 
 def resolve_mysql_command() -> str | None:
@@ -225,7 +327,9 @@ MYSQL = resolve_mysql_command()
 
 @dataclass
 class ProductSeed:
+    slug: str
     name: str
+    category_name: str
     category_id: int
     price: float
     original_price: float
@@ -294,7 +398,10 @@ class Seeder:
         self.category_ids: dict[str, int] = {}
         self.coupon_ids: list[int] = []
         self.product_rows: list[ProductSeed] = []
+        self.product_ids_by_slug: dict[str, int] = {}
         self.default_addresses: dict[int, dict[str, str]] = {}
+        self.category_icon_paths: dict[int, str] = {}
+        self.promotion_banner_paths: list[str] = []
         self.music_files = self._scan_uploads("music", {".mp3", ".wav", ".ogg", ".m4a", ".opus"})
         self.avatar_files = self._scan_uploads("avatars", {".jpg", ".jpeg", ".png", ".webp"})
         self.video_files = self._scan_uploads("videos", {".mp4", ".webm", ".mov"})
@@ -326,6 +433,43 @@ class Seeder:
                 pool.extend(self._scan_uploads(Path("products") / source_dir, {".jpg", ".jpeg", ".png", ".webp"}))
             pools[category_name] = pool
         return pools
+
+    def copy_upload_asset(self, source_path: str, target_folder: str, target_stem: str) -> str:
+        source = PROJECT_ROOT / source_path.lstrip("/")
+        if not source.exists():
+            raise RuntimeError(f"缺少本地素材文件: {source_path}")
+        extension = source.suffix.lower() or ".jpg"
+        target_dir = PROJECT_ROOT / "uploads" / target_folder / "2026" / "05"
+        target = target_dir / f"{target_stem}{extension}"
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+            if not target.exists() or source.stat().st_size != target.stat().st_size:
+                shutil.copy2(source, target)
+        except OSError as error:
+            raise RuntimeError(
+                f"复制上传素材失败: source={source.as_posix()} target_dir={target_dir.as_posix()} error={error}"
+            ) from error
+        return "/" + target.relative_to(PROJECT_ROOT).as_posix()
+
+    def product_row_by_slug(self, slug: str) -> tuple[int, ProductSeed]:
+        product_id = self.product_ids_by_slug.get(slug)
+        if not product_id:
+            raise RuntimeError(f"缺少商品数据映射: {slug}")
+        return product_id, self.product_rows[product_id - 1]
+
+    def resolve_showcase_link_target(self, spec: dict) -> str | None:
+        link_type = spec.get("link_type", "NONE")
+        if link_type == "PRODUCT":
+            product_id, _ = self.product_row_by_slug(spec["slug"])
+            return str(product_id)
+        if link_type == "CATEGORY":
+            category_name = spec.get("category_name")
+            if not category_name or category_name not in self.category_ids:
+                raise RuntimeError(f"缺少专题分类映射: {category_name}")
+            return str(self.category_ids[category_name])
+        if link_type in {"ROUTE", "URL"}:
+            return spec.get("link_target")
+        return None
 
     def run_mysql(self, sql: str) -> str:
         env = os.environ.copy()
@@ -397,6 +541,7 @@ class Seeder:
             "tb_cart", "addresses", "security_settings", "privacy_settings", "notification_settings",
             "notifications", "tb_user_coupon", "tb_wishlist", "tb_upload_file", "tb_consumption_budget",
             "tb_consumption_achievement", "tb_contact_message", "tb_search_history", "tb_search_stats",
+            "tb_showcase_banner",
             "music", "tb_product", "tb_user", "tb_coupon", "tb_category", "demo_imported_asset", "demo_import_batch",
         ]
         existing_tables = set(self.run_mysql("SHOW TABLES;").splitlines())
@@ -576,7 +721,9 @@ class Seeder:
                 created_time = FIXED_NOW - timedelta(days=16 + global_index, hours=global_index % 11)
             rows.append(
                 ProductSeed(
+                    slug=spec["slug"],
                     name=spec["name"],
+                    category_name=category_name,
                     category_id=self.category_ids[category_name],
                     price=price,
                     original_price=original_price,
@@ -603,6 +750,7 @@ class Seeder:
 
     def seed_products(self) -> None:
         self.product_rows = self.build_product_rows()
+        self.product_ids_by_slug = {product.slug: index for index, product in enumerate(self.product_rows, start=1)}
         category_icons: dict[int, str] = {}
         values = []
         for product in self.product_rows:
@@ -628,9 +776,15 @@ class Seeder:
         if not category_icons:
             return
 
+        normalized_icons = {
+            category_id: self.copy_upload_asset(icon_path, "categories", f"category-{category_id}")
+            for category_id, icon_path in sorted(category_icons.items())
+        }
+        self.category_icon_paths = normalized_icons
+
         cases = []
         ids = []
-        for category_id, icon_path in sorted(category_icons.items()):
+        for category_id, icon_path in sorted(normalized_icons.items()):
             cases.append(f"WHEN {category_id} THEN '{sql_escape(icon_path)}'")
             ids.append(str(category_id))
 
@@ -638,6 +792,60 @@ class Seeder:
             "UPDATE tb_category "
             f"SET icon = CASE id {' '.join(cases)} END, updated_time = '{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}' "
             f"WHERE id IN ({','.join(ids)});"
+        )
+
+    def seed_showcase_banners(self) -> None:
+        start_time = FIXED_NOW - timedelta(days=12)
+        end_time = FIXED_NOW + timedelta(days=180)
+        values = []
+        self.promotion_banner_paths = []
+
+        for index, spec in enumerate(HOME_SHOWCASE_SPECS, start=1):
+            _, product = self.product_row_by_slug(spec["slug"])
+            image_path = self.copy_upload_asset(product.main_image, "banners", f"home-hero-{index}-{spec['slug']}")
+            link_type = spec.get("link_type", "NONE")
+            link_target = self.resolve_showcase_link_target(spec)
+            values.append(
+                "("
+                f"'HOME_HERO', '{sql_escape(spec['title'])}', '{sql_escape(spec['subtitle'])}', "
+                f"'{sql_escape(spec['description'])}', '{sql_escape(spec['badge_text'])}', '{sql_escape(image_path)}', "
+                f"'{sql_escape(image_path)}', '{sql_escape(spec['button_text'])}', '{link_type}', {to_sql_string(link_target)}, "
+                f"{index}, 1, '{start_time.strftime('%Y-%m-%d %H:%M:%S')}', '{end_time.strftime('%Y-%m-%d %H:%M:%S')}', "
+                f"'{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}', '{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}'"
+                ")"
+            )
+
+        for index, spec in enumerate(PROMOTION_SHOWCASE_SPECS, start=1):
+            _, product = self.product_row_by_slug(spec["slug"])
+            image_path = self.copy_upload_asset(product.main_image, "promotions", f"promotion-hero-{index}-{spec['slug']}")
+            self.promotion_banner_paths.append(image_path)
+            values.append(
+                "("
+                f"'PROMOTION_HERO', '{sql_escape(spec['title'])}', '{sql_escape(spec['subtitle'])}', "
+                f"'{sql_escape(spec['description'])}', '{sql_escape(spec['badge_text'])}', '{sql_escape(image_path)}', "
+                f"'{sql_escape(image_path)}', '查看专题', 'ROUTE', '/promotions', "
+                f"{index}, 1, '{start_time.strftime('%Y-%m-%d %H:%M:%S')}', '{end_time.strftime('%Y-%m-%d %H:%M:%S')}', "
+                f"'{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}', '{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}'"
+                ")"
+            )
+
+        for index, spec in enumerate(CATEGORY_SHOWCASE_SPECS, start=1):
+            _, product = self.product_row_by_slug(spec["slug"])
+            image_path = self.copy_upload_asset(product.main_image, "banners", f"category-spotlight-{index}-{spec['slug']}")
+            link_target = str(self.category_ids[spec["category_name"]])
+            values.append(
+                "("
+                f"'CATEGORY_SPOTLIGHT', '{sql_escape(spec['title'])}', '{sql_escape(spec['subtitle'])}', "
+                f"'{sql_escape(spec['description'])}', '类目专题', '{sql_escape(image_path)}', "
+                f"'{sql_escape(image_path)}', '查看分类', 'CATEGORY', '{link_target}', "
+                f"{index}, 1, '{start_time.strftime('%Y-%m-%d %H:%M:%S')}', '{end_time.strftime('%Y-%m-%d %H:%M:%S')}', "
+                f"'{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}', '{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}'"
+                ")"
+            )
+
+        self.execute_insert(
+            "INSERT INTO tb_showcase_banner (placement, title, subtitle, description, badge_text, image_path, mobile_image_path, button_text, link_type, link_target, sort_order, status, start_time, end_time, created_time, updated_time) VALUES ",
+            values,
         )
 
     def seed_music(self) -> None:
@@ -976,6 +1184,8 @@ class Seeder:
         rows = []
         avatar_files = self.avatar_files or ["/seed/avatar-user.svg"]
         product_ids = self.approved_product_ids()
+        category_files = list(self.category_icon_paths.values()) or [self.product_rows[0].main_image]
+        promotion_files = self.promotion_banner_paths or [self.product_rows[0].main_image]
         def product_image_at(index: int) -> str:
             return self.product_rows[index % len(self.product_rows)].main_image
         file_specs = [
@@ -987,20 +1197,20 @@ class Seeder:
             ("PRODUCT", self.user_ids["xiaohong"], product_image_at(28), 2, "图片缺少关键细节说明"),
             ("REVIEW", self.user_ids["zhangsan"], product_image_at(9), 1, "评价配图内容正常"),
             ("REVIEW", self.user_ids["wangwu"], product_image_at(35), 0, None),
-            ("CATEGORY", self.user_ids["admin"], product_image_at(45), 1, "分类图标已确认"),
-            ("PROMOTION", self.user_ids["admin"], product_image_at(55), 1, "活动图审核通过"),
+            ("CATEGORY", self.user_ids["admin"], category_files[0], 1, "分类图标已确认"),
+            ("PROMOTION", self.user_ids["admin"], promotion_files[0], 1, "活动图审核通过"),
             ("PRODUCT", self.user_ids["zhouba"], product_image_at(65), 0, None),
             ("AVATAR", self.user_ids["ruoxin"], avatar_files[0], 1, "头像裁切正常"),
             ("REVIEW", self.user_ids["jiaqi"], product_image_at(5), 2, "配图与评价内容不一致"),
             ("PRODUCT", self.user_ids["lisi"], product_image_at(17), 1, "细节图补充完整"),
-            ("PROMOTION", self.user_ids["admin"], product_image_at(23), 1, "促销素材已归档"),
+            ("PROMOTION", self.user_ids["admin"], promotion_files[min(1, len(promotion_files) - 1)], 1, "促销素材已归档"),
             ("PRODUCT", self.user_ids["xiaohong"], product_image_at(31), 0, None),
             ("AVATAR", self.user_ids["anran"], avatar_files[min(2, len(avatar_files) - 1)], 0, None),
             ("PRODUCT", self.user_ids["xiaoming"], product_image_at(42), 1, "展示角度完整，适合前台上架"),
             ("REVIEW", self.user_ids["haoran"], product_image_at(48), 0, None),
-            ("CATEGORY", self.user_ids["admin"], product_image_at(57), 1, "分类页封面已同步更新"),
+            ("CATEGORY", self.user_ids["admin"], category_files[min(1, len(category_files) - 1)], 1, "分类页封面已同步更新"),
             ("PRODUCT", self.user_ids["zhouba"], product_image_at(63), 2, "图片主体偏暗，建议重新补拍"),
-            ("PROMOTION", self.user_ids["admin"], product_image_at(70), 0, None),
+            ("PROMOTION", self.user_ids["admin"], promotion_files[min(2, len(promotion_files) - 1)], 0, None),
             ("AVATAR", self.user_ids["jiaqi"], avatar_files[min(1, len(avatar_files) - 1)], 1, "头像清晰度符合要求"),
             ("REVIEW", self.user_ids["xiaobei"], product_image_at(76), 1, "晒单配图完整，可正常展示"),
         ]
@@ -1161,7 +1371,8 @@ UNION ALL SELECT 'upload_files', COUNT(*) FROM tb_upload_file
 UNION ALL SELECT 'budgets', COUNT(*) FROM tb_consumption_budget
 UNION ALL SELECT 'achievements', COUNT(*) FROM tb_consumption_achievement
 UNION ALL SELECT 'search_history', COUNT(*) FROM tb_search_history
-UNION ALL SELECT 'search_stats', COUNT(*) FROM tb_search_stats;
+UNION ALL SELECT 'search_stats', COUNT(*) FROM tb_search_stats
+UNION ALL SELECT 'showcase_banners', COUNT(*) FROM tb_showcase_banner;
 """
         report = {"profile": PROFILE, "database": self.args.db_name, "counts": {}, "targets": TARGETS}
         for row in self.run_mysql(counts_sql).splitlines():
@@ -1304,6 +1515,46 @@ FROM tb_product;
         report["missing_product_files"] = missing_product_files
         report["missing_video_files"] = missing_video_files
 
+        missing_category_icons = []
+        invalid_category_icons = []
+        legacy_category_icons = []
+        for row in self.run_mysql("SELECT id, icon FROM tb_category ORDER BY id;").splitlines():
+            category_id_raw, icon_path = (row.split("\t") + [""])[:2]
+            if not icon_path:
+                missing_category_icons.append(f"{category_id_raw}:<empty>")
+                continue
+            if not (PROJECT_ROOT / icon_path.lstrip("/")).exists():
+                missing_category_icons.append(f"{category_id_raw}:{icon_path}")
+            if not icon_path.startswith("/uploads/categories/"):
+                invalid_category_icons.append(f"{category_id_raw}:{icon_path}")
+            if icon_path.startswith("/seed/") or icon_path.startswith("http://") or icon_path.startswith("https://"):
+                legacy_category_icons.append(f"{category_id_raw}:{icon_path}")
+        report["missing_category_icons"] = missing_category_icons
+        report["invalid_category_icons"] = invalid_category_icons
+        report["legacy_category_icons"] = legacy_category_icons
+
+        missing_showcase_files = []
+        invalid_showcase_paths = []
+        showcase_rows = self.run_mysql(
+            "SELECT id, placement, image_path, IFNULL(mobile_image_path, '') FROM tb_showcase_banner ORDER BY id;"
+        ).splitlines()
+        for row in showcase_rows:
+            banner_id_raw, placement, image_path, mobile_image_path = (row.split("\t") + [""] * 4)[:4]
+            expected_prefix = "/uploads/promotions/" if placement == "PROMOTION_HERO" else "/uploads/banners/"
+            for label, path in (("image", image_path), ("mobile", mobile_image_path)):
+                if not path:
+                    if label == "image":
+                        missing_showcase_files.append(f"{banner_id_raw}:{label}:<empty>")
+                    continue
+                if not (PROJECT_ROOT / path.lstrip("/")).exists():
+                    missing_showcase_files.append(f"{banner_id_raw}:{label}:{path}")
+                if not path.startswith(expected_prefix):
+                    invalid_showcase_paths.append(f"{banner_id_raw}:{label}:{path}")
+                if path.startswith("/seed/") or path.startswith("http://") or path.startswith("https://"):
+                    invalid_showcase_paths.append(f"{banner_id_raw}:{label}:{path}")
+        report["missing_showcase_files"] = missing_showcase_files
+        report["invalid_showcase_paths"] = invalid_showcase_paths
+
         hot_sample = sorted(approved_rows, key=lambda item: (-item["sales"], item["id"]))[:8]
         newest_sample = sorted(approved_rows, key=lambda item: item["created_time"], reverse=True)[:10]
         category_sample = sorted(approved_rows, key=lambda item: item["created_time"], reverse=True)[:12]
@@ -1321,6 +1572,11 @@ FROM tb_product;
             and unique_main_images == total_count
             and not missing_product_files
             and not missing_video_files
+            and not missing_category_icons
+            and not invalid_category_icons
+            and not legacy_category_icons
+            and not missing_showcase_files
+            and not invalid_showcase_paths
             and all(report["sample_uniqueness"].values())
             and all(
                 [
@@ -1344,6 +1600,7 @@ FROM tb_product;
         self.seed_coupons()
         self.seed_users()
         self.seed_products()
+        self.seed_showcase_banners()
         self.seed_music()
         order_rows, order_items = self.seed_orders()
         completed_items = [item for item in order_items if order_rows[item["order_id"] - 1]["order_status"] == 3]

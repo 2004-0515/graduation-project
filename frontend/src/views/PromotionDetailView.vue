@@ -4,12 +4,13 @@
 
     <main class="main-content">
       <div class="container">
-        <button class="back-btn" @click="$router.back()">
+        <button class="back-btn" @click="goBack">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="15 18 9 12 15 6" />
           </svg>
           返回
         </button>
+        <button class="back-btn secondary" @click="router.push('/promotions')">全部活动</button>
 
         <section class="hero-section">
           <div class="hero-copy">
@@ -176,6 +177,7 @@ import showcaseApi, { type ShowcaseBanner } from '../api/showcaseApi'
 import { debugError } from '../utils/debug'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import { buildLoginLocation, goBackOr } from '../utils/navigation'
 
 const route = useRoute()
 const router = useRouter()
@@ -208,6 +210,7 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 }
 
 const formatMoney = (value: number | string) => Number(value || 0).toFixed(2)
+const goBack = () => goBackOr(router, '/promotions')
 
 const getCouponTypeClass = (type: number) => {
   const classes: Record<number, string> = { 1: 'type-reduce', 2: 'type-discount', 3: 'type-free' }
@@ -330,7 +333,7 @@ const applyLocalCouponClaimState = (couponId: number) => {
 const claimCoupon = async (coupon: any) => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
-    router.push('/login')
+    router.push(buildLoginLocation(route.fullPath))
     return
   }
 
@@ -355,7 +358,7 @@ const claimCoupon = async (coupon: any) => {
 const addToCart = async (product: any) => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
-    router.push('/login')
+    router.push(buildLoginLocation(route.fullPath))
     return
   }
 
@@ -370,7 +373,7 @@ const addToCart = async (product: any) => {
 const buyNow = (product: any) => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
-    router.push('/login')
+    router.push(buildLoginLocation(route.fullPath))
     return
   }
   router.push(`/checkout?productId=${product.id}&quantity=1`)
@@ -430,6 +433,9 @@ watch(() => route.params.id, async () => {
   border-radius: 8px;
   background: var(--white);
   color: var(--text-secondary);
+}
+.back-btn.secondary {
+  margin-left: 12px;
 }
 
 .hero-section,

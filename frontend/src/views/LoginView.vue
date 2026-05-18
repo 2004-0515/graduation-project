@@ -11,6 +11,7 @@
         <span class="logo text-title">紫苑风鸢</span>
         <h2>欢迎回来</h2>
         <p>登录账号，继续购物</p>
+        <router-link class="entry-link" to="/">返回首页</router-link>
       </div>
 
       <div class="card-body">
@@ -80,13 +81,15 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import { generateRandomCode } from '../utils/captcha'
 import { debugError } from '../utils/debug'
+import { resolveRedirectTarget } from '../utils/navigation'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const loginFormRef = ref()
 const loading = ref(false)
@@ -141,8 +144,7 @@ const handleLogin = async () => {
       try {
         await userStore.login({ username: loginForm.username, password: loginForm.password })
         ElMessage.success('登录成功')
-        // 登录后始终跳转到首页，避免 redirect 参数导致的跳转问题
-        router.push('/')
+        router.push(resolveRedirectTarget(route, '/'))
       } catch (error) {
         debugError('登录失败:', userStore.error || error)
         ElMessage.error(userStore.error || '登录失败')
@@ -165,7 +167,7 @@ const handleLogin = async () => {
 }
 
 .deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-.deco-bg { position: absolute; top: -20%; right: -10%; width: 60%; height: 70%; background: url('/external-cache/login-bg.jpg') center/cover; opacity: 0.1; filter: blur(50px) saturate(1.2); }
+.deco-bg { position: absolute; top: -20%; right: -10%; width: 60%; height: 70%; background: radial-gradient(circle at center, rgba(119, 160, 255, 0.22), rgba(119, 160, 255, 0) 70%); opacity: 0.9; filter: blur(50px) saturate(1.1); }
 .shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; }
 .s1 { width: 600px; height: 600px; top: 5%; left: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.5; }
 .s2 { width: 500px; height: 500px; bottom: 5%; right: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.5; animation-delay: -10s; }
@@ -188,6 +190,20 @@ const handleLogin = async () => {
 .card-header {
   padding: 40px 32px 24px;
   text-align: center;
+}
+
+.entry-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.entry-link:hover {
+  color: var(--primary);
 }
 
 .logo {

@@ -5,12 +5,13 @@
     <main class="main-content">
       <div class="container">
         <!-- 返回 -->
-        <button class="back-btn" @click="$router.back()">
+        <button class="back-btn" @click="goBack">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
           返回
         </button>
+        <button class="back-btn secondary" @click="router.push('/promotions')">优惠活动</button>
 
         <div class="coupon-card" v-loading="loading">
           <!-- 优惠券主体 -->
@@ -127,6 +128,7 @@ import couponApi from '../api/couponApi'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 import { debugError } from '../utils/debug'
+import { buildLoginLocation, goBackOr } from '../utils/navigation'
 
 const route = useRoute()
 const router = useRouter()
@@ -148,6 +150,8 @@ const statusClass = computed(() => {
 const canClaim = computed(() => {
   return coupon.value.statusText === '进行中' && !coupon.value.claimed
 })
+
+const goBack = () => goBackOr(router, '/promotions')
 
 const getTypeName = (type: number) => {
   const names: Record<number, string> = {
@@ -218,7 +222,7 @@ const refreshCouponAfterClaimSuccess = async () => {
 const handleClaim = async () => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
-    router.push('/login')
+    router.push(buildLoginLocation(route.fullPath))
     return
   }
   
@@ -301,6 +305,10 @@ watch(() => route.params.id, () => {
   cursor: pointer;
   margin-bottom: 24px;
   transition: all 0.3s;
+}
+
+.back-btn.secondary {
+  margin-left: 12px;
 }
 
 .back-btn:hover {

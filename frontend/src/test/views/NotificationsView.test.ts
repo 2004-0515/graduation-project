@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import notificationApi from '@/api/notificationApi'
+import { buildUser } from '@/test/helpers/factories'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { useUserStore } from '@/stores/userStore'
 import * as debugModule from '@/utils/debug'
@@ -19,6 +20,8 @@ const messageBox = {
   confirm: vi.spyOn(ElMessageBox, 'confirm')
 }
 
+const mockedNotificationApi = vi.mocked(notificationApi) as any
+
 vi.spyOn(notificationApi, 'getNotifications')
 vi.spyOn(notificationApi, 'markAsRead')
 vi.spyOn(notificationApi, 'markAllAsRead')
@@ -29,7 +32,7 @@ const debugError = vi.spyOn(debugModule, 'debugError').mockImplementation(() => 
 
 let pinia: ReturnType<typeof createPinia>
 let router: Router
-let mockPush: ReturnType<typeof vi.spyOn>
+let mockPush: any
 let userStore: ReturnType<typeof useUserStore>
 
 const mockUserStore = {
@@ -80,7 +83,7 @@ describe('NotificationsView', () => {
     setActivePinia(pinia)
     userStore = useUserStore()
     userStore.token = 'token'
-    mockUserStore.userInfo = { id: 1, username: 'buyer', role: 'BUYER' }
+    mockUserStore.userInfo = buildUser({ id: 1, username: 'buyer', role: 'BUYER' })
     useNotificationStore().setCount(0)
 
     router = createRouter({
@@ -105,17 +108,17 @@ describe('NotificationsView', () => {
     await router.isReady()
     mockPush = vi.spyOn(router, 'push')
 
-    notificationApi.getNotifications.mockResolvedValue({ code: 200, data: [] } as any)
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 } as any)
-    notificationApi.markAllAsRead.mockResolvedValue({ code: 200 } as any)
-    notificationApi.deleteNotification.mockResolvedValue({ code: 200 } as any)
-    notificationApi.clearAll.mockResolvedValue({ code: 200 } as any)
+    mockedNotificationApi.getNotifications.mockResolvedValue({ code: 200, data: [] } as any)
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 } as any)
+    mockedNotificationApi.markAllAsRead.mockResolvedValue({ code: 200 } as any)
+    mockedNotificationApi.deleteNotification.mockResolvedValue({ code: 200 } as any)
+    mockedNotificationApi.clearAll.mockResolvedValue({ code: 200 } as any)
     messageBox.confirm.mockResolvedValue('confirm' as any)
     debugError.mockImplementation(() => {})
   })
 
   it('routes order notifications to order detail when relatedId exists', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -130,7 +133,7 @@ describe('NotificationsView', () => {
         }
       ]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
 
@@ -144,8 +147,8 @@ describe('NotificationsView', () => {
   })
 
   it('routes seller shipment notifications to seller orders', async () => {
-    mockUserStore.userInfo = { id: 2, username: 'lisi', role: 'SELLER' }
-    notificationApi.getNotifications.mockResolvedValue({
+    mockUserStore.userInfo = buildUser({ id: 2, username: 'lisi', role: 'SELLER' })
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -160,7 +163,7 @@ describe('NotificationsView', () => {
         }
       ]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
 
@@ -174,8 +177,8 @@ describe('NotificationsView', () => {
   })
 
   it('does not route non-seller shipment-looking notifications to seller orders', async () => {
-    mockUserStore.userInfo = { id: 1, username: 'zhangsan', role: 'BUYER' }
-    notificationApi.getNotifications.mockResolvedValue({
+    mockUserStore.userInfo = buildUser({ id: 1, username: 'zhangsan', role: 'BUYER' })
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -190,7 +193,7 @@ describe('NotificationsView', () => {
         }
       ]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
 
@@ -204,8 +207,8 @@ describe('NotificationsView', () => {
   })
 
   it('routes admin order notifications without own-order wording to admin orders', async () => {
-    mockUserStore.userInfo = { id: 1, username: 'admin', role: 'ADMIN' }
-    notificationApi.getNotifications.mockResolvedValue({
+    mockUserStore.userInfo = buildUser({ id: 1, username: 'admin', role: 'ADMIN' })
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -220,7 +223,7 @@ describe('NotificationsView', () => {
         }
       ]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
 
@@ -234,8 +237,8 @@ describe('NotificationsView', () => {
   })
 
   it('routes price alerts without product id to price alerts list', async () => {
-    mockUserStore.userInfo = { id: 1, username: 'buyer', role: 'BUYER' }
-    notificationApi.getNotifications.mockResolvedValue({
+    mockUserStore.userInfo = buildUser({ id: 1, username: 'buyer', role: 'BUYER' })
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -249,7 +252,7 @@ describe('NotificationsView', () => {
         }
       ]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
 
@@ -263,7 +266,7 @@ describe('NotificationsView', () => {
   })
 
   it('routes price alerts with product id to product detail', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -278,7 +281,7 @@ describe('NotificationsView', () => {
         }
       ]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
 
@@ -292,7 +295,7 @@ describe('NotificationsView', () => {
   })
 
   it('does not show an error when user cancels clearing notifications', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -315,12 +318,12 @@ describe('NotificationsView', () => {
     await clearButton!.trigger('click')
     await flushPromises()
 
-    expect(notificationApi.clearAll).not.toHaveBeenCalled()
+    expect(mockedNotificationApi.clearAll).not.toHaveBeenCalled()
     expect(messages.error).not.toHaveBeenCalled()
   })
 
   it('shows an error when clearing notifications fails after confirmation', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -334,8 +337,8 @@ describe('NotificationsView', () => {
         }
       ]
     })
-    messageBox.confirm.mockResolvedValue(true)
-    notificationApi.clearAll.mockRejectedValue({
+    messageBox.confirm.mockResolvedValue(true as any)
+    mockedNotificationApi.clearAll.mockRejectedValue({
       response: { data: { message: '清空通知失败，请稍后重试' } }
     })
 
@@ -346,13 +349,13 @@ describe('NotificationsView', () => {
     await clearButton!.trigger('click')
     await flushPromises()
 
-    expect(notificationApi.clearAll).toHaveBeenCalled()
+    expect(mockedNotificationApi.clearAll).toHaveBeenCalled()
     expect(messages.error).toHaveBeenCalledWith('清空通知失败，请稍后重试')
     expect(debugError).toHaveBeenCalled()
   })
 
   it('shows an error when loading notifications fails', async () => {
-    notificationApi.getNotifications.mockRejectedValue({
+    mockedNotificationApi.getNotifications.mockRejectedValue({
       response: { data: { message: '获取通知失败，请稍后刷新' } }
     })
 
@@ -365,7 +368,7 @@ describe('NotificationsView', () => {
   })
 
   it('shows backend message when loading notifications returns non-200 payload', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 500,
       message: '通知列表加载失败'
     })
@@ -378,7 +381,7 @@ describe('NotificationsView', () => {
   })
 
   it('warns when marking notification as read fails', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -392,7 +395,7 @@ describe('NotificationsView', () => {
         }
       ]
     })
-    notificationApi.markAsRead.mockRejectedValue({
+    mockedNotificationApi.markAsRead.mockRejectedValue({
       response: { data: { message: '标记已读失败' } }
     })
 
@@ -407,7 +410,7 @@ describe('NotificationsView', () => {
   })
 
   it('warns when marking notification as read returns non-200 payload', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -421,7 +424,7 @@ describe('NotificationsView', () => {
         }
       ]
     })
-    notificationApi.markAsRead.mockResolvedValue({
+    mockedNotificationApi.markAsRead.mockResolvedValue({
       code: 422,
       message: '当前通知无法标记已读'
     })
@@ -437,7 +440,7 @@ describe('NotificationsView', () => {
   })
 
   it('refreshes notifications from backend after marking one as read successfully', async () => {
-    notificationApi.getNotifications
+    mockedNotificationApi.getNotifications
       .mockResolvedValueOnce({
         code: 200,
         data: [{
@@ -462,19 +465,19 @@ describe('NotificationsView', () => {
           timeAgo: '刚刚'
         }]
       })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
     await wrapper.find('.notification-item').trigger('click')
     await flushPromises()
 
-    expect(notificationApi.markAsRead).toHaveBeenCalledWith(22)
-    expect(notificationApi.getNotifications).toHaveBeenCalledTimes(2)
+    expect(mockedNotificationApi.markAsRead).toHaveBeenCalledWith(22)
+    expect(mockedNotificationApi.getNotifications).toHaveBeenCalledTimes(2)
   })
 
   it('keeps read-detail flow usable when refresh fails after marking one as read', async () => {
-    notificationApi.getNotifications
+    mockedNotificationApi.getNotifications
       .mockResolvedValueOnce({
         code: 200,
         data: [{
@@ -488,14 +491,14 @@ describe('NotificationsView', () => {
         }]
       })
       .mockRejectedValueOnce(new Error('refresh failed'))
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
     await wrapper.find('.notification-item').trigger('click')
     await flushPromises()
 
-    expect(notificationApi.markAsRead).toHaveBeenCalledWith(23)
+    expect(mockedNotificationApi.markAsRead).toHaveBeenCalledWith(23)
     expect(messages.warning).not.toHaveBeenCalled()
     expect(messages.error).not.toHaveBeenCalled()
     expect((wrapper.vm as any).detailVisible).toBe(true)
@@ -507,7 +510,7 @@ describe('NotificationsView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    notificationApi.getNotifications
+    mockedNotificationApi.getNotifications
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
 
@@ -554,7 +557,7 @@ describe('NotificationsView', () => {
   })
 
   it('routes promotion notifications with related coupon id to coupon detail', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
         id: 8,
@@ -567,7 +570,7 @@ describe('NotificationsView', () => {
         timeAgo: '刚刚'
       }]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -579,7 +582,7 @@ describe('NotificationsView', () => {
   })
 
   it('shows backend message when mark all read returns non-200 payload', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
         id: 18,
@@ -591,7 +594,7 @@ describe('NotificationsView', () => {
         timeAgo: '刚刚'
       }]
     })
-    notificationApi.markAllAsRead.mockResolvedValue({
+    mockedNotificationApi.markAllAsRead.mockResolvedValue({
       code: 500,
       message: '批量已读失败'
     })
@@ -608,7 +611,7 @@ describe('NotificationsView', () => {
   })
 
   it('shows backend message when delete notification returns non-200 payload', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
         id: 19,
@@ -620,7 +623,7 @@ describe('NotificationsView', () => {
         timeAgo: '刚刚'
       }]
     })
-    notificationApi.deleteNotification.mockResolvedValue({
+    mockedNotificationApi.deleteNotification.mockResolvedValue({
       code: 500,
       message: '删除通知失败，请稍后重试'
     })
@@ -636,7 +639,7 @@ describe('NotificationsView', () => {
   })
 
   it('shows backend message when clear all returns non-200 payload', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
         id: 20,
@@ -648,8 +651,8 @@ describe('NotificationsView', () => {
         timeAgo: '刚刚'
       }]
     })
-    messageBox.confirm.mockResolvedValue(true)
-    notificationApi.clearAll.mockResolvedValue({
+    messageBox.confirm.mockResolvedValue(true as any)
+    mockedNotificationApi.clearAll.mockResolvedValue({
       code: 500,
       message: '清空通知失败'
     })
@@ -666,7 +669,7 @@ describe('NotificationsView', () => {
   })
 
   it('keeps mark-all-read success when refresh fails afterward', async () => {
-    notificationApi.getNotifications
+    mockedNotificationApi.getNotifications
       .mockResolvedValueOnce({
         code: 200,
         data: [{
@@ -680,7 +683,7 @@ describe('NotificationsView', () => {
         }]
       })
       .mockRejectedValueOnce(new Error('refresh failed'))
-    notificationApi.markAllAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAllAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -696,7 +699,7 @@ describe('NotificationsView', () => {
   })
 
   it('keeps delete success when refresh fails afterward', async () => {
-    notificationApi.getNotifications
+    mockedNotificationApi.getNotifications
       .mockResolvedValueOnce({
         code: 200,
         data: [{
@@ -710,7 +713,7 @@ describe('NotificationsView', () => {
         }]
       })
       .mockRejectedValueOnce(new Error('refresh failed'))
-    notificationApi.deleteNotification.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.deleteNotification.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -725,7 +728,7 @@ describe('NotificationsView', () => {
   })
 
   it('keeps clear-all success when refresh fails afterward', async () => {
-    notificationApi.getNotifications
+    mockedNotificationApi.getNotifications
       .mockResolvedValueOnce({
         code: 200,
         data: [{
@@ -739,8 +742,8 @@ describe('NotificationsView', () => {
         }]
       })
       .mockRejectedValueOnce(new Error('refresh failed'))
-    messageBox.confirm.mockResolvedValue(true)
-    notificationApi.clearAll.mockResolvedValue({ code: 200 })
+    messageBox.confirm.mockResolvedValue(true as any)
+    mockedNotificationApi.clearAll.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -759,10 +762,10 @@ describe('NotificationsView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    notificationApi.getNotifications
+    mockedNotificationApi.getNotifications
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -818,10 +821,10 @@ describe('NotificationsView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    notificationApi.getNotifications
+    mockedNotificationApi.getNotifications
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
-    notificationApi.deleteNotification.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.deleteNotification.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -866,11 +869,11 @@ describe('NotificationsView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    notificationApi.getNotifications
+    mockedNotificationApi.getNotifications
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
-    messageBox.confirm.mockResolvedValue(true)
-    notificationApi.clearAll.mockResolvedValue({ code: 200 })
+    messageBox.confirm.mockResolvedValue(true as any)
+    mockedNotificationApi.clearAll.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -912,7 +915,7 @@ describe('NotificationsView', () => {
   })
 
   it('routes promotion notifications without related id to promotions list', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
         id: 15,
@@ -924,7 +927,7 @@ describe('NotificationsView', () => {
         timeAgo: '刚刚'
       }]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -936,7 +939,7 @@ describe('NotificationsView', () => {
   })
 
   it('falls back to order search when order notification has no related id', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
         id: 16,
@@ -948,7 +951,7 @@ describe('NotificationsView', () => {
         timeAgo: '刚刚'
       }]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -960,8 +963,8 @@ describe('NotificationsView', () => {
   })
 
   it('routes file review notifications to admin files for admin users', async () => {
-    mockUserStore.userInfo = { id: 1, username: 'admin', role: 'ADMIN' }
-    notificationApi.getNotifications.mockResolvedValue({
+    mockUserStore.userInfo = buildUser({ id: 1, username: 'admin', role: 'ADMIN' })
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
         id: 9,
@@ -973,7 +976,7 @@ describe('NotificationsView', () => {
         timeAgo: '刚刚'
       }]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -985,7 +988,7 @@ describe('NotificationsView', () => {
   })
 
   it('routes file review notifications to profile for non-admin users', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
         id: 10,
@@ -997,7 +1000,7 @@ describe('NotificationsView', () => {
         timeAgo: '刚刚'
       }]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -1009,8 +1012,8 @@ describe('NotificationsView', () => {
   })
 
   it('routes product review notifications by role', async () => {
-    mockUserStore.userInfo = { id: 1, username: 'admin', role: 'ADMIN' }
-    notificationApi.getNotifications.mockResolvedValue({
+    mockUserStore.userInfo = buildUser({ id: 1, username: 'admin', role: 'ADMIN' })
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
         id: 11,
@@ -1022,7 +1025,7 @@ describe('NotificationsView', () => {
         timeAgo: '刚刚'
       }]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const adminWrapper = mountView()
     await flushPromises()
@@ -1032,8 +1035,8 @@ describe('NotificationsView', () => {
     expect(mockPush).toHaveBeenCalledWith('/admin/products?tab=pending')
 
     vi.clearAllMocks()
-    mockUserStore.userInfo = { id: 2, username: 'lisi', role: 'SELLER' }
-    notificationApi.getNotifications.mockResolvedValue({
+    mockUserStore.userInfo = buildUser({ id: 2, username: 'lisi', role: 'SELLER' })
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
         id: 12,
@@ -1045,7 +1048,7 @@ describe('NotificationsView', () => {
         timeAgo: '刚刚'
       }]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const sellerWrapper = mountView()
     await flushPromises()
@@ -1056,8 +1059,8 @@ describe('NotificationsView', () => {
   })
 
   it('does not show seller product-review action for buyer users', async () => {
-    mockUserStore.userInfo = { id: 2, username: 'zhangsan', role: 'BUYER' }
-    notificationApi.getNotifications.mockResolvedValue({
+    mockUserStore.userInfo = buildUser({ id: 2, username: 'zhangsan', role: 'BUYER' })
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
         id: 121,
@@ -1069,7 +1072,7 @@ describe('NotificationsView', () => {
         timeAgo: '刚刚'
       }]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -1080,7 +1083,7 @@ describe('NotificationsView', () => {
   })
 
   it('routes review notifications to product detail or my products fallback', async () => {
-    notificationApi.getNotifications.mockResolvedValue({
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
         id: 13,
@@ -1093,7 +1096,7 @@ describe('NotificationsView', () => {
         timeAgo: '刚刚'
       }]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -1103,8 +1106,8 @@ describe('NotificationsView', () => {
     expect(mockPush).toHaveBeenCalledWith('/product/66')
 
     vi.clearAllMocks()
-    mockUserStore.userInfo = { id: 2, username: 'lisi', role: 'SELLER' }
-    notificationApi.getNotifications.mockResolvedValue({
+    mockUserStore.userInfo = buildUser({ id: 2, username: 'lisi', role: 'SELLER' })
+    mockedNotificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
         id: 14,
@@ -1116,7 +1119,7 @@ describe('NotificationsView', () => {
         timeAgo: '刚刚'
       }]
     })
-    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
 
     const fallbackWrapper = mountView()
     await flushPromises()
@@ -1127,7 +1130,7 @@ describe('NotificationsView', () => {
   })
 
   it('closes notification detail when refreshed list no longer contains the current notification', async () => {
-    notificationApi.getNotifications
+    mockedNotificationApi.getNotifications
       .mockResolvedValueOnce({
         code: 200,
         data: [{

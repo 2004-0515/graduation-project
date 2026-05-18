@@ -227,7 +227,7 @@
                     <button type="button" class="remove-review-image" @click.stop="removeReviewImage(image)">删除</button>
                   </div>
                 </div>
-                <div class="review-image-tip">最多 4 张，支持晒单细节图</div>
+                <div class="review-image-tip">最多 3 张，审核通过后会展示在商品详情页</div>
               </div>
             </div>
             <div class="form-item">
@@ -617,8 +617,8 @@ const beforeReviewImageUpload = (file: File) => {
 }
 
 const handleReviewImageUpload = async (options: any) => {
-  if (reviewForm.images.length >= 4) {
-    ElMessage.warning('最多上传 4 张评价图片')
+  if (reviewForm.images.length >= 3) {
+    ElMessage.warning('最多上传 3 张评价图片')
     return
   }
   try {

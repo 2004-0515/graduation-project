@@ -4,6 +4,8 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import productApi from '@/api/productApi'
 import categoryApi from '@/api/categoryApi'
 import fileApi from '@/api/fileApi'
+import type { ApiResponse, PageResponse, Product } from '@/types'
+import { buildCategory, buildProduct, okPageResponse, okResponse } from '@/test/helpers/factories'
 import * as debugModule from '@/utils/debug'
 import CategoryView from '@/views/CategoryView.vue'
 
@@ -16,14 +18,8 @@ describe('CategoryView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubGlobal('scrollTo', vi.fn())
-    getProductsSpy.mockResolvedValue({
-      code: 200,
-      data: { content: [], totalElements: 0 }
-    } as any)
-    getCategoriesSpy.mockResolvedValue({
-      code: 200,
-      data: [{ id: 1, name: '数码' }]
-    } as any)
+    getProductsSpy.mockResolvedValue(okPageResponse([], { totalElements: 0, size: 10 }))
+    getCategoriesSpy.mockResolvedValue(okResponse([buildCategory({ id: 1, name: '数码' })]))
     getImageUrlSpy.mockReturnValue('/img.png')
     debugError.mockImplementation(() => {})
   })
@@ -113,8 +109,12 @@ describe('CategoryView', () => {
   })
 
   it('ignores stale product responses when a newer request finishes later', async () => {
-    let resolveFirst: ((value: unknown) => void) | undefined
-    let resolveSecond: ((value: unknown) => void) | undefined
+    let resolveFirst:
+      | ((value: ApiResponse<PageResponse<Product>> | PromiseLike<ApiResponse<PageResponse<Product>>>) => void)
+      | undefined
+    let resolveSecond:
+      | ((value: ApiResponse<PageResponse<Product>> | PromiseLike<ApiResponse<PageResponse<Product>>>) => void)
+      | undefined
 
     getProductsSpy
       .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
@@ -125,19 +125,19 @@ describe('CategoryView', () => {
 
     ;(wrapper.vm as any).changeSort('sales')
 
-    resolveSecond?.({
-      code: 200,
-      data: { content: [{ id: 2, name: '新结果' }], totalElements: 1 }
-    })
+    resolveSecond?.(
+      okPageResponse([buildProduct({ id: 2, name: '新结果' })], { totalElements: 1 })
+    )
     await flushPromises()
 
-    resolveFirst?.({
-      code: 200,
-      data: { content: [{ id: 1, name: '旧结果' }], totalElements: 1 }
-    })
+    resolveFirst?.(
+      okPageResponse([buildProduct({ id: 1, name: '旧结果' })], { totalElements: 1 })
+    )
     await flushPromises()
 
-    expect((wrapper.vm as any).products).toEqual([{ id: 2, name: '新结果' }])
+    expect((wrapper.vm as any).products).toEqual([
+      expect.objectContaining({ id: 2, name: '新结果' })
+    ])
     expect((wrapper.vm as any).total).toBe(1)
   })
 

@@ -22,7 +22,8 @@ $backendRoot = Get-BackendRoot
 $stackStateFile = Join-Path $projectRoot 'tmp-browser-stack.json'
 $uploadsRoot = Join-Path $projectRoot 'uploads'
 $tempRoot = Join-Path $projectRoot '.tmp'
-$e2eUploadsRoot = Join-Path $tempRoot 'e2e-uploads'
+$e2eUploadsRootBase = Join-Path $tempRoot 'e2e-uploads'
+$e2eUploadsRoot = $null
 $seedScript = Join-Path $PSScriptRoot 'rebuild-graduation-data.ps1'
 $isWindowsPlatform = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 $suiteSpecsMap = @{
@@ -314,10 +315,10 @@ function Start-ManagedProcess {
     return Start-Process @params
 }
 
-function Reset-E2EUploadsDirectory {
+function New-E2EUploadsDirectory {
     param(
         [string]$SourcePath,
-        [string]$TargetPath
+        [string]$TargetBasePath
     )
 
     if (-not (Test-Path $SourcePath)) {
@@ -325,13 +326,12 @@ function Reset-E2EUploadsDirectory {
     }
 
     New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
-
-    if (Test-Path $TargetPath) {
-        Remove-Item -LiteralPath $TargetPath -Recurse -Force
-    }
-
+    New-Item -ItemType Directory -Force -Path $TargetBasePath | Out-Null
+    $runFolderName = 'run-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N')
+    $TargetPath = Join-Path $TargetBasePath $runFolderName
     New-Item -ItemType Directory -Force -Path $TargetPath | Out-Null
     Copy-Item -Path (Join-Path $SourcePath '*') -Destination $TargetPath -Recurse -Force
+    return $TargetPath
 }
 
 function ConvertTo-GraduationDatasetStatus {
@@ -479,7 +479,7 @@ try {
     $dbPort = if ($env:DB_PORT) { $env:DB_PORT } else { '' }
     Ensure-GraduationDatasetReady -DatabaseName $env:DB_NAME -DatabaseUser $dbUser -DatabasePassword $dbPassword -DatabaseHost $dbHost -DatabasePort $dbPort
 
-    Reset-E2EUploadsDirectory -SourcePath $uploadsRoot -TargetPath $e2eUploadsRoot
+    $e2eUploadsRoot = New-E2EUploadsDirectory -SourcePath $uploadsRoot -TargetBasePath $e2eUploadsRootBase
     $env:FILE_UPLOAD_DIR = $e2eUploadsRoot
 
     $frontendPortOccupied = @(Get-ListeningProcessIds -Ports @($FrontendPort)).Count -gt 0
@@ -644,6 +644,9 @@ finally {
         }
 
         Remove-Item $stackStateFile -ErrorAction SilentlyContinue
+        if ($e2eUploadsRoot -and (Test-Path $e2eUploadsRoot)) {
+            Remove-Item -LiteralPath $e2eUploadsRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 

@@ -2,6 +2,7 @@ export interface User {
   id: number
   username: string
   role: 'BUYER' | 'SELLER' | 'ADMIN'
+  status?: number
   email: string
   phone?: string
   nickname?: string
@@ -56,8 +57,10 @@ export interface Product {
   name: string
   description?: string
   categoryId: number
+  categoryName?: string
   price: number
   originalPrice?: number
+  pendingPrice?: number
   stock: number
   sales: number
   status: ProductStatus
@@ -65,6 +68,11 @@ export interface Product {
   images?: string | string[]
   sellerId?: number
   sellerName?: string
+  auditStatus?: number
+  rejectRemark?: string
+  adVideo?: string
+  adVideoDuration?: number
+  adVideoEnabled?: number
   discount?: number
   createdTime: string
   updatedTime: string
@@ -81,7 +89,7 @@ export interface Category {
   parentId: number
   level: number
   sort: number
-  icon?: string
+  icon?: string | null
   description?: string
   status: number
   createdTime: string

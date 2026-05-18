@@ -26,6 +26,83 @@ function Get-FrontendRoot {
     return $script:FrontendRoot
 }
 
+function Test-UploadDirectoryWriteProbe {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $probePath = Join-Path $Path (".write-probe-" + [Guid]::NewGuid().ToString("N") + ".tmp")
+    try {
+        [System.IO.File]::WriteAllText($probePath, "probe")
+        [System.IO.File]::Delete($probePath)
+        return $true
+    } catch {
+        try {
+            if (Test-Path -LiteralPath $probePath) {
+                Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue
+            }
+        } catch {
+        }
+        throw
+    }
+}
+
+function Ensure-UploadDirectoriesWritable {
+    param(
+        [string[]]$RelativePaths = @(
+            "uploads/avatars",
+            "uploads/banners",
+            "uploads/categories",
+            "uploads/music",
+            "uploads/products",
+            "uploads/promotions",
+            "uploads/reviews",
+            "uploads/videos"
+        )
+    )
+
+    $isWindowsPlatform = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
+
+    foreach ($relativePath in $RelativePaths) {
+        $targetPath = Join-Path $script:ProjectRoot $relativePath
+
+        try {
+            [System.IO.Directory]::CreateDirectory($targetPath) | Out-Null
+        } catch {
+            throw "无法创建上传目录: $targetPath. $($_.Exception.Message)"
+        }
+
+        try {
+            Test-UploadDirectoryWriteProbe -Path $targetPath | Out-Null
+            continue
+        } catch {
+            $probeError = $_.Exception.Message
+        }
+
+        if (-not $isWindowsPlatform) {
+            throw "上传目录不可写: $targetPath. error=$probeError"
+        }
+
+        $username = $env:USERNAME
+        if (-not $username) {
+            $username = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        }
+
+        try {
+            & icacls $targetPath /grant "${username}:(OI)(CI)M" | Out-Null
+        } catch {
+            throw "无法修复上传目录权限: $targetPath. probe_error=$probeError acl_error=$($_.Exception.Message)"
+        }
+
+        try {
+            Test-UploadDirectoryWriteProbe -Path $targetPath | Out-Null
+        } catch {
+            throw "上传目录不可写: $targetPath. probe_error=$probeError retry_error=$($_.Exception.Message)"
+        }
+    }
+}
+
 function Resolve-ProjectNodeTooling {
     return Resolve-NodeTooling -ProjectRoot $script:ProjectRoot -FrontendRoot $script:FrontendRoot
 }

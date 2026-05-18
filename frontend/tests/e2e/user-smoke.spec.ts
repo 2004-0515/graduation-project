@@ -63,7 +63,7 @@ test('用户端页面广覆盖冒烟', async ({ page }) => {
   await gotoAuthed(page, '/promotions', 'promotions-view')
   await neutralizeFloatingUi(page)
   await expect(page.getByTestId('promotions-view')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '优惠券中心' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '可领取优惠券' })).toBeVisible()
 
   await gotoAuthed(page, '/price-alerts', 'price-alerts-view')
   await neutralizeFloatingUi(page)

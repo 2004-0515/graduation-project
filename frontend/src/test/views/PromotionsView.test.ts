@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 
 const {
   mockPush,
+  mockRoute,
   couponApi,
   productApi,
   showcaseApi,
@@ -11,6 +12,9 @@ const {
   debugError
 } = vi.hoisted(() => ({
   mockPush: vi.fn(),
+  mockRoute: {
+    fullPath: '/promotions'
+  },
   couponApi: {
     getAvailableCoupons: vi.fn(),
     getMyCoupons: vi.fn(),
@@ -29,7 +33,8 @@ const {
 }))
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: mockPush })
+  useRouter: () => ({ push: mockPush }),
+  useRoute: () => mockRoute
 }))
 
 vi.mock('element-plus', () => ({
@@ -64,6 +69,10 @@ vi.mock('@/api/fileApi', () => ({
 
 vi.mock('@/utils/debug', () => ({
   debugError
+}))
+
+vi.mock('@/utils/navigation', () => ({
+  buildLoginLocation: (redirect: string) => ({ path: '/login', query: { redirect } })
 }))
 
 import PromotionsView from '@/views/PromotionsView.vue'
@@ -111,7 +120,7 @@ describe('PromotionsView', () => {
       .claimCoupon({ id: 2, claimed: false, remaining: 5 })
 
     expect(ElMessage.warning).toHaveBeenCalledWith('请先登录')
-    expect(mockPush).toHaveBeenCalledWith('/login')
+    expect(mockPush).toHaveBeenCalledWith({ path: '/login', query: { redirect: '/promotions' } })
     expect(couponApi.claimCoupon).not.toHaveBeenCalled()
   })
 
