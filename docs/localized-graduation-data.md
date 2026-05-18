@@ -15,6 +15,8 @@ The target snapshot is designed for graduation rehearsal:
 
 - [scripts/rebuild-graduation-data.ps1](/d:/graduation%20project/scripts/rebuild-graduation-data.ps1)
 - [scripts/rebuild_graduation_dataset.py](/d:/graduation%20project/scripts/rebuild_graduation_dataset.py)
+- [scripts/fetch-graduation-assets.ps1](/d:/graduation%20project/scripts/fetch-graduation-assets.ps1)
+- [scripts/fetch_young_catalog_assets.py](/d:/graduation%20project/scripts/fetch_young_catalog_assets.py)
 
 Default commands:
 
@@ -39,24 +41,31 @@ If MySQL is not exposed as the default local instance, pass the connection expli
 powershell -ExecutionPolicy Bypass -File .\scripts\rebuild-graduation-data.ps1 -Mode execute -DatabaseName shopping_mall_test -DatabaseHost 127.0.0.1 -DatabasePort 3306
 ```
 
+Refresh the local product-image manifest and refill missing catalog assets:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\fetch-graduation-assets.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\fetch-graduation-assets.ps1 -OnlySlugs anime-cup-sleeve desk-usb-hub
+```
+
 ## Snapshot Shape
 
 The rebuild creates the following target snapshot:
 
 - `tb_user`: 30
-- `tb_product`: 84
+- `tb_product`: 128
 - `tb_order`: 540
 - `tb_review`: 288
 - `notifications`: 192
 - `music`: 24
-- `tb_price_history`: 336
+- `tb_price_history`: 512
 - `tb_price_alert`: 24
 - `addresses`: 42
 - `tb_cart`: 30
 - `tb_wishlist`: 28
 - `tb_user_coupon`: 36
 - `tb_contact_message`: 10
-- `tb_upload_file`: 16
+- `tb_upload_file`: 24
 - `tb_consumption_budget`: 10
 - `tb_consumption_achievement`: 10
 - `tb_search_history`: 12
@@ -84,6 +93,7 @@ The dataset only uses local project resources:
 - `uploads/music/...`
 - `uploads/videos/...`
 - `frontend/public/seed/...`
+- `scripts/young-catalog-assets.json`
 
 No external placeholder media is required for the rebuilt snapshot.
 

@@ -239,8 +239,76 @@ CATEGORY_PRODUCTS = {
 }
 
 
+CATEGORY_PRODUCTS_EXPANSION = {
+    "动漫周边": [
+        _product("anime-shaker-charm", "流光 摇摇乐挂件", "动漫周边", "透明外层和亮片细节更适合挂在包上，走动时会有一点轻微闪动感。", 64.0, 82.0, "xiaohong", download_queries=["shaker keychain", "acrylic charm", "keychain charm"]),
+        _product("anime-photo-card-book", "奶霜 小卡收纳本", "动漫周边", "更适合装拍立得和交换小卡，翻页的时候会有一点整理收藏的满足感。", 72.0, 89.0, "xiaohong", download_queries=["photo card holder", "collectible card binder", "polaroid album"]),
+        _product("anime-mini-lightbox", "星幕 桌面小夜灯", "动漫周边", "体积不大，适合放在展示架边上补一点柔光，晚上开着也不刺眼。", 118.0, 142.0, "xiaohong", download_queries=["small led light box", "desk night light", "character night light"]),
+        _product("anime-pin-banner", "云雀 徽章挂旗", "动漫周边", "适合把零散徽章挂成一面小墙，房间角落会立刻更有收藏氛围。", 58.0, 74.0, "xiaohong", download_queries=["pin banner display", "badge wall display", "fabric banner"]),
+        _product("anime-stamp-set", "糖霜 装饰印章组", "动漫周边", "适合手账和票根拼贴，属于便宜但很容易提升页面细节的小物。", 46.0, 59.0, "xiaohong", download_queries=["rubber stamp set", "journal stamp set", "decorative stamps"]),
+        _product("anime-cup-sleeve", "晴岛 随行杯套", "动漫周边", "给常用饮品杯加一点角色感装饰，通勤拿在手里不会显得太夸张。", 39.0, 52.0, "xiaohong", download_queries=["cup sleeve product", "coffee cup sleeve", "fabric cup sleeve"]),
+    ],
+    "桌搭数码": [
+        _product("desk-wireless-charger", "薄雾 无线充电板", "桌搭数码", "适合放在键盘侧边给手机补电，桌面视觉比传统充电线更清爽。", 129.0, 159.0, "lisi", download_queries=["wireless charger desk", "wireless charging pad", "phone charger pad"]),
+        _product("desk-webcam-light", "柔焦 摄像头补光灯", "桌搭数码", "视频会议和直播时能把面部光线拉平一点，也不会把桌面搞得很杂。", 148.0, 179.0, "lisi", download_queries=["webcam light", "ring light desk", "video call light"]),
+        _product("desk-mouse-glasspad", "冰川 玻璃鼠标垫", "桌搭数码", "表面更平整利落，配浅色桌搭会比传统布垫更有一点科技感。", 169.0, 208.0, "lisi", download_queries=["glass mouse pad", "mouse pad desk", "desk pad glass"]),
+        _product("desk-laptop-stand", "流线 笔记本支架", "桌搭数码", "把屏幕抬高之后看文档和剪视频都更舒服，也能顺手把桌面层次做出来。", 159.0, 198.0, "lisi", download_queries=["laptop stand desk", "aluminum laptop stand", "notebook stand"]),
+        _product("desk-usb-hub", "星点 多口扩展坞", "桌搭数码", "适合把相机、硬盘和键盘统一接到一块，临时切设备会省事很多。", 189.0, 229.0, "lisi", download_queries=["usb hub product", "multiport hub", "desk hub"]),
+        _product("desk-wireless-mic", "轻声 无线领夹麦", "桌搭数码", "给视频记录和线上会议用刚刚好，收纳起来也不会占桌面位置。", 219.0, 268.0, "lisi", download_queries=["wireless microphone product", "lavalier microphone", "clip microphone"]),
+    ],
+    "潮流穿搭": [
+        _product("wear-cardigan-knit", "云影 短款针织开衫", "潮流穿搭", "适合空调房和傍晚出门，披上就能把整套穿搭变得更柔和。", 199.0, 246.0, "xiaoming", download_queries=["knit cardigan fashion", "cardigan sweater", "casual cardigan"]),
+        _product("wear-pleated-skirt", "月白 百褶短裙", "潮流穿搭", "版型比较轻快，和运动鞋或小皮鞋都能搭出很自然的日常感。", 169.0, 209.0, "xiaoming", download_queries=["pleated skirt fashion", "tennis skirt", "casual skirt"]),
+        _product("wear-layer-necklace", "星砂 叠戴项链", "潮流穿搭", "细链叠在一起会比单条更有层次，拍照时也更容易出细节。", 89.0, 112.0, "xiaoming", download_queries=["layered necklace product", "minimal necklace", "fashion necklace"]),
+        _product("wear-shoulder-bag-soft", "雾面 半月单肩包", "潮流穿搭", "包型比较软，适合日常塞手机和补妆小物，不会显得太正式。", 189.0, 232.0, "xiaoming", download_queries=["crescent shoulder bag", "shoulder bag fashion", "small shoulder bag"]),
+        _product("wear-sunglasses-clear", "晨光 透明边太阳镜", "潮流穿搭", "属于不挑脸型的轻量单品，夏天和旅行场景里很容易搭。", 116.0, 142.0, "xiaoming", download_queries=["sunglasses fashion", "clear frame sunglasses", "fashion eyewear"]),
+        _product("wear-slip-ons", "云步 轻便帆布鞋", "潮流穿搭", "穿脱很快，适合上课、通勤和短距离出门，视觉上也不会太厚重。", 149.0, 186.0, "xiaoming", download_queries=["canvas shoes fashion", "slip on shoes", "casual sneakers"]),
+    ],
+    "香氛家居": [
+        _product("home-bedding-check", "奶油格纹四件套", "香氛家居", "铺开之后房间会一下变得柔和许多，拍床铺和晨间光线都很好看。", 329.0, 399.0, "zhouba", download_queries=["bedding set product", "bed sheet set", "duvet cover set"]),
+        _product("home-table-mirror", "柔镜 桌面梳妆镜", "香氛家居", "摆在书桌或床边都不会突兀，搭配香薰和首饰盘会更完整。", 138.0, 169.0, "zhouba", download_queries=["table mirror product", "vanity mirror", "desk mirror"]),
+        _product("home-incense-holder", "山岚 线香托座", "香氛家居", "体量很小，但很适合和蜡烛、扩香一起把房间角落收拾得更有层次。", 78.0, 96.0, "zhouba", download_queries=["incense holder product", "ceramic incense holder", "home decor incense"]),
+        _product("home-book-stand", "白橡 阅读书立", "香氛家居", "把常看的书摊开摆着会让桌面更像一个长期会使用的角落。", 119.0, 148.0, "zhouba", download_queries=["book stand product", "wood book stand", "decor book stand"]),
+        _product("home-linen-basket", "浅藤 棉麻收纳篮", "香氛家居", "适合装毯子、杂志和吹风机一类常用物件，视觉会比塑料收纳更轻。", 109.0, 136.0, "zhouba", download_queries=["storage basket product", "woven basket", "linen basket"]),
+        _product("home-bedside-tray", "晨露 床边小托盘", "香氛家居", "能放眼镜、耳机和晚安水杯，属于提升生活感但不费力的小件。", 86.0, 108.0, "zhouba", download_queries=["bedside tray product", "small tray decor", "wooden tray home"]),
+    ],
+    "美妆个护": [
+        _product("beauty-lip-gloss", "水光 果冻唇蜜", "美妆个护", "更适合快速补一点气色，放在小包里也不会占地方。", 98.0, 126.0, "xiaomei", download_queries=["lip gloss product", "cosmetic lip gloss", "makeup gloss"]),
+        _product("beauty-makeup-brush", "柔雾 化妆刷套组", "美妆个护", "刷型偏日常，不需要太多技巧也能把底妆和腮红收拾得更干净。", 149.0, 186.0, "xiaomei", download_queries=["makeup brush set", "cosmetic brush set", "beauty brush"]),
+        _product("beauty-hair-oil", "山茶 护发精油", "美妆个护", "更适合吹头发前抹一点，瓶身摆在洗手台旁也不会显乱。", 118.0, 149.0, "xiaomei", download_queries=["hair oil product", "hair serum bottle", "beauty oil bottle"]),
+        _product("beauty-face-mask", "云感 补水面膜盒", "美妆个护", "适合囤在床头柜和洗手台边，属于很容易被消耗掉的基础好物。", 88.0, 112.0, "xiaomei", download_queries=["face mask product", "sheet mask box", "skincare mask"]),
+        _product("beauty-perfume-mini", "微甜 随身香水笔", "美妆个护", "适合放在小包和化妆包里，通勤和出门前补香都会更方便。", 136.0, 168.0, "xiaomei", download_queries=["perfume roller bottle", "mini perfume product", "fragrance bottle"]),
+    ],
+    "零食饮品": [
+        _product("snack-matcha-latte", "抹茶拿铁冲饮盒", "零食饮品", "适合在工位和宿舍慢慢冲着喝，颜色和包装都偏治愈系。", 46.0, 58.0, "xiaogang", download_queries=["matcha latte product", "drink mix box", "powder drink package"]),
+        _product("snack-fruit-tea-jar", "果园 花果茶罐", "零食饮品", "玻璃罐装看起来更整洁，放在厨房或工位角落会更有一点生活感。", 62.0, 78.0, "xiaogang", download_queries=["tea jar product", "fruit tea package", "tea tin"]),
+        _product("snack-popcorn-tin", "焦糖 爆米花礼罐", "零食饮品", "适合周末看片和送朋友，铁罐外形摆出来也不会显得廉价。", 58.0, 74.0, "xiaogang", download_queries=["popcorn tin product", "caramel popcorn tin", "snack tin"]),
+        _product("snack-choco-wafer", "可可 威化夹心包", "零食饮品", "属于一口一个的办公室零食，外包装也偏轻快好认。", 24.0, 31.0, "xiaogang", download_queries=["wafer snack package", "chocolate wafer", "snack pouch"]),
+        _product("snack-jelly-pack", "白桃 果冻分享杯", "零食饮品", "冰镇之后更适合夏天，属于颜色看起来就很清爽的小零食。", 36.0, 46.0, "xiaogang", download_queries=["jelly cup product", "fruit jelly cup", "dessert cup package"]),
+    ],
+    "文创书影音": [
+        _product("culture-sticker-sheet", "晴空 贴纸片组", "文创书影音", "颜色和图案都偏轻，不会一下把手账页面压得太满。", 32.0, 42.0, "sunqi", download_queries=["sticker sheet product", "planner sticker sheet", "stationery stickers"]),
+        _product("culture-desk-easel", "木序 桌面展示架", "文创书影音", "适合放小海报、拍立得和小尺寸画片，桌面会更像被认真整理过。", 68.0, 86.0, "sunqi", download_queries=["mini easel product", "desk easel", "display easel"]),
+        _product("culture-cd-wallet", "银壳 唱片收纳册", "文创书影音", "把散放的光盘和周边收在一起，翻起来比普通文件夹更有收藏感。", 92.0, 116.0, "sunqi", download_queries=["cd case product", "disc storage book", "music album case"]),
+        _product("culture-pen-set", "月影 中性笔套装", "文创书影音", "适合写手账和课堂笔记，外观低调但不会无聊。", 49.0, 64.0, "sunqi", download_queries=["pen set product", "gel pen set", "stationery pen set"]),
+        _product("culture-reading-lamp", "翻页 夹书阅读灯", "文创书影音", "夜里看书时补光更集中，也不会把整间屋子的氛围打断。", 86.0, 108.0, "sunqi", download_queries=["book light product", "reading lamp clip", "clip book light"]),
+    ],
+    "出行配件": [
+        _product("travel-passport-wallet", "雾蓝 证件旅行夹", "出行配件", "把护照、登机牌和卡片都收在一起，出行时会更从容一点。", 96.0, 122.0, "zhouba", download_queries=["passport wallet product", "travel document holder", "passport case"]),
+        _product("travel-neck-pillow", "云眠 记忆棉颈枕", "出行配件", "高铁和飞机上会更实用，颜色也比传统旅行枕更柔和。", 129.0, 159.0, "zhouba", download_queries=["neck pillow travel", "memory foam neck pillow", "travel pillow product"]),
+        _product("travel-cable-pouch", "远行 数据线收纳包", "出行配件", "适合把充电头、读卡器和耳机都收进一袋，背包内部会更清爽。", 76.0, 96.0, "zhouba", download_queries=["tech organizer pouch", "cable pouch product", "travel cable organizer"]),
+        _product("travel-luggage-tag", "晴海 行李牌套组", "出行配件", "挂在行李箱和通勤包上都顺眼，也更方便快速分辨自己的东西。", 42.0, 56.0, "zhouba", download_queries=["luggage tag product", "travel luggage tag", "bag tag"]),
+        _product("travel-mini-bottle", "分装 旅行按压瓶", "出行配件", "短途出门和健身房都很适合带着，属于一买就能立刻用上的实用品。", 39.0, 52.0, "zhouba", download_queries=["travel bottle set", "toiletry bottle set", "travel container"]),
+    ],
+}
+
+
 def build_product_specs() -> list[dict[str, Any]]:
-    queues = {category: deque(products) for category, products in CATEGORY_PRODUCTS.items()}
+    merged_products = {category: list(products) for category, products in CATEGORY_PRODUCTS.items()}
+    for category, extras in CATEGORY_PRODUCTS_EXPANSION.items():
+        merged_products.setdefault(category, []).extend(extras)
+
+    queues = {category: deque(products) for category, products in merged_products.items()}
     order = [name for name, _ in CATEGORY_DEFINITIONS]
     specs: list[dict[str, Any]] = []
 

@@ -49,7 +49,7 @@ TARGETS = {
     "wishlists": 28,
     "user_coupons": 36,
     "contact_messages": 10,
-    "upload_files": 16,
+    "upload_files": 24,
     "budgets": 10,
     "achievements": 10,
     "search_history": 12,
@@ -446,12 +446,19 @@ class Seeder:
         settings_privacy = []
         settings_notification = []
         address_values = []
-        avatar_pool = self.avatar_files or ["/seed/avatar-user.svg"]
+        avatar_pool = self.avatar_files or []
+        avatar_assignments = {}
+        if avatar_pool:
+            avatar_assignments = {
+                "sunqi": avatar_pool[0],
+                "wangwu": avatar_pool[min(1, len(avatar_pool) - 1)],
+                "xinyi": avatar_pool[-1],
+            }
         districts = ["朝阳区", "浦东新区", "南山区", "天河区", "高新区", "拱墅区", "渝北区", "洪山区"]
         cities = [("北京市", "北京市"), ("上海市", "上海市"), ("广东省", "深圳市"), ("广东省", "广州市"), ("浙江省", "杭州市"), ("四川省", "成都市"), ("重庆市", "重庆市"), ("湖北省", "武汉市")]
         for index, (username, nickname, email, phone, bio) in enumerate(USERS, start=1):
             role = "ADMIN" if username == "admin" else ("SELLER" if username in SELLER_USERNAMES else "BUYER")
-            avatar = avatar_pool[(index - 1) % len(avatar_pool)]
+            avatar = avatar_assignments.get(username)
             points = 300 + index * 47
             growth = 180 + index * 18
             member_days = 35 + index * 9
@@ -459,7 +466,7 @@ class Seeder:
             last_login_time = FIXED_NOW - timedelta(days=index % 6, hours=index % 11)
             user_values.append(
                 "("
-                f"'{username}', '{DEFAULT_PASSWORD_HASH}', '{email}', '{phone}', '{avatar}', '{sql_escape(nickname)}', "
+                f"'{username}', '{DEFAULT_PASSWORD_HASH}', '{email}', '{phone}', {to_sql_string(avatar)}, '{sql_escape(nickname)}', "
                 f"'{sql_escape(bio)}', {points}, {growth}, {member_days}, 1, '{role}', "
                 f"'{created_time.strftime('%Y-%m-%d %H:%M:%S')}', '{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}', "
                 f"'{last_login_time.strftime('%Y-%m-%d %H:%M:%S')}', '127.0.0.1'"
@@ -596,8 +603,10 @@ class Seeder:
 
     def seed_products(self) -> None:
         self.product_rows = self.build_product_rows()
+        category_icons: dict[int, str] = {}
         values = []
         for product in self.product_rows:
+            category_icons.setdefault(product.category_id, product.main_image)
             values.append(
                 "("
                 f"'{sql_escape(product.name)}', '{sql_escape(product.description)}', {product.category_id}, "
@@ -612,6 +621,23 @@ class Seeder:
         self.execute_insert(
             "INSERT INTO tb_product (name, description, category_id, price, original_price, pending_price, pending_original_price, stock, version, sales, status, main_image, images, seller_id, seller_name, audit_status, audit_remark, audit_time, ad_video, ad_video_duration, ad_video_enabled, created_time, updated_time) VALUES ",
             values,
+        )
+        self.sync_category_icons(category_icons)
+
+    def sync_category_icons(self, category_icons: dict[int, str]) -> None:
+        if not category_icons:
+            return
+
+        cases = []
+        ids = []
+        for category_id, icon_path in sorted(category_icons.items()):
+            cases.append(f"WHEN {category_id} THEN '{sql_escape(icon_path)}'")
+            ids.append(str(category_id))
+
+        self.run_mysql(
+            "UPDATE tb_category "
+            f"SET icon = CASE id {' '.join(cases)} END, updated_time = '{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}' "
+            f"WHERE id IN ({','.join(ids)});"
         )
 
     def seed_music(self) -> None:
@@ -969,6 +995,14 @@ class Seeder:
             ("PRODUCT", self.user_ids["lisi"], product_image_at(17), 1, "细节图补充完整"),
             ("PROMOTION", self.user_ids["admin"], product_image_at(23), 1, "促销素材已归档"),
             ("PRODUCT", self.user_ids["xiaohong"], product_image_at(31), 0, None),
+            ("AVATAR", self.user_ids["anran"], avatar_files[min(2, len(avatar_files) - 1)], 0, None),
+            ("PRODUCT", self.user_ids["xiaoming"], product_image_at(42), 1, "展示角度完整，适合前台上架"),
+            ("REVIEW", self.user_ids["haoran"], product_image_at(48), 0, None),
+            ("CATEGORY", self.user_ids["admin"], product_image_at(57), 1, "分类页封面已同步更新"),
+            ("PRODUCT", self.user_ids["zhouba"], product_image_at(63), 2, "图片主体偏暗，建议重新补拍"),
+            ("PROMOTION", self.user_ids["admin"], product_image_at(70), 0, None),
+            ("AVATAR", self.user_ids["jiaqi"], avatar_files[min(1, len(avatar_files) - 1)], 1, "头像清晰度符合要求"),
+            ("REVIEW", self.user_ids["xiaobei"], product_image_at(76), 1, "晒单配图完整，可正常展示"),
         ]
         for index, (file_type, user_id, path, status, remark) in enumerate(file_specs, start=1):
             reviewer_id = self.user_ids["admin"] if status in {1, 2} else None

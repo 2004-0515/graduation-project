@@ -45,7 +45,9 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-& $python -m py_compile (Join-Path $PSScriptRoot "rebuild_graduation_dataset.py")
+& $python -m py_compile `
+    (Join-Path $PSScriptRoot "rebuild_graduation_dataset.py") `
+    (Join-Path $PSScriptRoot "fetch_young_catalog_assets.py")
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
