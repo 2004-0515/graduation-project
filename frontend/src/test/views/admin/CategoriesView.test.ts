@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import fileApi from '@/api/fileApi'
 
 const { adminApi, messages, messageBox, debugError } = vi.hoisted(() => ({
   adminApi: {
@@ -24,6 +25,10 @@ vi.mock('element-plus', () => ({
   ElMessageBox: messageBox
 }))
 
+vi.mock('@element-plus/icons-vue', () => ({
+  Plus: { template: '<span />' }
+}))
+
 vi.mock('@/api/adminApi', () => ({
   default: adminApi
 }))
@@ -31,6 +36,9 @@ vi.mock('@/api/adminApi', () => ({
 vi.mock('@/utils/debug', () => ({
   debugError
 }))
+
+const uploadCategoryImageSpy = vi.spyOn(fileApi, 'uploadCategoryImage')
+const getImageUrlSpy = vi.spyOn(fileApi, 'getImageUrl')
 
 import CategoriesView from '@/views/admin/CategoriesView.vue'
 
@@ -48,9 +56,11 @@ describe('CategoriesView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     messageBox.confirm.mockResolvedValue(undefined)
+    uploadCategoryImageSpy.mockResolvedValue({ code: 200, data: '/uploads/categories/2026/05/icon.png' } as any)
+    getImageUrlSpy.mockImplementation((path) => path || '')
     adminApi.getCategories.mockResolvedValue({
       code: 200,
-      data: [{ id: 1, name: '分类A', description: '', sortOrder: 0, status: 1 }]
+      data: [{ id: 1, name: '分类A', description: '', icon: '', sortOrder: 0, status: 1 }]
     })
   })
 
@@ -62,16 +72,18 @@ describe('CategoriesView', () => {
         },
         stubs: {
           AdminLayout: { template: '<div><slot /></div>' },
-          ElButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+          ElButton: { template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>' },
           ElTable: { props: ['data'], template: '<div><slot /></div>' },
           ElTableColumn: { template: '<div><slot :row="$attrs.row || {}" /></div>' },
           ElTag: true,
-          ElDialog: true,
-          ElForm: true,
-          ElFormItem: true,
+          ElDialog: { template: '<div><slot /><slot name="footer" /></div>' },
+          ElForm: { template: '<form><slot /></form>' },
+          ElFormItem: { template: '<div><slot /></div>' },
           ElInput: true,
           ElInputNumber: true,
-          ElSwitch: true
+          ElSwitch: true,
+          ElUpload: { template: '<div v-bind="$attrs"><slot /></div>' },
+          ElIcon: { template: '<span><slot /></span>' }
         }
       }
     })
@@ -114,6 +126,104 @@ describe('CategoriesView', () => {
 
     expect(messages.error).toHaveBeenCalledWith('分类名称已存在')
     expect(debugError).toHaveBeenCalled()
+  })
+
+  it('populates category icon when upload succeeds', async () => {
+    const wrapper = mountView()
+
+    await flushPromises()
+    await (wrapper.vm as any).handleCategoryIconUpload({
+      file: new File(['icon'], 'icon.png', { type: 'image/png' })
+    })
+
+    expect((wrapper.vm as any).form.icon).toBe('/uploads/categories/2026/05/icon.png')
+    expect(messages.success).toHaveBeenCalledWith('分类图标上传成功')
+  })
+
+  it('shows backend message when icon upload returns non-200 payload', async () => {
+    uploadCategoryImageSpy.mockResolvedValue({ code: 500, message: '分类图标上传失败' } as any)
+    const wrapper = mountView()
+
+    await flushPromises()
+    await (wrapper.vm as any).handleCategoryIconUpload({
+      file: new File(['icon'], 'icon.png', { type: 'image/png' })
+    })
+
+    expect(messages.error).toHaveBeenCalledWith('分类图标上传失败')
+  })
+
+  it('shows backend message when icon upload throws', async () => {
+    uploadCategoryImageSpy.mockRejectedValue({ response: { data: { message: '分类图标审核未通过' } } })
+    const wrapper = mountView()
+
+    await flushPromises()
+    await (wrapper.vm as any).handleCategoryIconUpload({
+      file: new File(['icon'], 'icon.png', { type: 'image/png' })
+    })
+
+    expect(messages.error).toHaveBeenCalledWith('分类图标审核未通过')
+    expect(debugError).toHaveBeenCalledWith('上传分类图标失败', expect.anything())
+  })
+
+  it('renders existing icon preview when editing a category', async () => {
+    const wrapper = mountView()
+
+    await flushPromises()
+    ;(wrapper.vm as any).openDialog({
+      id: 1,
+      name: '分类A',
+      description: '',
+      icon: '/uploads/categories/2026/05/demo.png',
+      sortOrder: 0,
+      status: 1
+    })
+    await flushPromises()
+
+    const preview = wrapper.find('[data-testid="admin-category-icon-preview"]')
+    expect(preview.exists()).toBe(true)
+    expect(preview.attributes('src')).toBe('/uploads/categories/2026/05/demo.png')
+  })
+
+  it('clears category icon before saving create payload', async () => {
+    adminApi.createCategory.mockResolvedValue({ code: 200, message: '分类添加成功' })
+    const wrapper = mountView()
+
+    await flushPromises()
+    ;(wrapper.vm as any).openDialog()
+    ;(wrapper.vm as any).form.name = '图标分类'
+    ;(wrapper.vm as any).form.icon = '/uploads/categories/2026/05/icon.png'
+    ;(wrapper.vm as any).clearCategoryIcon()
+    await (wrapper.vm as any).saveCategory()
+    await flushPromises()
+
+    expect(adminApi.createCategory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        icon: null
+      })
+    )
+  })
+
+  it('includes normalized icon in update payload', async () => {
+    adminApi.updateCategory.mockResolvedValue({ code: 200, message: '分类更新成功' })
+    const wrapper = mountView()
+
+    await flushPromises()
+    ;(wrapper.vm as any).isEdit = true
+    ;(wrapper.vm as any).editId = 1
+    ;(wrapper.vm as any).form.name = '分类A'
+    ;(wrapper.vm as any).form.description = '描述'
+    ;(wrapper.vm as any).form.icon = ' /uploads/categories/2026/05/icon.png '
+    ;(wrapper.vm as any).form.sortOrder = 2
+    ;(wrapper.vm as any).form.status = 1
+    await (wrapper.vm as any).saveCategory()
+    await flushPromises()
+
+    expect(adminApi.updateCategory).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        icon: '/uploads/categories/2026/05/icon.png'
+      })
+    )
   })
 
   it('logs when category list returns non-200 payload', async () => {
@@ -204,7 +314,7 @@ describe('CategoriesView', () => {
 
     secondRequest.resolve({
       code: 200,
-      data: [{ id: 2, name: '新分类', description: '', sortOrder: 0, status: 1 }]
+      data: [{ id: 2, name: '新分类', description: '', icon: '', sortOrder: 0, status: 1 }]
     })
     await refetchPromise
     await flushPromises()
@@ -213,7 +323,7 @@ describe('CategoriesView', () => {
 
     firstRequest.resolve({
       code: 200,
-      data: [{ id: 1, name: '旧分类', description: '', sortOrder: 0, status: 1 }]
+      data: [{ id: 1, name: '旧分类', description: '', icon: '', sortOrder: 0, status: 1 }]
     })
     await flushPromises()
 
@@ -242,7 +352,7 @@ describe('CategoriesView', () => {
     await deletePromise
     await flushPromises()
 
-    firstRequest.resolve({ code: 200, data: [{ id: 1, name: '分类A', description: '', sortOrder: 0, status: 1 }] })
+    firstRequest.resolve({ code: 200, data: [{ id: 1, name: '分类A', description: '', icon: '', sortOrder: 0, status: 1 }] })
     await flushPromises()
 
     expect((wrapper.vm as any).categories).toEqual([])
@@ -258,7 +368,7 @@ describe('CategoriesView', () => {
     adminApi.updateCategory.mockResolvedValue({
       code: 200,
       message: '分类更新成功',
-      data: { id: 1, name: '新分类名', description: '新描述', sortOrder: 2, status: 1 }
+      data: { id: 1, name: '新分类名', description: '新描述', icon: '/uploads/categories/2026/05/icon.png', sortOrder: 2, status: 1 }
     })
 
     const wrapper = mountView()
@@ -267,20 +377,21 @@ describe('CategoriesView', () => {
     ;(wrapper.vm as any).editId = 1
     ;(wrapper.vm as any).form.name = '新分类名'
     ;(wrapper.vm as any).form.description = '新描述'
+    ;(wrapper.vm as any).form.icon = '/uploads/categories/2026/05/icon.png'
     ;(wrapper.vm as any).form.sortOrder = 2
     ;(wrapper.vm as any).form.status = 1
-    ;(wrapper.vm as any).categories = [{ id: 1, name: '分类A', description: '', sortOrder: 0, status: 1 }]
+    ;(wrapper.vm as any).categories = [{ id: 1, name: '分类A', description: '', icon: '', sortOrder: 0, status: 1 }]
 
     const savePromise = (wrapper.vm as any).saveCategory()
     await flushPromises()
 
     expect((wrapper.vm as any).categories[0].name).toBe('新分类名')
 
-    secondRequest.resolve({ code: 200, data: [{ id: 1, name: '新分类名', description: '新描述', sortOrder: 2, status: 1 }] })
+    secondRequest.resolve({ code: 200, data: [{ id: 1, name: '新分类名', description: '新描述', icon: '/uploads/categories/2026/05/icon.png', sortOrder: 2, status: 1 }] })
     await savePromise
     await flushPromises()
 
-    firstRequest.resolve({ code: 200, data: [{ id: 1, name: '分类A', description: '', sortOrder: 0, status: 1 }] })
+    firstRequest.resolve({ code: 200, data: [{ id: 1, name: '分类A', description: '', icon: '', sortOrder: 0, status: 1 }] })
     await flushPromises()
 
     expect((wrapper.vm as any).categories[0].name).toBe('新分类名')
@@ -290,17 +401,17 @@ describe('CategoriesView', () => {
     adminApi.getCategories
       .mockResolvedValueOnce({
         code: 200,
-        data: [{ id: 1, name: '分类A', description: '', sortOrder: 0, status: 1 }]
+        data: [{ id: 1, name: '分类A', description: '', icon: '', sortOrder: 0, status: 1 }]
       })
       .mockResolvedValueOnce({
         code: 200,
-        data: [{ id: 2, name: '分类B', description: '', sortOrder: 1, status: 1 }]
+        data: [{ id: 2, name: '分类B', description: '', icon: '', sortOrder: 1, status: 1 }]
       })
 
     const wrapper = mountView()
     await flushPromises()
 
-    ;(wrapper.vm as any).openDialog({ id: 1, name: '分类A', description: '旧描述', sortOrder: 0, status: 1 })
+    ;(wrapper.vm as any).openDialog({ id: 1, name: '分类A', description: '旧描述', icon: '/uploads/categories/2026/05/demo.png', sortOrder: 0, status: 1 })
 
     await (wrapper.vm as any).fetchCategories()
     await flushPromises()
@@ -309,5 +420,6 @@ describe('CategoriesView', () => {
     expect((wrapper.vm as any).isEdit).toBe(false)
     expect((wrapper.vm as any).editId).toBeNull()
     expect((wrapper.vm as any).form.name).toBe('')
+    expect((wrapper.vm as any).form.icon).toBe('')
   })
 })

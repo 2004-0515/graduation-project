@@ -13,6 +13,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+. (Join-Path $PSScriptRoot "project-env.ps1")
+
 $seedScript = Join-Path $PSScriptRoot "rebuild-graduation-data.ps1"
 $startStackScript = Join-Path $PSScriptRoot "start-real-browser-stack.ps1"
 
@@ -23,6 +25,8 @@ if (-not (Test-Path $seedScript)) {
 if (-not (Test-Path $startStackScript)) {
     throw "未找到脚本: $startStackScript"
 }
+
+Ensure-UploadDirectoriesWritable
 
 function ConvertTo-GraduationDatasetStatus {
     param([string[]]$Lines)

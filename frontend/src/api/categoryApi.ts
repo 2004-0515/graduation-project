@@ -5,7 +5,7 @@ export interface Category {
   id: number
   name: string
   parentId?: number
-  icon?: string
+  icon?: string | null
   sort?: number
 }
 

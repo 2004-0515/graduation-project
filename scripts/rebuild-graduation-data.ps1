@@ -15,6 +15,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+. (Join-Path $PSScriptRoot "project-env.ps1")
+
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $scriptPath = Join-Path $PSScriptRoot "rebuild_graduation_dataset.py"
 $schemaFixPath = Join-Path $PSScriptRoot "ensure-portfolio-schema.ps1"
@@ -64,6 +66,8 @@ if ($DatabasePort) {
 
 Write-Host "Running localized graduation dataset script with mode: $Mode"
 Write-Host "Target database: $DatabaseName"
+
+Ensure-UploadDirectoriesWritable
 
 Push-Location $projectRoot
 try {

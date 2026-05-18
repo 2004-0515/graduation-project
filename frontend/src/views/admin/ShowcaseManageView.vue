@@ -154,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import AdminLayout from '@/components/AdminLayout.vue'
@@ -209,6 +209,15 @@ const form = reactive<ShowcaseBanner>({
 })
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const isPromotionPlacement = computed(() => form.placement === 'PROMOTION_HERO')
+
+const isPlacementImageCompatible = (path: string, placement: ShowcaseBanner['placement']) => {
+  if (!path) return true
+  if (placement === 'PROMOTION_HERO') {
+    return path.startsWith('/uploads/promotions/')
+  }
+  return path.startsWith('/uploads/banners/')
+}
 
 const resetForm = () => {
   form.placement = 'HOME_HERO'
@@ -307,9 +316,15 @@ const beforeBannerUpload = (file: File) => {
   return true
 }
 
+const uploadShowcaseImage = async (file: File) => (
+  isPromotionPlacement.value
+    ? fileApi.uploadPromotionImage(file)
+    : fileApi.uploadBannerImage(file)
+)
+
 const handlePrimaryUpload = async (options: any) => {
   try {
-    const res: any = await fileApi.uploadBannerImage(options.file)
+    const res: any = await uploadShowcaseImage(options.file)
     if (res?.code === 200 && res.data) {
       form.imagePath = res.data
       ElMessage.success(res?.message || '主图上传成功')
@@ -324,7 +339,7 @@ const handlePrimaryUpload = async (options: any) => {
 
 const handleMobileUpload = async (options: any) => {
   try {
-    const res: any = await fileApi.uploadBannerImage(options.file)
+    const res: any = await uploadShowcaseImage(options.file)
     if (res?.code === 200 && res.data) {
       form.mobileImagePath = res.data
       ElMessage.success(res?.message || '移动端图片上传成功')
@@ -390,6 +405,18 @@ const formatDateTime = (value?: string | null) => {
   if (!value) return ''
   return value.replace('T', ' ').slice(0, 16)
 }
+
+watch(
+  () => form.placement,
+  (placement) => {
+    if (!isPlacementImageCompatible(form.imagePath, placement)) {
+      form.imagePath = ''
+    }
+    if (!isPlacementImageCompatible(form.mobileImagePath || '', placement)) {
+      form.mobileImagePath = ''
+    }
+  }
+)
 
 onMounted(() => {
   fetchBanners()
