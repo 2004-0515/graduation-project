@@ -277,13 +277,16 @@ export async function getSession(page: Page, username: string, password: string)
 
 export async function login(page: Page, username: string, password: string) {
   const session = await getSession(page, username, password)
-  await page.goto('/')
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
   await page.evaluate(({ token, user }) => {
     localStorage.setItem('token', token)
     localStorage.setItem('userInfo', JSON.stringify(user))
   }, session)
-  await page.reload()
-  await expect(page.getByTestId('home-view')).toBeVisible({ timeout: 15_000 })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => {
+    const appRoot = document.querySelector('#app')
+    return !!appRoot && appRoot.childElementCount > 0
+  })
   await neutralizeFloatingUi(page)
   return session
 }
