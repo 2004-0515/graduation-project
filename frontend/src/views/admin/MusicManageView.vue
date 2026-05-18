@@ -49,7 +49,7 @@
         <template #default="{ row }">
           <el-switch 
             :model-value="row.status === 1" 
-            @change="(val) => handleStatusChange(row.id, Boolean(val))"
+            @change="(val: boolean | string | number) => handleStatusChange(row.id, Boolean(val))"
           />
         </template>
       </el-table-column>
