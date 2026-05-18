@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -102,7 +103,7 @@ class FileControllerTest {
     @Test
     void uploadAdVideo_WhenAuthenticatedUserMissing_ShouldReturn401() throws Exception {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("ghost", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("ghost");
         SecurityContextHolder.getContext().setAuthentication(authentication);
         when(userService.findByUsername("ghost")).thenReturn(null);
 
@@ -122,7 +123,7 @@ class FileControllerTest {
     @Test
     void deleteFile_WhenMissing_ShouldReturn404() throws Exception {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("admin");
         SecurityContextHolder.getContext().setAuthentication(authentication);
         when(uploadFileService.findById(9L)).thenReturn(null);
 
@@ -135,7 +136,7 @@ class FileControllerTest {
     @Test
     void deleteFile_WhenRecordExists_ShouldDeleteDatabaseRecord() throws Exception {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("admin");
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         UploadFile file = new UploadFile();
@@ -154,7 +155,7 @@ class FileControllerTest {
     @Test
     void reviewFile_WhenNotificationFails_ShouldStillSucceed() throws Exception {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("admin");
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         User reviewer = new User();
@@ -184,7 +185,7 @@ class FileControllerTest {
     @Test
     void reviewFile_WhenAvatarSideEffectFails_ShouldStillSucceed() throws Exception {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("admin");
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         User reviewer = new User();
@@ -218,7 +219,7 @@ class FileControllerTest {
     @Test
     void uploadReviewImage_WhenAdminNotificationFails_ShouldStillSucceed() throws Exception {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("seller", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("seller");
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         User seller = new User();
@@ -229,7 +230,7 @@ class FileControllerTest {
         User admin = new User();
         admin.setId(1L);
         admin.setUsername("admin");
-        when(userService.findByUsername("admin")).thenReturn(admin);
+        when(userService.getAdminUsers()).thenReturn(List.of(admin));
 
         doThrow(new RuntimeException("notify failed"))
                 .when(notificationService)
@@ -241,6 +242,8 @@ class FileControllerTest {
                 "image/png",
                 "demo".getBytes()
         );
+        when(mediaGovernanceService.storeMultipartFile(any(), eq(MediaGovernanceService.StoredMediaKind.REVIEW_IMAGE), isNull()))
+                .thenReturn(new MediaGovernanceService.StoredMedia("/uploads/reviews/2026/05/demo.png", null, file.getSize(), "hash"));
 
         mockMvc.perform(multipart("/files/review").file(file))
                 .andExpect(status().isOk())
@@ -253,7 +256,7 @@ class FileControllerTest {
     @Test
     void uploadProductImage_WhenAdminProductUpdateFails_ShouldStillSucceed() throws Exception {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("admin");
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         User admin = new User();

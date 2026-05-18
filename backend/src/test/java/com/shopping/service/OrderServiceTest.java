@@ -24,6 +24,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -81,6 +84,9 @@ class OrderServiceTest {
     @Mock
     private ObjectMapper objectMapper;
 
+    @Mock
+    private OrderNumberGenerator orderNumberGenerator;
+
     @InjectMocks
     private OrderService orderService;
 
@@ -128,27 +134,27 @@ class OrderServiceTest {
     @DisplayName("Returns user order list")
     void getUserOrders_ShouldReturnOrderList() {
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
-        when(orderRepository.findByUserIdOrderByCreatedTimeDesc(1L))
-                .thenReturn(new ArrayList<>(List.of(testOrder)));
+        when(orderRepository.findByUserIdOrderByCreatedTimeDesc(1L, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(testOrder), PageRequest.of(0, 10), 1));
 
-        List<OrderDto> result = orderService.getUserOrders("testuser", null, 0, 10);
+        Page<OrderDto> result = orderService.getUserOrders("testuser", null, 0, 10);
 
         assertNotNull(result);
-        assertEquals(1, result.size());
-        assertEquals("ORD123456789", result.get(0).getOrderNo());
+        assertEquals(1, result.getContent().size());
+        assertEquals("ORD123456789", result.getContent().get(0).getOrderNo());
     }
 
     @Test
     @DisplayName("Returns filtered user order list")
     void getUserOrders_WithStatusFilter_ShouldReturnFilteredList() {
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
-        when(orderRepository.findByUserIdAndOrderStatusOrderByCreatedTimeDesc(1L, 0))
-                .thenReturn(new ArrayList<>(List.of(testOrder)));
+        when(orderRepository.findByUserIdAndOrderStatusOrderByCreatedTimeDesc(1L, 0, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(testOrder), PageRequest.of(0, 10), 1));
 
-        List<OrderDto> result = orderService.getUserOrders("testuser", 0, 0, 10);
+        Page<OrderDto> result = orderService.getUserOrders("testuser", 0, 0, 10);
 
         assertNotNull(result);
-        assertEquals(1, result.size());
+        assertEquals(1, result.getContent().size());
     }
 
     @Test
@@ -244,6 +250,7 @@ class OrderServiceTest {
         when(userService.getUserByUsername("testuser")).thenReturn(testUser);
         when(addressService.getAddressById(1L)).thenReturn(testAddress);
         when(productService.getProductById(1L)).thenReturn(testProduct);
+        when(orderNumberGenerator.nextOrderNo()).thenReturn("ORD123456789");
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
             Order order = invocation.getArgument(0);
             savedOrderRef[0] = order;

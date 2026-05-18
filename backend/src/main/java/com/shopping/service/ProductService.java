@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -52,6 +54,71 @@ public class ProductService {
     public Page<Product> getProducts(int pageNo, int pageSize) {
         Pageable pageable = PageRequest.of(pageNo, pageSize);
         return productRepository.findAll(pageable);
+    }
+
+    public Page<Product> searchProducts(
+            boolean adminView,
+            int pageNo,
+            int pageSize,
+            Long categoryId,
+            String keyword,
+            Double minPrice,
+            Double maxPrice,
+            String sort,
+            Integer status,
+            Integer lowStock) {
+        Pageable pageable = PageRequest.of(pageNo, pageSize, resolveSort(sort));
+        Specification<Product> specification = (root, query, cb) -> {
+            var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
+
+            if (!adminView) {
+                predicates.add(cb.equal(root.get("auditStatus"), 1));
+                predicates.add(cb.equal(root.get("status"), 1));
+            } else if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+
+            if (categoryId != null) {
+                predicates.add(cb.equal(root.join("category").get("id"), categoryId));
+            }
+            if (keyword != null && !keyword.trim().isEmpty()) {
+                String pattern = "%" + keyword.trim().toLowerCase() + "%";
+                var categoryJoin = root.join("category", jakarta.persistence.criteria.JoinType.LEFT);
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("name")), pattern),
+                        cb.like(cb.lower(cb.coalesce(root.get("description"), "")), pattern),
+                        cb.like(cb.lower(cb.coalesce(categoryJoin.get("name"), "")), pattern)
+                ));
+            }
+            if (minPrice != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("price"), BigDecimal.valueOf(minPrice)));
+            }
+            if (maxPrice != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("price"), BigDecimal.valueOf(maxPrice)));
+            }
+            if (adminView && lowStock != null && lowStock > 0) {
+                predicates.add(cb.lessThan(root.get("stock"), lowStock));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+        return productRepository.findAll(specification, pageable);
+    }
+
+    private Sort resolveSort(String sort) {
+        if ("sales".equals(sort)) {
+            return Sort.by(Sort.Direction.DESC, "sales").and(Sort.by(Sort.Direction.DESC, "id"));
+        }
+        if ("price".equals(sort)) {
+            return Sort.by(Sort.Direction.ASC, "price").and(Sort.by(Sort.Direction.DESC, "id"));
+        }
+        if ("price_desc".equals(sort)) {
+            return Sort.by(Sort.Direction.DESC, "price").and(Sort.by(Sort.Direction.DESC, "id"));
+        }
+        if ("newest".equals(sort) || "new".equals(sort)) {
+            return Sort.by(Sort.Direction.DESC, "createdTime").and(Sort.by(Sort.Direction.DESC, "id"));
+        }
+        return Sort.by(Sort.Direction.DESC, "createdTime").and(Sort.by(Sort.Direction.DESC, "id"));
     }
     
     /**

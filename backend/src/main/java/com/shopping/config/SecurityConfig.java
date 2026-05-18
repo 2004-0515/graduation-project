@@ -57,6 +57,7 @@ public class SecurityConfig {
                 .requestMatchers("/auth/login", "/auth/register", "/auth/captcha", "/auth/validate-captcha", "/auth/test-password-match", "/categories/**", "/products/**").permitAll()
                 .requestMatchers(POST, "/contact-messages").permitAll()
                 .requestMatchers(GET, "/price/history/**", "/price/stats/**").permitAll()
+                .requestMatchers(GET, "/content/banners").permitAll()
                 // 允许访问上传的文件
                 .requestMatchers("/uploads/**").permitAll()
                 // 允许匿名查看商品评价

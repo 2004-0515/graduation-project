@@ -9,6 +9,8 @@ import com.shopping.service.ProductService;
 import com.shopping.service.UserService;
 import com.shopping.service.NotificationService;
 import com.shopping.repository.CategoryRepository;
+import com.shopping.utils.AdminUtils;
+import com.shopping.utils.RoleUtils;
 import com.shopping.utils.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +28,9 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/products")
 public class ProductController {
+
+    private static final int DEFAULT_PAGE_SIZE = 12;
+    private static final int MAX_PAGE_SIZE = 60;
 
     private static final Logger log = LoggerFactory.getLogger(ProductController.class);
     
@@ -46,6 +51,10 @@ public class ProductController {
 
     private Response<?> unauthorized() {
         return Response.fail(401, "用户未登录");
+    }
+
+    private <T> Response<T> forbidden(String message) {
+        return Response.fail(403, message);
     }
 
     private java.math.BigDecimal parseRequiredBigDecimal(Object value, String fieldName) {
@@ -107,98 +116,32 @@ public class ProductController {
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Boolean admin,
             @RequestParam(required = false) Integer lowStock) {
-        
-        List<Product> allProducts;
-        
-        // 管理后台请求返回所有商品，前台只返回已审核通过且上架的商品
-        java.util.Optional<String> username = getCurrentUsernameIfAuthenticated();
-        boolean isAdmin = username.filter("admin"::equals).isPresent() && Boolean.TRUE.equals(admin);
-        
-        if (isAdmin) {
-            // 管理后台：获取所有商品
-            Page<Product> page = productService.getProducts(0, 10000);
-            allProducts = new java.util.ArrayList<>(page.getContent());
-            
-            // 状态筛选
-            if (status != null) {
-                allProducts = allProducts.stream()
-                    .filter(p -> status.equals(p.getStatus()))
-                    .collect(java.util.stream.Collectors.toList());
-            }
-            
-            // 库存预警筛选
-            if (lowStock != null && lowStock > 0) {
-                allProducts = allProducts.stream()
-                    .filter(p -> p.getStock() != null && p.getStock() < lowStock)
-                    .collect(java.util.stream.Collectors.toList());
-            }
-        } else {
-            // 前台：只获取已审核通过且上架的商品
-            allProducts = new java.util.ArrayList<>(productService.getApprovedProducts());
-        }
-        
-        // 分类筛选
-        if (categoryId != null) {
-            allProducts = allProducts.stream()
-                .filter(p -> p.getCategory() != null && categoryId.equals(p.getCategory().getId()))
-                .collect(java.util.stream.Collectors.toList());
-        }
-        
-        // 关键词搜索（匹配商品名称、描述、分类名称）
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            String kw = keyword.toLowerCase();
-            allProducts = allProducts.stream()
-                .filter(p -> p.getName().toLowerCase().contains(kw) || 
-                            (p.getDescription() != null && p.getDescription().toLowerCase().contains(kw)) ||
-                            (p.getCategory() != null && p.getCategory().getName() != null && 
-                             p.getCategory().getName().toLowerCase().contains(kw)))
-                .collect(java.util.stream.Collectors.toList());
-        }
-        
-        // 价格筛选
-        if (minPrice != null) {
-            allProducts = allProducts.stream()
-                .filter(p -> p.getPrice().doubleValue() >= minPrice)
-                .collect(java.util.stream.Collectors.toList());
-        }
-        if (maxPrice != null) {
-            allProducts = allProducts.stream()
-                .filter(p -> p.getPrice().doubleValue() <= maxPrice)
-                .collect(java.util.stream.Collectors.toList());
-        }
-        
-        // 排序
-        if ("sales".equals(sort)) {
-            allProducts.sort((a, b) -> (b.getSales() != null ? b.getSales() : 0) - (a.getSales() != null ? a.getSales() : 0));
-        } else if ("price".equals(sort)) {
-            allProducts.sort((a, b) -> a.getPrice().compareTo(b.getPrice()));
-        } else if ("price_desc".equals(sort)) {
-            allProducts.sort((a, b) -> b.getPrice().compareTo(a.getPrice()));
-        } else if ("newest".equals(sort) || "new".equals(sort)) {
-            // 按创建时间倒序（最新的在前）
-            allProducts.sort((a, b) -> {
-                if (b.getCreatedTime() == null && a.getCreatedTime() == null) return 0;
-                if (b.getCreatedTime() == null) return -1;
-                if (a.getCreatedTime() == null) return 1;
-                return b.getCreatedTime().compareTo(a.getCreatedTime());
-            });
-        } else {
-            // 默认按ID倒序（最新添加的在前）
-            allProducts.sort((a, b) -> b.getId().compareTo(a.getId()));
-        }
-        
-        // 分页
-        int total = allProducts.size();
-        int start = pageNo * pageSize;
-        int end = Math.min(start + pageSize, total);
-        List<Product> pageContent = start < total ? allProducts.subList(start, end) : List.of();
-        
+
+        boolean isAdmin = Boolean.TRUE.equals(admin) && RoleUtils.isCurrentAdmin();
+
+        int normalizedPageNo = Math.max(pageNo, 0);
+        int normalizedPageSize = Math.min(Math.max(pageSize, 1), MAX_PAGE_SIZE);
+        Page<Product> page = productService.searchProducts(
+                isAdmin,
+                normalizedPageNo,
+                normalizedPageSize,
+                categoryId,
+                keyword,
+                minPrice,
+                maxPrice,
+                sort,
+                status,
+                lowStock
+        );
+
         Map<String, Object> result = new java.util.HashMap<>();
-        result.put("content", pageContent);
-        result.put("totalElements", total);
-        result.put("totalPages", (int) Math.ceil((double) total / pageSize));
-        result.put("number", pageNo);
-        result.put("size", pageSize);
+        result.put("content", page.getContent());
+        result.put("totalElements", page.getTotalElements());
+        result.put("totalPages", page.getTotalPages());
+        result.put("number", page.getNumber());
+        result.put("size", page.getSize());
+        result.put("first", page.isFirst());
+        result.put("last", page.isLast());
         
         return Response.success(result);
     }
@@ -258,17 +201,25 @@ public class ProductController {
      */
     @PostMapping
     public Response<Product> createProduct(@RequestBody Map<String, Object> data) {
-        java.util.Optional<String> username = getCurrentUsernameIfAuthenticated();
-        if (username.isEmpty()) {
-            return Response.fail(401, "用户未登录");
-        }
+        AdminUtils.requireAdmin();
+        String username = RoleUtils.requireAuthenticatedUser();
 
-        User currentUser = userService.findByUsername(username.get());
+        User currentUser = userService.findByUsername(username);
         if (currentUser == null) {
             return Response.fail(401, "用户未登录");
         }
         
-        log.info("创建商品请求: user={}, name={}", username.get(), data.get("name"));
+        log.info("创建商品请求: user={}, name={}", username, data.get("name"));
+        Long sellerId;
+        try {
+            sellerId = parseRequiredLong(data.get("sellerId"), "卖家");
+        } catch (IllegalArgumentException e) {
+            return Response.fail(400, e.getMessage());
+        }
+        User seller = userService.findById(sellerId);
+        if (seller == null || !com.shopping.constants.UserRole.SELLER.equals(seller.getRole())) {
+            return Response.fail(400, "请选择有效卖家");
+        }
         
         Product product = new Product();
         product.setName((String) data.get("name"));
@@ -285,6 +236,8 @@ public class ProductController {
         }
         product.setMainImage((String) data.get("mainImage"));
         product.setImages(resolveProductImagesPayload(data, product.getMainImage()));
+        product.setSellerId(seller.getId());
+        product.setSellerName(seller.getUsername());
         product.setSales(0); // 新商品销量为0
         
         // 设置状态
@@ -309,22 +262,14 @@ public class ProductController {
             }
         }
         
-        // 管理员创建的商品自动通过审核，且广告自动启用
-        if ("admin".equals(username.get())) {
-            product.setAuditStatus(1);
-            product.setAuditTime(java.time.LocalDateTime.now());
-            // 管理员上传的广告自动启用
-            if (product.getAdVideo() != null && !product.getAdVideo().isEmpty()) {
-                product.setAdVideoEnabled(1);
-            }
-        } else {
-            product.setAuditStatus(0);
-            // 普通用户上传的广告默认禁用，需要审核
-            product.setAdVideoEnabled(0);
+        product.setAuditStatus(1);
+        product.setAuditTime(java.time.LocalDateTime.now());
+        if (product.getAdVideo() != null && !product.getAdVideo().isEmpty()) {
+            product.setAdVideoEnabled(1);
         }
         
         Product createdProduct = productService.saveProduct(product);
-        log.info("商品创建成功: id={}, user={}", createdProduct.getId(), username.get());
+        log.info("商品创建成功: id={}, user={}", createdProduct.getId(), username);
         return Response.success("商品创建成功", createdProduct);
     }
     
@@ -346,12 +291,19 @@ public class ProductController {
         if (username.isEmpty()) {
             return Response.fail(401, "用户未登录");
         }
-        boolean isAdmin = "admin".equals(username.get());
+        String currentUsername = username.get();
+        boolean isAdmin = RoleUtils.isCurrentAdmin();
         
-        // 检查是否是商品所有者或管理�?
-        if (!isAdmin && product.getSellerId() != null) {
-            User user = userService.findByUsername(username.get());
-            if (user == null || !product.getSellerId().equals(user.getId())) {
+        // 检查是否是商品所有者或管理员
+        if (!isAdmin) {
+            if (!RoleUtils.isCurrentSeller()) {
+                return forbidden("需要卖家权限");
+            }
+            User user = userService.findByUsername(currentUsername);
+            if (user == null) {
+                return Response.fail(401, "用户未登录");
+            }
+            if (product.getSellerId() == null || !product.getSellerId().equals(user.getId())) {
                 return Response.fail(403, "无权修改此商品");
             }
         }
@@ -452,14 +404,14 @@ public class ProductController {
             
             // 通知管理员有商品需要审核
             try {
-                User admin = userService.findByUsername("admin");
-                if (admin != null) {
+                for (User admin : userService.getAdminUsers()) {
                     String title = "商品修改待审核";
-                    String message = "用户 " + username.get() + " 修改了商品「" + product.getName() + "」，请及时审核。";
+                    String message = "用户 " + currentUsername + " 修改了商品「" + product.getName() + "」，请及时审核。";
                     notificationService.createNotification(admin.getId(), "product_review", title, message, null);
                 }
             } catch (RuntimeException e) {
-                log.warn("发送商品修改审核通知给管理员失败: productId={}, username={}", product.getId(), username.get(), e);
+                log.warn("发送商品修改审核通知给管理员失败: productId={}, username={}, reason={}",
+                        product.getId(), currentUsername, e.getMessage());
             }
         }
         
@@ -487,10 +439,14 @@ public class ProductController {
             return Response.fail(404, "商品不存在");
         }
         
-        // 检查权限：管理员或商品所有�?
-        boolean isAdmin = "admin".equals(username.get());
+        // 检查权限：管理员或商品所有者
+        String currentUsername = username.get();
+        boolean isAdmin = RoleUtils.isCurrentAdmin();
         if (!isAdmin) {
-            User user = userService.findByUsername(username.get());
+            if (!RoleUtils.isCurrentSeller()) {
+                return forbidden("需要卖家权限");
+            }
+            User user = userService.findByUsername(currentUsername);
             if (user == null || product.getSellerId() == null || !product.getSellerId().equals(user.getId())) {
                 return Response.fail(403, "无权删除此商品");
             }
@@ -513,6 +469,9 @@ public class ProductController {
         }
 
         String currentUsername = username.get();
+        if (!RoleUtils.isCurrentSeller()) {
+            return forbidden("需要卖家权限");
+        }
         User user = userService.findByUsername(currentUsername);
         if (user == null) {
             return Response.fail(401, "用户未登录");
@@ -548,24 +507,18 @@ public class ProductController {
             .orElseThrow(() -> new com.shopping.exception.ResourceNotFoundException("分类", categoryId));
         product.setCategory(category);
         
-        // 管理员直接通过，普通用户需要审核
-        if ("admin".equals(currentUsername)) {
-            product.setAuditStatus(1); // 已通过
-            product.setAuditTime(java.time.LocalDateTime.now());
-        } else {
-            product.setAuditStatus(0); // 待审核
-            
-            // 通知管理员有新商品待审核
-            try {
-                User admin = userService.findByUsername("admin");
-                if (admin != null) {
+        product.setAuditStatus(0); // 待审核
+
+        // 通知管理员有新商品待审核
+        try {
+                for (User admin : userService.getAdminUsers()) {
                     String title = "新商品待审核";
                     String message = "用户 " + currentUsername + " 提交了新商品「" + product.getName() + "」，请及时审核。";
                     notificationService.createNotification(admin.getId(), "product_review", title, message, null);
                 }
-            } catch (RuntimeException e) {
-                log.warn("发送新商品审核通知给管理员失败: productName={}, username={}", product.getName(), currentUsername, e);
-            }
+        } catch (RuntimeException e) {
+            log.warn("发送新商品审核通知给管理员失败: productName={}, username={}, reason={}",
+                    product.getName(), currentUsername, e.getMessage());
         }
         
         // 广告视频（用户上传，默认禁用，需管理员启用）
@@ -575,7 +528,7 @@ public class ProductController {
         }
         
         Product saved = productService.saveProduct(product);
-        return Response.success("admin".equals(currentUsername) ? "商品发布成功" : "商品提交成功，等待管理员审核", saved);
+        return Response.success("商品提交成功，等待管理员审核", saved);
     }
     
     /**
@@ -590,6 +543,9 @@ public class ProductController {
         }
 
         String currentUsername = username.get();
+        if (!RoleUtils.isCurrentSeller()) {
+            return forbidden("需要卖家权限");
+        }
         User user = userService.findByUsername(currentUsername);
         if (user == null) {
             return Response.fail(401, "用户未登录");

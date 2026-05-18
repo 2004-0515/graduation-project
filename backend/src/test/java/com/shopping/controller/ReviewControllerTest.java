@@ -63,7 +63,7 @@ class ReviewControllerTest {
 
     private void setAuthenticatedUser(String username, Long userId) {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication(username);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         User user = new User();
@@ -114,7 +114,7 @@ class ReviewControllerTest {
     @Test
     void createReview_WhenAuthenticatedButUserMissing_ShouldReturn401() throws Exception {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("ghost", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("ghost");
         SecurityContextHolder.getContext().setAuthentication(authentication);
         when(userService.findByUsername("ghost")).thenReturn(null);
 
@@ -150,7 +150,7 @@ class ReviewControllerTest {
     @Test
     void getMyReviews_WhenAuthenticatedButUserMissing_ShouldReturn401() throws Exception {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("ghost", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("ghost");
         SecurityContextHolder.getContext().setAuthentication(authentication);
         when(userService.findByUsername("ghost")).thenReturn(null);
 
@@ -165,7 +165,7 @@ class ReviewControllerTest {
     @Test
     void deleteReview_WhenAuthenticatedButUserMissing_ShouldReturn401() throws Exception {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("ghost", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("ghost");
         SecurityContextHolder.getContext().setAuthentication(authentication);
         when(userService.findByUsername("ghost")).thenReturn(null);
 

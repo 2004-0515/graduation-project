@@ -59,7 +59,7 @@ class CouponControllerTest {
 
     private void setAuthenticatedUser(String username, Long userId) {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication(username);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         User user = new User();
@@ -121,7 +121,7 @@ class CouponControllerTest {
         when(couponService.getAvailableCoupons()).thenReturn(List.of(coupon));
 
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("ghost", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("ghost");
         SecurityContextHolder.getContext().setAuthentication(authentication);
         when(userService.findByUsername("ghost")).thenReturn(null);
 
@@ -164,7 +164,7 @@ class CouponControllerTest {
     @Test
     void getMyCoupons_WhenUserMissing_ShouldReturnChineseUnauthorizedMessage() throws Exception {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("ghost", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("ghost");
         SecurityContextHolder.getContext().setAuthentication(authentication);
         when(userService.findByUsername("ghost")).thenReturn(null);
 
@@ -177,7 +177,7 @@ class CouponControllerTest {
     @Test
     void getAvailableForOrder_WhenUserMissing_ShouldReturnChineseUnauthorizedMessage() throws Exception {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("ghost", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("ghost");
         SecurityContextHolder.getContext().setAuthentication(authentication);
         when(userService.findByUsername("ghost")).thenReturn(null);
 

@@ -1,5 +1,9 @@
 package com.shopping.entity;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.shopping.json.JsonTextArrayDeserializer;
+import com.shopping.json.JsonTextArraySerializer;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -46,6 +50,8 @@ public class Review {
      * 评价图片（JSON数组）
      */
     @Column(columnDefinition = "text")
+    @JsonSerialize(using = JsonTextArraySerializer.class)
+    @JsonDeserialize(using = JsonTextArrayDeserializer.class)
     private String images;
     
     /**

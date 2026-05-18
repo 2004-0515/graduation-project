@@ -20,8 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class ReviewService {
@@ -42,6 +44,12 @@ public class ReviewService {
     
     @Autowired
     private NotificationService notificationService;
+
+    @Autowired
+    private MediaGovernanceService mediaGovernanceService;
+
+    @Autowired
+    private UploadFileService uploadFileService;
     
     /**
      * 创建评价
@@ -81,6 +89,8 @@ public class ReviewService {
         if (review.getContent() == null || review.getContent().trim().isEmpty()) {
             throw new ValidationException("请填写评价内容");
         }
+
+        review.setImages(mediaGovernanceService.normalizeReviewImageListJson(review.getImages()));
         
         review.setUserId(userId);
         Review savedReview = reviewRepository.save(review);
@@ -110,8 +120,7 @@ public class ReviewService {
         Page<Review> reviews = reviewRepository.findByProductIdOrderByCreatedTimeDesc(
             productId, PageRequest.of(page, size));
         
-        // 填充用户信息
-        reviews.getContent().forEach(this::fillUserInfo);
+        enrichReviewsForDisplay(reviews.getContent());
         
         return reviews;
     }
@@ -121,7 +130,7 @@ public class ReviewService {
      */
     public List<Review> getAllProductReviews(Long productId) {
         List<Review> reviews = reviewRepository.findByProductIdOrderByCreatedTimeDesc(productId);
-        reviews.forEach(this::fillUserInfo);
+        enrichReviewsForDisplay(reviews);
         return reviews;
     }
     
@@ -130,6 +139,7 @@ public class ReviewService {
      */
     public List<Review> getUserReviews(Long userId) {
         List<Review> reviews = reviewRepository.findByUserIdOrderByCreatedTimeDesc(userId);
+        enrichReviewImages(reviews);
         reviews.forEach(r -> {
             // 填充商品名称
             productRepository.findById(r.getProductId()).ifPresent(p -> {
@@ -227,5 +237,21 @@ public class ReviewService {
             return username + "***";
         }
         return username.charAt(0) + "***" + username.charAt(username.length() - 1);
+    }
+
+    private void enrichReviewsForDisplay(List<Review> reviews) {
+        enrichReviewImages(reviews);
+        reviews.forEach(this::fillUserInfo);
+    }
+
+    private void enrichReviewImages(List<Review> reviews) {
+        Set<String> reviewPaths = new LinkedHashSet<>();
+        for (Review review : reviews) {
+            reviewPaths.addAll(mediaGovernanceService.normalizeReviewImageList(review.getImages()));
+        }
+        Set<String> approvedPaths = uploadFileService.findApprovedPaths("REVIEW", reviewPaths);
+        for (Review review : reviews) {
+            review.setImages(mediaGovernanceService.filterApprovedReviewImagesJson(review.getImages(), approvedPaths));
+        }
     }
 }

@@ -43,6 +43,9 @@ class ReviewServiceTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private MediaGovernanceService mediaGovernanceService;
+
     @InjectMocks
     private ReviewService reviewService;
 
@@ -79,6 +82,7 @@ class ReviewServiceTest {
         when(reviewRepository.existsByOrderIdAndProductId(11L, 22L)).thenReturn(false);
         when(reviewRepository.save(any(Review.class))).thenReturn(savedReview);
         when(productRepository.findById(22L)).thenReturn(Optional.of(product));
+        when(mediaGovernanceService.normalizeReviewImageListJson(any())).thenReturn(null);
         doThrow(new RuntimeException("notify failed"))
                 .when(notificationService)
                 .sendToUser(org.mockito.ArgumentMatchers.eq(99L), any(), any(), any(), org.mockito.ArgumentMatchers.eq(22L));

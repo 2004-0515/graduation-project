@@ -59,7 +59,7 @@ class NotificationControllerTest {
 
     private void setAuthenticatedUser(String username) {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication(username);
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
@@ -152,7 +152,7 @@ class NotificationControllerTest {
     }
 
     @Test
-    void sendNotification_WhenNonAdmin_ShouldReturn401() throws Exception {
+    void sendNotification_WhenNonAdmin_ShouldReturn403() throws Exception {
         setAuthenticatedUser("buyer");
 
         mockMvc.perform(post("/notifications/admin/send")
@@ -164,7 +164,7 @@ class NotificationControllerTest {
                                 "message", "测试消息"
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.code").value(403))
                 .andExpect(jsonPath("$.message").value("需要管理员权限"));
     }
 

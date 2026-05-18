@@ -12,6 +12,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class UploadFileService {
@@ -82,6 +85,16 @@ public class UploadFileService {
      */
     public long countPending() {
         return uploadFileRepository.countByStatus(UploadFile.STATUS_PENDING);
+    }
+
+    public Set<String> findApprovedPaths(String fileType, Collection<String> filePaths) {
+        if (filePaths == null || filePaths.isEmpty()) {
+            return Set.of();
+        }
+        return uploadFileRepository.findByFileTypeAndStatusAndFilePathIn(fileType, UploadFile.STATUS_APPROVED, filePaths)
+                .stream()
+                .map(UploadFile::getFilePath)
+                .collect(Collectors.toSet());
     }
 
     /**

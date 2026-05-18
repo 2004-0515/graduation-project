@@ -1,6 +1,10 @@
 package com.shopping.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.shopping.json.JsonTextArrayDeserializer;
+import com.shopping.json.JsonTextArraySerializer;
 import jakarta.persistence.*;
 import jakarta.persistence.Index;
 import lombok.Data;
@@ -80,6 +84,8 @@ public class Product {
     private String mainImage;
     
     @Column(name = "images", columnDefinition = "text")
+    @JsonSerialize(using = JsonTextArraySerializer.class)
+    @JsonDeserialize(using = JsonTextArrayDeserializer.class)
     private String images;
     
     // 卖家信息

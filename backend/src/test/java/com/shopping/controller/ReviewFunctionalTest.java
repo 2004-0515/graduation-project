@@ -8,12 +8,14 @@ import com.shopping.repository.OrderRepository;
 import com.shopping.repository.ReviewRepository;
 import com.shopping.repository.UserRepository;
 import com.shopping.service.AuthService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,13 +25,19 @@ import java.util.Map;
 /**
  * 表6-7 用户评价功能测试用例
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class ReviewFunctionalTest {
 
     @Autowired
-    private TestRestTemplate restTemplate;
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private MockMvcRestTemplate restTemplate;
 
     @Autowired
     private OrderRepository orderRepository;
@@ -66,6 +74,11 @@ public class ReviewFunctionalTest {
     }
 
     private static final List<TestResult> results = new ArrayList<>();
+
+    @BeforeEach
+    void setupRestTemplate() {
+        restTemplate = new MockMvcRestTemplate(mockMvc, objectMapper);
+    }
 
     @BeforeAll
     static void setupAll(@Autowired AuthService authService, @Autowired OrderRepository orderRepository,

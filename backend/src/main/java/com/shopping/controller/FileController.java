@@ -12,6 +12,8 @@ import com.shopping.service.NotificationService;
 import com.shopping.service.ProductService;
 import com.shopping.service.UploadFileService;
 import com.shopping.service.UserService;
+import com.shopping.utils.AdminUtils;
+import com.shopping.utils.RoleUtils;
 import com.shopping.utils.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,11 +27,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * 文件上传控制器
@@ -84,20 +83,23 @@ public class FileController {
      * 文件类型枚举
      */
     private enum FileType {
-        AVATAR("avatars", 2, true),           // 头像，最大2MB，需审核
-        PRODUCT("products", 5, true),         // 商品图片，最大5MB，需审核
-        CATEGORY("categories", 2, false),     // 分类图片，最大2MB，管理员直接通过
-        PROMOTION("promotions", 5, false),    // 促销图片，最大5MB，管理员直接通过
-        REVIEW("reviews", 10, true);          // 评价图片，最大10MB，需审核
+        AVATAR("avatars", 2, true, MediaGovernanceService.StoredMediaKind.AVATAR_IMAGE),           // 头像，最大2MB，需审核
+        PRODUCT("products", 5, true, MediaGovernanceService.StoredMediaKind.PRODUCT_IMAGE),         // 商品图片，最大5MB，需审核
+        CATEGORY("categories", 2, false, MediaGovernanceService.StoredMediaKind.CATEGORY_IMAGE),    // 分类图片，最大2MB，管理员直接通过
+        BANNER("banners", 5, false, MediaGovernanceService.StoredMediaKind.BANNER_IMAGE),           // 展示图片，最大5MB，管理员直接通过
+        PROMOTION("promotions", 5, false, MediaGovernanceService.StoredMediaKind.PROMOTION_IMAGE),  // 促销图片，最大5MB，管理员直接通过
+        REVIEW("reviews", 10, true, MediaGovernanceService.StoredMediaKind.REVIEW_IMAGE);           // 评价图片，最大10MB，需审核
 
         private final String folder;
         private final int maxSizeMB;
         private final boolean needReview;
+        private final MediaGovernanceService.StoredMediaKind storedMediaKind;
 
-        FileType(String folder, int maxSizeMB, boolean needReview) {
+        FileType(String folder, int maxSizeMB, boolean needReview, MediaGovernanceService.StoredMediaKind storedMediaKind) {
             this.folder = folder;
             this.maxSizeMB = maxSizeMB;
             this.needReview = needReview;
+            this.storedMediaKind = storedMediaKind;
         }
     }
 
@@ -126,6 +128,15 @@ public class FileController {
     @PostMapping("/category")
     public Response<String> uploadCategoryImage(@RequestParam("file") MultipartFile file) {
         return uploadFile(file, FileType.CATEGORY);
+    }
+
+    /**
+     * 上传展示内容图片
+     */
+    @PostMapping("/banner")
+    public Response<String> uploadBannerImage(@RequestParam("file") MultipartFile file) {
+        AdminUtils.requireAdmin();
+        return uploadFile(file, FileType.BANNER);
     }
 
     /**
@@ -254,7 +265,7 @@ public class FileController {
                     }
                 }
             } catch (RuntimeException e) {
-                log.error("更新关联记录失败: fileId={}", file.getId(), e);
+                log.warn("更新关联记录失败: fileId={}, reason={}", file.getId(), e.getMessage());
             }
         }
 
@@ -275,7 +286,7 @@ public class FileController {
             notificationService.createNotification(file.getUserId(), "file_review", title, message, null);
         } catch (RuntimeException e) {
             // 通知发送失败不影响审核结果
-            log.warn("发送审核通知失败: fileId={}", file.getId(), e);
+            log.warn("发送审核通知失败: fileId={}, reason={}", file.getId(), e.getMessage());
         }
 
         return Response.success(status == 1 ? "审核通过" : "已拒绝", file);
@@ -351,29 +362,10 @@ public class FileController {
             User user = currentUser.get();
 
             // 判断是否为管理员
-            boolean isAdmin = "admin".equals(username.get());
-
-            // 按类型+年月存储
-            String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
-            Path uploadPath = getUploadBasePath().resolve(fileType.folder).resolve(datePath);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-
-            // 生成唯一文件名
+            boolean isAdmin = RoleUtils.isCurrentAdmin();
             String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
-            }
-            String newFilename = UUID.randomUUID().toString() + extension;
-
-            // 保存文件
-            Path filePath = uploadPath.resolve(newFilename);
-            Files.copy(file.getInputStream(), filePath);
-
-            // 生成访问URL
-            String fileUrl = "/uploads/" + fileType.folder + "/" + datePath + "/" + newFilename;
+            var stored = mediaGovernanceService.storeMultipartFile(file, fileType.storedMediaKind, null);
+            String fileUrl = stored.url();
 
             // 创建上传记录
             UploadFile uploadFile = new UploadFile();
@@ -402,15 +394,15 @@ public class FileController {
                 // 通知管理员有新的待审核文件
                 try {
                     String fileTypeName = getFileTypeName(fileType.name());
-                    User admin = userService.findByUsername("admin");
-                    if (admin != null) {
+                    for (User admin : userService.getAdminUsers()) {
                         String title = "新的" + fileTypeName + "待审核";
                         String message = "用户 " + username.get() + " 上传了新的" + fileTypeName + "，请及时审核。";
                         notificationService.createNotification(admin.getId(), "file_review", title, message, null);
                     }
                 } catch (RuntimeException e) {
                     // 通知发送失败不影响上传
-                    log.warn("发送审核通知给管理员失败: fileType={}, username={}", fileType.name(), username.get(), e);
+                    log.warn("发送审核通知给管理员失败: fileType={}, username={}, reason={}",
+                            fileType.name(), username.get(), e.getMessage());
                 }
             }
 
@@ -421,6 +413,8 @@ public class FileController {
         } catch (IOException e) {
             log.error("上传文件失败: type={}, originalName={}", fileType.name(), file.getOriginalFilename(), e);
             return Response.fail(500, "文件上传失败");
+        } catch (ValidationException e) {
+            return Response.fail(400, e.getMessage());
         }
     }
 
@@ -453,7 +447,7 @@ public class FileController {
             User user = currentUser.get();
 
             // 判断是否为管理员
-            boolean isAdmin = "admin".equals(username.get());
+            boolean isAdmin = RoleUtils.isCurrentAdmin();
 
             var stored = mediaGovernanceService.storeMultipartFile(file, MediaGovernanceService.StoredMediaKind.PRODUCT_IMAGE, categoryName);
             String fileUrl = stored.url();
@@ -470,7 +464,7 @@ public class FileController {
                         productService.saveProduct(product);
                     }
                 } catch (RuntimeException e) {
-                    log.warn("管理员上传后更新商品图片失败: productId={}", productId, e);
+                    log.warn("管理员上传后更新商品图片失败: productId={}, reason={}", productId, e.getMessage());
                 }
             }
 

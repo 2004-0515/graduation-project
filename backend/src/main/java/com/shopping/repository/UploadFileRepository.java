@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -25,6 +26,8 @@ public interface UploadFileRepository extends JpaRepository<UploadFile, Long> {
     
     /** 根据用户ID和状态查询 */
     List<UploadFile> findByUserIdAndStatus(Long userId, Integer status);
+
+    List<UploadFile> findByFileTypeAndStatusAndFilePathIn(String fileType, Integer status, Collection<String> filePaths);
     
     /** 统计待审核数量 */
     long countByStatus(Integer status);

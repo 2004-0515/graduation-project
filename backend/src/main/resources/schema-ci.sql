@@ -5,11 +5,11 @@
 -- =====================================================
 
 -- 创建数据库（如果不存在）
-CREATE DATABASE IF NOT EXISTS shopping_mall 
+CREATE DATABASE IF NOT EXISTS shopping_mall_test 
 DEFAULT CHARACTER SET utf8mb4 
 DEFAULT COLLATE utf8mb4_unicode_ci;
 
-USE shopping_mall;
+USE shopping_mall_test;
 
 SET FOREIGN_KEY_CHECKS=0;
 
@@ -306,13 +306,6 @@ CREATE TABLE tb_user_coupon (
 ALTER TABLE tb_order ADD COLUMN coupon_id BIGINT DEFAULT NULL COMMENT '使用的优惠券ID' AFTER remark;
 ALTER TABLE tb_order ADD COLUMN coupon_discount DECIMAL(10, 2) DEFAULT NULL COMMENT '优惠券抵扣金额' AFTER coupon_id;
 
--- 插入示例优惠券数据
-INSERT INTO tb_coupon (name, description, type, discount_amount, min_amount, total_count, limit_per_user, start_time, end_time, status) VALUES
-('新人专享券', '新用户首单立减20元', 1, 20.00, 100.00, 1000, 1, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1),
-('满300减50', '满300元立减50元', 1, 50.00, 300.00, 500, 2, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1),
-('满500减100', '满500元立减100元', 1, 100.00, 500.00, 200, 1, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1),
-('8折优惠券', '全场商品8折优惠', 2, NULL, 200.00, 300, 1, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1),
-('无门槛10元券', '无门槛立减10元', 3, 10.00, 0.00, 2000, 3, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 1);
 
 
 -- =====================================================
@@ -337,10 +330,6 @@ CREATE TABLE music (
     INDEX idx_music_sort (sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='音乐表';
 
--- 插入示例音乐数据
-INSERT INTO music (title, artist, url, cover, sort_order, status) VALUES
-('轻音乐1', '纯音乐', 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=', NULL, 1, 1),
-('轻音乐2', '纯音乐', 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=', NULL, 2, 1);
 
 -- =====================================================
 -- 14.1 演示数据导入批次表 (demo_import_batch)

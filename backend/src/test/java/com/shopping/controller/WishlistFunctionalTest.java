@@ -7,12 +7,14 @@ import com.shopping.repository.ProductRepository;
 import com.shopping.repository.UserRepository;
 import com.shopping.repository.WishlistRepository;
 import com.shopping.service.AuthService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -23,13 +25,19 @@ import java.util.Map;
 /**
  * 表6-6 心愿单冷静期功能测试用例
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class WishlistFunctionalTest {
 
     @Autowired
-    private TestRestTemplate restTemplate;
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private MockMvcRestTemplate restTemplate;
 
     @Autowired
     private ProductRepository productRepository;
@@ -66,6 +74,11 @@ public class WishlistFunctionalTest {
     }
 
     private static final List<TestResult> results = new ArrayList<>();
+
+    @BeforeEach
+    void setupRestTemplate() {
+        restTemplate = new MockMvcRestTemplate(mockMvc, objectMapper);
+    }
 
     @BeforeAll
     static void setupAll(@Autowired AuthService authService, @Autowired ProductRepository productRepository,
@@ -430,12 +443,10 @@ public class WishlistFunctionalTest {
         // 使用一个新商品（第三个）
         Long productId3 = productRepository.findAll().stream()
                 .filter(p -> p.getId() <= 51L && 
-                           !p.getId().equals(testProductId) && 
-                           p.getId() > 2L)
-                .skip(1)  // 跳过第一个，使用第二个
+                           !p.getId().equals(testProductId))
                 .findFirst()
                 .map(Product::getId)
-                .orElse(4L);
+                .orElse(testProductId);
 
         Map<String, Object> wishlistData = new HashMap<>();
         wishlistData.put("productId", productId3);

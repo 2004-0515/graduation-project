@@ -28,7 +28,7 @@ public class CouponService {
      */
     public List<Coupon> getAvailableCoupons() {
         LocalDateTime now = LocalDateTime.now();
-        return couponRepository.findByStatusAndStartTimeBeforeAndEndTimeAfter(CouponConstants.CouponStatus.ENABLED, now, now);
+        return couponRepository.findByStatusAndStartTimeBeforeAndEndTimeAfterOrderByIdDesc(CouponConstants.CouponStatus.ENABLED, now, now);
     }
     
     /**
@@ -87,7 +87,7 @@ public class CouponService {
      */
     @Transactional
     public UserCoupon claimCoupon(Long userId, Long couponId) {
-        Coupon coupon = couponRepository.findById(couponId)
+        Coupon coupon = couponRepository.findByIdForUpdate(couponId)
             .orElseThrow(() -> new ValidationException("优惠券不存在"));
         
         // 检查优惠券状态
@@ -102,18 +102,21 @@ public class CouponService {
         }
         
         // 检查库存
-        if (coupon.getClaimedCount() >= coupon.getTotalCount()) {
+        int claimedCount = coupon.getClaimedCount() == null ? 0 : coupon.getClaimedCount();
+        int totalCount = coupon.getTotalCount() == null ? 0 : coupon.getTotalCount();
+        if (claimedCount >= totalCount) {
             throw new ValidationException("优惠券已领完");
         }
-        
+
         // 检查用户领取数量
         long userClaimedCount = userCouponRepository.countByUserIdAndCouponId(userId, couponId);
-        if (userClaimedCount >= coupon.getLimitPerUser()) {
+        int limitPerUser = coupon.getLimitPerUser() == null || coupon.getLimitPerUser() < 1 ? 1 : coupon.getLimitPerUser();
+        if (userClaimedCount >= limitPerUser) {
             throw new ValidationException("已达到领取上限");
         }
-        
+
         // 更新已领取数量
-        coupon.setClaimedCount(coupon.getClaimedCount() + 1);
+        coupon.setClaimedCount(claimedCount + 1);
         couponRepository.save(coupon);
         
         // 创建用户优惠券记录

@@ -12,6 +12,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,6 +51,9 @@ public class OrderService {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private OrderNumberGenerator orderNumberGenerator;
     
     /**
      * 获取用户订单列表
@@ -57,27 +63,17 @@ public class OrderService {
      * @param size 每页大小
      * @return 订单DTO列表
      */
-    public List<OrderDto> getUserOrders(String username, Integer status, int page, int size) {
+    @Transactional(readOnly = true)
+    public Page<OrderDto> getUserOrders(String username, Integer status, int page, int size) {
         User user = userService.getUserByUsername(username);
-        List<Order> orders;
+        Page<Order> orders = status != null
+                ? orderRepository.findByUserIdAndOrderStatusOrderByCreatedTimeDesc(user.getId(), status, PageRequest.of(page, size))
+                : orderRepository.findByUserIdOrderByCreatedTimeDesc(user.getId(), PageRequest.of(page, size));
 
-        if (status != null) {
-            orders = orderRepository.findByUserIdAndOrderStatusOrderByCreatedTimeDesc(
-                user.getId(), status);
-        } else {
-            orders = orderRepository.findByUserIdOrderByCreatedTimeDesc(user.getId());
-        }
-
-        // 简单的分页实现
-        int start = page * size;
-        int end = Math.min(start + size, orders.size());
-        if (start >= orders.size()) {
-            return List.of();
-        }
-
-        return orders.subList(start, end).stream()
+        List<OrderDto> dtos = orders.getContent().stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
+        return new PageImpl<>(dtos, orders.getPageable(), orders.getTotalElements());
     }
     
     /**
@@ -143,7 +139,6 @@ public class OrderService {
 
         // 创建订单
         Order order = new Order();
-        order.setOrderNo(generateOrderNo());
         order.setUser(user);
         order.setTotalAmount(BigDecimal.ZERO);
         order.setPaymentMethod(request.getPaymentMethod());
@@ -183,6 +178,7 @@ public class OrderService {
 
         order.setTotalAmount(totalAmount);
         order.setPayAmount(totalAmount.subtract(order.getCouponDiscount() != null ? order.getCouponDiscount() : BigDecimal.ZERO));
+        order.setOrderNo(orderNumberGenerator.nextOrderNo());
         Order savedOrder = orderRepository.save(order);
 
         logger.info("Order created successfully: {}", savedOrder.getOrderNo());
@@ -273,23 +269,16 @@ public class OrderService {
      * @param size 每页大小
      * @return 订单DTO列表
      */
-    public List<OrderDto> getAllOrders(Integer status, int page, int size) {
-        List<Order> orders;
-        if (status != null) {
-            orders = orderRepository.findByOrderStatusOrderByCreatedTimeDesc(status);
-        } else {
-            orders = orderRepository.findAllByOrderByCreatedTimeDesc();
-        }
+    @Transactional(readOnly = true)
+    public Page<OrderDto> getAllOrders(Integer status, int page, int size) {
+        Page<Order> orders = status != null
+                ? orderRepository.findByOrderStatusOrderByCreatedTimeDesc(status, PageRequest.of(page, size))
+                : orderRepository.findAllByOrderByCreatedTimeDesc(PageRequest.of(page, size));
 
-        int start = page * size;
-        int end = Math.min(start + size, orders.size());
-        if (start >= orders.size()) {
-            return List.of();
-        }
-
-        return orders.subList(start, end).stream()
+        List<OrderDto> dtos = orders.getContent().stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
+        return new PageImpl<>(dtos, orders.getPageable(), orders.getTotalElements());
     }
 
     /**
@@ -343,17 +332,6 @@ public class OrderService {
     }
 
     /**
-     * 生成订单号
-     * @return 订单号
-     */
-    private String generateOrderNo() {
-        long timestamp = System.currentTimeMillis();
-        int random = (int)(Math.random() * 10000);  // 4 digits: 0000-9999
-        long threadId = Thread.currentThread().getId() % 1000;  // 3 digits: 000-999
-        return String.format("ORD%d%04d%03d", timestamp, random, threadId);
-    }
-
-    /**
      * 将地址转换为JSON字符串
      * @param address 地址实体
      * @return JSON字符串
@@ -374,7 +352,7 @@ public class OrderService {
         try {
             return objectMapper.readValue(json, AddressDto.class);
         } catch (JsonProcessingException e) {
-            logger.warn("Failed to parse address JSON: {}", json, e);
+            logger.warn("Failed to parse address JSON: {}, reason={}", json, e.getMessage());
             return new AddressDto();
         }
     }

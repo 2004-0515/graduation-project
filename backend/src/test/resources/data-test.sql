@@ -1,8 +1,8 @@
-INSERT INTO tb_user (id, username, password, email, phone, avatar, nickname, bio, points, growth_value, member_days, status, created_time, updated_time)
+INSERT INTO tb_user (id, username, password, email, phone, avatar, nickname, bio, points, growth_value, member_days, status, role, created_time, updated_time)
 VALUES
-  (1, 'admin', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'admin@menggo.com', '13800138000', '/seed/avatar-user.svg', '管理员', '系统管理员', 10000, 5000, 365, 1, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
-  (2, 'testuser', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'test@menggo.com', '13800138001', '/seed/avatar-user.svg', '测试用户', '我是测试用户', 500, 200, 30, 1, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
-  (3, 'demo', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'demo@menggo.com', '13800138002', '/seed/avatar-user.svg', '演示账号', '演示账号', 100, 50, 7, 1, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP());
+  (1, 'admin', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'admin@menggo.com', '13800138000', '/seed/avatar-user.svg', '管理员', '系统管理员', 10000, 5000, 365, 1, 'ADMIN', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
+  (2, 'testuser', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'test@menggo.com', '13800138001', '/seed/avatar-user.svg', '测试用户', '我是测试用户', 500, 200, 30, 1, 'BUYER', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
+  (3, 'demo', '$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae', 'demo@menggo.com', '13800138002', '/seed/avatar-user.svg', '演示账号', '演示账号', 100, 50, 7, 1, 'SELLER', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP());
 
 INSERT INTO tb_category (id, name, description, parent_id, sort_order, icon, status, created_time, updated_time)
 VALUES
@@ -11,9 +11,9 @@ VALUES
 
 INSERT INTO tb_product (id, name, description, category_id, price, original_price, pending_price, pending_original_price, stock, sales, status, main_image, images, seller_id, seller_name, audit_status, audit_remark, audit_time, ad_video, ad_video_duration, ad_video_enabled, version, created_time, updated_time)
 VALUES
-  (1, '测试商品A', '测试商品A描述', 1, 199.00, 299.00, NULL, NULL, 50, 10, 1, '/seed/product-card.svg', '["/seed/product-card.svg"]', 1, 'admin', 1, NULL, NULL, NULL, NULL, 0, 0, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
-  (2, '测试商品B', '测试商品B描述', 1, 299.00, 399.00, NULL, NULL, 40, 5, 1, '/seed/product-card.svg', '["/seed/product-card.svg"]', 1, 'admin', 1, NULL, NULL, NULL, NULL, 0, 0, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
-  (3, '测试商品C', '测试商品C描述', 2, 399.00, 499.00, NULL, NULL, 30, 3, 1, '/seed/product-card.svg', '["/seed/product-card.svg"]', 1, 'admin', 1, NULL, NULL, NULL, NULL, 0, 0, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP());
+  (1, '测试商品A', '测试商品A描述', 1, 199.00, 299.00, NULL, NULL, 50, 10, 1, '/seed/product-card.svg', '["/seed/product-card.svg"]', 3, 'demo', 1, NULL, NULL, NULL, NULL, 0, 0, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
+  (2, '测试商品B', '测试商品B描述', 1, 299.00, 399.00, NULL, NULL, 40, 5, 1, '/seed/product-card.svg', '["/seed/product-card.svg"]', 3, 'demo', 1, NULL, NULL, NULL, NULL, 0, 0, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
+  (3, '测试商品C', '测试商品C描述', 2, 399.00, 499.00, NULL, NULL, 30, 3, 1, '/seed/product-card.svg', '["/seed/product-card.svg"]', 3, 'demo', 1, NULL, NULL, NULL, NULL, 0, 0, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP());
 
 INSERT INTO addresses (id, user_id, name, phone, province, city, district, detail, is_default, status)
 VALUES
@@ -45,7 +45,7 @@ VALUES
 
 INSERT INTO tb_order_item (id, order_id, product_id, product_name, product_price, quantity, total_price, product_image, seller_id, seller_name, ship_status, ship_time, created_time, updated_time)
 VALUES
-  (1, 1, 1, '测试商品A', 199.00, 1, 199.00, '/seed/product-card.svg', 1, 'admin', 1, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
-  (2, 2, 2, '测试商品B', 299.00, 1, 299.00, '/seed/product-card.svg', 1, 'admin', 1, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
-  (3, 3, 3, '测试商品C', 399.00, 1, 399.00, '/seed/product-card.svg', 1, 'admin', 0, NULL, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP());
+  (1, 1, 1, '测试商品A', 199.00, 1, 199.00, '/seed/product-card.svg', 3, 'demo', 1, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
+  (2, 2, 2, '测试商品B', 299.00, 1, 299.00, '/seed/product-card.svg', 3, 'demo', 1, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()),
+  (3, 3, 3, '测试商品C', 399.00, 1, 399.00, '/seed/product-card.svg', 3, 'demo', 0, NULL, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP());
 

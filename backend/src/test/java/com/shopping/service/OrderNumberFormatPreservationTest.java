@@ -64,9 +64,9 @@ class OrderNumberFormatPreservationTest {
     @Autowired
     private CategoryRepository categoryRepository;
 
-    // Pattern to match the current order number format: ORD + timestamp + random digits
-    // Current format: "ORD" + System.currentTimeMillis() + (int)(Math.random() * 1000)
-    // Example: ORD1234567890123456 (ORD + 13 digits timestamp + 1-3 digits random)
+    // Pattern to match the current order number format: ORD + timestamp + numeric suffix
+    // Current format: "ORD" + System.currentTimeMillis() + zero-padded numeric sequence
+    // Example: ORD1234567890123000001 (ORD + 13 digits timestamp + numeric suffix)
     private static final Pattern ORDER_NUMBER_PATTERN = Pattern.compile("^ORD\\d+$");
     
     // Minimum length: "ORD" (3) + timestamp (13 digits) = 16 characters
@@ -149,7 +149,7 @@ class OrderNumberFormatPreservationTest {
                 
                 // Property 5: The timestamp component (first 13 digits after "ORD") should be parseable as a long
                 // This verifies the timestamp component is present and valid
-                // Note: The full numeric part may be longer due to additional entropy (random + thread ID)
+                // Note: The full numeric part may be longer due to the generator suffix after the timestamp
                 String numericPart = orderNumber.substring(3); // Remove "ORD" prefix
                 assertTrue(numericPart.length() >= 13,
                         String.format("Order number '%s' should have at least 13 digits for timestamp after 'ORD'", orderNumber));
@@ -182,7 +182,7 @@ class OrderNumberFormatPreservationTest {
             }
         }
         
-        System.out.println("✓ All order numbers follow the expected format: ORD + timestamp + random digits");
+        System.out.println("✓ All order numbers follow the expected format: ORD + timestamp + numeric suffix");
         System.out.println("✓ Format preservation verified for " + totalTestCases + " test cases");
     }
 

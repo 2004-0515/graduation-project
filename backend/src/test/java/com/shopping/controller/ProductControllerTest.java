@@ -17,6 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -97,20 +99,20 @@ class ProductControllerTest {
 
     private void setAuthenticatedUser(String username) {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication(username);
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
     @Test
     void getProducts_WhenAdminFlagWithoutAuthentication_ShouldStillUseApprovedProducts() throws Exception {
-        when(productService.getApprovedProducts()).thenReturn(List.of());
+        when(productService.searchProducts(false, 0, 12, null, null, null, null, null, null, null))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 12), 0));
 
         mockMvc.perform(get("/products").param("admin", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(productService).getApprovedProducts();
-        verify(productService, never()).getProducts(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
+        verify(productService).searchProducts(false, 0, 12, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -120,19 +122,19 @@ class ProductControllerTest {
                         .content(objectMapper.writeValueAsString(Map.of("name", "demo"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(401))
-                .andExpect(jsonPath("$.message").value("用户未登录"));
+                .andExpect(jsonPath("$.message").value("需要管理员权限"));
     }
 
     @Test
-    void createProduct_WhenAuthenticatedUsernameMissing_ShouldReturn401() throws Exception {
+    void createProduct_WhenBuyerAuthenticated_ShouldReturn403() throws Exception {
         setAuthenticatedUser("ghost");
 
         mockMvc.perform(post("/products")
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("name", "demo"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(401))
-                .andExpect(jsonPath("$.message").value("用户未登录"));
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.message").value("需要管理员权限"));
     }
 
     @Test
@@ -151,7 +153,7 @@ class ProductControllerTest {
 
     @Test
     void deleteProduct_WhenNonOwner_ShouldReturn403() throws Exception {
-        setAuthenticatedUser("sellerA");
+        setAuthenticatedUser("xiaoming");
 
         Product product = new Product();
         product.setId(1L);
@@ -160,8 +162,8 @@ class ProductControllerTest {
 
         User user = new User();
         user.setId(100L);
-        user.setUsername("sellerA");
-        when(userService.findByUsername("sellerA")).thenReturn(user);
+        user.setUsername("xiaoming");
+        when(userService.findByUsername("xiaoming")).thenReturn(user);
 
         mockMvc.perform(delete("/products/1"))
                 .andExpect(status().isOk())
@@ -172,14 +174,14 @@ class ProductControllerTest {
     @Test
     void getProducts_WhenAuthenticatedUnknownAdminFlag_ShouldStillUseApprovedProducts() throws Exception {
         setAuthenticatedUser("ghost");
-        when(productService.getApprovedProducts()).thenReturn(List.of());
+        when(productService.searchProducts(false, 0, 12, null, null, null, null, null, null, null))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 12), 0));
 
         mockMvc.perform(get("/products").param("admin", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
-        verify(productService).getApprovedProducts();
-        verify(productService, never()).getProducts(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
+        verify(productService).searchProducts(false, 0, 12, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -193,12 +195,26 @@ class ProductControllerTest {
     }
 
     @Test
+    void submitProduct_WhenBuyer_ShouldReturnSellerRequired() throws Exception {
+        setAuthenticatedUser("zhangsan");
+
+        mockMvc.perform(post("/products/submit")
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "demo"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.message").value("需要卖家权限"));
+
+        verify(productService, never()).saveProduct(any(Product.class));
+    }
+
+    @Test
     void submitProduct_WhenOriginalPriceInvalid_ShouldReturn400() throws Exception {
-        setAuthenticatedUser("seller");
+        setAuthenticatedUser("lisi");
         User user = new User();
         user.setId(1L);
-        user.setUsername("seller");
-        when(userService.findByUsername("seller")).thenReturn(user);
+        user.setUsername("lisi");
+        when(userService.findByUsername("lisi")).thenReturn(user);
 
         mockMvc.perform(post("/products/submit")
                         .contentType(APPLICATION_JSON)
@@ -223,13 +239,25 @@ class ProductControllerTest {
     }
 
     @Test
+    void getMyProducts_WhenBuyer_ShouldReturnSellerRequired() throws Exception {
+        setAuthenticatedUser("zhangsan");
+
+        mockMvc.perform(get("/products/my"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.message").value("需要卖家权限"));
+
+        verify(productService, never()).getProductsBySellerIdOrName(any(), any());
+    }
+
+    @Test
     void submitProduct_WhenAdminNotificationFails_ShouldStillSucceed() throws Exception {
-        setAuthenticatedUser("seller");
+        setAuthenticatedUser("lisi");
 
         User seller = new User();
         seller.setId(1L);
-        seller.setUsername("seller");
-        when(userService.findByUsername("seller")).thenReturn(seller);
+        seller.setUsername("lisi");
+        when(userService.findByUsername("lisi")).thenReturn(seller);
 
         Category category = new Category();
         category.setId(2L);
@@ -239,7 +267,7 @@ class ProductControllerTest {
         User admin = new User();
         admin.setId(99L);
         admin.setUsername("admin");
-        when(userService.findByUsername("admin")).thenReturn(admin);
+        when(userService.getAdminUsers()).thenReturn(List.of(admin));
 
         Product savedProduct = new Product();
         savedProduct.setId(66L);
@@ -268,7 +296,7 @@ class ProductControllerTest {
 
     @Test
     void updateProduct_WhenSellerNotificationFails_ShouldStillReturnPendingAuditSuccess() throws Exception {
-        setAuthenticatedUser("seller");
+        setAuthenticatedUser("lisi");
 
         Product product = new Product();
         product.setId(10L);
@@ -278,12 +306,12 @@ class ProductControllerTest {
 
         User seller = new User();
         seller.setId(1L);
-        seller.setUsername("seller");
-        when(userService.findByUsername("seller")).thenReturn(seller);
+        seller.setUsername("lisi");
+        when(userService.findByUsername("lisi")).thenReturn(seller);
         User admin = new User();
         admin.setId(99L);
         admin.setUsername("admin");
-        when(userService.findByUsername("admin")).thenReturn(admin);
+        when(userService.getAdminUsers()).thenReturn(List.of(admin));
 
         doThrow(new RuntimeException("notify failed"))
                 .when(notificationService)

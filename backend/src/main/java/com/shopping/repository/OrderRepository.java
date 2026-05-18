@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,6 +19,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     
     // 根据用户ID查询订单
     List<Order> findByUserId(Long userId);
+
+    Page<Order> findByUserIdOrderByCreatedTimeDesc(Long userId, Pageable pageable);
+
+    Page<Order> findByUserIdAndOrderStatusOrderByCreatedTimeDesc(Long userId, Integer orderStatus, Pageable pageable);
     
     // 根据用户ID和订单状态查询订单，按创建时间倒序（带订单项和用户）
     @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items i LEFT JOIN FETCH i.product LEFT JOIN FETCH o.user WHERE o.user.id = :userId AND o.orderStatus = :orderStatus")
@@ -35,6 +41,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     
     // 根据状态查询订单
     List<Order> findByOrderStatus(Integer orderStatus);
+
+    Page<Order> findAllByOrderByCreatedTimeDesc(Pageable pageable);
+
+    Page<Order> findByOrderStatusOrderByCreatedTimeDesc(Integer orderStatus, Pageable pageable);
     
     // 【管理员】查询所有订单，按创建时间倒序（带订单项和用户）
     @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items i LEFT JOIN FETCH i.product LEFT JOIN FETCH o.user ORDER BY o.createdTime DESC")
@@ -68,4 +78,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("paymentStatus") Integer paymentStatus,
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime);
+
+    List<Order> findTop5ByOrderByCreatedTimeDesc();
 }

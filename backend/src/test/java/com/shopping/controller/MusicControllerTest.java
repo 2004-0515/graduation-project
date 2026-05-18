@@ -294,7 +294,7 @@ class MusicControllerTest {
 
     private void setAdminUser() {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("admin");
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 }

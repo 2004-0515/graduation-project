@@ -279,7 +279,8 @@ public class SearchServiceTest {
                 + " for products=" + productCount + ", categories=" + categoryCount);
             
             // 重置mock以避免状态污染
-            reset(productRepository, categoryRepository);
+            reset(productRepository);
+            reset(categoryRepository);
         }
     }
 

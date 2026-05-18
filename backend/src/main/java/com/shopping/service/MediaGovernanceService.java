@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shopping.entity.DemoImportedAsset;
 import com.shopping.entity.Product;
 import com.shopping.exception.ValidationException;
+import com.shopping.json.JsonTextArrayCodec;
 import com.shopping.repository.DemoImportedAssetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,7 +33,11 @@ import java.util.UUID;
 public class MediaGovernanceService {
 
     public enum StoredMediaKind {
+        AVATAR_IMAGE,
         PRODUCT_IMAGE,
+        CATEGORY_IMAGE,
+        PROMOTION_IMAGE,
+        BANNER_IMAGE,
         MUSIC_FILE,
         MUSIC_COVER,
         AD_VIDEO,
@@ -57,58 +62,31 @@ public class MediaGovernanceService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public String normalizeImageListJson(Object rawImages) {
-        List<String> urls = normalizeImageList(rawImages);
-        try {
-            return objectMapper.writeValueAsString(urls);
-        } catch (JsonProcessingException e) {
-            throw new ValidationException("images", "商品图片列表格式无效");
-        }
+        return toJsonArray(normalizeImageList(rawImages), "images");
     }
 
     public List<String> normalizeImageList(Object rawImages) {
-        if (rawImages == null) {
-            return List.of();
-        }
+        return normalizeMediaList(rawImages, StoredMediaKind.PRODUCT_IMAGE, "images", "商品图片列表格式无效");
+    }
 
-        List<String> values = new ArrayList<>();
-        if (rawImages instanceof String text) {
-            if (text.isBlank()) {
-                return List.of();
-            }
-            String trimmed = text.trim();
-            if (trimmed.startsWith("[")) {
-                try {
-                    List<String> parsed = objectMapper.readValue(trimmed, STRING_LIST_TYPE);
-                    for (String item : parsed) {
-                        if (item != null && !item.isBlank()) {
-                            values.add(item.trim());
-                        }
-                    }
-                } catch (JsonProcessingException e) {
-                    throw new ValidationException("images", "商品图片列表必须是 JSON 数组");
-                }
-            } else {
-                for (String part : trimmed.split(",")) {
-                    if (!part.isBlank()) {
-                        values.add(part.trim());
-                    }
-                }
-            }
-        } else if (rawImages instanceof Iterable<?> iterable) {
-            for (Object value : iterable) {
-                if (value instanceof String text && !text.isBlank()) {
-                    values.add(text.trim());
-                }
-            }
-        } else {
-            throw new ValidationException("images", "商品图片列表格式无效");
+    public String normalizeReviewImageListJson(Object rawImages) {
+        List<String> urls = normalizeReviewImageList(rawImages);
+        if (urls.size() > 3) {
+            throw new ValidationException("images", "评价图片最多上传3张");
         }
+        return toJsonArray(urls, "images");
+    }
 
-        Set<String> deduplicated = new LinkedHashSet<>();
-        for (String value : values) {
-            deduplicated.add(validateMediaUrl(value, StoredMediaKind.PRODUCT_IMAGE));
-        }
-        return List.copyOf(deduplicated);
+    public List<String> normalizeReviewImageList(Object rawImages) {
+        return normalizeMediaList(rawImages, StoredMediaKind.REVIEW_IMAGE, "images", "评价图片列表格式无效");
+    }
+
+    public String filterApprovedReviewImagesJson(String rawImages, Set<String> approvedPaths) {
+        List<String> filtered = JsonTextArrayCodec.parse(rawImages).stream()
+                .map(path -> validateMediaUrl(path, StoredMediaKind.REVIEW_IMAGE))
+                .filter(approvedPaths::contains)
+                .toList();
+        return toJsonArray(filtered, "images");
     }
 
     public void normalizeProductMedia(Product product) {
@@ -138,6 +116,11 @@ public class MediaGovernanceService {
     public void normalizeMusicMedia(com.shopping.entity.Music music) {
         music.setUrl(validateMediaUrl(music.getUrl(), StoredMediaKind.MUSIC_FILE));
         music.setCover(validateOptionalMediaUrl(music.getCover(), StoredMediaKind.MUSIC_COVER));
+    }
+
+    public void normalizeShowcaseImagePaths(com.shopping.entity.ShowcaseBanner banner) {
+        banner.setImagePath(validateMediaUrl(banner.getImagePath(), StoredMediaKind.BANNER_IMAGE));
+        banner.setMobileImagePath(validateOptionalMediaUrl(banner.getMobileImagePath(), StoredMediaKind.BANNER_IMAGE));
     }
 
     public String validateOptionalMediaUrl(String value, StoredMediaKind kind) {
@@ -170,11 +153,35 @@ public class MediaGovernanceService {
 
         String lowered = normalized.toLowerCase(Locale.ROOT);
         switch (kind) {
+            case AVATAR_IMAGE -> {
+                if (!lowered.startsWith("/uploads/avatars/")) {
+                    throw new ValidationException("avatar", "头像路径必须位于 /uploads/avatars 下");
+                }
+                ensureAllowedExtension(lowered, IMAGE_EXTENSIONS, "头像图片格式不受支持");
+            }
             case PRODUCT_IMAGE -> {
                 if (!lowered.startsWith("/uploads/products/")) {
                     throw new ValidationException("mainImage", "商品图片路径必须位于 /uploads/products 下");
                 }
                 ensureAllowedExtension(lowered, IMAGE_EXTENSIONS, "商品图片格式不受支持");
+            }
+            case CATEGORY_IMAGE -> {
+                if (!lowered.startsWith("/uploads/categories/")) {
+                    throw new ValidationException("icon", "分类图片路径必须位于 /uploads/categories 下");
+                }
+                ensureAllowedExtension(lowered, IMAGE_EXTENSIONS, "分类图片格式不受支持");
+            }
+            case PROMOTION_IMAGE -> {
+                if (!lowered.startsWith("/uploads/promotions/")) {
+                    throw new ValidationException("imagePath", "活动图片路径必须位于 /uploads/promotions 下");
+                }
+                ensureAllowedExtension(lowered, IMAGE_EXTENSIONS, "活动图片格式不受支持");
+            }
+            case BANNER_IMAGE -> {
+                if (!lowered.startsWith("/uploads/banners/")) {
+                    throw new ValidationException("imagePath", "展示图片路径必须位于 /uploads/banners 下");
+                }
+                ensureAllowedExtension(lowered, IMAGE_EXTENSIONS, "展示图片格式不受支持");
             }
             case MUSIC_FILE -> {
                 if (!lowered.startsWith("/uploads/music/")) {
@@ -194,7 +201,13 @@ public class MediaGovernanceService {
                 }
                 ensureAllowedExtension(lowered, VIDEO_EXTENSIONS, "广告视频格式不受支持");
             }
-            case REVIEW_IMAGE, GENERIC_IMAGE -> ensureAllowedExtension(lowered, IMAGE_EXTENSIONS, "图片格式不受支持");
+            case REVIEW_IMAGE -> {
+                if (!lowered.startsWith("/uploads/reviews/")) {
+                    throw new ValidationException("images", "评价图片路径必须位于 /uploads/reviews 下");
+                }
+                ensureAllowedExtension(lowered, IMAGE_EXTENSIONS, "评价图片格式不受支持");
+            }
+            case GENERIC_IMAGE -> ensureAllowedExtension(lowered, IMAGE_EXTENSIONS, "图片格式不受支持");
         }
 
         return normalized;
@@ -264,7 +277,11 @@ public class MediaGovernanceService {
         String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
         Path base = getUploadBasePath();
         return switch (kind) {
+            case AVATAR_IMAGE -> base.resolve("avatars").resolve(datePath);
             case PRODUCT_IMAGE -> base.resolve("products").resolve(categoryFolderName(categoryName)).resolve(datePath);
+            case CATEGORY_IMAGE -> base.resolve("categories").resolve(datePath);
+            case PROMOTION_IMAGE -> base.resolve("promotions").resolve(datePath);
+            case BANNER_IMAGE -> base.resolve("banners").resolve(datePath);
             case MUSIC_FILE -> base.resolve("music").resolve(datePath);
             case MUSIC_COVER -> base.resolve("music").resolve("covers").resolve(datePath);
             case AD_VIDEO -> base.resolve("videos").resolve(datePath);
@@ -275,7 +292,11 @@ public class MediaGovernanceService {
 
     private String buildRelativeUrl(StoredMediaKind kind, String categoryName, String ignored) {
         return switch (kind) {
+            case AVATAR_IMAGE -> "/uploads/avatars/";
             case PRODUCT_IMAGE -> "/uploads/products/" + categoryFolderName(categoryName) + "/";
+            case CATEGORY_IMAGE -> "/uploads/categories/";
+            case PROMOTION_IMAGE -> "/uploads/promotions/";
+            case BANNER_IMAGE -> "/uploads/banners/";
             case MUSIC_FILE -> "/uploads/music/";
             case MUSIC_COVER -> "/uploads/music/covers/";
             case AD_VIDEO -> "/uploads/videos/";
@@ -299,7 +320,7 @@ public class MediaGovernanceService {
 
     private void validateExtensionForKind(String extension, StoredMediaKind kind) {
         Set<String> allowed = switch (kind) {
-            case PRODUCT_IMAGE, REVIEW_IMAGE, GENERIC_IMAGE -> IMAGE_EXTENSIONS;
+            case AVATAR_IMAGE, PRODUCT_IMAGE, CATEGORY_IMAGE, PROMOTION_IMAGE, BANNER_IMAGE, REVIEW_IMAGE, GENERIC_IMAGE -> IMAGE_EXTENSIONS;
             case MUSIC_FILE -> MUSIC_EXTENSIONS;
             case MUSIC_COVER -> MUSIC_COVER_EXTENSIONS;
             case AD_VIDEO -> VIDEO_EXTENSIONS;
@@ -326,6 +347,60 @@ public class MediaGovernanceService {
             return HexFormat.of().formatHex(digest.digest(payload));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
+
+    private List<String> normalizeMediaList(Object rawImages, StoredMediaKind kind, String fieldName, String invalidMessage) {
+        if (rawImages == null) {
+            return List.of();
+        }
+
+        List<String> values = new ArrayList<>();
+        if (rawImages instanceof String text) {
+            if (text.isBlank()) {
+                return List.of();
+            }
+            String trimmed = text.trim();
+            if (trimmed.startsWith("[")) {
+                try {
+                    List<String> parsed = objectMapper.readValue(trimmed, STRING_LIST_TYPE);
+                    for (String item : parsed) {
+                        if (item != null && !item.isBlank()) {
+                            values.add(item.trim());
+                        }
+                    }
+                } catch (JsonProcessingException e) {
+                    throw new ValidationException(fieldName, invalidMessage);
+                }
+            } else {
+                for (String part : trimmed.split(",")) {
+                    if (!part.isBlank()) {
+                        values.add(part.trim());
+                    }
+                }
+            }
+        } else if (rawImages instanceof Iterable<?> iterable) {
+            for (Object value : iterable) {
+                if (value instanceof String text && !text.isBlank()) {
+                    values.add(text.trim());
+                }
+            }
+        } else {
+            throw new ValidationException(fieldName, invalidMessage);
+        }
+
+        Set<String> deduplicated = new LinkedHashSet<>();
+        for (String value : values) {
+            deduplicated.add(validateMediaUrl(value, kind));
+        }
+        return List.copyOf(deduplicated);
+    }
+
+    private String toJsonArray(List<String> values, String fieldName) {
+        try {
+            return objectMapper.writeValueAsString(values);
+        } catch (JsonProcessingException e) {
+            throw new ValidationException(fieldName, "媒体列表格式无效");
         }
     }
 }

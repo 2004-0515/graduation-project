@@ -2,10 +2,12 @@ package com.shopping.controller;
 
 import com.shopping.dto.*;
 import com.shopping.service.OrderService;
+import com.shopping.utils.RoleUtils;
 import com.shopping.utils.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -17,6 +19,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/orders")
 public class OrderController {
+
+    private static final int DEFAULT_PAGE_SIZE = 10;
+    private static final int MAX_PAGE_SIZE = 50;
 
     private static final Logger logger = LoggerFactory.getLogger(OrderController.class);
 
@@ -31,15 +36,17 @@ public class OrderController {
      * @return 订单列表
      */
     @GetMapping
-    public Response<List<OrderDto>> getCurrentUserOrders(
+    public Response<Page<OrderDto>> getCurrentUserOrders(
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "1000") int size) {
+            @RequestParam(defaultValue = "10") int size) {
         String username = getCurrentUsername();
-        logger.info("Fetching orders for user: {}, status: {}, page: {}, size: {}", username, status, page, size);
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        logger.info("Fetching orders for user: {}, status: {}, page: {}, size: {}", username, status, normalizedPage, normalizedSize);
 
-        List<OrderDto> orders = orderService.getUserOrders(username, status, page, size);
-        logger.info("Found {} orders for user {}", orders.size(), username);
+        Page<OrderDto> orders = orderService.getUserOrders(username, status, normalizedPage, normalizedSize);
+        logger.info("Found {} orders for user {}", orders.getNumberOfElements(), username);
         return Response.success("获取订单列表成功", orders);
     }
 
@@ -210,14 +217,16 @@ public class OrderController {
      * @return 所有订单列表
      */
     @GetMapping("/admin")
-    public Response<List<OrderDto>> getAllOrders(
+    public Response<Page<OrderDto>> getAllOrders(
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         com.shopping.utils.AdminUtils.requireAdmin();
-        logger.info("Admin fetching all orders, status: {}, page: {}, size: {}", status, page, size);
-        List<OrderDto> orders = orderService.getAllOrders(status, page, size);
-        logger.info("Admin found {} orders", orders.size());
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        logger.info("Admin fetching all orders, status: {}, page: {}, size: {}", status, normalizedPage, normalizedSize);
+        Page<OrderDto> orders = orderService.getAllOrders(status, normalizedPage, normalizedSize);
+        logger.info("Admin found {} orders", orders.getNumberOfElements());
         return Response.success("获取订单列表成功", orders);
     }
 
@@ -273,7 +282,7 @@ public class OrderController {
     @GetMapping("/seller/items")
     public Response<java.util.List<OrderItemDto>> getSellerOrderItems(
             @RequestParam(required = false) Integer shipStatus) {
-        String username = getCurrentUsername();
+        String username = RoleUtils.requireSeller();
         logger.info("Seller {} fetching order items, shipStatus: {}", username, shipStatus);
         java.util.List<OrderItemDto> items = orderService.getSellerOrderItems(username, shipStatus);
         return Response.success("获取订单列表成功", items);
@@ -286,7 +295,7 @@ public class OrderController {
      */
     @PutMapping("/seller/items/{itemId}/ship")
     public Response<String> sellerShipItem(@PathVariable Long itemId) {
-        String username = getCurrentUsername();
+        String username = RoleUtils.requireSeller();
         logger.info("Seller {} shipping item {}", username, itemId);
         orderService.sellerShipItem(itemId, username);
         return Response.success("发货成功");
@@ -298,7 +307,7 @@ public class OrderController {
      */
     @GetMapping("/seller/pending/count")
     public Response<Long> getSellerPendingShipCount() {
-        String username = getCurrentUsername();
+        String username = RoleUtils.requireSeller();
         long count = orderService.getSellerPendingShipCount(username);
         return Response.success("获取待发货数量成功", count);
     }

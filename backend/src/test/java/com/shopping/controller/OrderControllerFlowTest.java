@@ -14,6 +14,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -190,14 +193,14 @@ class OrderControllerFlowTest {
     @Test
     @DisplayName("卖家可获取自己的订单项列表")
     void getSellerOrderItems_ShouldReturnItems() throws Exception {
-        setAuthenticatedUser("seller");
+        setAuthenticatedUser("lisi");
         OrderItemDto item = new OrderItemDto();
         item.setId(11L);
         item.setOrderNo("ORD-1");
         item.setBuyerName("buyer");
         item.setShipStatus(0);
 
-        when(orderService.getSellerOrderItems("seller", 0)).thenReturn(List.of(item));
+        when(orderService.getSellerOrderItems("lisi", 0)).thenReturn(List.of(item));
 
         mockMvc.perform(get("/orders/seller/items").param("shipStatus", "0"))
                 .andExpect(status().isOk())
@@ -206,33 +209,59 @@ class OrderControllerFlowTest {
                 .andExpect(jsonPath("$.data[0].buyerName").value("buyer"))
                 .andExpect(jsonPath("$.data[0].shipStatus").value(0));
 
-        verify(orderService).getSellerOrderItems("seller", 0);
+        verify(orderService).getSellerOrderItems("lisi", 0);
     }
 
     @Test
     @DisplayName("卖家可发货自己的订单项")
     void sellerShipItem_ShouldDelegateToService() throws Exception {
-        setAuthenticatedUser("seller");
+        setAuthenticatedUser("lisi");
 
         mockMvc.perform(put("/orders/seller/items/11/ship"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("发货成功"));
 
-        verify(orderService).sellerShipItem(11L, "seller");
+        verify(orderService).sellerShipItem(11L, "lisi");
     }
 
     @Test
     @DisplayName("卖家可获取待发货计数")
     void getSellerPendingShipCount_ShouldReturnCount() throws Exception {
-        setAuthenticatedUser("seller");
-        when(orderService.getSellerPendingShipCount("seller")).thenReturn(5L);
+        setAuthenticatedUser("lisi");
+        when(orderService.getSellerPendingShipCount("lisi")).thenReturn(5L);
 
         mockMvc.perform(get("/orders/seller/pending/count"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data").value(5));
 
-        verify(orderService).getSellerPendingShipCount(eq("seller"));
+        verify(orderService).getSellerPendingShipCount(eq("lisi"));
+    }
+
+    @Test
+    @DisplayName("普通用户访问卖家订单接口返回403")
+    void sellerEndpoints_WhenBuyer_ShouldReturn403() throws Exception {
+        setAuthenticatedUser("zhangsan");
+
+        mockMvc.perform(get("/orders/seller/items"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.message").value("需要卖家权限"));
+
+        verify(orderService, never()).getSellerOrderItems(eq("zhangsan"), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("普通用户发货卖家订单项返回403")
+    void sellerShipItem_WhenBuyer_ShouldReturn403() throws Exception {
+        setAuthenticatedUser("zhangsan");
+
+        mockMvc.perform(put("/orders/seller/items/11/ship"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.message").value("需要卖家权限"));
+
+        verify(orderService, never()).sellerShipItem(11L, "zhangsan");
     }
 
     @Test
@@ -341,12 +370,12 @@ class OrderControllerFlowTest {
         OrderDto order = new OrderDto();
         order.setId(1L);
         order.setOrderNo("ORD-ADMIN-1");
-        when(orderService.getAllOrders(2, 0, 10)).thenReturn(List.of(order));
+        when(orderService.getAllOrders(2, 0, 10)).thenReturn(new PageImpl<>(List.of(order), PageRequest.of(0, 10), 1));
 
         mockMvc.perform(get("/orders/admin").param("status", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data[0].orderNo").value("ORD-ADMIN-1"));
+                .andExpect(jsonPath("$.data.content[0].orderNo").value("ORD-ADMIN-1"));
 
         verify(orderService).getAllOrders(2, 0, 10);
     }
@@ -393,30 +422,30 @@ class OrderControllerFlowTest {
     }
 
     @Test
-    @DisplayName("非管理员访问管理员订单接口返回401")
-    void adminEndpoints_WhenNonAdmin_ShouldReturn401() throws Exception {
+    @DisplayName("非管理员访问管理员订单接口返回403")
+    void adminEndpoints_WhenNonAdmin_ShouldReturn403() throws Exception {
         setAuthenticatedUser("buyer");
 
         mockMvc.perform(get("/orders/admin"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.code").value(403))
                 .andExpect(jsonPath("$.message").value("需要管理员权限"));
     }
 
     @Test
-    @DisplayName("非管理员删除后台订单返回401")
-    void adminDeleteOrder_WhenNonAdmin_ShouldReturn401() throws Exception {
+    @DisplayName("非管理员删除后台订单返回403")
+    void adminDeleteOrder_WhenNonAdmin_ShouldReturn403() throws Exception {
         setAuthenticatedUser("buyer");
 
         mockMvc.perform(delete("/orders/1/admin"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.code").value(403))
                 .andExpect(jsonPath("$.message").value("需要管理员权限"));
     }
 
     private void setAuthenticatedUser(String username) {
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList())
+                com.shopping.test.TestSecurityContexts.authentication(username)
         );
     }
 

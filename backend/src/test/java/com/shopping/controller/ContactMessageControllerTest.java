@@ -90,14 +90,14 @@ class ContactMessageControllerTest {
     }
 
     @Test
-    void getAllMessages_WhenNonAdmin_ShouldReturnChineseUnauthorizedMessage() throws Exception {
+    void getAllMessages_WhenNonAdmin_ShouldReturnForbiddenMessage() throws Exception {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("buyer", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("buyer");
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         mockMvc.perform(get("/contact-messages/admin"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.code").value(403))
                 .andExpect(jsonPath("$.message").value("需要管理员权限"));
     }
 
@@ -150,7 +150,7 @@ class ContactMessageControllerTest {
 
     private void setAdminAuthentication() {
         UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList());
+                com.shopping.test.TestSecurityContexts.authentication("admin");
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
