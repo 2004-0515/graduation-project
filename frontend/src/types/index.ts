@@ -1,6 +1,7 @@
 export interface User {
   id: number
   username: string
+  role: 'BUYER' | 'SELLER' | 'ADMIN'
   email: string
   phone?: string
   nickname?: string
@@ -62,6 +63,8 @@ export interface Product {
   status: ProductStatus
   mainImage?: string
   images?: string | string[]
+  sellerId?: number
+  sellerName?: string
   discount?: number
   createdTime: string
   updatedTime: string

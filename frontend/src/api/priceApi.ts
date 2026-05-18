@@ -45,6 +45,17 @@ export interface PriceAlert {
   updatedTime: string
 }
 
+export interface PriceAlertDetail extends PriceAlert {
+  productName?: string
+  productImage?: string
+  productPrice?: number
+}
+
+export interface AdminPriceAlert extends PriceAlert {
+  username?: string
+  productName?: string
+}
+
 /**
  * 价格相关API
  */
@@ -74,6 +85,55 @@ const priceApi = {
   },
 
   /**
+   * 获取后台降价提醒列表
+   */
+  getAdminAlerts(params?: { status?: number | string; keyword?: string }): Promise<ApiResponse<AdminPriceAlert[]>> {
+    return axios.get('/price/admin/alerts', { params: params || {} })
+  },
+
+  /**
+   * 获取后台激活降价提醒数量
+   */
+  getAdminActiveAlertCount(): Promise<ApiResponse<number>> {
+    return axios.get('/price/admin/alerts/count')
+  },
+
+  /**
+   * 后台手动记录商品价格
+   */
+  recordAdminPrice(data: { productId: number; price: number; originalPrice: number | null }): Promise<ApiResponse<PriceHistory>> {
+    return axios.post('/price/admin/record', data)
+  },
+
+  /**
+   * 删除后台价格历史记录
+   */
+  deleteAdminPriceHistory(historyId: number): Promise<ApiResponse<void>> {
+    return axios.delete(`/price/admin/history/${historyId}`)
+  },
+
+  /**
+   * 后台手动触发降价提醒
+   */
+  triggerAdminAlert(alertId: number): Promise<ApiResponse<void>> {
+    return axios.post(`/price/admin/alert/${alertId}/trigger`)
+  },
+
+  /**
+   * 后台回退降价提醒
+   */
+  resetAdminAlert(alertId: number): Promise<ApiResponse<void>> {
+    return axios.post(`/price/admin/alert/${alertId}/reset`)
+  },
+
+  /**
+   * 后台删除降价提醒
+   */
+  deleteAdminAlert(alertId: number): Promise<ApiResponse<void>> {
+    return axios.delete(`/price/admin/alert/${alertId}`)
+  },
+
+  /**
    * 创建降价提醒
    */
   createAlert(productId: number, targetPrice: number): Promise<ApiResponse<PriceAlert>> {
@@ -99,6 +159,13 @@ const priceApi = {
    */
   getUserAlerts(): Promise<ApiResponse<PriceAlert[]>> {
     return axios.get('/price/alerts')
+  },
+
+  /**
+   * 获取带商品信息的降价提醒列表
+   */
+  getUserAlertDetails(): Promise<ApiResponse<PriceAlertDetail[]>> {
+    return axios.get('/price/alerts/detail')
   },
 
   /**

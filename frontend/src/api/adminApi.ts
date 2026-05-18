@@ -22,6 +22,13 @@ const adminApi = {
   },
 
   /**
+   * 更新用户角色
+   */
+  updateUserRole(userId: number, role: User['role']): Promise<ApiResponse<User>> {
+    return axios.put(`/users/${userId}/role`, { role })
+  },
+
+  /**
    * 删除用户
    */
   deleteUser(userId: number): Promise<ApiResponse<void>> {
@@ -33,7 +40,7 @@ const adminApi = {
   /**
    * 获取商品列表（管理后台）
    */
-  getProducts(params?: { page?: number; size?: number; keyword?: string; categoryId?: number; status?: number }): Promise<ApiResponse<PageResponse<Product>>> {
+  getProducts(params?: { page?: number; size?: number; keyword?: string; categoryId?: number; status?: number; sort?: string }): Promise<ApiResponse<PageResponse<Product>>> {
     return axios.get('/products', { params: { pageNo: params?.page || 0, pageSize: params?.size || 10, admin: true, ...params } })
   },
 
@@ -151,8 +158,57 @@ const adminApi = {
     todayRevenue: number
     pendingOrders: number
     lowStockProducts: number
+    salesTrend: Array<{ date: string; revenue: number; orderCount: number }>
+    orderStatusDistribution: Array<{ status: number; count: number }>
+    topCategories: Array<{ categoryName: string; sales: number }>
+    recentOrders: Order[]
   }>> {
     return axios.get('/admin/stats')
+  },
+
+  /**
+   * 获取待审核文件数量
+   */
+  getPendingFileCount(): Promise<ApiResponse<number>> {
+    return axios.get('/files/pending/count')
+  },
+
+  /**
+   * 获取待审核商品数量
+   */
+  getPendingProductCount(): Promise<ApiResponse<number>> {
+    return axios.get('/products/pending/count')
+  },
+
+  /**
+   * 获取待审核商品列表
+   */
+  getPendingProducts(): Promise<ApiResponse<Product[]>> {
+    return axios.get('/products/pending')
+  },
+
+  /**
+   * 批量更新全部商品上下架状态
+   */
+  batchUpdateAllProductStatus(status: number): Promise<ApiResponse<void>> {
+    return axios.put('/products/batch-status', { status })
+  },
+
+  /**
+   * 审核商品
+   */
+  reviewProduct(
+    productId: number,
+    data: { auditStatus: number; remark?: string; adVideoEnabled?: number; adVideoDuration?: number }
+  ): Promise<ApiResponse<void>> {
+    return axios.post(`/products/${productId}/audit`, data)
+  },
+
+  /**
+   * 获取待审核取消申请数量
+   */
+  getPendingOrderCount(): Promise<ApiResponse<number>> {
+    return axios.get('/orders/cancel-requests/count')
   },
 
   // ==================== 消息通知 ====================

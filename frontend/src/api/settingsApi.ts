@@ -39,15 +39,6 @@ export interface SecuritySettings {
 }
 
 /**
- * 修改密码请求
- */
-export interface ChangePasswordRequest {
-  currentPassword: string
-  newPassword: string
-  confirmPassword: string
-}
-
-/**
  * 设置相关API
  */
 const settingsApi = {
@@ -84,13 +75,6 @@ const settingsApi = {
    */
   getSecuritySettings(): Promise<ApiResponse<SecuritySettings>> {
     return axios.get('/security-settings/me')
-  },
-
-  /**
-   * 修改密码
-   */
-  changePassword(data: ChangePasswordRequest): Promise<ApiResponse<void>> {
-    return axios.post('/auth/change-password', data)
   }
 }
 

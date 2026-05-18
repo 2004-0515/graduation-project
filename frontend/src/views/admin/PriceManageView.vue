@@ -15,13 +15,23 @@
       <div v-if="activeTab === 'history'" class="tab-content">
         <div class="toolbar">
           <div class="toolbar-left">
-            <el-select v-model="selectedProductId" placeholder="选择商品查看价格历史" filterable style="width: 300px" @change="fetchPriceHistory">
+            <el-select
+              v-model="selectedProductId"
+              placeholder="搜索商品查看价格历史"
+              filterable
+              remote
+              reserve-keyword
+              style="width: 300px"
+              :remote-method="searchProducts"
+              @change="fetchPriceHistory"
+              @visible-change="handleProductSelectVisible"
+            >
               <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.id">
                 <span>{{ p.name }}</span>
                 <span class="option-price">¥{{ p.price }}</span>
               </el-option>
             </el-select>
-            <el-button @click="fetchProducts" :loading="loadingProducts">刷新商品</el-button>
+            <el-button @click="fetchProducts()" :loading="loadingProducts">刷新商品</el-button>
           </div>
           <div class="toolbar-right">
             <el-button type="primary" @click="openRecordDialog" :disabled="!selectedProductId">手动记录价格</el-button>
@@ -196,8 +206,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
 import adminApi from '@/api/adminApi'
 import priceApi from '@/api/priceApi'
-import type { PriceHistory, PriceStats, PriceAlert } from '@/api/priceApi'
-import axios from '@/utils/axios'
+import type { PriceHistory, PriceStats } from '@/api/priceApi'
 import { debugError } from '@/utils/debug'
 
 const activeTab = ref('history')
@@ -221,6 +230,7 @@ const invalidateActiveAlertCountRequests = () => {
 
 // 价格历史相关
 const products = ref<any[]>([])
+const productSearchKeyword = ref('')
 const selectedProductId = ref<number | null>(null)
 const priceHistory = ref<PriceHistory[]>([])
 const priceStats = ref<PriceStats | null>(null)
@@ -254,8 +264,16 @@ const handleTabChange = () => {
   }
 }
 
-const getChangeTagType = (type: string) => {
-  const map: Record<string, string> = { INITIAL: 'info', INCREASE: 'danger', DECREASE: 'success', UNCHANGED: 'warning' }
+const handleProductSelectVisible = (visible: boolean) => {
+  if (visible && products.value.length === 0) {
+    fetchProducts()
+  }
+}
+
+type PriceTagType = 'success' | 'primary' | 'warning' | 'info' | 'danger'
+
+const getChangeTagType = (type: string): PriceTagType => {
+  const map: Record<string, PriceTagType> = { INITIAL: 'info', INCREASE: 'danger', DECREASE: 'success', UNCHANGED: 'warning' }
   return map[type] || 'info'
 }
 
@@ -270,8 +288,8 @@ const getChangeClass = (value: number) => {
   return ''
 }
 
-const getAlertStatusType = (status: number) => {
-  const map: Record<number, string> = { 0: 'primary', 1: 'success', 2: 'info' }
+const getAlertStatusType = (status: number): PriceTagType => {
+  const map: Record<number, PriceTagType> = { 0: 'primary', 1: 'success', 2: 'info' }
   return map[status] || 'info'
 }
 
@@ -300,11 +318,17 @@ const formatDateTime = (dateStr: string) => {
   return dateStr.replace('T', ' ').substring(0, 19)
 }
 
-const fetchProducts = async () => {
+const fetchProducts = async (keyword: string = '') => {
   const requestId = ++latestProductsRequestId
+  productSearchKeyword.value = keyword.trim()
   loadingProducts.value = true
   try {
-    const res: any = await adminApi.getProducts({ page: 0, size: 1000 })
+    const res: any = await adminApi.getProducts({
+      page: 0,
+      size: 50,
+      sort: 'newest',
+      keyword: productSearchKeyword.value || undefined
+    })
     if (requestId !== latestProductsRequestId) {
       return
     }
@@ -324,6 +348,10 @@ const fetchProducts = async () => {
       loadingProducts.value = false
     }
   }
+}
+
+const searchProducts = (keyword: string) => {
+  fetchProducts(keyword)
 }
 
 const fetchPriceHistory = async () => {
@@ -368,7 +396,7 @@ const fetchAllAlerts = async () => {
     if (alertStatusFilter.value !== '') params.status = alertStatusFilter.value
     if (alertSearchKeyword.value) params.keyword = alertSearchKeyword.value
     
-    const res: any = await axios.get('/price/admin/alerts', { params })
+    const res: any = await priceApi.getAdminAlerts(params)
     if (requestId !== latestAlertsRequestId) {
       return
     }
@@ -392,7 +420,7 @@ const fetchAllAlerts = async () => {
 const fetchActiveAlertCount = async () => {
   const requestId = ++latestActiveAlertCountRequestId
   try {
-    const res: any = await axios.get('/price/admin/alerts/count')
+    const res: any = await priceApi.getAdminActiveAlertCount()
     if (requestId !== latestActiveAlertCountRequestId) {
       return
     }
@@ -497,7 +525,7 @@ const saveRecord = async () => {
     const changeRate = previousPrice
       ? Number((((nextPrice - previousPrice) / previousPrice) * 100).toFixed(2))
       : null
-    const res: any = await axios.post('/price/admin/record', {
+    const res: any = await priceApi.recordAdminPrice({
       productId: selectedProductId.value,
       price: recordForm.price,
       originalPrice: recordForm.originalPrice || null
@@ -533,7 +561,7 @@ const saveRecord = async () => {
 const handleDeleteHistory = async (row: PriceHistory) => {
   try {
     await ElMessageBox.confirm('确定要删除这条价格记录吗？', '提示', { type: 'warning' })
-    const res: any = await axios.delete(`/price/admin/history/${row.id}`)
+    const res: any = await priceApi.deleteAdminPriceHistory(row.id)
     if (res?.code === 200) {
       invalidateHistoryRequests()
       removeLocalPriceHistory(row.id)
@@ -554,7 +582,7 @@ const handleDeleteHistory = async (row: PriceHistory) => {
 const handleTriggerAlert = async (row: any) => {
   try {
     await ElMessageBox.confirm('确定要手动触发这条降价提醒吗？将立即发送通知给用户。', '提示', { type: 'warning' })
-    const res: any = await axios.post(`/price/admin/alert/${row.id}/trigger`)
+    const res: any = await priceApi.triggerAdminAlert(row.id)
     if (res?.code === 200) {
       invalidateAlertsRequests()
       invalidateActiveAlertCountRequests()
@@ -582,7 +610,7 @@ const handleTriggerAlert = async (row: any) => {
 const handleResetAlert = async (row: any) => {
   try {
     await ElMessageBox.confirm('确定要回退这条降价提醒到监控状态吗？', '提示', { type: 'warning' })
-    const res: any = await axios.post(`/price/admin/alert/${row.id}/reset`)
+    const res: any = await priceApi.resetAdminAlert(row.id)
     if (res?.code === 200) {
       invalidateAlertsRequests()
       invalidateActiveAlertCountRequests()
@@ -609,7 +637,7 @@ const handleResetAlert = async (row: any) => {
 const handleDeleteAlert = async (row: any) => {
   try {
     await ElMessageBox.confirm('确定要删除这条降价提醒吗？', '提示', { type: 'warning' })
-    const res: any = await axios.delete(`/price/admin/alert/${row.id}`)
+    const res: any = await priceApi.deleteAdminAlert(row.id)
     if (res?.code === 200) {
       invalidateAlertsRequests()
       invalidateActiveAlertCountRequests()

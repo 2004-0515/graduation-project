@@ -1,4 +1,24 @@
 import axios from '@/utils/axios'
+import type { ApiResponse, PageResponse } from '@/types'
+
+export interface FileReviewRecord {
+  id: number
+  filePath: string
+  originalName: string
+  fileType: string
+  username: string
+  status: number
+  createdTime: string
+  reviewerName?: string
+  reviewRemark?: string
+}
+
+export interface FileReviewQuery {
+  pageNo: number
+  pageSize: number
+  status?: number
+  fileType?: string
+}
 
 /**
  * 文件上传 API
@@ -7,6 +27,7 @@ import axios from '@/utils/axios'
  * uploads/
  * ├── avatars/          # 用户头像
  * ├── products/         # 商品图片
+ * ├── banners/          # 展示内容图片
  * ├── categories/       # 分类图片
  * ├── promotions/       # 促销活动图片
  * └── reviews/          # 评价图片
@@ -56,6 +77,17 @@ const fileApi = {
   },
 
   /**
+   * 上传展示内容图片 (最大5MB)
+   */
+  uploadBannerImage(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return axios.post('/files/banner', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+
+  /**
    * 上传促销活动图片 (最大5MB)
    */
   uploadPromotionImage(file: File) {
@@ -86,6 +118,27 @@ const fileApi = {
     return axios.post('/files/ad-video', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
+  },
+
+  /**
+   * 获取文件审核列表
+   */
+  getPendingFiles(params: FileReviewQuery): Promise<ApiResponse<PageResponse<FileReviewRecord>>> {
+    return axios.get('/files/pending', { params })
+  },
+
+  /**
+   * 审核文件
+   */
+  reviewFile(fileId: number, status: number, remark: string): Promise<ApiResponse<void>> {
+    return axios.put(`/files/${fileId}/review`, { status, remark })
+  },
+
+  /**
+   * 删除文件审核记录
+   */
+  deleteFile(fileId: number): Promise<ApiResponse<void>> {
+    return axios.delete(`/files/${fileId}`)
   },
 
   /**

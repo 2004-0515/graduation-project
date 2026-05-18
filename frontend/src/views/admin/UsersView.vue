@@ -9,7 +9,7 @@
             </template>
           </el-input>
           <el-select v-model="filterStatus" placeholder="状态筛选" style="width: 120px" @change="fetchUsers">
-            <el-option label="全部" :value="null" />
+            <el-option label="全部" value="ALL" />
             <el-option label="正常" :value="1" />
             <el-option label="禁用" :value="0" />
           </el-select>
@@ -35,6 +35,11 @@
           <el-table-column prop="phone" label="手机号" width="120">
             <template #default="{ row }">{{ row.phone || '-' }}</template>
           </el-table-column>
+          <el-table-column prop="role" label="角色" width="90">
+            <template #default="{ row }">
+              <el-tag :type="getRoleTagType(row.role)" size="small">{{ getRoleText(row.role) }}</el-tag>
+            </template>
+          </el-table-column>
           <el-table-column prop="status" label="状态" width="70">
             <template #default="{ row }">
               <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">{{ row.status === 1 ? '正常' : '禁用' }}</el-tag>
@@ -43,9 +48,19 @@
           <el-table-column prop="createdTime" label="注册时间" width="140">
             <template #default="{ row }">{{ formatDate(row.createdTime) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="180" fixed="right">
+          <el-table-column label="操作" width="240" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link size="small" @click="viewDetail(row)">详情</el-button>
+              <el-dropdown trigger="click" @command="(role) => changeRole(row, role as string)">
+                <el-button type="primary" link size="small">角色</el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="BUYER" :disabled="row.role === 'BUYER'">买家</el-dropdown-item>
+                    <el-dropdown-item command="SELLER" :disabled="row.role === 'SELLER'">卖家</el-dropdown-item>
+                    <el-dropdown-item command="ADMIN" :disabled="row.role === 'ADMIN'">管理员</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
               <el-button type="info" link size="small" @click="resetCoupons(row)">重置券</el-button>
               <el-button v-if="row.status === 1" type="warning" link size="small" @click="toggleStatus(row, 0)">禁用</el-button>
               <el-button v-else type="success" link size="small" @click="toggleStatus(row, 1)">启用</el-button>
@@ -83,6 +98,10 @@
               <span class="value">{{ currentUser.phone || '未绑定' }}</span>
             </div>
             <div class="detail-item">
+              <span class="label">角色</span>
+              <span class="value">{{ getRoleText(currentUser.role) }}</span>
+            </div>
+            <div class="detail-item">
               <span class="label">注册时间</span>
               <span class="value">{{ formatDate(currentUser.createdTime) }}</span>
             </div>
@@ -115,8 +134,11 @@ const loading = ref(false)
 const detailVisible = ref(false)
 const currentUser = ref<any>(null)
 
+type RoleTagType = 'info' | 'success' | 'danger'
+type UserStatusFilter = 0 | 1 | 'ALL'
+
 const searchKeyword = ref('')
-const filterStatus = ref<number | null>(null)
+const filterStatus = ref<UserStatusFilter>('ALL')
 
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -141,10 +163,29 @@ const getAvatarUrl = (avatar: string, username: string = 'U') => {
 
 const isMessageBoxCancel = (error: unknown) => error === 'cancel' || error === 'close'
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: { message?: string } } }).response
+    const message = (error as { message?: string }).message
+    return response?.data?.message || message || fallback
+  }
+  return fallback
+}
+
 const formatDate = (dateStr: string) => {
   if (!dateStr) return null
   const date = new Date(dateStr)
   return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`
+}
+
+const getRoleText = (role: string) => {
+  const map: Record<string, string> = { BUYER: '买家', SELLER: '卖家', ADMIN: '管理员' }
+  return map[role] || '买家'
+}
+
+const getRoleTagType = (role: string): RoleTagType => {
+  const map: Record<string, RoleTagType> = { BUYER: 'info', SELLER: 'success', ADMIN: 'danger' }
+  return map[role] || 'info'
 }
 
 const reconcileCurrentUser = () => {
@@ -162,7 +203,7 @@ const fetchUsers = async () => {
   try {
     const params: any = { page: currentPage.value - 1, size: pageSize.value }
     if (searchKeyword.value) params.keyword = searchKeyword.value
-    if (filterStatus.value !== null) params.status = filterStatus.value
+    if (filterStatus.value !== 'ALL') params.status = filterStatus.value
     
     const res: any = await adminApi.getUsers(params)
     if (requestId !== latestUsersRequestId) {
@@ -216,6 +257,35 @@ const applyLocalUserStatus = (userId: number, status: number) => {
       ...currentUser.value,
       status
     }
+  }
+}
+
+const applyLocalUserRole = (userId: number, role: string) => {
+  users.value = users.value.map((item) => item.id === userId ? { ...item, role } : item)
+  if (currentUser.value?.id === userId) {
+    currentUser.value = { ...currentUser.value, role }
+  }
+}
+
+const changeRole = async (user: any, role: string) => {
+  if (user.role === role) return
+  try {
+    await ElMessageBox.confirm(`确定将用户"${user.username}"设置为${getRoleText(role)}吗？`, '调整角色', { type: 'warning' })
+    const res: any = await adminApi.updateUserRole(user.id, role as any)
+    if (res?.code !== undefined && res?.code !== 200) {
+      const message = res?.message || '角色更新失败'
+      debugError('管理员更新用户角色失败:', message)
+      ElMessage.error(message)
+      return
+    }
+    invalidateUserRequests()
+    applyLocalUserRole(user.id, res?.data?.role || role)
+    await refreshUsersAfterSuccess('更新用户角色')
+    ElMessage.success('用户角色已更新')
+  } catch (error) {
+    if (isMessageBoxCancel(error)) return
+    debugError('管理员更新用户角色失败:', error)
+    ElMessage.error(getErrorMessage(error, '角色更新失败'))
   }
 }
 

@@ -6,9 +6,8 @@ import {
   authedGet,
   authedPost,
   getSession,
-  login,
+  openAdminPage,
   logout,
-  neutralizeFloatingUi,
   resolveProduct
 } from './helpers/session'
 
@@ -50,10 +49,7 @@ test('管理员可在价格管理页触发、回退并删除降价提醒', async
   const alertId = Number(createdAlert?.id || 0)
   expect(alertId).toBeGreaterThan(0)
 
-  await login(page, E2E_USERS.admin, E2E_PASSWORD)
-  await page.goto('/admin/price')
-  await neutralizeFloatingUi(page)
-  await expect(page.getByTestId('admin-price-view')).toBeVisible()
+  await openAdminPage(page, '/admin/price', { testId: 'admin-price-view' })
 
   await page.getByText('降价提醒').click()
   await expect(page.locator('.el-table')).toBeVisible()

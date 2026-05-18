@@ -115,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
 import couponApi from '@/api/couponApi'
@@ -184,8 +184,10 @@ const getTypeName = (type: number) => {
   return names[type] || '未知'
 }
 
-const getTypeTagType = (type: number) => {
-  const types: Record<number, string> = { 1: 'primary', 2: 'warning', 3: 'success' }
+type CouponTagType = 'success' | 'primary' | 'warning' | 'info' | 'danger'
+
+const getTypeTagType = (type: number): CouponTagType => {
+  const types: Record<number, CouponTagType> = { 1: 'primary', 2: 'warning', 3: 'success' }
   return types[type] || 'info'
 }
 

@@ -142,7 +142,7 @@
                      type="primary" @click="goToProductReview">
             去审核
           </el-button>
-          <el-button v-if="!isAdmin && getActualType(currentNotification) === 'product_review'" 
+          <el-button v-if="isSeller && getActualType(currentNotification) === 'product_review'"
                      data-testid="notification-detail-my-products-action"
                      type="primary" @click="goToMyProducts">
             查看我的商品
@@ -170,6 +170,7 @@ import Footer from '../components/Footer.vue'
 import notificationApi, { type Notification } from '../api/notificationApi'
 import { useNotificationStore } from '../stores/notificationStore'
 import { debugError } from '../utils/debug'
+import { isAdminUser, isSellerUser } from '../utils/roles'
 
 import { useUserStore } from '../stores/userStore'
 
@@ -177,8 +178,8 @@ const router = useRouter()
 const notificationStore = useNotificationStore()
 const userStore = useUserStore()
 
-// 判断是否是管理员
-const isAdmin = computed(() => userStore.userInfo?.username === 'admin')
+const isAdmin = computed(() => isAdminUser(userStore.userInfo))
+const isSeller = computed(() => isSellerUser(userStore.userInfo))
 
 const tabs = [
   { name: 'all', label: '全部' },
@@ -387,7 +388,7 @@ const goToOrder = () => {
   const notification = currentNotification.value
   closeDetail()
 
-  if (isSellerShipmentNotification(notification)) {
+  if (isSeller.value && isSellerShipmentNotification(notification)) {
     router.push('/seller-orders')
     return
   }
@@ -412,16 +413,6 @@ const goToOrder = () => {
   }
 
   router.push('/orders')
-}
-
-const goToCoupon = () => {
-  const notification = currentNotification.value
-  closeDetail()
-  if (notification?.relatedId) {
-    router.push(`/coupon/${notification.relatedId}`)
-  } else {
-    router.push('/promotions')
-  }
 }
 
 // 判断是否是降价提醒通知
@@ -469,7 +460,7 @@ const goToProductReview = () => {
 
 const goToMyProducts = () => {
   closeDetail()
-  router.push('/my-products')
+  router.push(isSeller.value ? '/my-products' : '/profile')
 }
 
 const goToProductDetail = () => {
@@ -478,7 +469,7 @@ const goToProductDetail = () => {
   if (notification?.relatedId) {
     router.push(`/product/${notification.relatedId}`)
   } else {
-    router.push('/my-products')
+    router.push(isSeller.value ? '/my-products' : '/profile')
   }
 }
 

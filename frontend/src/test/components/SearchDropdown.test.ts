@@ -461,8 +461,8 @@ describe('SearchDropdown', () => {
         code: 200,
         message: 'success',
         success: true,
-        data: true
-      } as ApiResponse<boolean>)
+        data: undefined
+      } as ApiResponse<void>)
 
       wrapper = createWrapper({ visible: false, keyword: '' })
       await wrapper.setProps({ visible: true })
@@ -534,8 +534,8 @@ describe('SearchDropdown', () => {
         code: 200,
         message: 'success',
         success: true,
-        data: true
-      } as ApiResponse<boolean>)
+        data: undefined
+      } as ApiResponse<void>)
 
       wrapper = createWrapper({ visible: false, keyword: '' })
       await wrapper.setProps({ visible: true })
@@ -561,8 +561,8 @@ describe('SearchDropdown', () => {
         code: 200,
         message: 'success',
         success: true,
-        data: true
-      } as ApiResponse<boolean>)
+        data: undefined
+      } as ApiResponse<void>)
 
       wrapper = createWrapper({ visible: false, keyword: '' })
       await wrapper.setProps({ visible: true })
@@ -609,8 +609,8 @@ describe('SearchDropdown', () => {
         code: 200,
         message: 'success',
         success: true,
-        data: true
-      } as ApiResponse<boolean>)
+        data: undefined
+      } as ApiResponse<void>)
 
       wrapper = createWrapper({ visible: false, keyword: '' })
       await wrapper.setProps({ visible: true })
@@ -751,8 +751,8 @@ describe('SearchDropdown', () => {
         code: 200,
         message: 'success',
         success: true,
-        data: true
-      } as ApiResponse<boolean>)
+        data: undefined
+      } as ApiResponse<void>)
       vi.mocked(searchApi.getSearchHistory)
         .mockResolvedValueOnce({
           code: 200,
@@ -791,8 +791,8 @@ describe('SearchDropdown', () => {
         code: 200,
         message: 'success',
         success: true,
-        data: true
-      } as ApiResponse<boolean>)
+        data: undefined
+      } as ApiResponse<void>)
 
       wrapper = createWrapper({ visible: false, keyword: '' })
       await wrapper.setProps({ visible: true })

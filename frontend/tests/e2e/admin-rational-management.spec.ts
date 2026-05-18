@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test'
 import {
+  confirmMessageBox,
   E2E_PASSWORD,
   E2E_USERS,
   authedPost,
   getSession,
-  login,
-  logout,
-  neutralizeFloatingUi
+  openAdminPage,
+  logout
 } from './helpers/session'
 
 const ACHIEVEMENT_TYPE = 'BUDGET_MASTER'
@@ -23,10 +23,7 @@ test('管理员可在理性消费后台授予并撤销成就', async ({ page }) 
     type: ACHIEVEMENT_TYPE
   }).catch(() => {})
 
-  await login(page, E2E_USERS.admin, E2E_PASSWORD)
-  await page.goto('/admin/rational')
-  await neutralizeFloatingUi(page)
-  await expect(page.getByTestId('admin-rational-view')).toBeVisible()
+  await openAdminPage(page, '/admin/rational', { testId: 'admin-rational-view' })
 
   await page.getByRole('button', { name: '成就管理' }).click()
 
@@ -57,10 +54,7 @@ test('管理员可在理性消费后台授予并撤销成就', async ({ page }) 
   )
 
   await achievementRow.getByRole('button', { name: '撤销' }).click()
-  const confirmDialog = page.locator('.el-overlay-message-box, .el-message-box__wrapper').filter({ has: page.locator('.el-message-box') }).last()
-  await expect(confirmDialog).toBeVisible({ timeout: 10_000 })
-  await confirmDialog.getByRole('button', { name: '确定' }).press('Enter')
-
+  await confirmMessageBox(page)
   const revokeResponse = await revokeResponsePromise
   expect(revokeResponse.ok(), `撤销成就失败: ${revokeResponse.status()} ${revokeResponse.url()}`).toBeTruthy()
   await expect(page.getByText('成就已撤销')).toBeVisible({ timeout: 15_000 })

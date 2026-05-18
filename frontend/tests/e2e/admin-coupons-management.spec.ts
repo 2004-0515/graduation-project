@@ -5,9 +5,8 @@ import {
   E2E_PASSWORD,
   E2E_USERS,
   getSession,
-  login,
+  openAdminPage,
   logout,
-  neutralizeFloatingUi
 } from './helpers/session'
 
 test('管理员可在优惠券后台切换状态并删除优惠券', async ({ page }) => {
@@ -35,10 +34,7 @@ test('管理员可在优惠券后台切换状态并删除优惠券', async ({ pa
     couponId = Number(createPayload?.data?.id)
     expect(couponId).toBeGreaterThan(0)
 
-    await login(page, E2E_USERS.admin, E2E_PASSWORD)
-    await page.goto('/admin/coupons')
-    await neutralizeFloatingUi(page)
-    await expect(page.getByTestId('admin-coupons-view')).toBeVisible()
+    await openAdminPage(page, '/admin/coupons', { testId: 'admin-coupons-view' })
 
     let couponRow = page.locator('.el-table__row', { hasText: uniqueName }).first()
     await expect(couponRow).toBeVisible({ timeout: 15_000 })

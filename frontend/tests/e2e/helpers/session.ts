@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Page } from '@playwright/test'
+import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 
 export const E2E_USERS = {
   buyer: process.env.E2E_USERNAME || 'zhangsan',
@@ -33,6 +33,11 @@ type ProductSelectionOptions = {
   explicitId?: number
   sellerUsername?: string
   excludeSellerUsername?: string
+}
+
+type PageReadyOptions = {
+  testId?: string
+  heading?: string | RegExp
 }
 
 const sessionCache = new Map<string, Session>()
@@ -292,6 +297,47 @@ export async function logout(page: Page) {
   await page.context().clearCookies()
 }
 
+async function expectPageReady(page: Page, options: PageReadyOptions = {}) {
+  if (options.testId) {
+    await expect(page.getByTestId(options.testId)).toBeVisible({ timeout: 15_000 })
+  }
+
+  if (options.heading) {
+    await expect(page.getByRole('heading', { name: options.heading })).toBeVisible({ timeout: 15_000 })
+  }
+}
+
+export async function openPageAs(
+  page: Page,
+  username: string,
+  password: string,
+  path: string,
+  ready: PageReadyOptions = {}
+) {
+  await login(page, username, password)
+  await page.goto(path)
+  await neutralizeFloatingUi(page)
+  await expectPageReady(page, ready)
+}
+
+export async function openAdminPage(page: Page, path: string, ready: PageReadyOptions = {}) {
+  await openPageAs(page, E2E_USERS.admin, E2E_PASSWORD, path, ready)
+}
+
+export function getMessageBox(page: Page): Locator {
+  return page
+    .locator('.el-overlay-message-box, .el-message-box__wrapper')
+    .filter({ has: page.locator('.el-message-box') })
+    .last()
+}
+
+export async function confirmMessageBox(page: Page, buttonName: string = '确定') {
+  const dialog = getMessageBox(page)
+  await expect(dialog).toBeVisible({ timeout: 10_000 })
+  await dialog.getByRole('button', { name: buttonName }).press('Enter')
+  return dialog
+}
+
 export async function authedGet(request: APIRequestContext, token: string, url: string) {
   return request.get(url, {
     headers: {
@@ -302,6 +348,15 @@ export async function authedGet(request: APIRequestContext, token: string, url: 
 
 export async function authedPost(request: APIRequestContext, token: string, url: string, data?: unknown) {
   return request.post(url, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+    data
+  })
+}
+
+export async function authedPut(request: APIRequestContext, token: string, url: string, data?: unknown) {
+  return request.put(url, {
     headers: {
       Authorization: `Bearer ${token}`
     },

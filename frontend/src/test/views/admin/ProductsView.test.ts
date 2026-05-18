@@ -1,62 +1,36 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { createPinia, setActivePinia } from 'pinia'
+import adminApi from '@/api/adminApi'
+import fileApi from '@/api/fileApi'
+import { useAdminStore } from '@/stores/adminStore'
+import * as debugModule from '@/utils/debug'
 
-const { adminApi, axiosMock, messages, messageBox, adminStore, debugError } = vi.hoisted(() => ({
-  adminApi: {
-    getProducts: vi.fn(),
-    getCategories: vi.fn(),
-    updateProduct: vi.fn(),
-    deleteProduct: vi.fn(),
-    createProduct: vi.fn()
-  },
-  axiosMock: {
-    get: vi.fn(),
-    put: vi.fn(),
-    post: vi.fn()
-  },
-  messages: {
-    success: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn()
-  },
-  messageBox: {
-    confirm: vi.fn()
-  },
-  adminStore: {
-    fetchPendingProductCount: vi.fn(),
-    decreasePendingProductCount: vi.fn()
-  },
-  debugError: vi.fn()
-}))
+const messages = {
+  success: vi.spyOn(ElMessage, 'success').mockImplementation(() => '' as any),
+  error: vi.spyOn(ElMessage, 'error').mockImplementation(() => '' as any),
+  warning: vi.spyOn(ElMessage, 'warning').mockImplementation(() => '' as any)
+}
 
-vi.mock('element-plus', () => ({
-  ElMessage: messages,
-  ElMessageBox: messageBox
-}))
+const messageBox = {
+  confirm: vi.spyOn(ElMessageBox, 'confirm')
+}
 
-vi.mock('@/api/adminApi', () => ({
-  default: adminApi
-}))
-
-vi.mock('@/api/fileApi', () => ({
-  default: {
-    getImageUrl: vi.fn(() => '/img.png'),
-    uploadProductImage: vi.fn(),
-    uploadAdVideo: vi.fn()
-  }
-}))
-
-vi.mock('@/utils/axios', () => ({
-  default: axiosMock
-}))
-
-vi.mock('@/stores/adminStore', () => ({
-  useAdminStore: () => adminStore
-}))
-
-vi.mock('@/utils/debug', () => ({
-  debugError
-}))
+const getProductsSpy = vi.spyOn(adminApi, 'getProducts')
+const getPendingProductsSpy = vi.spyOn(adminApi, 'getPendingProducts')
+const getPendingProductCountSpy = vi.spyOn(adminApi, 'getPendingProductCount')
+const getCategoriesSpy = vi.spyOn(adminApi, 'getCategories')
+const updateProductSpy = vi.spyOn(adminApi, 'updateProduct')
+const batchUpdateAllProductStatusSpy = vi.spyOn(adminApi, 'batchUpdateAllProductStatus')
+const reviewProductSpy = vi.spyOn(adminApi, 'reviewProduct')
+const deleteProductSpy = vi.spyOn(adminApi, 'deleteProduct')
+const createProductSpy = vi.spyOn(adminApi, 'createProduct')
+const getUsersSpy = vi.spyOn(adminApi, 'getUsers')
+const getImageUrlSpy = vi.spyOn(fileApi, 'getImageUrl')
+const uploadProductImageSpy = vi.spyOn(fileApi, 'uploadProductImage')
+const uploadAdVideoSpy = vi.spyOn(fileApi, 'uploadAdVideo')
+const debugError = vi.spyOn(debugModule, 'debugError').mockImplementation(() => {})
 
 import ProductsView from '@/views/admin/ProductsView.vue'
 
@@ -71,14 +45,28 @@ function createDeferred<T>() {
 }
 
 describe('ProductsView', () => {
+  let pinia: ReturnType<typeof createPinia>
+  let adminStore: ReturnType<typeof useAdminStore>
+
   beforeEach(() => {
+    pinia = createPinia()
+    setActivePinia(pinia)
+    adminStore = useAdminStore()
     vi.clearAllMocks()
     messageBox.confirm.mockResolvedValue(undefined)
-    adminApi.getCategories.mockResolvedValue({
+    vi.spyOn(adminStore, 'fetchPendingProductCount').mockResolvedValue(undefined)
+    vi.spyOn(adminStore, 'decreasePendingProductCount').mockImplementation(() => {})
+    getCategoriesSpy.mockResolvedValue({
       code: 200,
       data: [{ id: 1, name: '分类A' }]
     })
-    adminApi.getProducts.mockResolvedValue({
+    getUsersSpy.mockResolvedValue({
+      code: 200,
+      data: {
+        content: [{ id: 2, username: 'lisi', nickname: '李四', role: 'SELLER' }]
+      }
+    })
+    getProductsSpy.mockResolvedValue({
       code: 200,
       data: {
         content: [
@@ -87,20 +75,23 @@ describe('ProductsView', () => {
         totalElements: 1
       }
     })
-    axiosMock.get.mockImplementation((url: string) => {
-      if (url === '/products/pending/count') {
-        return Promise.resolve({ code: 200, data: 0 })
-      }
-      if (url === '/products/pending') {
-        return Promise.resolve({ code: 200, data: [] })
-      }
-      return Promise.resolve({ code: 200, data: [] })
-    })
+    getPendingProductCountSpy.mockResolvedValue({ code: 200, data: 0 })
+    getPendingProductsSpy.mockResolvedValue({ code: 200, data: [] })
+    updateProductSpy.mockResolvedValue({ code: 200 } as any)
+    batchUpdateAllProductStatusSpy.mockResolvedValue({ code: 200 } as any)
+    reviewProductSpy.mockResolvedValue({ code: 200 } as any)
+    deleteProductSpy.mockResolvedValue({ code: 200 } as any)
+    createProductSpy.mockResolvedValue({ code: 200 } as any)
+    getImageUrlSpy.mockReturnValue('/img.png')
+    uploadProductImageSpy.mockResolvedValue({ code: 200, data: '/img.png' } as any)
+    uploadAdVideoSpy.mockResolvedValue({ code: 200, data: '/video.mp4' } as any)
+    debugError.mockImplementation(() => {})
   })
 
   const mountView = () =>
     mount(ProductsView, {
       global: {
+        plugins: [pinia],
         directives: {
           loading: {}
         },
@@ -178,7 +169,7 @@ describe('ProductsView', () => {
   })
 
   it('shows an error when approving a product without ad video fails', async () => {
-    axiosMock.post.mockRejectedValue({ response: { data: { message: '审核服务暂不可用' } } })
+    adminApi.reviewProduct.mockRejectedValue({ response: { data: { message: '审核服务暂不可用' } } })
     const wrapper = mountView()
 
     await flushPromises()
@@ -204,7 +195,7 @@ describe('ProductsView', () => {
   })
 
   it('shows backend message when approving a product without ad video returns non-200 payload', async () => {
-    axiosMock.post.mockResolvedValue({ code: 500, message: '审核未通过，请重试' })
+    adminApi.reviewProduct.mockResolvedValue({ code: 500, message: '审核未通过，请重试' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -318,7 +309,7 @@ describe('ProductsView', () => {
   })
 
   it('logs backend message when confirming approve returns non-200 payload', async () => {
-    axiosMock.post.mockResolvedValue({ code: 500, message: '审核确认失败' })
+    adminApi.reviewProduct.mockResolvedValue({ code: 500, message: '审核确认失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -341,7 +332,7 @@ describe('ProductsView', () => {
       },
       configurable: true
     })
-    axiosMock.post.mockResolvedValue({ code: 200 })
+    adminApi.reviewProduct.mockResolvedValue({ code: 200 })
     adminApi.getProducts
       .mockResolvedValueOnce({
         code: 200,
@@ -367,7 +358,7 @@ describe('ProductsView', () => {
     await flushPromises()
 
     expect(messages.success).toHaveBeenCalledWith('审核通过，广告已启用')
-    expect(axiosMock.post).toHaveBeenCalledWith('/products/1/audit', {
+    expect(adminApi.reviewProduct).toHaveBeenCalledWith(1, {
       auditStatus: 1,
       adVideoEnabled: 1,
       adVideoDuration: 5
@@ -381,7 +372,7 @@ describe('ProductsView', () => {
   })
 
   it('logs backend message when confirming reject returns non-200 payload', async () => {
-    axiosMock.post.mockResolvedValue({ code: 500, message: '拒绝审核失败' })
+    adminApi.reviewProduct.mockResolvedValue({ code: 500, message: '拒绝审核失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -395,7 +386,7 @@ describe('ProductsView', () => {
   })
 
   it('keeps approve success when pending badge refresh rejects afterward', async () => {
-    axiosMock.post.mockResolvedValue({ code: 200 })
+    adminApi.reviewProduct.mockResolvedValue({ code: 200 })
     adminStore.fetchPendingProductCount.mockRejectedValueOnce(new Error('badge refresh failed'))
     const wrapper = mountView()
 
@@ -412,7 +403,7 @@ describe('ProductsView', () => {
   })
 
   it('clears audit dialog state after approve and reject succeed', async () => {
-    axiosMock.post.mockResolvedValue({ code: 200 })
+    adminApi.reviewProduct.mockResolvedValue({ code: 200 })
     const wrapper = mountView()
 
     await flushPromises()
@@ -447,15 +438,8 @@ describe('ProductsView', () => {
   })
 
   it('logs when pending count returns non-200 payload', async () => {
-    axiosMock.get.mockImplementation((url: string) => {
-      if (url === '/products/pending/count') {
-        return Promise.resolve({ code: 500, message: '待审核数读取失败' })
-      }
-      if (url === '/products/pending') {
-        return Promise.resolve({ code: 200, data: [] })
-      }
-      return Promise.resolve({ code: 200, data: [] })
-    })
+    adminApi.getPendingProductCount.mockResolvedValue({ code: 500, message: '待审核数读取失败' })
+    adminApi.getPendingProducts.mockResolvedValue({ code: 200, data: [] })
 
     mountView()
     await flushPromises()
@@ -464,15 +448,8 @@ describe('ProductsView', () => {
   })
 
   it('logs when pending products list returns non-200 payload', async () => {
-    axiosMock.get.mockImplementation((url: string) => {
-      if (url === '/products/pending/count') {
-        return Promise.resolve({ code: 200, data: 0 })
-      }
-      if (url === '/products/pending') {
-        return Promise.resolve({ code: 500, message: '待审核列表读取失败' })
-      }
-      return Promise.resolve({ code: 200, data: [] })
-    })
+    adminApi.getPendingProductCount.mockResolvedValue({ code: 200, data: 0 })
+    adminApi.getPendingProducts.mockResolvedValue({ code: 500, message: '待审核列表读取失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -511,6 +488,7 @@ describe('ProductsView', () => {
     ;(wrapper.vm as any).form.name = '商品B'
     ;(wrapper.vm as any).form.description = '描述'
     ;(wrapper.vm as any).form.categoryId = 1
+    ;(wrapper.vm as any).form.sellerId = 2
     ;(wrapper.vm as any).form.price = 199
     ;(wrapper.vm as any).form.stock = 5
     ;(wrapper.vm as any).form.status = 1
@@ -521,6 +499,28 @@ describe('ProductsView', () => {
 
     expect(adminApi.getProducts).toHaveBeenCalledTimes(2)
     expect(messages.success).toHaveBeenCalledWith('商品添加成功')
+  })
+
+  it('blocks admin product save when no product image has been uploaded', async () => {
+    const wrapper = mountView()
+
+    await flushPromises()
+    ;(wrapper.vm as any).form.name = '商品B'
+    ;(wrapper.vm as any).form.description = '描述'
+    ;(wrapper.vm as any).form.categoryId = 1
+    ;(wrapper.vm as any).form.sellerId = 2
+    ;(wrapper.vm as any).form.price = 199
+    ;(wrapper.vm as any).form.stock = 5
+    ;(wrapper.vm as any).form.status = 1
+    ;(wrapper.vm as any).form.images = []
+    ;(wrapper.vm as any).form.mainImage = ''
+
+    await (wrapper.vm as any).saveProduct()
+    await flushPromises()
+
+    expect(adminApi.createProduct).not.toHaveBeenCalled()
+    expect(adminApi.updateProduct).not.toHaveBeenCalled()
+    expect((wrapper.vm as any).saving).toBe(false)
   })
 
   it('keeps product create successful with local append when refresh fails afterward', async () => {
@@ -546,6 +546,7 @@ describe('ProductsView', () => {
     ;(wrapper.vm as any).form.name = '商品B'
     ;(wrapper.vm as any).form.description = '描述'
     ;(wrapper.vm as any).form.categoryId = 1
+    ;(wrapper.vm as any).form.sellerId = 2
     ;(wrapper.vm as any).form.price = 199
     ;(wrapper.vm as any).form.stock = 5
     ;(wrapper.vm as any).form.status = 1
@@ -586,6 +587,7 @@ describe('ProductsView', () => {
     ;(wrapper.vm as any).form.name = '商品A-新版'
     ;(wrapper.vm as any).form.description = '新版描述'
     ;(wrapper.vm as any).form.categoryId = 1
+    ;(wrapper.vm as any).form.sellerId = 2
     ;(wrapper.vm as any).form.price = 129
     ;(wrapper.vm as any).form.stock = 8
     ;(wrapper.vm as any).form.status = 1
@@ -662,6 +664,7 @@ describe('ProductsView', () => {
     ;(wrapper.vm as any).form.name = '商品A-新版'
     ;(wrapper.vm as any).form.description = '新版描述'
     ;(wrapper.vm as any).form.categoryId = 1
+    ;(wrapper.vm as any).form.sellerId = 2
     ;(wrapper.vm as any).form.price = 129
     ;(wrapper.vm as any).form.stock = 8
     ;(wrapper.vm as any).form.status = 1
@@ -703,15 +706,10 @@ describe('ProductsView', () => {
     const secondCountRequest = createDeferred<any>()
     let countCall = 0
 
-    axiosMock.get.mockImplementation((url: string) => {
-      if (url === '/products/pending/count') {
-        countCall += 1
-        return countCall === 1 ? firstCountRequest.promise : secondCountRequest.promise
-      }
-      if (url === '/products/pending') {
-        return Promise.resolve({ code: 200, data: [] })
-      }
-      return Promise.resolve({ code: 200, data: [] })
+    adminApi.getPendingProducts.mockResolvedValue({ code: 200, data: [] })
+    adminApi.getPendingProductCount.mockImplementation(() => {
+      countCall += 1
+      return countCall === 1 ? firstCountRequest.promise : secondCountRequest.promise
     })
 
     const wrapper = mountView()
@@ -777,18 +775,15 @@ describe('ProductsView', () => {
     let pendingCall = 0
     let pendingCountCall = 0
 
-    axiosMock.get.mockImplementation((url: string) => {
-      if (url === '/products/pending/count') {
-        pendingCountCall += 1
-        return Promise.resolve({ code: 200, data: pendingCountCall >= 2 ? 0 : 1 })
-      }
-      if (url === '/products/pending') {
-        pendingCall += 1
-        return pendingCall === 1 ? firstPendingRequest.promise : secondPendingRequest.promise
-      }
-      return Promise.resolve({ code: 200, data: [] })
+    adminApi.getPendingProductCount.mockImplementation(() => {
+      pendingCountCall += 1
+      return Promise.resolve({ code: 200, data: pendingCountCall >= 2 ? 0 : 1 })
     })
-    axiosMock.post.mockResolvedValue({ code: 200 })
+    adminApi.getPendingProducts.mockImplementation(() => {
+      pendingCall += 1
+      return pendingCall === 1 ? firstPendingRequest.promise : secondPendingRequest.promise
+    })
+    adminApi.reviewProduct.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()

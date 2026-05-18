@@ -390,7 +390,7 @@ onMounted(async () => {
   // 并行加载所有数据
   try {
     const [productsRes, categoriesRes, couponsRes] = await Promise.all([
-      productApi.getProducts({ pageNo: 0, pageSize: 100, sort: 'sales' }).catch((error) => {
+      productApi.getProducts({ pageNo: 0, pageSize: 24, sort: 'sales' }).catch((error) => {
         debugError('获取 AI 商品数据失败:', error)
         return { data: { content: [] } }
       }),

@@ -25,7 +25,7 @@
       </el-table-column>
       <el-table-column label="封面" width="80">
         <template #default="{ row }">
-          <img v-if="row.cover" :src="getImageUrl(row.cover)" class="cover-img" />
+          <img v-if="row.cover" :src="getImageUrl(row.cover)" :alt="row.title || '音乐封面'" class="cover-img" />
           <span v-else class="no-cover">无</span>
         </template>
       </el-table-column>
@@ -49,7 +49,7 @@
         <template #default="{ row }">
           <el-switch 
             :model-value="row.status === 1" 
-            @change="(val: boolean) => handleStatusChange(row.id, val)"
+            @change="(val) => handleStatusChange(row.id, Boolean(val))"
           />
         </template>
       </el-table-column>
@@ -99,7 +99,7 @@
                 {{ uploadingCover ? '上传中...' : '选择封面图片' }}
               </el-button>
             </el-upload>
-            <img v-if="form.cover" :src="getImageUrl(form.cover)" class="cover-preview" />
+            <img v-if="form.cover" :src="getImageUrl(form.cover)" :alt="form.title || '音乐封面预览'" class="cover-preview" />
           </div>
           <el-input v-model="form.cover" placeholder="封面图片地址（可选）" class="mt-8" />
         </el-form-item>

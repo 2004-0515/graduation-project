@@ -4,6 +4,7 @@ import {
   E2E_PRODUCTS,
   E2E_USERS,
   login,
+  openAdminPage,
   logout,
   neutralizeFloatingUi,
   resolveProductId
@@ -65,10 +66,7 @@ test('管理员可在订单管理页审核取消并删除订单', async ({ page 
 
   await logout(page)
 
-  await login(page, E2E_USERS.admin, E2E_PASSWORD)
-  await page.goto('/admin/orders')
-  await neutralizeFloatingUi(page)
-  await expect(page.getByTestId('admin-orders-view')).toBeVisible()
+  await openAdminPage(page, '/admin/orders', { testId: 'admin-orders-view' })
 
   await page.getByPlaceholder('搜索订单号').fill(orderNo)
   await page.getByRole('button', { name: '搜索' }).click()

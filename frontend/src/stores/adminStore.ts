@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import axios from '@/utils/axios'
+import adminApi from '@/api/adminApi'
 import { debugError } from '@/utils/debug'
 
 export const useAdminStore = defineStore('admin', () => {
@@ -27,7 +27,7 @@ export const useAdminStore = defineStore('admin', () => {
   const fetchPendingFileCount = async () => {
     const requestId = ++latestPendingFileCountRequestId
     try {
-      const res: any = await axios.get('/files/pending/count')
+      const res: any = await adminApi.getPendingFileCount()
       if (requestId !== latestPendingFileCountRequestId) {
         return
       }
@@ -47,7 +47,7 @@ export const useAdminStore = defineStore('admin', () => {
   const fetchPendingProductCount = async () => {
     const requestId = ++latestPendingProductCountRequestId
     try {
-      const res: any = await axios.get('/products/pending/count')
+      const res: any = await adminApi.getPendingProductCount()
       if (requestId !== latestPendingProductCountRequestId) {
         return
       }
@@ -68,7 +68,7 @@ export const useAdminStore = defineStore('admin', () => {
   const fetchPendingOrderCount = async () => {
     const requestId = ++latestPendingOrderCountRequestId
     try {
-      const res: any = await axios.get('/orders/cancel-requests/count')
+      const res: any = await adminApi.getPendingOrderCount()
       if (requestId !== latestPendingOrderCountRequestId) {
         return
       }

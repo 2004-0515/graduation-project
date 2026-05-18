@@ -4,7 +4,7 @@ import { defineComponent } from 'vue'
 const { mockUserStore } = vi.hoisted(() => ({
   mockUserStore: {
     token: null as string | null,
-    userInfo: null as { username?: string } | null,
+    userInfo: null as { username?: string; role?: 'BUYER' | 'SELLER' | 'ADMIN' } | null,
     fetchCurrentUser: vi.fn()
   }
 }))
@@ -22,6 +22,8 @@ vi.mock('@/views/HomeView.vue', () => ({ default: routeStub('HomeView') }))
 vi.mock('@/views/LoginView.vue', () => ({ default: routeStub('LoginView') }))
 vi.mock('@/views/OrdersView.vue', () => ({ default: routeStub('OrdersView') }))
 vi.mock('@/views/ProfileView.vue', () => ({ default: routeStub('ProfileView') }))
+vi.mock('@/views/MyProductsView.vue', () => ({ default: routeStub('MyProductsView') }))
+vi.mock('@/views/SellerOrdersView.vue', () => ({ default: routeStub('SellerOrdersView') }))
 vi.mock('@/views/admin/DashboardView.vue', () => ({ default: routeStub('AdminDashboardView') }))
 
 import router from '@/router'
@@ -29,7 +31,7 @@ import router from '@/router'
 describe('router guards', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
-    window.scrollTo = vi.fn()
+    window.scrollTo = vi.fn() as unknown as Window['scrollTo']
     mockUserStore.token = null
     mockUserStore.userInfo = null
     mockUserStore.fetchCurrentUser.mockReset()
@@ -63,7 +65,7 @@ describe('router guards', () => {
     mockUserStore.token = 'token'
     mockUserStore.userInfo = null
     mockUserStore.fetchCurrentUser.mockImplementation(async () => {
-      mockUserStore.userInfo = { username: 'buyer' }
+      mockUserStore.userInfo = { username: 'buyer', role: 'BUYER' }
     })
 
     await router.push('/profile')
@@ -74,7 +76,7 @@ describe('router guards', () => {
 
   it('redirects non-admin user away from admin route', async () => {
     mockUserStore.token = 'token'
-    mockUserStore.userInfo = { username: 'buyer' }
+    mockUserStore.userInfo = { username: 'buyer', role: 'BUYER' }
 
     await router.push('/admin')
 
@@ -83,10 +85,36 @@ describe('router guards', () => {
 
   it('allows admin user to visit admin route', async () => {
     mockUserStore.token = 'token'
-    mockUserStore.userInfo = { username: 'admin' }
+    mockUserStore.userInfo = { username: 'admin', role: 'ADMIN' }
 
     await router.push('/admin')
 
     expect(router.currentRoute.value.name).toBe('adminDashboard')
+  })
+
+  it('redirects non-seller user away from seller routes', async () => {
+    mockUserStore.token = 'token'
+    mockUserStore.userInfo = { username: 'zhangsan', role: 'BUYER' }
+
+    await router.push('/my-products')
+
+    expect(router.currentRoute.value.name).toBe('home')
+
+    await router.push('/seller-orders')
+
+    expect(router.currentRoute.value.name).toBe('home')
+  })
+
+  it('allows seller user to visit seller routes', async () => {
+    mockUserStore.token = 'token'
+    mockUserStore.userInfo = { username: 'lisi', role: 'SELLER' }
+
+    await router.push('/my-products')
+
+    expect(router.currentRoute.value.name).toBe('myProducts')
+
+    await router.push('/seller-orders')
+
+    expect(router.currentRoute.value.name).toBe('sellerOrders')
   })
 })

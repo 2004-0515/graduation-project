@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import {
   E2E_PASSWORD,
@@ -38,6 +39,15 @@ test('卖家可在我的商品页发布待审核商品并删除', async ({ page 
   const category = await resolveCategory(page)
   const sellerSession = await getSession(page, E2E_USERS.seller, E2E_PASSWORD)
   const uniqueName = `E2E-MY-PRODUCT-${Date.now()}`
+  const uploadImagePath = path.resolve(
+    process.cwd(),
+    '..',
+    'uploads',
+    'avatars',
+    '2026',
+    '05',
+    '0836ddae-bd89-45fe-a82f-421e885b8ebf.jpg'
+  )
   let createdProductId: number | null = null
 
   try {
@@ -56,6 +66,15 @@ test('卖家可在我的商品页发布待审核商品并删除', async ({ page 
     await dialog.getByRole('spinbutton').nth(0).fill('88')
     await dialog.getByRole('spinbutton').nth(2).fill('5')
     await dialog.getByPlaceholder('请输入商品描述').fill('real-browser-my-products')
+
+    const uploadResponsePromise = page.waitForResponse((response) =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/api/files/product')
+    )
+    await dialog.locator('.avatar-uploader input[type="file"]').setInputFiles(uploadImagePath)
+    const uploadResponse = await uploadResponsePromise
+    expect(uploadResponse.ok(), `上传商品图片失败: ${uploadResponse.status()} ${uploadResponse.url()}`).toBeTruthy()
+    await expect(dialog.locator('.image-grid .image-card')).toHaveCount(1)
 
     const submitResponsePromise = page.waitForResponse((response) =>
       response.request().method() === 'POST' &&

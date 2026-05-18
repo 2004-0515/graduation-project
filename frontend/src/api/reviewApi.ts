@@ -7,7 +7,7 @@ export interface Review {
   orderItemId?: number
   rating: number
   content: string
-  images?: string
+  images?: string[]
   anonymous?: boolean
   username?: string
   avatar?: string

@@ -1,6 +1,6 @@
 import axios from '@/utils/axios'
 import { API_PATHS, PAGINATION } from '@/constants'
-import type { Order, CreateOrderRequest, ApiResponse } from '@/types'
+import type { Order, CreateOrderRequest, ApiResponse, SellerOrderItem } from '@/types'
 
 const orderApi = {
   createOrder(orderData: CreateOrderRequest): Promise<ApiResponse<Order>> {
@@ -23,7 +23,28 @@ const orderApi = {
   },
 
   getUserOrders(_userId?: number): Promise<ApiResponse<Order[]>> {
-    return axios.get(API_PATHS.ORDERS.BASE)
+    return axios.get(API_PATHS.ORDERS.BASE, {
+      params: {
+        page: 0,
+        size: 200
+      }
+    })
+  },
+
+  getSellerPendingCount(): Promise<ApiResponse<number>> {
+    return axios.get('/orders/seller/pending/count')
+  },
+
+  getSellerOrderItems(shipStatus?: number): Promise<ApiResponse<SellerOrderItem[]>> {
+    const params: Record<string, number> = {}
+    if (shipStatus !== undefined) {
+      params.shipStatus = shipStatus
+    }
+    return axios.get('/orders/seller/items', { params })
+  },
+
+  shipSellerOrderItem(id: number): Promise<ApiResponse<void>> {
+    return axios.put(`/orders/seller/items/${id}/ship`)
   },
 
   getOrderById(id: number): Promise<ApiResponse<Order>> {

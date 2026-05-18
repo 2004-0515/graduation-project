@@ -57,7 +57,7 @@
               >
                 <div class="product-info" :data-testid="`price-alert-product-${alert.id}`" @click="goToProduct(alert.productId)">
                   <div class="product-image">
-                    <img :src="getImageUrl(alert.productImage)" @error="imgErr" />
+                    <img :src="getImageUrl(alert.productImage)" :alt="alert.productName || '商品图片'" @error="imgErr" />
                   </div>
                   <div class="product-detail">
                     <h4>{{ alert.productName || `商品${alert.productId}` }}</h4>
@@ -128,7 +128,6 @@ import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
 import priceApi from '@/api/priceApi'
 import fileApi from '@/api/fileApi'
-import axios from '@/utils/axios'
 import { debugError } from '@/utils/debug'
 
 const router = useRouter()
@@ -196,7 +195,7 @@ const fetchAlerts = async (options?: { silentError?: boolean }) => {
   loading.value = true
   try {
     // 获取用户的降价提醒列表（带商品信息）
-    const res: any = await axios.get('/price/alerts/detail')
+    const res: any = await priceApi.getUserAlertDetails()
     if (requestId !== latestAlertsRequestId) {
       return
     }

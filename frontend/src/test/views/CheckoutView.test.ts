@@ -1,7 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ElMessage } from 'element-plus'
-
 const { mockPush, mockRoute, addressApi, couponApi, orderApi, productApi, rationalApi, mockCartStore, mockUserStore, debugError } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockRoute: { query: {} as Record<string, string> },

@@ -2,17 +2,19 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ElMessage } from 'element-plus'
 
-const { mockPush, mockBack, mockRoute, couponApi, productApi, cartStore, userStore, debugError } = vi.hoisted(() => ({
+const { mockPush, mockBack, mockRoute, couponApi, productApi, showcaseApi, cartStore, userStore, debugError } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockBack: vi.fn(),
   mockRoute: { params: { id: '12' } },
   couponApi: {
-    getCouponById: vi.fn(),
     getAvailableCoupons: vi.fn(),
     claimCoupon: vi.fn()
   },
   productApi: {
     getProducts: vi.fn()
+  },
+  showcaseApi: {
+    getPublicBanners: vi.fn()
   },
   cartStore: {
     addToCart: vi.fn()
@@ -53,6 +55,10 @@ vi.mock('@/api/productApi', () => ({
   default: productApi
 }))
 
+vi.mock('@/api/showcaseApi', () => ({
+  default: showcaseApi
+}))
+
 vi.mock('@/api/fileApi', () => ({
   default: {
     getImageUrl: vi.fn(() => '/img.png')
@@ -78,22 +84,31 @@ function createDeferred<T>() {
 describe('PromotionDetailView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockRoute.params.id = '12'
     userStore.isLoggedIn = true
     userStore.userInfo = { id: 1, username: 'buyer' }
-    couponApi.getCouponById.mockResolvedValue({
+    showcaseApi.getPublicBanners.mockResolvedValue({
       code: 200,
-      data: {
-        id: 12,
-        name: '618 满减券',
-        description: '全场部分商品可用',
-        type: 1,
-        discountAmount: 30,
-        minAmount: 199,
-        startTime: '2026-05-01T00:00:00',
-        endTime: '2026-05-31T23:59:59',
-        remaining: 88,
-        claimed: false
-      }
+      data: [
+        {
+          id: 12,
+          placement: 'PROMOTION_HERO',
+          title: '618 满减专题',
+          subtitle: '全场部分商品可用',
+          description: '这里展示当前可领取优惠券和可直接购买的精选商品。',
+          badgeText: '优惠专题',
+          imagePath: '/hero-12.png'
+        },
+        {
+          id: 20,
+          placement: 'PROMOTION_HERO',
+          title: '新专题主视觉',
+          subtitle: '新专题副标题',
+          description: '新的专题说明',
+          badgeText: '新专题',
+          imagePath: '/hero-20.png'
+        }
+      ]
     })
     couponApi.getAvailableCoupons.mockResolvedValue({
       code: 200,
@@ -189,27 +204,28 @@ describe('PromotionDetailView', () => {
     await flushPromises()
 
     expect(couponApi.claimCoupon).toHaveBeenCalledWith(12)
-    expect(couponApi.getCouponById).toHaveBeenCalledTimes(2)
     expect(couponApi.getAvailableCoupons).toHaveBeenCalledTimes(2)
     expect(ElMessage.success).toHaveBeenCalledWith('领取成功')
   })
 
   it('keeps claim successful when featured coupon refresh fails afterward', async () => {
-    couponApi.getCouponById
+    couponApi.getAvailableCoupons
       .mockResolvedValueOnce({
         code: 200,
-        data: {
-          id: 12,
-          name: '618 满减券',
-          description: '全场部分商品可用',
-          type: 1,
-          discountAmount: 30,
-          minAmount: 199,
-          startTime: '2026-05-01T00:00:00',
-          endTime: '2026-05-31T23:59:59',
-          remaining: 88,
-          claimed: false
-        }
+        data: [
+          {
+            id: 12,
+            name: '618 满减券',
+            description: '全场部分商品可用',
+            type: 1,
+            discountAmount: 30,
+            minAmount: 199,
+            startTime: '2026-05-01T00:00:00',
+            endTime: '2026-05-31T23:59:59',
+            remaining: 88,
+            claimed: false
+          }
+        ]
       })
       .mockRejectedValueOnce(new Error('refresh failed'))
 
@@ -234,7 +250,7 @@ describe('PromotionDetailView', () => {
 
     expect(ElMessage.success).toHaveBeenCalledWith('领取成功')
     expect(ElMessage.error).not.toHaveBeenCalled()
-    expect(debugError).toHaveBeenCalledWith('获取优惠专题主优惠券失败:', expect.any(Error))
+    expect(debugError).toHaveBeenCalledWith('获取优惠专题优惠券失败:', expect.any(Error))
   })
 
   it('shows backend Chinese message when claiming fails', async () => {
@@ -354,27 +370,36 @@ describe('PromotionDetailView', () => {
     await flushPromises()
 
     mockRoute.params.id = '20'
-    couponApi.getCouponById.mockResolvedValueOnce({
+    showcaseApi.getPublicBanners.mockResolvedValueOnce({
       code: 200,
-      data: {
-        id: 20,
-        name: '新专题券',
-        description: '新的专题说明',
-        type: 1,
-        discountAmount: 50,
-        minAmount: 299,
-        startTime: '2026-06-01T00:00:00',
-        endTime: '2026-06-30T23:59:59',
-        remaining: 20,
-        claimed: false
-      }
+      data: [
+        {
+          id: 12,
+          placement: 'PROMOTION_HERO',
+          title: '618 满减专题',
+          subtitle: '全场部分商品可用',
+          description: '这里展示当前可领取优惠券和可直接购买的精选商品。',
+          badgeText: '优惠专题',
+          imagePath: '/hero-12.png'
+        },
+        {
+          id: 20,
+          placement: 'PROMOTION_HERO',
+          title: '新专题主视觉',
+          subtitle: '新专题副标题',
+          description: '新的专题说明',
+          badgeText: '新专题',
+          imagePath: '/hero-20.png'
+        }
+      ]
     })
 
     await (wrapper.vm as unknown as { reloadPromotionDetailFromRoute: () => Promise<void> }).reloadPromotionDetailFromRoute()
     await flushPromises()
 
-    expect(couponApi.getCouponById).toHaveBeenLastCalledWith(20)
-    expect(wrapper.text()).toContain('新专题券')
+    expect(showcaseApi.getPublicBanners).toHaveBeenLastCalledWith('PROMOTION_HERO')
+    expect(wrapper.text()).toContain('新专题主视觉')
+    expect(wrapper.text()).toContain('新的专题说明')
   })
 
   it('clears old coupon and product lists before reloading a new promotion route', async () => {
@@ -395,7 +420,7 @@ describe('PromotionDetailView', () => {
     ;(wrapper.vm as any).coupons = [{ id: 12, name: '旧券' }]
     ;(wrapper.vm as any).products = [{ id: 101, name: '旧商品' }]
     mockRoute.params.id = '21'
-    couponApi.getCouponById.mockResolvedValueOnce({ code: 500, message: '专题不存在' })
+    showcaseApi.getPublicBanners.mockResolvedValueOnce({ code: 500, message: '专题不存在' })
     couponApi.getAvailableCoupons.mockResolvedValueOnce({ code: 500, message: '优惠券读取失败' })
     productApi.getProducts.mockResolvedValueOnce({ code: 500, message: '商品读取失败' })
 
@@ -432,11 +457,11 @@ describe('PromotionDetailView', () => {
   })
 
   it('logs non-200 coupon and product payloads without crashing', async () => {
-    couponApi.getCouponById.mockResolvedValueOnce({ code: 404, message: '专题不存在' })
+    showcaseApi.getPublicBanners.mockResolvedValueOnce({ code: 404, message: '专题不存在' })
     couponApi.getAvailableCoupons.mockResolvedValueOnce({ code: 500, message: '优惠券读取失败' })
     productApi.getProducts.mockResolvedValueOnce({ code: 500, message: '商品读取失败' })
 
-    mount(PromotionDetailView, {
+    const wrapper = mount(PromotionDetailView, {
       global: {
         stubs: {
           Navbar: true,
@@ -450,10 +475,10 @@ describe('PromotionDetailView', () => {
 
     await flushPromises()
 
-    expect(debugError).toHaveBeenCalledWith('获取优惠专题主优惠券失败:', '专题不存在')
+    expect(debugError).toHaveBeenCalledWith('获取优惠专题主视觉失败:', '专题不存在')
     expect(debugError).toHaveBeenCalledWith('获取优惠专题优惠券失败:', '优惠券读取失败')
     expect(debugError).toHaveBeenCalledWith('获取优惠专题商品失败:', '商品读取失败')
-    expect(ElMessage.warning).toHaveBeenCalledWith('未找到对应优惠活动，已为你展示当前可用优惠券')
+    expect(wrapper.find('[data-testid=\"promotion-detail-view\"]').exists()).toBe(true)
   })
 
   it('ignores stale available-coupon responses and keeps the newest promotion detail list', async () => {
@@ -488,14 +513,9 @@ describe('PromotionDetailView', () => {
   })
 
   it('does not let in-flight featured/list coupon requests overwrite claim success', async () => {
-    const firstFeatured = createDeferred<any>()
-    const secondFeatured = createDeferred<any>()
     const firstCoupons = createDeferred<any>()
     const secondCoupons = createDeferred<any>()
 
-    couponApi.getCouponById
-      .mockImplementationOnce(() => firstFeatured.promise)
-      .mockImplementationOnce(() => secondFeatured.promise)
     couponApi.getAvailableCoupons
       .mockImplementationOnce(() => firstCoupons.promise)
       .mockImplementationOnce(() => secondCoupons.promise)
@@ -523,12 +543,10 @@ describe('PromotionDetailView', () => {
     expect((wrapper.vm as any).featuredCoupon).toMatchObject({ id: 12, remaining: 87, claimed: true })
     expect((wrapper.vm as any).coupons).toEqual([{ id: 12, remaining: 87, claimed: true }])
 
-    secondFeatured.resolve({ code: 200, data: { id: 12, remaining: 87, claimed: true } })
     secondCoupons.resolve({ code: 200, data: [{ id: 12, remaining: 87, claimed: true }] })
     await claimPromise
     await flushPromises()
 
-    firstFeatured.resolve({ code: 200, data: { id: 12, remaining: 88, claimed: false } })
     firstCoupons.resolve({ code: 200, data: [{ id: 12, remaining: 88, claimed: false }] })
     await flushPromises()
 

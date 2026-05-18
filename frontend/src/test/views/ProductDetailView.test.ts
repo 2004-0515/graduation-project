@@ -1,62 +1,47 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useCartStore } from '@/stores/cartStore'
 import { useUserStore } from '@/stores/userStore'
-
-const { mockRouter, mockRoute, productApi, reviewApi, priceApi, rationalApi, messages, messageBox, debugError } = vi.hoisted(() => ({
-  mockRouter: {
-    push: vi.fn(),
-    back: vi.fn()
-  },
-  mockRoute: {
-    params: { id: '1' }
-  },
-  productApi: {
-    getProductById: vi.fn()
-  },
-  reviewApi: {
-    getAllProductReviews: vi.fn(),
-    getProductReviewStats: vi.fn(),
-    deleteReview: vi.fn()
-  },
-  priceApi: {
-    getPriceHistory: vi.fn(),
-    getPriceStats: vi.fn(),
-    getUserProductAlert: vi.fn(),
-    createAlert: vi.fn(),
-    cancelAlert: vi.fn()
-  },
-  rationalApi: {
-    checkDuplicate: vi.fn(),
-    checkInWishlist: vi.fn(),
-    addToWishlist: vi.fn()
-  },
-  messages: {
-    warning: vi.fn(),
-    error: vi.fn(),
-    success: vi.fn()
-  },
-  messageBox: {
-    confirm: vi.fn()
-  },
-  debugError: vi.fn()
-}))
+import productApi from '@/api/productApi'
+import reviewApi from '@/api/reviewApi'
+import priceApi from '@/api/priceApi'
+import rationalApi from '@/api/rationalApi'
+import fileApi from '@/api/fileApi'
+import * as debugModule from '@/utils/debug'
 
 const windowEvents = vi.hoisted(() => ({
   add: vi.fn(),
   remove: vi.fn()
 }))
 
-vi.mock('vue-router', () => ({
-  useRouter: () => mockRouter,
-  useRoute: () => mockRoute
-}))
+const messages = {
+  warning: vi.spyOn(ElMessage, 'warning').mockImplementation(() => '' as any),
+  error: vi.spyOn(ElMessage, 'error').mockImplementation(() => '' as any),
+  success: vi.spyOn(ElMessage, 'success').mockImplementation(() => '' as any)
+}
 
-vi.mock('element-plus', () => ({
-  ElMessage: messages,
-  ElMessageBox: messageBox
-}))
+const messageBox = {
+  confirm: vi.spyOn(ElMessageBox, 'confirm')
+}
+
+const getProductByIdSpy = vi.spyOn(productApi, 'getProductById')
+const getAllProductReviewsSpy = vi.spyOn(reviewApi, 'getAllProductReviews')
+const getProductReviewStatsSpy = vi.spyOn(reviewApi, 'getProductReviewStats')
+const deleteReviewSpy = vi.spyOn(reviewApi, 'deleteReview')
+const getPriceHistorySpy = vi.spyOn(priceApi, 'getPriceHistory')
+const getPriceStatsSpy = vi.spyOn(priceApi, 'getPriceStats')
+const getUserProductAlertSpy = vi.spyOn(priceApi, 'getUserProductAlert')
+const createAlertSpy = vi.spyOn(priceApi, 'createAlert')
+const cancelAlertSpy = vi.spyOn(priceApi, 'cancelAlert')
+const checkDuplicateSpy = vi.spyOn(rationalApi, 'checkDuplicate')
+const checkInWishlistSpy = vi.spyOn(rationalApi, 'checkInWishlist')
+const addToWishlistSpy = vi.spyOn(rationalApi, 'addToWishlist')
+const getImageUrlSpy = vi.spyOn(fileApi, 'getImageUrl')
+const debugError = vi.spyOn(debugModule, 'debugError').mockImplementation(() => {})
+const debugLog = vi.spyOn(debugModule, 'debugLog').mockImplementation(() => {})
 
 vi.mock('echarts/core', () => ({
   use: vi.fn(),
@@ -82,33 +67,6 @@ vi.mock('echarts/components', () => ({
   GridComponent: {},
   LegendComponent: {},
   TooltipComponent: {}
-}))
-
-vi.mock('@/api/productApi', () => ({
-  default: productApi
-}))
-
-vi.mock('@/api/reviewApi', () => ({
-  default: reviewApi
-}))
-
-vi.mock('@/api/priceApi', () => ({
-  default: priceApi
-}))
-
-vi.mock('@/api/rationalApi', () => ({
-  default: rationalApi
-}))
-
-vi.mock('@/api/fileApi', () => ({
-  default: {
-    getImageUrl: vi.fn((path: string) => path || '/placeholder.png')
-  }
-}))
-
-vi.mock('@/utils/debug', () => ({
-  debugError,
-  debugLog: vi.fn()
 }))
 
 import ProductDetailView from '@/views/ProductDetailView.vue'
@@ -141,19 +99,37 @@ function buildProduct(overrides: Record<string, unknown> = {}) {
 }
 
 describe('ProductDetailView', () => {
-  beforeEach(() => {
+  let pinia: ReturnType<typeof createPinia>
+  let router: Router
+  let routerPushSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(async () => {
     vi.clearAllMocks()
-    mockRoute.params.id = '1'
-    setActivePinia(createPinia())
+    pinia = createPinia()
+    setActivePinia(pinia)
     messageBox.confirm.mockResolvedValue('confirm')
     Object.defineProperty(window, 'addEventListener', { value: windowEvents.add, configurable: true })
     Object.defineProperty(window, 'removeEventListener', { value: windowEvents.remove, configurable: true })
+
+    router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/product/:id', component: { template: '<div />' } },
+        { path: '/checkout', component: { template: '<div />' } },
+        { path: '/login', component: { template: '<div />' } },
+        { path: '/rational-consumption', component: { template: '<div />' } }
+      ]
+    })
+    await router.push('/product/1')
+    await router.isReady()
+    routerPushSpy = vi.spyOn(router, 'push')
 
     const userStore = useUserStore()
     userStore.token = 'token'
     userStore.userInfo = {
       id: 1,
       username: 'buyer',
+      role: 'BUYER',
       email: 'buyer@example.com',
       points: 0,
       growthValue: 0,
@@ -165,14 +141,14 @@ describe('ProductDetailView', () => {
     const cartStore = useCartStore()
     cartStore.addToCart = vi.fn().mockResolvedValue({})
 
-    productApi.getProductById.mockResolvedValue({ code: 200, data: buildProduct() })
-    reviewApi.getAllProductReviews.mockResolvedValue({ code: 200, data: [] })
-    reviewApi.getProductReviewStats.mockResolvedValue({
+    getProductByIdSpy.mockResolvedValue({ code: 200, data: buildProduct() } as any)
+    getAllProductReviewsSpy.mockResolvedValue({ code: 200, data: [] } as any)
+    getProductReviewStatsSpy.mockResolvedValue({
       code: 200,
       data: { total: 0, avgRating: 0, goodRate: 100 }
-    })
-    priceApi.getPriceHistory.mockResolvedValue({ code: 200, data: [] })
-    priceApi.getPriceStats.mockResolvedValue({
+    } as any)
+    getPriceHistorySpy.mockResolvedValue({ code: 200, data: [] } as any)
+    getPriceStatsSpy.mockResolvedValue({
       code: 200,
       data: {
         currentPrice: 99,
@@ -183,17 +159,19 @@ describe('ProductDetailView', () => {
         pricePosition: 30,
         isLowestPrice: false
       }
-    })
-    priceApi.getUserProductAlert.mockResolvedValue({ code: 200, data: null })
-    rationalApi.checkDuplicate.mockResolvedValue({ code: 200, data: [] })
-    rationalApi.checkInWishlist.mockResolvedValue({ code: 200, data: { inWishlist: false } })
+    } as any)
+    getUserProductAlertSpy.mockResolvedValue({ code: 200, data: null } as any)
+    checkDuplicateSpy.mockResolvedValue({ code: 200, data: [] } as any)
+    checkInWishlistSpy.mockResolvedValue({ code: 200, data: { inWishlist: false } } as any)
+    getImageUrlSpy.mockImplementation((path: string) => path || '/placeholder.png')
+    debugError.mockImplementation(() => {})
+    debugLog.mockImplementation(() => {})
   })
 
-  it('disables quantity and purchase actions when stock is zero', async () => {
-    productApi.getProductById.mockResolvedValue({ code: 200, data: buildProduct({ stock: 0 }) })
-
-    const wrapper = mount(ProductDetailView, {
+  const mountView = () =>
+    mount(ProductDetailView, {
       global: {
+        plugins: [pinia, router],
         stubs: {
           Navbar: true,
           Footer: true,
@@ -203,6 +181,11 @@ describe('ProductDetailView', () => {
         }
       }
     })
+
+  it('disables quantity and purchase actions when stock is zero', async () => {
+    productApi.getProductById.mockResolvedValue({ code: 200, data: buildProduct({ stock: 0 }) })
+
+    const wrapper = mountView()
 
     await flushPromises()
 
@@ -214,17 +197,7 @@ describe('ProductDetailView', () => {
   it('normalizes decimal quantity and caps it at stock on blur', async () => {
     productApi.getProductById.mockResolvedValue({ code: 200, data: buildProduct({ stock: 3 }) })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
 
@@ -237,17 +210,7 @@ describe('ProductDetailView', () => {
   })
 
   it('navigates to checkout with normalized quantity when buying now', async () => {
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
 
@@ -255,23 +218,13 @@ describe('ProductDetailView', () => {
     await quantityInput.setValue('2')
     await wrapper.get('[data-testid="product-buy-now"]').trigger('click')
 
-    expect(mockRouter.push).toHaveBeenCalledWith('/checkout?productId=1&quantity=2')
+    expect(routerPushSpy).toHaveBeenCalledWith('/checkout?productId=1&quantity=2')
   })
 
   it('does not show an error when cancelling review deletion', async () => {
     messageBox.confirm.mockRejectedValueOnce('cancel')
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     await (wrapper.vm as any).deleteReview({ id: 9, userId: 1 })
@@ -285,17 +238,7 @@ describe('ProductDetailView', () => {
       response: { data: { message: '已存在提醒' } }
     })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     ;(wrapper.vm as any).targetPrice = 80
@@ -311,17 +254,7 @@ describe('ProductDetailView', () => {
       .mockResolvedValueOnce({ code: 200, data: null })
     priceApi.cancelAlert.mockResolvedValueOnce({ code: 200 })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     await (wrapper.vm as any).cancelAlert()
@@ -338,17 +271,7 @@ describe('ProductDetailView', () => {
       .mockResolvedValueOnce({ code: 200, data: null })
       .mockRejectedValueOnce(new Error('refresh failed'))
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     ;(wrapper.vm as any).targetPrice = 80
@@ -365,17 +288,7 @@ describe('ProductDetailView', () => {
       response: { data: { message: '商品已在清单中' } }
     })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     await (wrapper.vm as any).addToWishlist()
@@ -390,17 +303,7 @@ describe('ProductDetailView', () => {
       .mockResolvedValueOnce({ code: 200, data: { inWishlist: true } })
     rationalApi.addToWishlist.mockResolvedValueOnce({ code: 200 })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     await (wrapper.vm as any).addToWishlist()
@@ -417,17 +320,7 @@ describe('ProductDetailView', () => {
       .mockRejectedValueOnce(new Error('refresh failed'))
     rationalApi.addToWishlist.mockResolvedValueOnce({ code: 200 })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     await (wrapper.vm as any).addToWishlist()
@@ -445,17 +338,7 @@ describe('ProductDetailView', () => {
     })
     reviewApi.deleteReview.mockResolvedValueOnce({ code: 500, message: '评价删除失败' })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     await (wrapper.vm as any).deleteReview({ id: 9, userId: 1 })
@@ -481,17 +364,7 @@ describe('ProductDetailView', () => {
     reviewApi.getAllProductReviews.mockRejectedValueOnce(new Error('refresh failed'))
     reviewApi.getProductReviewStats.mockRejectedValueOnce(new Error('refresh failed'))
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     await (wrapper.vm as any).deleteReview({ id: 9, userId: 1, rating: 5, content: '好评' })
@@ -514,17 +387,7 @@ describe('ProductDetailView', () => {
   it('logs backend message when creating alert returns non-200', async () => {
     priceApi.createAlert.mockResolvedValueOnce({ code: 500, message: '降价提醒已存在' })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     ;(wrapper.vm as any).targetPrice = 80
@@ -540,17 +403,7 @@ describe('ProductDetailView', () => {
       .mockResolvedValueOnce({ code: 200, data: { id: 1, productId: 1, targetPrice: 80, currentPrice: 99, status: 0 } })
     priceApi.cancelAlert.mockResolvedValueOnce({ code: 500, message: '当前提醒无法取消' })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     await (wrapper.vm as any).cancelAlert()
@@ -563,17 +416,7 @@ describe('ProductDetailView', () => {
   it('logs backend message when adding to wishlist returns non-200', async () => {
     rationalApi.addToWishlist.mockResolvedValueOnce({ code: 500, message: '想要清单已存在该商品' })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     await (wrapper.vm as any).addToWishlist()
@@ -586,17 +429,7 @@ describe('ProductDetailView', () => {
     const cartStore = useCartStore()
     cartStore.addToCart = vi.fn().mockRejectedValue(new Error('加入购物车失败'))
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     await (wrapper.vm as any).addToCart()
@@ -609,17 +442,7 @@ describe('ProductDetailView', () => {
     priceApi.getPriceHistory.mockResolvedValueOnce({ code: 500, message: '价格历史读取失败' })
     priceApi.getPriceStats.mockResolvedValueOnce({ code: 500, message: '价格统计读取失败' })
 
-    mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    mountView()
 
     await flushPromises()
 
@@ -630,17 +453,7 @@ describe('ProductDetailView', () => {
   it('logs backend message when price alert payload returns non-200', async () => {
     priceApi.getUserProductAlert.mockResolvedValueOnce({ code: 500, message: '提醒状态读取失败' })
 
-    mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    mountView()
 
     await flushPromises()
 
@@ -651,17 +464,7 @@ describe('ProductDetailView', () => {
     rationalApi.checkDuplicate.mockResolvedValueOnce({ code: 500, message: '重复购买检测失败' })
     rationalApi.checkInWishlist.mockResolvedValueOnce({ code: 500, message: '想要清单状态读取失败' })
 
-    mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    mountView()
 
     await flushPromises()
 
@@ -682,17 +485,7 @@ describe('ProductDetailView', () => {
       }]
     })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     await wrapper.findAll('button').find((button) => button.text() === '用户评价')?.trigger('click')
@@ -715,17 +508,7 @@ describe('ProductDetailView', () => {
       }]
     })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     await wrapper.findAll('button').find((button) => button.text() === '用户评价')?.trigger('click')
@@ -739,17 +522,7 @@ describe('ProductDetailView', () => {
     priceApi.getPriceHistory.mockResolvedValueOnce({ code: 500, message: 'history failed' })
     priceApi.getPriceStats.mockResolvedValueOnce({ code: 500, message: 'stats failed' })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     expect(wrapper.text()).toContain('价格历史数据暂未同步，请稍后刷新重试。')
@@ -766,17 +539,7 @@ describe('ProductDetailView', () => {
       response: { data: { message: '商品不存在' } }
     })
 
-    mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    mountView()
 
     await flushPromises()
 
@@ -791,17 +554,7 @@ describe('ProductDetailView', () => {
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
 
@@ -828,17 +581,7 @@ describe('ProductDetailView', () => {
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
 
@@ -866,17 +609,7 @@ describe('ProductDetailView', () => {
       .mockReturnValueOnce(second.promise)
     priceApi.createAlert.mockResolvedValueOnce({ code: 200 })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     ;(wrapper.vm as any).targetPrice = 80
@@ -903,17 +636,7 @@ describe('ProductDetailView', () => {
       .mockReturnValueOnce(second.promise)
     priceApi.cancelAlert.mockResolvedValueOnce({ code: 200 })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     const cancelPromise = (wrapper.vm as any).cancelAlert()
@@ -939,17 +662,7 @@ describe('ProductDetailView', () => {
       .mockReturnValueOnce(second.promise)
     rationalApi.addToWishlist.mockResolvedValueOnce({ code: 200 })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     const addPromise = (wrapper.vm as any).addToWishlist()
@@ -981,17 +694,7 @@ describe('ProductDetailView', () => {
       .mockImplementationOnce(() => secondStats.promise)
     reviewApi.deleteReview.mockResolvedValueOnce({ code: 200 })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
     ;(wrapper.vm as any).reviews = [
@@ -1107,17 +810,7 @@ describe('ProductDetailView', () => {
       .mockResolvedValueOnce({ code: 200, data: { inWishlist: true } })
       .mockResolvedValueOnce({ code: 200, data: { inWishlist: false } })
 
-    const wrapper = mount(ProductDetailView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: true,
-          ElInput: true,
-          ElCheckbox: true
-        }
-      }
-    })
+    const wrapper = mountView()
 
     await flushPromises()
 
@@ -1130,8 +823,7 @@ describe('ProductDetailView', () => {
     vm.targetPrice = 66
     vm.currentImage = '/custom-old.png'
 
-    mockRoute.params.id = '2'
-    vm.reloadProductDetailFromRoute()
+    await router.push('/product/2')
     await flushPromises()
 
     expect(productApi.getProductById).toHaveBeenNthCalledWith(1, 1)

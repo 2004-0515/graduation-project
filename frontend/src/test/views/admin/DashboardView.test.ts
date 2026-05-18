@@ -3,9 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { adminApi, debugError } = vi.hoisted(() => ({
   adminApi: {
-    getUsers: vi.fn(),
-    getProducts: vi.fn(),
-    getAllOrders: vi.fn()
+    getDashboardStats: vi.fn()
   },
   debugError: vi.fn()
 }))
@@ -45,26 +43,22 @@ const deferred = <T>() => {
 describe('DashboardView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    adminApi.getUsers.mockResolvedValue({
-      code: 200,
-      data: { totalElements: 10 }
-    })
-    adminApi.getProducts.mockResolvedValue({
+    adminApi.getDashboardStats.mockResolvedValue({
       code: 200,
       data: {
-        totalElements: 2,
-        content: [
-          { id: 1, stock: 5, sales: 12, categoryName: '数码' },
-          { id: 2, stock: 20, sales: 8, categoryName: '家居' }
-        ]
+        totalUsers: 10,
+        totalProducts: 2,
+        totalOrders: 2,
+        totalRevenue: 100,
+        todayOrders: 1,
+        todayRevenue: 100,
+        pendingOrders: 2,
+        lowStockProducts: 1,
+        salesTrend: [{ date: '2026-05-09', revenue: 100, orderCount: 1 }],
+        orderStatusDistribution: [{ status: 1, count: 1 }, { status: 0, count: 1 }],
+        topCategories: [{ categoryName: '数码', sales: 12 }, { categoryName: '家居', sales: 8 }],
+        recentOrders: [{ id: 1, orderNo: 'ORD-1', username: 'buyer', totalAmount: 100, orderStatus: 1, createdTime: '2026-05-09T10:00:00' }]
       }
-    })
-    adminApi.getAllOrders.mockResolvedValue({
-      code: 200,
-      data: [
-        { id: 1, orderNo: 'ORD-1', username: 'buyer', totalAmount: 100, orderStatus: 1, createdTime: '2026-05-09T10:00:00' },
-        { id: 2, orderNo: 'ORD-2', username: 'buyer2', totalAmount: 50, orderStatus: 0, createdTime: '2026-05-08T10:00:00' }
-      ]
     })
   })
 
@@ -91,35 +85,17 @@ describe('DashboardView', () => {
     expect((wrapper.vm as any).stats.lowStockProducts).toBe(1)
   })
 
-  it('logs when users stats returns non-200 payload', async () => {
-    adminApi.getUsers.mockResolvedValue({ code: 500, message: '用户统计失败' })
+  it('logs when dashboard stats returns non-200 payload', async () => {
+    adminApi.getDashboardStats.mockResolvedValue({ code: 500, message: '仪表盘统计失败' })
 
     mountView()
     await flushPromises()
 
-    expect(debugError).toHaveBeenCalledWith('获取仪表盘用户统计失败:', '用户统计失败')
-  })
-
-  it('logs when orders stats returns non-200 payload', async () => {
-    adminApi.getAllOrders.mockResolvedValue({ code: 500, message: '订单统计失败' })
-
-    mountView()
-    await flushPromises()
-
-    expect(debugError).toHaveBeenCalledWith('获取仪表盘订单统计失败:', '订单统计失败')
-  })
-
-  it('logs when products stats returns non-200 payload', async () => {
-    adminApi.getProducts.mockResolvedValue({ code: 500, message: '商品统计失败' })
-
-    mountView()
-    await flushPromises()
-
-    expect(debugError).toHaveBeenCalledWith('获取仪表盘商品统计失败:', '商品统计失败')
+    expect(debugError).toHaveBeenCalledWith('获取仪表盘统计失败:', '仪表盘统计失败')
   })
 
   it('logs top-level dashboard fetch failure when stats request throws', async () => {
-    adminApi.getUsers.mockRejectedValue(new Error('后台统计服务不可用'))
+    adminApi.getDashboardStats.mockRejectedValue(new Error('后台统计服务不可用'))
 
     mountView()
     await flushPromises()
@@ -128,18 +104,26 @@ describe('DashboardView', () => {
   })
 
   it('keeps newer dashboard stats when older request resolves later', async () => {
-    const firstUsers = deferred<any>()
+    const firstStats = deferred<any>()
 
-    adminApi.getUsers
-      .mockReturnValueOnce(firstUsers.promise)
-      .mockResolvedValueOnce({ code: 200, data: { totalElements: 20 } })
-    adminApi.getProducts.mockResolvedValue({
+    adminApi.getDashboardStats
+      .mockReturnValueOnce(firstStats.promise)
+      .mockResolvedValueOnce({
       code: 200,
-      data: { totalElements: 1, content: [{ id: 3, stock: 4, sales: 9, categoryName: '图书' }] }
-    })
-    adminApi.getAllOrders.mockResolvedValue({
-      code: 200,
-      data: [{ id: 3, orderNo: 'ORD-NEW', username: 'buyer3', totalAmount: 88, orderStatus: 1, createdTime: '2026-05-10T10:00:00' }]
+      data: {
+        totalUsers: 20,
+        totalProducts: 1,
+        totalOrders: 1,
+        totalRevenue: 88,
+        todayOrders: 1,
+        todayRevenue: 88,
+        pendingOrders: 1,
+        lowStockProducts: 1,
+        salesTrend: [{ date: '2026-05-10', revenue: 88, orderCount: 1 }],
+        orderStatusDistribution: [{ status: 1, count: 1 }],
+        topCategories: [{ categoryName: '图书', sales: 9 }],
+        recentOrders: [{ id: 3, orderNo: 'ORD-NEW', username: 'buyer3', totalAmount: 88, orderStatus: 1, createdTime: '2026-05-10T10:00:00' }]
+      }
     })
 
     const wrapper = mountView()
@@ -155,7 +139,23 @@ describe('DashboardView', () => {
     expect(vm.stats.totalProducts).toBe(1)
     expect(vm.stats.totalOrders).toBe(1)
 
-    firstUsers.resolve({ code: 200, data: { totalElements: 10 } })
+    firstStats.resolve({
+      code: 200,
+      data: {
+        totalUsers: 10,
+        totalProducts: 2,
+        totalOrders: 2,
+        totalRevenue: 100,
+        todayOrders: 1,
+        todayRevenue: 100,
+        pendingOrders: 2,
+        lowStockProducts: 1,
+        salesTrend: [{ date: '2026-05-09', revenue: 100, orderCount: 1 }],
+        orderStatusDistribution: [{ status: 1, count: 1 }, { status: 0, count: 1 }],
+        topCategories: [{ categoryName: '数码', sales: 12 }, { categoryName: '家居', sales: 8 }],
+        recentOrders: [{ id: 1, orderNo: 'ORD-1', username: 'buyer', totalAmount: 100, orderStatus: 1, createdTime: '2026-05-09T10:00:00' }]
+      }
+    })
     await flushPromises()
 
     expect(vm.stats.totalUsers).toBe(20)

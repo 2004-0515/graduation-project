@@ -194,7 +194,7 @@ const paymentMethods = [
   }
 ]
 
-const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const getImageUrl = (path?: string) => fileApi.getImageUrl(path || '')
 const formatMoney = (amount: number | string) => Number(amount || 0).toFixed(2)
 
 const getErrorMessage = (error: unknown, fallback: string) => {

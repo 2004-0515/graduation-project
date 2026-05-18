@@ -1,8 +1,7 @@
-import { computed } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockPush, messages, userStore, cartStore, orderApi, axiosMock, fileApi, debugError } = vi.hoisted(() => ({
+const { mockPush, messages, userStore, cartStore, orderApi, priceApi, fileApi, debugError } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   messages: {
     success: vi.fn(),
@@ -13,24 +12,27 @@ const { mockPush, messages, userStore, cartStore, orderApi, axiosMock, fileApi, 
     userInfo: {
       id: 1,
       username: 'zhangsan',
+      role: 'BUYER',
       nickname: '张三',
       email: 'zhangsan@qq.com',
       phone: '13812345678',
-      bio: '简介'
+      bio: '简介',
+      avatar: ''
     },
     fetchCurrentUser: vi.fn(),
     updateUserInfo: vi.fn()
   },
   cartStore: {
-    items: [],
+    items: [] as Array<{ id: number }>,
     fetchCart: vi.fn()
   },
   orderApi: {
     getOrders: vi.fn(),
-    getUserOrders: vi.fn()
+    getUserOrders: vi.fn(),
+    getSellerPendingCount: vi.fn()
   },
-  axiosMock: {
-    get: vi.fn()
+  priceApi: {
+    getUserAlerts: vi.fn()
   },
   fileApi: {
     getImageUrl: vi.fn((path: string) => path),
@@ -59,8 +61,8 @@ vi.mock('@/api/orderApi', () => ({
   default: orderApi
 }))
 
-vi.mock('@/utils/axios', () => ({
-  default: axiosMock
+vi.mock('@/api/priceApi', () => ({
+  default: priceApi
 }))
 
 vi.mock('@/api/fileApi', () => ({
@@ -104,16 +106,26 @@ const mountView = () =>
 describe('ProfileView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    userStore.userInfo = {
+      id: 1,
+      username: 'zhangsan',
+      role: 'BUYER',
+      nickname: '张三',
+      email: 'zhangsan@qq.com',
+      phone: '13812345678',
+      bio: '简介',
+      avatar: ''
+    }
     orderApi.getOrders.mockReset()
-    axiosMock.get.mockReset()
+    orderApi.getSellerPendingCount.mockReset()
+    priceApi.getUserAlerts.mockReset()
     cartStore.fetchCart.mockReset()
     userStore.fetchCurrentUser.mockReset()
     userStore.updateUserInfo.mockReset()
     fileApi.uploadAvatar.mockReset()
     orderApi.getOrders.mockResolvedValue({ code: 200, data: [] })
-    axiosMock.get
-      .mockResolvedValueOnce({ code: 200, data: [] })
-      .mockResolvedValueOnce({ code: 200, data: 0 })
+    priceApi.getUserAlerts.mockResolvedValue({ code: 200, data: [] })
+    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 0 })
     cartStore.items = []
     cartStore.fetchCart.mockResolvedValue(undefined)
   })
@@ -200,10 +212,10 @@ describe('ProfileView', () => {
   })
 
   it('shows alert and seller badges only when corresponding stats are available', async () => {
-    axiosMock.get.mockReset()
-    axiosMock.get
-      .mockResolvedValueOnce({ code: 200, data: [{ status: 0 }, { status: 0 }] })
-      .mockResolvedValueOnce({ code: 200, data: 3 })
+    userStore.userInfo.username = 'lisi'
+    userStore.userInfo.role = 'SELLER'
+    priceApi.getUserAlerts.mockResolvedValue({ code: 200, data: [{ status: 0 }, { status: 0 }] })
+    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 3 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -222,9 +234,8 @@ describe('ProfileView', () => {
 
   it('shows unavailable hint instead of fake zero when stats loading fails', async () => {
     orderApi.getOrders.mockRejectedValue(new Error('orders failed'))
-    axiosMock.get
-      .mockRejectedValueOnce(new Error('alerts failed'))
-      .mockRejectedValueOnce(new Error('seller failed'))
+    priceApi.getUserAlerts.mockRejectedValue(new Error('alerts failed'))
+    orderApi.getSellerPendingCount.mockRejectedValue(new Error('seller failed'))
     cartStore.fetchCart.mockRejectedValue(new Error('cart failed'))
 
     const wrapper = mountView()
@@ -236,12 +247,12 @@ describe('ProfileView', () => {
   })
 
   it('shows unavailable hint when stats API returns non-200 payloads', async () => {
+    userStore.userInfo.username = 'lisi'
+    userStore.userInfo.role = 'SELLER'
     orderApi.getOrders.mockReset()
-    axiosMock.get.mockReset()
     orderApi.getOrders.mockResolvedValue({ code: 500, message: 'boom' })
-    axiosMock.get
-      .mockResolvedValueOnce({ code: 500, message: 'alerts failed' })
-      .mockResolvedValueOnce({ code: 500, message: 'seller failed' })
+    priceApi.getUserAlerts.mockResolvedValue({ code: 500, message: 'alerts failed' })
+    orderApi.getSellerPendingCount.mockResolvedValue({ code: 500, message: 'seller failed' })
 
     const wrapper = mountView()
     await flushPromises()
@@ -254,17 +265,16 @@ describe('ProfileView', () => {
   })
 
   it('hides alert and seller badges after stats refresh falls back to unavailable', async () => {
-    axiosMock.get.mockReset()
-    axiosMock.get
-      .mockResolvedValueOnce({ code: 200, data: [{ status: 0 }, { status: 0 }] })
-      .mockResolvedValueOnce({ code: 200, data: 3 })
+    userStore.userInfo.username = 'lisi'
+    userStore.userInfo.role = 'SELLER'
+    priceApi.getUserAlerts.mockResolvedValue({ code: 200, data: [{ status: 0 }, { status: 0 }] })
+    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 3 })
 
     const wrapper = mountView()
     await flushPromises()
 
-    axiosMock.get
-      .mockResolvedValueOnce({ code: 500, message: 'alerts failed again' })
-      .mockResolvedValueOnce({ code: 500, message: 'seller failed again' })
+    priceApi.getUserAlerts.mockResolvedValue({ code: 500, message: 'alerts failed again' })
+    orderApi.getSellerPendingCount.mockResolvedValue({ code: 500, message: 'seller failed again' })
 
     const vm = wrapper.vm as unknown as {
       loadPriceAlertCount: () => Promise<void>
@@ -338,10 +348,8 @@ describe('ProfileView', () => {
     orderApi.getOrders
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
-    axiosMock.get.mockReset()
-    axiosMock.get
-      .mockResolvedValueOnce({ code: 200, data: [] })
-      .mockResolvedValueOnce({ code: 200, data: 0 })
+    priceApi.getUserAlerts.mockResolvedValue({ code: 200, data: [] })
+    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 0 })
 
     const wrapper = mountView()
     await flushPromises()

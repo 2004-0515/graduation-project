@@ -51,17 +51,25 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import type { FormInstance, FormRules } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import { debugError } from '../utils/debug'
 
 const router = useRouter()
 const userStore = useUserStore()
-const registerFormRef = ref()
+type RegisterForm = {
+  username: string
+  email: string
+  password: string
+  confirmPassword: string
+}
+
+const registerFormRef = ref<FormInstance>()
 const loading = ref(false)
 
-const registerForm = reactive({ username: '', email: '', password: '', confirmPassword: '' })
+const registerForm = reactive<RegisterForm>({ username: '', email: '', password: '', confirmPassword: '' })
 
-const registerRules = {
+const registerRules: FormRules<RegisterForm> = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { min: 3, max: 20, message: '用户名长度 3-20 个字符', trigger: 'blur' }

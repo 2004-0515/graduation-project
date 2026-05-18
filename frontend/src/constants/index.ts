@@ -157,6 +157,9 @@ export const API_PATHS = {
     ME: '/auth/me',
     CHANGE_PASSWORD: '/auth/change-password'
   },
+  USERS: {
+    ME: '/users/me'
+  },
   PRODUCTS: {
     BASE: '/products',
     BY_CATEGORY: (id: number) => `/products/category/${id}`,

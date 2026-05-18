@@ -143,8 +143,7 @@ const stats = reactive({
 })
 
 const recentOrders = ref<any[]>([])
-const allOrders = ref<any[]>([])
-const allProducts = ref<any[]>([])
+const dashboardData = ref<any>(null)
 
 // 图表引用
 const salesChartRef = ref<HTMLElement | null>(null)
@@ -171,24 +170,13 @@ const initSalesChart = () => {
   if (!salesChartRef.value) return
   salesChart = init(salesChartRef.value)
   
-  // 计算近7天数据
-  const days: string[] = []
-  const salesData: number[] = []
-  const orderCountData: number[] = []
-  
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date()
-    date.setDate(date.getDate() - i)
-    const dateStr = `${date.getMonth()+1}/${date.getDate()}`
-    days.push(dateStr)
-    
-    const dayOrders = allOrders.value.filter(o => {
-      const orderDate = new Date(o.createdTime)
-      return orderDate.toDateString() === date.toDateString() && o.orderStatus >= 1
-    })
-    salesData.push(dayOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0))
-    orderCountData.push(dayOrders.length)
-  }
+  const trend = dashboardData.value?.salesTrend || []
+  const days = trend.map((item: any) => {
+    const date = new Date(item.date)
+    return `${date.getMonth()+1}/${date.getDate()}`
+  })
+  const salesData = trend.map((item: any) => Number(item.revenue || 0))
+  const orderCountData = trend.map((item: any) => Number(item.orderCount || 0))
   
   salesChart.setOption({
     tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
@@ -211,14 +199,12 @@ const initOrderPieChart = () => {
   if (!orderPieRef.value) return
   orderPieChart = init(orderPieRef.value)
   
-  const statusCount = [
-    { value: allOrders.value.filter(o => o.orderStatus === 0).length, name: '待付款' },
-    { value: allOrders.value.filter(o => o.orderStatus === 1).length, name: '待发货' },
-    { value: allOrders.value.filter(o => o.orderStatus === 2).length, name: '待收货' },
-    { value: allOrders.value.filter(o => o.orderStatus === 3).length, name: '已完成' },
-    { value: allOrders.value.filter(o => o.orderStatus === 4).length, name: '已取消' },
-    { value: allOrders.value.filter(o => o.orderStatus === 6).length, name: '申请取消中' }
-  ].filter(item => item.value > 0)
+  const statusCount = (dashboardData.value?.orderStatusDistribution || [])
+    .map((item: any) => ({
+      value: Number(item.count || 0),
+      name: getStatusText(Number(item.status))
+    }))
+    .filter((item: any) => item.value > 0)
   
   orderPieChart.setOption({
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
@@ -242,16 +228,8 @@ const initCategoryBarChart = () => {
   if (!categoryBarRef.value) return
   categoryBarChart = init(categoryBarRef.value)
   
-  // 统计各分类销量
-  const categoryMap = new Map<string, number>()
-  allProducts.value.forEach(p => {
-    const catName = p.categoryName || '未分类'
-    categoryMap.set(catName, (categoryMap.get(catName) || 0) + (p.sales || 0))
-  })
-  
-  const sortedCategories = Array.from(categoryMap.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
+  const sortedCategories: Array<[string, number]> = (dashboardData.value?.topCategories || [])
+    .map((item: any) => [item.categoryName, Number(item.sales || 0)] as [string, number])
   
   categoryBarChart.setOption({
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
@@ -276,56 +254,25 @@ const initCategoryBarChart = () => {
 const fetchStats = async () => {
   const requestId = ++latestStatsRequestId
   try {
-    // 获取用户数
-    const usersRes: any = await adminApi.getUsers({ page: 0, size: 1 })
+    const statsRes: any = await adminApi.getDashboardStats()
     if (requestId !== latestStatsRequestId) {
       return
     }
-    if (usersRes?.code === 200) {
-      stats.totalUsers = usersRes.data?.totalElements || 0
+    if (statsRes?.code === 200) {
+      dashboardData.value = statsRes.data || {}
+      stats.totalUsers = Number(statsRes.data?.totalUsers || 0)
+      stats.totalProducts = Number(statsRes.data?.totalProducts || 0)
+      stats.totalOrders = Number(statsRes.data?.totalOrders || 0)
+      stats.totalRevenue = Number(statsRes.data?.totalRevenue || 0)
+      stats.todayOrders = Number(statsRes.data?.todayOrders || 0)
+      stats.todayRevenue = Number(statsRes.data?.todayRevenue || 0)
+      stats.pendingOrders = Number(statsRes.data?.pendingOrders || 0)
+      stats.lowStockProducts = Number(statsRes.data?.lowStockProducts || 0)
+      recentOrders.value = statsRes.data?.recentOrders || []
     } else {
-      debugError('获取仪表盘用户统计失败:', getResponseMessage(usersRes, '业务返回异常'))
+      debugError('获取仪表盘统计失败:', getResponseMessage(statsRes, '业务返回异常'))
     }
 
-    // 获取商品数据
-    const productsRes: any = await adminApi.getProducts({ page: 0, size: 1000 })
-    if (requestId !== latestStatsRequestId) {
-      return
-    }
-    if (productsRes?.code === 200) {
-      const products = productsRes.data?.content || []
-      allProducts.value = products
-      stats.totalProducts = productsRes.data?.totalElements || products.length
-      stats.lowStockProducts = products.filter((p: any) => p.stock < 10).length
-    } else {
-      debugError('获取仪表盘商品统计失败:', getResponseMessage(productsRes, '业务返回异常'))
-    }
-
-    // 获取订单数据
-    const ordersRes: any = await adminApi.getAllOrders({ page: 0, size: 1000 })
-    if (requestId !== latestStatsRequestId) {
-      return
-    }
-    if (ordersRes?.code === 200) {
-      const orders = ordersRes.data || []
-      allOrders.value = orders
-      stats.totalOrders = orders.length
-      stats.totalRevenue = orders.filter((o: any) => o.orderStatus >= 1).reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0)
-      stats.pendingOrders = orders.filter((o: any) => o.orderStatus === 0 || o.orderStatus === 1).length
-      
-      // 今日数据
-      const today = new Date().toDateString()
-      const todayOrders = orders.filter((o: any) => new Date(o.createdTime).toDateString() === today)
-      stats.todayOrders = todayOrders.length
-      stats.todayRevenue = todayOrders.filter((o: any) => o.orderStatus >= 1).reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0)
-      
-      // 最近订单
-      recentOrders.value = orders.slice(0, 5)
-    } else {
-      debugError('获取仪表盘订单统计失败:', getResponseMessage(ordersRes, '业务返回异常'))
-    }
-
-    // 初始化图表
     if (requestId !== latestStatsRequestId) {
       return
     }

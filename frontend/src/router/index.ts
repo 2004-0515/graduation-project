@@ -126,13 +126,13 @@ const router = createRouter({
       path: '/my-products',
       name: 'myProducts',
       component: () => import('@/views/MyProductsView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresSeller: true }
     },
     {
       path: '/seller-orders',
       name: 'sellerOrders',
       component: () => import('@/views/SellerOrdersView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresSeller: true }
     },
     {
       path: '/price-alerts',
@@ -184,6 +184,12 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
+      path: '/admin/showcase',
+      name: 'adminShowcase',
+      component: () => import('@/views/admin/ShowcaseManageView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
       path: '/admin/notifications',
       name: 'adminNotifications',
       component: () => import('@/views/admin/NotificationsManageView.vue'),
@@ -227,6 +233,7 @@ const router = createRouter({
 
 // 路由守卫
 import { useUserStore } from '@/stores/userStore'
+import { isAdminUser, isSellerUser } from '@/utils/roles'
 
 router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore()
@@ -237,7 +244,7 @@ router.beforeEach(async (to, _from, next) => {
       return
     }
 
-    if (!userStore.userInfo) {
+    if (!userStore.userInfo || !userStore.userInfo.role) {
       try {
         await userStore.fetchCurrentUser()
       } catch (error) {
@@ -248,8 +255,15 @@ router.beforeEach(async (to, _from, next) => {
     
     // 检查管理员权限
     if (to.meta.requiresAdmin) {
-      if (userStore.userInfo?.username !== 'admin') {
+      if (!isAdminUser(userStore.userInfo)) {
         // 非管理员用户访问管理页面，重定向到首页
+        next({ name: 'home' })
+        return
+      }
+    }
+
+    if (to.meta.requiresSeller) {
+      if (!isSellerUser(userStore.userInfo)) {
         next({ name: 'home' })
         return
       }

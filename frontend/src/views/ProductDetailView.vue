@@ -25,7 +25,7 @@
             </div>
             <div class="thumb-list" v-if="product.images?.length > 1">
               <div v-for="(img, i) in product.images" :key="i" :class="['thumb', { active: currentImage === img }]" @click="currentImage = img">
-                <img :src="img" @error="imgErr" />
+                <img :src="img" :alt="`${product.name} 预览图 ${i + 1}`" @error="imgErr" />
               </div>
             </div>
             
@@ -237,7 +237,7 @@
                 <div class="review-item" v-for="r in reviews" :key="r.id" :class="{ 'own-review': isOwnReview(r) }">
                   <div class="review-head">
                     <div class="user-info">
-                      <img v-if="r.avatar" :src="getImageUrl(r.avatar)" class="user-avatar" @error="imgErr" />
+                    <img v-if="r.avatar" :src="getImageUrl(r.avatar)" :alt="`${r.username || '用户'}头像`" class="user-avatar" @error="imgErr" />
                       <span class="user-avatar-placeholder" v-else>{{ (r.username || '匿名')[0] }}</span>
                       <span class="username">{{ r.username || '匿名用户' }}</span>
                       <span v-if="isOwnReview(r)" class="own-tag">我的评价</span>
@@ -254,7 +254,7 @@
                   </div>
                   <p class="review-text">{{ r.content || '用户未填写评价内容' }}</p>
                   <div class="review-images" v-if="r.images">
-                    <img v-for="(img, idx) in parseImages(r.images)" :key="idx" :src="getImageUrl(img)" @error="imgErr" />
+                    <img v-for="(img, idx) in parseImages(r.images)" :key="idx" :src="getImageUrl(img)" :alt="`${r.username || '用户'}评价图 ${idx + 1}`" @error="imgErr" />
                   </div>
                   <div class="review-reply" v-if="r.reply">
                     <span class="reply-label">商家回复：</span>
@@ -398,7 +398,7 @@ import {
   LegendComponent,
   TooltipComponent
 } from 'echarts/components'
-import { graphic, init, type ECharts, type EChartsOption } from 'echarts/core'
+import { graphic, init, type ECharts, type EChartsCoreOption } from 'echarts/core'
 import productApi from '../api/productApi'
 import reviewApi from '../api/reviewApi'
 import fileApi from '../api/fileApi'
@@ -502,7 +502,7 @@ let isAddingToCart = false
 // 验证数量输入 - 增强版：处理NaN、小数、负数
 const validateQuantityInput = () => {
   // 处理NaN、null、undefined、空字符串
-  if (isNaN(quantity.value) || quantity.value === null || quantity.value === undefined || quantity.value === '') {
+  if (Number.isNaN(quantity.value) || quantity.value === null || quantity.value === undefined) {
     quantity.value = 1
     return
   }
@@ -528,7 +528,7 @@ const imgErr = (e: Event) => {
   img.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect fill="#f8f8fc" width="400" height="400"/><text fill="#ccc" font-family="Arial" font-size="24" x="50%" y="50%" text-anchor="middle" dy=".3em">商品图片</text></svg>')
 }
 
-const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const getImageUrl = (path?: string) => fileApi.getImageUrl(path || '')
 
 const getVideoUrl = (path: string) => {
   if (!path) return ''
@@ -583,8 +583,14 @@ const formatTime = (time: string) => {
   return time.substring(0, 10)
 }
 
-const parseImages = (images: string) => {
+const parseImages = (images: unknown) => {
   if (!images) return []
+  if (Array.isArray(images)) {
+    return images.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+  }
+  if (typeof images !== 'string') {
+    return []
+  }
   try {
     const parsed = JSON.parse(images)
     if (!Array.isArray(parsed)) {
@@ -929,7 +935,7 @@ const initPriceChart = () => {
   const dates = priceHistory.value.map(h => h.recordedTime.substring(0, 10))
   const prices = priceHistory.value.map(h => h.price)
   
-  const option: EChartsOption = {
+  const option: EChartsCoreOption = {
     tooltip: {
       trigger: 'axis',
       backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -1078,11 +1084,17 @@ const setAlert = async () => {
     if (res?.code === 200) {
       invalidatePriceAlertRequests()
       priceAlert.value = {
-        ...(priceAlert.value || {}),
+        id: priceAlert.value?.id || 0,
+        userId: priceAlert.value?.userId || Number(userId.value || 0),
         productId: product.value.id,
         targetPrice: targetPrice.value,
         currentPrice: product.value.price,
-        status: 0
+        status: 0,
+        triggeredTime: priceAlert.value?.triggeredTime || null,
+        triggeredPrice: priceAlert.value?.triggeredPrice || null,
+        notified: priceAlert.value?.notified || false,
+        createdTime: priceAlert.value?.createdTime || new Date().toISOString(),
+        updatedTime: new Date().toISOString()
       }
       ElMessage.success('降价提醒设置成功')
       await refreshPriceAlertAfterSuccess('设置降价提醒')

@@ -4,6 +4,7 @@ import {
   E2E_PRODUCTS,
   E2E_USERS,
   login,
+  openAdminPage,
   logout,
   neutralizeFloatingUi,
   resolveProduct,
@@ -154,10 +155,7 @@ test('买家申请取消后管理员可审核通过', async ({ page }) => {
 
   await logout(page)
 
-  await login(page, E2E_USERS.admin, E2E_PASSWORD)
-  await page.goto('/admin/orders')
-  await expect(page.getByRole('heading', { name: '订单管理' })).toBeVisible()
-  await neutralizeFloatingUi(page)
+  await openAdminPage(page, '/admin/orders', { heading: '订单管理' })
 
   await page.getByPlaceholder('搜索订单号').fill(orderNo)
   await page.getByRole('button', { name: '搜索' }).click()

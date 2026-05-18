@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import {
+  confirmMessageBox,
   E2E_PASSWORD,
   E2E_USERS,
   authedDelete,
@@ -76,9 +77,7 @@ test('用户可在通知页完成全部已读、单条删除和清空', async ({
     response.url().includes('/api/notifications/clear')
   )
   await page.getByTestId('notifications-clear-all').click()
-  const confirmDialog = page.locator('.el-overlay-message-box, .el-message-box__wrapper').filter({ has: page.locator('.el-message-box') }).last()
-  await expect(confirmDialog).toBeVisible({ timeout: 10_000 })
-  await confirmDialog.getByRole('button', { name: '确定' }).press('Enter')
+  await confirmMessageBox(page)
   const clearResponse = await clearResponsePromise
   expect(clearResponse.ok(), `清空通知失败: ${clearResponse.status()} ${clearResponse.url()}`).toBeTruthy()
   await expect(page.getByText('已清空所有通知')).toBeVisible({ timeout: 15_000 })

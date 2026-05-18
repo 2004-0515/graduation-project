@@ -10,13 +10,39 @@
     
     <main class="main">
       <div class="container">
-        <div class="hero glass-card">
+        <div class="hero glass-card" :style="heroStyle">
           <div class="hero-content">
-            <span class="hero-tag">限时特惠</span>
-            <h1 class="text-title">优惠券中心</h1>
-            <p>领券享优惠，精选好物等你来</p>
+            <span class="hero-tag">{{ heroBanner?.badgeText || '限时特惠' }}</span>
+            <h1 class="text-title">{{ heroBanner?.title || '优惠券中心' }}</h1>
+            <p>{{ heroBanner?.description || '领券享优惠，精选好物等你来' }}</p>
+            <div class="hero-actions">
+              <button class="btn btn-primary btn-sm" @click="goToHeroTarget">
+                {{ heroBanner?.buttonText || '查看活动' }}
+              </button>
+              <router-link to="/profile" class="btn btn-glass btn-sm">我的优惠券</router-link>
+            </div>
           </div>
         </div>
+
+        <section v-if="topicCards.length > 0" class="section">
+          <div class="section-head">
+            <h2 class="text-title">专题活动</h2>
+            <span class="sub">精选主视觉</span>
+          </div>
+          <div class="topic-grid">
+            <button
+              v-for="banner in topicCards"
+              :key="banner.id"
+              class="topic-card glass-card"
+              :style="{ backgroundImage: `linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.62)), url(${getImageUrl(banner.imagePath)})` }"
+              @click="openBannerDetail(banner)"
+            >
+              <span class="topic-badge">{{ banner.badgeText || '活动专题' }}</span>
+              <h3>{{ banner.title }}</h3>
+              <p>{{ banner.subtitle || banner.description }}</p>
+            </button>
+          </div>
+        </section>
 
         <section class="section">
           <div class="section-head">
@@ -107,13 +133,13 @@
 
         <section class="section">
           <div class="section-head">
-            <h2 class="text-title">热销商品</h2>
+            <h2 class="text-title">关联商品</h2>
             <router-link to="/hot" class="more">查看全部 ></router-link>
           </div>
           <div class="flash-grid">
             <div v-for="item in hotProducts" :key="item.id" class="flash-card glass-card" @click="$router.push(`/product/${item.id}`)">
               <div class="flash-img">
-                <img :src="getImageUrl(item.mainImage)" @error="imgErr" />
+                <img :src="getImageUrl(item.mainImage)" :alt="item.name || '热销商品'" @error="imgErr" />
               </div>
               <div class="flash-info">
                 <h4>{{ item.name }}</h4>
@@ -133,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import { useRouter } from 'vue-router'
@@ -142,6 +168,7 @@ import Footer from '../components/Footer.vue'
 import couponApi from '../api/couponApi'
 import productApi from '../api/productApi'
 import fileApi from '../api/fileApi'
+import showcaseApi, { type ShowcaseBanner } from '../api/showcaseApi'
 import { debugError } from '../utils/debug'
 
 const router = useRouter()
@@ -150,6 +177,7 @@ const loading = ref(true)
 const coupons = ref<any[]>([])
 const myCoupons = ref<any[]>([])
 const hotProducts = ref<any[]>([])
+const promotionBanners = ref<ShowcaseBanner[]>([])
 let latestCouponsRequestId = 0
 let latestMyCouponsRequestId = 0
 const invalidateCouponRequests = () => {
@@ -160,6 +188,16 @@ const invalidateMyCouponRequests = () => {
 }
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const heroBanner = computed(() => promotionBanners.value[0] || null)
+const topicCards = computed(() => promotionBanners.value.slice(1, 4))
+const heroStyle = computed(() => {
+  if (!heroBanner.value?.imagePath) return {}
+  return {
+    backgroundImage: `linear-gradient(90deg, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.20)), url(${getImageUrl(heroBanner.value.imagePath)})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center'
+  }
+})
 
 const imgErr = (e: Event) => { 
   const img = e.target as HTMLImageElement
@@ -189,6 +227,28 @@ const getErrorMessage = (error: unknown, fallback: string) => {
     return response?.data?.message || message || fallback
   }
   return fallback
+}
+
+const resolveBannerLink = (banner: ShowcaseBanner) => {
+  const target = banner.linkTarget?.trim()
+  if (!target) return '/promotions'
+  if (banner.linkType === 'PRODUCT' && /^\d+$/.test(target)) return `/product/${target}`
+  if (banner.linkType === 'CATEGORY' && /^\d+$/.test(target)) return `/category?id=${target}`
+  if (banner.linkType === 'PROMOTION' && /^\d+$/.test(target)) return `/promotion/${target}`
+  return target
+}
+
+const fetchPromotionBanners = async () => {
+  try {
+    const res: any = await showcaseApi.getPublicBanners('PROMOTION_HERO')
+    if (res?.code === 200) {
+      promotionBanners.value = res.data || []
+    } else {
+      debugError('获取活动主视觉失败', res?.message || '活动展示内容返回异常')
+    }
+  } catch (error) {
+    debugError('获取活动主视觉失败', error)
+  }
 }
 
 const fetchCoupons = async () => {
@@ -320,7 +380,24 @@ const goToCouponDetail = (id: number) => {
   router.push(`/coupon/${id}`)
 }
 
+const openBannerDetail = (banner: ShowcaseBanner) => {
+  if (banner.id) {
+    router.push(`/promotion/${banner.id}`)
+    return
+  }
+  router.push(resolveBannerLink(banner))
+}
+
+const goToHeroTarget = () => {
+  if (heroBanner.value) {
+    openBannerDetail(heroBanner.value)
+    return
+  }
+  router.push('/promotions')
+}
+
 onMounted(() => {
+  fetchPromotionBanners()
   fetchCoupons()
   fetchMyCoupons()
   fetchHotProducts()
@@ -337,10 +414,37 @@ onMounted(() => {
 
 .main { position: relative; z-index: 1; padding: 100px 0 60px; }
 
-.hero { padding: 48px; margin-bottom: 48px; text-align: center; }
+.hero { padding: 48px; margin-bottom: 48px; text-align: center; color: #fff; }
 .hero-tag { display: inline-block; padding: 8px 20px; background: var(--primary); color: #fff; border-radius: 20px; font-size: 15px; font-weight: 500; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(155, 135, 245, 0.3); }
 .hero h1 { font-size: 2.5rem; font-weight: 600; margin: 0 0 12px; }
-.hero p { font-size: 18px; color: var(--text-body); margin: 0; }
+.hero p { font-size: 18px; color: rgba(255, 255, 255, 0.86); margin: 0; }
+.hero-actions { display: flex; justify-content: center; gap: 12px; margin-top: 20px; }
+
+.topic-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.topic-card {
+  min-height: 220px;
+  border: none;
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  text-align: left;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+  cursor: pointer;
+}
+.topic-card h3,
+.topic-card p { margin: 0; }
+.topic-badge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+}
 
 .section { margin-bottom: 48px; }
 .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
@@ -407,9 +511,12 @@ onMounted(() => {
 .flash-price .current { font-size: 18px; font-weight: 600; color: var(--primary); }
 .sales-text { font-size: 12px; color: var(--text-body); }
 
-@media (max-width: 1024px) { .flash-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 768px) { 
-  .coupon-grid, .my-coupons { grid-template-columns: 1fr; } 
-  .hero h1 { font-size: 1.75rem; } 
+@media (max-width: 1024px) {
+  .topic-grid,
+  .flash-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .coupon-grid, .my-coupons, .topic-grid { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 1.75rem; }
 }
 </style>

@@ -152,7 +152,7 @@ const retryCount = ref(0) // 重试次数
 const MAX_RETRY = 3 // 最大重试次数
 const hasLoadedMusic = ref(false)
 const hasAttemptedLoad = ref(false)
-let deferredLoadTimer: ReturnType<typeof setTimeout> | null = null
+let deferredLoadTimer: number | null = null
 let latestLoadMusicRequestId = 0
 const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
 
@@ -247,6 +247,7 @@ const isProgressDragging = ref(false)
 const dragProgress = ref(0)
 const position = reactive({ x: 0, y: 0 })
 const dragOffset = reactive({ x: 0, y: 0 })
+const MOBILE_BREAKPOINT = 768
 
 const currentMusic = computed(() => musicList.value[currentIndex.value])
 const progress = computed(() => duration.value ? (currentTime.value / duration.value) * 100 : 0)
@@ -261,7 +262,9 @@ const volumeIcon = computed(() => {
   if (volume.value < 50) return 'vol-low'
   return 'vol-high'
 })
-const isRouteLockedToMinimized = computed(() => shouldForceMinimizeForRoute(currentRoutePath.value))
+const isPlayerLockedToMinimized = computed(() =>
+  shouldForceMinimizeForRoute(currentRoutePath.value) || isMobileViewport()
+)
 
 const shouldForceMinimizeForRoute = (path: string) =>
   path === '/login' ||
@@ -271,15 +274,47 @@ const shouldForceMinimizeForRoute = (path: string) =>
   path.startsWith('/checkout') ||
   path.startsWith('/payment/')
 
+const isMobileViewport = () => window.innerWidth <= MOBILE_BREAKPOINT
+
+const getPlayerFootprint = () => {
+  if (isMinimized.value) {
+    return {
+      width: isMobileViewport() ? 86 : 120,
+      height: isMobileViewport() ? 56 : 70
+    }
+  }
+
+  return {
+    width: isMobileViewport() ? 280 : 340,
+    height: isExpanded.value ? 480 : 240
+  }
+}
+
+const getDefaultPosition = () => {
+  const footprint = getPlayerFootprint()
+  const margin = isMobileViewport() ? 14 : 28
+
+  return {
+    x: Math.max(margin, window.innerWidth - footprint.width - margin),
+    y: Math.max(margin, window.innerHeight - footprint.height - margin)
+  }
+}
+
 const syncPlayerLayoutForRoute = (path: string) => {
-  if (!shouldForceMinimizeForRoute(path)) {
+  if (!shouldForceMinimizeForRoute(path) && !isMobileViewport()) {
     return
   }
 
+  const wasMinimized = isMinimized.value
   if (!isMinimized.value || isExpanded.value) {
     isExpanded.value = false
     isMinimized.value = true
     showVolumePanel.value = false
+  }
+  if (!wasMinimized) {
+    const fallback = getDefaultPosition()
+    position.x = fallback.x
+    position.y = fallback.y
   }
 }
 
@@ -298,19 +333,22 @@ const initPosition = () => {
     } catch (error) {
       debugError('恢复播放器位置失败', error)
       clearPlayerPosition()
-      position.x = window.innerWidth - 380
-      position.y = window.innerHeight - 480
+      const fallback = getDefaultPosition()
+      position.x = fallback.x
+      position.y = fallback.y
     }
   } else {
-    position.x = window.innerWidth - 380
-    position.y = window.innerHeight - 480
+    const fallback = getDefaultPosition()
+    position.x = fallback.x
+    position.y = fallback.y
   }
   constrainPosition()
 }
 
 const constrainPosition = () => {
-  const maxX = window.innerWidth - (isMinimized.value ? 120 : 340)
-  const maxY = window.innerHeight - (isMinimized.value ? 70 : 240)
+  const footprint = getPlayerFootprint()
+  const maxX = window.innerWidth - footprint.width
+  const maxY = window.innerHeight - footprint.height
   position.x = Math.max(0, Math.min(position.x, maxX))
   position.y = Math.max(0, Math.min(position.y, maxY))
 }
@@ -344,7 +382,7 @@ const stopDrag = () => {
 }
 
 const handleMiniClick = () => {
-  if (isRouteLockedToMinimized.value) {
+  if (isPlayerLockedToMinimized.value) {
     showVolumePanel.value = false
     return
   }
@@ -408,7 +446,6 @@ const onProgressMouseUp = () => {
     // 如果当前是暂停状态，拖动进度条后自动播放
     if (!isPlaying.value) {
       removeInteractionListeners()
-      hasUserInteraction = true
       audioRef.value.play().then(() => {
         isPlaying.value = true
         savePlayerState()
@@ -437,7 +474,10 @@ const toggleVolumePanel = () => {
   showVolumePanel.value = !showVolumePanel.value
 }
 
-const onResize = () => constrainPosition()
+const onResize = () => {
+  syncPlayerLayoutForRoute(currentRoutePath.value)
+  constrainPosition()
+}
 
 const loadMusic = async (isRetry = false) => {
   const requestId = ++latestLoadMusicRequestId
@@ -468,7 +508,7 @@ const loadMusic = async (isRetry = false) => {
             restoredIndex = foundIndex
             shouldRestoreTime = true // 找到了同一首歌，可以恢复进度
           }
-        } else if (savedState && savedState.currentIndex < musicList.value.length) {
+        } else if (savedState && typeof savedState.currentIndex === 'number' && savedState.currentIndex < musicList.value.length) {
           // 兼容旧版本，使用索引
           restoredIndex = savedState.currentIndex
           shouldRestoreTime = true
@@ -534,10 +574,12 @@ const scheduleInitialLoad = () => {
     }
   }
 
-  if ('requestIdleCallback' in window) {
-    ;(window as Window & {
-      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
-    }).requestIdleCallback?.(() => deferredStart(), { timeout: 1500 })
+  const requestIdleCallback = (window as Window & {
+    requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+  }).requestIdleCallback
+
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(() => deferredStart(), { timeout: 1500 })
   } else {
     deferredLoadTimer = window.setTimeout(deferredStart, 600)
   }
@@ -560,7 +602,6 @@ const tryAutoPlay = () => {
 const onUserInteraction = () => {
   if (audioRef.value && !isPlaying.value) {
     // 标记已经有用户交互，可以播放了
-    hasUserInteraction = true
     audioRef.value.play().then(() => {
       isPlaying.value = true
       savePlayerState()
@@ -570,9 +611,6 @@ const onUserInteraction = () => {
     removeInteractionListeners()
   }
 }
-
-// 标记是否已有用户交互
-let hasUserInteraction = false
 
 // 添加用户交互监听
 const addInteractionListeners = () => {
@@ -596,8 +634,6 @@ const togglePlay = async () => {
   
   // 移除交互监听，因为用户已经点击了播放按钮
   removeInteractionListeners()
-  hasUserInteraction = true
-  
   if (isPlaying.value) {
     audioRef.value.pause()
     isPlaying.value = false
@@ -616,8 +652,6 @@ const playAt = (index: number) => {
   
   // 移除交互监听，标记已有用户交互
   removeInteractionListeners()
-  hasUserInteraction = true
-  
   currentIndex.value = index
   audioRef.value.src = musicList.value[index].url
   audioRef.value.play().then(() => {
@@ -725,7 +759,7 @@ const handleBeforeUnload = () => {
 // 监听最小化和展开状态变化
 watch(isMinimized, () => savePlayerState())
 watch(isMinimized, (minimized) => {
-  if (!minimized && isRouteLockedToMinimized.value) {
+  if (!minimized && isPlayerLockedToMinimized.value) {
     isMinimized.value = true
     isExpanded.value = false
     showVolumePanel.value = false
@@ -733,7 +767,7 @@ watch(isMinimized, (minimized) => {
 })
 watch(isExpanded, () => savePlayerState())
 watch(isExpanded, (expanded) => {
-  if (expanded && isRouteLockedToMinimized.value) {
+  if (expanded && isPlayerLockedToMinimized.value) {
     isExpanded.value = false
     isMinimized.value = true
     showVolumePanel.value = false

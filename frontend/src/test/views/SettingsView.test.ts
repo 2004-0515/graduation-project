@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockRoute, mockRouter, settingsApi, axiosMock, messageBox, messages, mockUserStore, debugError, matchMediaRemoveListener } =
+const { mockRoute, mockRouter, settingsApi, messageBox, messages, mockUserStore, debugError, matchMediaRemoveListener } =
   vi.hoisted(() => ({
     mockRoute: {
       query: {
@@ -15,12 +15,7 @@ const { mockRoute, mockRouter, settingsApi, axiosMock, messageBox, messages, moc
       getNotificationSettings: vi.fn(),
       updateNotificationSettings: vi.fn(),
       getPrivacySettings: vi.fn(),
-      updatePrivacySettings: vi.fn(),
-      changePassword: vi.fn()
-    },
-    axiosMock: {
-      put: vi.fn(),
-      delete: vi.fn()
+      updatePrivacySettings: vi.fn()
     },
     messageBox: {
       confirm: vi.fn(),
@@ -39,6 +34,8 @@ const { mockRoute, mockRouter, settingsApi, axiosMock, messageBox, messages, moc
         phone: '13800138000'
       },
       updateUserInfo: vi.fn(),
+      changePassword: vi.fn(),
+      deleteAccount: vi.fn(),
       logout: vi.fn()
     },
     debugError: vi.fn(),
@@ -61,10 +58,6 @@ vi.mock('@/stores/userStore', () => ({
 
 vi.mock('@/api/settingsApi', () => ({
   default: settingsApi
-}))
-
-vi.mock('@/utils/axios', () => ({
-  default: axiosMock
 }))
 
 vi.mock('@/utils/debug', () => ({
@@ -139,6 +132,8 @@ describe('SettingsView', () => {
       email: 'buyer@example.com',
       phone: '13800138000'
     })
+    mockUserStore.changePassword.mockResolvedValue('密码修改成功')
+    mockUserStore.deleteAccount.mockResolvedValue(undefined)
     settingsApi.getNotificationSettings.mockResolvedValue({ code: 200, data: {} })
     settingsApi.getPrivacySettings.mockResolvedValue({
       code: 200,
@@ -173,6 +168,16 @@ describe('SettingsView', () => {
 
     expect(wrapper.text()).toContain('订单通知')
     expect(wrapper.text()).not.toContain('评论回复')
+  })
+
+  it('describes account deletion constraints instead of promising unconditional removal', async () => {
+    mockRoute.query.section = 'account'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('仅当账号没有订单、卖家商品、卖家订单项或评价时才可注销')
+    expect(wrapper.text()).not.toContain('永久删除您的账户和所有数据')
   })
 
   it('does not save notification or privacy settings during initial load', async () => {
@@ -373,7 +378,7 @@ describe('SettingsView', () => {
 
   it('shows backend message when changing password returns non-200 payload', async () => {
     mockRoute.query.section = 'security'
-    settingsApi.changePassword.mockResolvedValue({ code: 500, message: '当前密码不正确' })
+    mockUserStore.changePassword.mockRejectedValue(new Error('当前密码不正确'))
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -385,14 +390,18 @@ describe('SettingsView', () => {
     await wrapper.get('button.primary-btn').trigger('click')
     await flushPromises()
 
-    expect(settingsApi.changePassword).toHaveBeenCalled()
+    expect(mockUserStore.changePassword).toHaveBeenCalledWith({
+      currentPassword: 'old-pass',
+      newPassword: 'new-pass-1',
+      confirmPassword: 'new-pass-1'
+    })
     expect(messages.error).toHaveBeenCalledWith('当前密码不正确')
-    expect(debugError).toHaveBeenCalledWith('密码修改失败:', '当前密码不正确')
+    expect(debugError).toHaveBeenCalledWith('密码修改失败:', expect.any(Error))
   })
 
   it('shows thrown message when changing password request fails', async () => {
     mockRoute.query.section = 'security'
-    settingsApi.changePassword.mockRejectedValue({ response: { data: { message: '密码服务暂时不可用' } } })
+    mockUserStore.changePassword.mockRejectedValue({ response: { data: { message: '密码服务暂时不可用' } } })
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -404,7 +413,7 @@ describe('SettingsView', () => {
     await wrapper.get('button.primary-btn').trigger('click')
     await flushPromises()
 
-    expect(settingsApi.changePassword).toHaveBeenCalled()
+    expect(mockUserStore.changePassword).toHaveBeenCalled()
     expect(messages.error).toHaveBeenCalledWith('密码服务暂时不可用')
     expect(debugError).toHaveBeenCalledWith('密码修改失败:', expect.any(Object))
   })
@@ -419,7 +428,7 @@ describe('SettingsView', () => {
     await deleteButton?.trigger('click')
     await flushPromises()
 
-    expect(axiosMock.delete).not.toHaveBeenCalled()
+    expect(mockUserStore.deleteAccount).not.toHaveBeenCalled()
     expect(messages.error).not.toHaveBeenCalled()
   })
 
@@ -454,14 +463,13 @@ describe('SettingsView', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/')
   })
 
-  it('waits for local logout cleanup after account deletion succeeds', async () => {
+  it('waits for user store account deletion before redirecting', async () => {
     messageBox.confirm.mockResolvedValue(undefined)
-    axiosMock.delete.mockResolvedValue({ code: 200 })
 
-    let resolveLogout: (() => void) | undefined
-    mockUserStore.logout.mockReturnValue(
+    let resolveDeleteAccount: (() => void) | undefined
+    mockUserStore.deleteAccount.mockReturnValue(
       new Promise<void>((resolve) => {
-        resolveLogout = resolve
+        resolveDeleteAccount = resolve
       })
     )
 
@@ -472,20 +480,20 @@ describe('SettingsView', () => {
     await deleteButton?.trigger('click')
     await flushPromises()
 
-    expect(messages.success).toHaveBeenCalledWith('账户已注销')
-    expect(mockUserStore.logout).toHaveBeenCalled()
+    expect(mockUserStore.deleteAccount).toHaveBeenCalled()
+    expect(messages.success).not.toHaveBeenCalled()
     expect(mockRouter.push).not.toHaveBeenCalled()
 
-    resolveLogout?.()
+    resolveDeleteAccount?.()
     await flushPromises()
 
+    expect(messages.success).toHaveBeenCalledWith('账户已注销')
     expect(mockRouter.push).toHaveBeenCalledWith('/')
   })
 
-  it('keeps account deletion successful when local logout cleanup fails', async () => {
+  it('redirects after user store account deletion succeeds', async () => {
     messageBox.confirm.mockResolvedValue(undefined)
-    axiosMock.delete.mockResolvedValue({ code: 200 })
-    mockUserStore.logout.mockRejectedValue(new Error('logout cleanup failed'))
+    mockUserStore.deleteAccount.mockResolvedValue(undefined)
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -496,13 +504,12 @@ describe('SettingsView', () => {
 
     expect(messages.success).toHaveBeenCalledWith('账户已注销')
     expect(messages.error).not.toHaveBeenCalled()
-    expect(debugError).toHaveBeenCalledWith('账户注销成功后清理本地登录态失败:', expect.any(Error))
     expect(mockRouter.push).toHaveBeenCalledWith('/')
   })
 
   it('shows backend message when deleting account fails', async () => {
     messageBox.confirm.mockResolvedValue(undefined)
-    axiosMock.delete.mockRejectedValue({ response: { data: { message: '账户注销失败' } } })
+    mockUserStore.deleteAccount.mockRejectedValue({ response: { data: { message: '账户注销失败' } } })
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -515,9 +522,9 @@ describe('SettingsView', () => {
     expect(debugError).toHaveBeenCalledWith('注销账户失败:', expect.any(Object))
   })
 
-  it('logs backend message when deleting account returns non-200 payload', async () => {
+  it('shows thrown message when deleting account store rejects with validation error', async () => {
     messageBox.confirm.mockResolvedValue(undefined)
-    axiosMock.delete.mockResolvedValue({ code: 500, message: '账户仍有关联订单，无法注销' })
+    mockUserStore.deleteAccount.mockRejectedValue(new Error('账户仍有关联订单，无法注销'))
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -527,7 +534,9 @@ describe('SettingsView', () => {
     await flushPromises()
 
     expect(messages.error).toHaveBeenCalledWith('账户仍有关联订单，无法注销')
-    expect(debugError).toHaveBeenCalledWith('注销账户失败:', '账户仍有关联订单，无法注销')
+    expect(debugError).toHaveBeenCalledWith('注销账户失败:', expect.any(Error))
+    expect(mockUserStore.deleteAccount).toHaveBeenCalled()
+    expect(mockRouter.push).not.toHaveBeenCalled()
   })
 
   it('keeps newer notification settings when older request resolves later', async () => {

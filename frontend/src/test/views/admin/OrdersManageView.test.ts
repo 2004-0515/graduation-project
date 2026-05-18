@@ -139,7 +139,7 @@ describe('OrdersManageView', () => {
 
     await flushPromises()
 
-    expect(adminApi.getAllOrders).toHaveBeenCalledWith({ page: 0, size: 1000 })
+    expect(adminApi.getAllOrders).toHaveBeenCalledWith({ page: 0, size: 10 })
     expect((wrapper.vm as unknown as { orders: Order[] }).orders[0].orderStatus).toBe(6)
   })
 
@@ -514,7 +514,7 @@ describe('OrdersManageView', () => {
   it('logs and falls back to raw address text when shipping address json is invalid', async () => {
     adminApi.getAllOrders.mockResolvedValue({
       code: 200,
-      data: [buildOrder({ shippingAddress: '{"receiver":"张三"' })]
+      data: [buildOrder({ shippingAddress: '{"receiver":"张三"' as unknown as Order['shippingAddress'] })]
     })
 
     const wrapper = mount(OrdersManageView, {
@@ -539,7 +539,7 @@ describe('OrdersManageView', () => {
     await flushPromises()
 
     ;(wrapper.vm as unknown as { viewDetail: (order: Order) => void })
-      .viewDetail(buildOrder({ shippingAddress: '{"receiver":"张三"' }))
+      .viewDetail(buildOrder({ shippingAddress: '{"receiver":"张三"' as unknown as Order['shippingAddress'] }))
     await flushPromises()
 
     expect(wrapper.text()).toContain('{"receiver":"张三"')

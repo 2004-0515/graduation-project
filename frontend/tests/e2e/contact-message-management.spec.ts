@@ -2,10 +2,12 @@ import { expect, test } from '@playwright/test'
 import {
   authedDelete,
   authedGet,
+  confirmMessageBox,
   E2E_PASSWORD,
   E2E_USERS,
+  getMessageBox,
   getSession,
-  login,
+  openAdminPage,
   logout,
   neutralizeFloatingUi
 } from './helpers/session'
@@ -40,10 +42,7 @@ test('用户可提交留言，管理员可处理并删除', async ({ page }) => 
     expect(createdMessage, '后台未找到刚提交的留言').toBeTruthy()
     messageId = Number(createdMessage.id)
 
-    await login(page, E2E_USERS.admin, E2E_PASSWORD)
-    await page.goto('/admin/contact-messages')
-    await neutralizeFloatingUi(page)
-    await expect(page.getByTestId('admin-contact-messages-view')).toBeVisible()
+    await openAdminPage(page, '/admin/contact-messages', { testId: 'admin-contact-messages-view' })
 
     let messageRow = page.locator('.el-table__row', { hasText: uniqueContent }).first()
     await expect(messageRow).toBeVisible({ timeout: 15_000 })
@@ -56,13 +55,12 @@ test('用户可提交留言，管理员可处理并删除', async ({ page }) => 
     await expect(messageRow).toContainText('已处理')
 
     await messageRow.getByRole('button', { name: '删除' }).click()
-    const confirmDialog = page.locator('.el-overlay-message-box, .el-message-box__wrapper').filter({ has: page.locator('.el-message-box') }).last()
-    await expect(confirmDialog).toBeVisible({ timeout: 10_000 })
+    const confirmDialog = getMessageBox(page)
     const deleteResponsePromise = page.waitForResponse((response) =>
       response.request().method() === 'DELETE' &&
       response.url().includes(`/api/contact-messages/admin/${messageId}`)
     )
-    await confirmDialog.getByRole('button', { name: '确定' }).press('Enter')
+    await confirmMessageBox(page)
     const deleteResponse = await deleteResponsePromise
     expect(deleteResponse.ok(), `删除留言请求失败: ${deleteResponse.status()} ${deleteResponse.url()}`).toBeTruthy()
     await expect(confirmDialog).toBeHidden({ timeout: 10_000 })

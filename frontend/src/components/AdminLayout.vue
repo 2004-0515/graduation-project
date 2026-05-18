@@ -34,6 +34,10 @@
           <span class="nav-text">文件审核</span>
           <span v-if="pendingCount > 0" class="pending-badge">{{ pendingCount }}</span>
         </router-link>
+        <router-link to="/admin/showcase" class="nav-item" :class="{ active: $route.path.startsWith('/admin/showcase') }">
+          <span class="nav-icon">展</span>
+          <span class="nav-text">展示内容</span>
+        </router-link>
         <router-link to="/admin/notifications" class="nav-item" :class="{ active: $route.path.startsWith('/admin/notifications') }">
           <span class="nav-icon">消息</span>
           <span class="nav-text">消息管理</span>
@@ -109,6 +113,7 @@ const pageTitle = computed(() => {
     '/admin/orders': '订单管理',
     '/admin/users': '用户管理',
     '/admin/files': '文件审核',
+    '/admin/showcase': '展示内容管理',
     '/admin/notifications': '消息管理',
     '/admin/contact-messages': '留言管理',
     '/admin/coupons': '促销管理',

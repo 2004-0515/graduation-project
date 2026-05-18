@@ -1,5 +1,5 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { flushPromises, mount } from '@vue/test-utils'
+import { config, flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Order } from '@/types'
 
@@ -7,8 +7,8 @@ const { mockPush, mockRoute, orderApi, reviewApi, messages, debugError } = vi.ho
   mockPush: vi.fn(),
   mockRoute: {
     query: {
-      status: '1',
-      search: ''
+      status: '1' as string | undefined,
+      search: '' as string | undefined
     }
   },
   orderApi: {
@@ -56,6 +56,12 @@ vi.mock('@/utils/debug', () => ({
 }))
 
 import OrdersView from '@/views/OrdersView.vue'
+
+config.global.stubs = {
+  ...config.global.stubs,
+  ElIcon: { template: '<span><slot /></span>' },
+  ElUpload: { template: '<div><slot /></div>' }
+}
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void

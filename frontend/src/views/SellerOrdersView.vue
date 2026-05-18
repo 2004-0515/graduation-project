@@ -10,7 +10,7 @@
       <!-- 筛选工具栏 -->
       <div class="toolbar">
         <el-radio-group v-model="filterStatus" @change="handleFilterChange">
-          <el-radio-button :label="null">全部</el-radio-button>
+          <el-radio-button :label="''">全部</el-radio-button>
           <el-radio-button :label="0">
             待发货
             <span v-if="pendingCount > 0" class="badge">{{ pendingCount }}</span>
@@ -83,14 +83,14 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
-import axios from '@/utils/axios'
+import orderApi from '@/api/orderApi'
 import fileApi from '@/api/fileApi'
 import { debugError } from '@/utils/debug'
-import type { Address, ApiResponse, SellerOrderItem } from '@/types'
+import type { Address, SellerOrderItem } from '@/types'
 
 const orderItems = ref<SellerOrderItem[]>([])
 const loading = ref(false)
-const filterStatus = ref<number | null>(null)
+const filterStatus = ref<number | ''>('')
 const pendingCount = ref(0)
 let latestOrderItemsRequestId = 0
 let latestPendingCountRequestId = 0
@@ -101,9 +101,9 @@ const invalidatePendingCountRequests = () => {
   latestPendingCountRequestId += 1
 }
 
-const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const getImageUrl = (path?: string) => fileApi.getImageUrl(path || '')
 
-const formatDate = (dateStr: string) => {
+const formatDate = (dateStr?: string) => {
   if (!dateStr) return '-'
   const date = new Date(dateStr)
   return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`
@@ -138,7 +138,7 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 const fetchPendingCount = async () => {
   const requestId = ++latestPendingCountRequestId
   try {
-    const res = await axios.get('/orders/seller/pending/count') as ApiResponse<number>
+    const res = await orderApi.getSellerPendingCount()
     if (requestId !== latestPendingCountRequestId) {
       return
     }
@@ -159,11 +159,7 @@ const fetchOrderItems = async (showError: boolean = true) => {
   const requestId = ++latestOrderItemsRequestId
   loading.value = true
   try {
-    const params: Record<string, number> = {}
-    if (filterStatus.value !== null) {
-      params.shipStatus = filterStatus.value
-    }
-    const res = await axios.get('/orders/seller/items', { params }) as ApiResponse<SellerOrderItem[]>
+    const res = await orderApi.getSellerOrderItems(filterStatus.value === '' ? undefined : filterStatus.value)
     if (requestId !== latestOrderItemsRequestId) {
       return
     }
@@ -206,7 +202,7 @@ const refreshSellerOrdersAfterSuccess = async () => {
 }
 
 const applyLocalOrderItems = (nextItems: SellerOrderItem[]) => {
-  if (filterStatus.value === null) {
+  if (filterStatus.value === '') {
     orderItems.value = nextItems
     return
   }
@@ -220,7 +216,7 @@ const handleShip = async (item: SellerOrderItem) => {
       '确认发货',
       { confirmButtonText: '确定发货', cancelButtonText: '取消', type: 'info' }
     )
-    const res = await axios.put(`/orders/seller/items/${item.id}/ship`) as ApiResponse<unknown>
+    const res = await orderApi.shipSellerOrderItem(item.id)
     if (res?.code === 200) {
       invalidateSellerOrderRequests()
       invalidatePendingCountRequests()

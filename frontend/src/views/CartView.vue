@@ -51,25 +51,25 @@
               :key="item.id"
               :class="['cart-item', {
               'item-unavailable': item.productStatus !== 1,
-              'item-own-product': item.sellerId && userId && item.sellerId === userId
+              'item-own-product': isOwnCartItem(item)
             }]"
               :data-testid="`cart-item-${item.id}`"
             >
               <label class="checkbox-wrap">
-                <input 
-                  type="checkbox" 
-                  :checked="item.selected !== false && item.productStatus === 1 && !(item.sellerId && userId && item.sellerId === userId)" 
-                  @change="item.selected = ($event.target as HTMLInputElement).checked" 
-                  :disabled="item.productStatus !== 1 || (item.sellerId && userId && item.sellerId === userId)" 
+                <input
+                  type="checkbox"
+                  :checked="item.selected !== false && item.productStatus === 1 && !isOwnCartItem(item)"
+                  @change="item.selected = ($event.target as HTMLInputElement).checked"
+                  :disabled="item.productStatus !== 1 || isOwnCartItem(item)"
                 />
               </label>
               <div class="item-info">
-                <img :src="getImageUrl(item.productImage)" class="item-img" @error="imgErr" />
+                <img :src="getImageUrl(item.productImage)" :alt="item.productName || '商品图片'" class="item-img" @error="imgErr" />
                 <div class="item-detail">
                   <h4 @click="$router.push(`/product/${item.productId}`)">{{ item.productName }}</h4>
                   <p>商品编号: {{ item.productId }}</p>
                   <p v-if="item.productStatus !== 1" class="item-warning">商品已下架</p>
-                  <p v-else-if="item.sellerId && userId && item.sellerId === userId" class="item-warning own-warning">这是您自己的商品，无法购买</p>
+                  <p v-else-if="isOwnCartItem(item)" class="item-warning own-warning">这是您自己的商品，无法购买</p>
                   <p v-else-if="item.stock !== undefined && item.stock < item.quantity" class="item-warning">库存不足（剩余{{ item.stock }}件）</p>
                 </div>
               </div>
@@ -132,12 +132,12 @@ const selectAll = ref(true)
 
 // 当前用户ID
 const userId = computed(() => userStore.userInfo?.id)
+const isOwnCartItem = (item: { sellerId?: number | null }) =>
+  item.sellerId != null && userId.value != null && item.sellerId === userId.value
 
 // 检测购物车中是否有自己的商品
 const ownProductsInCart = computed(() => 
-  cartItems.value.filter(item => 
-    item.sellerId && userId.value && item.sellerId === userId.value
-  )
+  cartItems.value.filter((item) => isOwnCartItem(item))
 )
 
 // 预算状态
@@ -153,7 +153,7 @@ const selectedCount = computed(() =>
   cartItems.value.filter(i => 
     i.selected !== false && 
     i.productStatus === 1 &&
-    !(i.sellerId && userId.value && i.sellerId === userId.value)
+    !isOwnCartItem(i)
   ).length
 )
 
@@ -161,7 +161,7 @@ const totalPrice = computed(() =>
   cartItems.value.filter(i => 
     i.selected !== false && 
     i.productStatus === 1 &&
-    !(i.sellerId && userId.value && i.sellerId === userId.value)
+    !isOwnCartItem(i)
   ).reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0)
 )
 
@@ -169,12 +169,12 @@ const checkoutEligibleItems = computed(() =>
   cartItems.value.filter(i =>
     i.selected !== false &&
     i.productStatus === 1 &&
-    !(i.sellerId && userId.value && i.sellerId === userId.value) &&
+    !isOwnCartItem(i) &&
     !(i.stock !== undefined && i.quantity > i.stock)
   )
 )
 
-const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const getImageUrl = (path?: string) => fileApi.getImageUrl(path || '')
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (error && typeof error === 'object') {
     const response = (error as { response?: { data?: { message?: string } } }).response
@@ -190,7 +190,7 @@ const imgErr = (e: Event) => {
 const toggleSelectAll = () => { 
   // 只选中可用且不是自己的商品
   cartStore.items.forEach(item => {
-    if (item.productStatus === 1 && !(item.sellerId && userId.value && item.sellerId === userId.value)) {
+    if (item.productStatus === 1 && !isOwnCartItem(item)) {
       item.selected = selectAll.value
     }
   }) 

@@ -209,7 +209,7 @@
                 <div class="action-item danger">
                   <div class="action-info">
                     <h5>注销账户</h5>
-                    <p>永久删除您的账户和所有数据，此操作不可恢复。当前版本将直接基于登录态确认。</p>
+                    <p>仅当账号没有订单、卖家商品、卖家订单项或评价时才可注销；其余个人资料会一并清理。</p>
                   </div>
                   <button class="delete-btn" data-testid="settings-delete-account" @click="handleDeleteAccount">注销账户</button>
                 </div>
@@ -229,7 +229,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import settingsApi from '../api/settingsApi'
-import axios from '../utils/axios'
 import { debugError } from '../utils/debug'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
@@ -259,7 +258,7 @@ const navSections = [
   { id: 'account', label: '账户操作', icon: '账户' },
 ]
 
-const notificationItems = [
+const notificationItems: Array<{ key: keyof NotificationSettingsState; title: string; desc: string; icon: string }> = [
   { key: 'order', title: '订单通知', desc: '接收订单状态变更通知', icon: '订单' },
   { key: 'promotion', title: '促销通知', desc: '接收优惠活动和促销信息', icon: '促销' },
   { key: 'system', title: '系统通知', desc: '接收系统公告和安全提醒', icon: '系统' },
@@ -612,21 +611,15 @@ const changePassword = async () => {
   
   loading.value = true
   try {
-    const res: any = await settingsApi.changePassword({
+    await userStore.changePassword({
       currentPassword: passwordForm.oldPassword, 
       newPassword: passwordForm.newPassword, 
       confirmPassword: passwordForm.confirmPassword
     })
-    if (res?.code === 200) {
-      ElMessage.success('密码修改成功')
-      passwordForm.oldPassword = ''
-      passwordForm.newPassword = ''
-      passwordForm.confirmPassword = ''
-    } else { 
-      const message = res?.message || '密码修改失败'
-      debugError('密码修改失败:', message)
-      ElMessage.error(message) 
-    }
+    ElMessage.success('密码修改成功')
+    passwordForm.oldPassword = ''
+    passwordForm.newPassword = ''
+    passwordForm.confirmPassword = ''
   } catch (error) {
     debugError('密码修改失败:', error)
     ElMessage.error(getErrorMessage(error, '密码修改失败'))
@@ -656,26 +649,15 @@ const handleLogout = async () => {
 
 const handleDeleteAccount = async () => {
   try {
-    await ElMessageBox.confirm('注销账户后，您的所有数据将被永久删除且无法恢复，确定继续吗？', '危险操作', {
+    await ElMessageBox.confirm('仅当账号没有订单、卖家商品、卖家订单项或评价时才可注销。满足条件后将删除账号及其可清理资料，确定继续吗？', '危险操作', {
       confirmButtonText: '确定注销',
       cancelButtonText: '取消',
       type: 'error'
     })
-    
-    const res: any = await axios.delete('/users/me')
-    if (res?.code === 200) {
-      ElMessage.success('账户已注销')
-      try {
-        await userStore.logout()
-      } catch (logoutError) {
-        debugError('账户注销成功后清理本地登录态失败:', logoutError)
-      }
-      router.push('/')
-    } else {
-      const message = res?.message || '注销失败'
-      debugError('注销账户失败:', message)
-      ElMessage.error(message)
-    }
+
+    await userStore.deleteAccount()
+    ElMessage.success('账户已注销')
+    router.push('/')
   } catch (e: any) {
     if (e === 'cancel' || e === 'close' || e?.action === 'cancel' || e?.action === 'close') {
       return

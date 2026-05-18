@@ -1,48 +1,33 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import categoryApi from '@/api/categoryApi'
+import productApi from '@/api/productApi'
+import fileApi from '@/api/fileApi'
+import * as debugModule from '@/utils/debug'
 
-const { axiosMock, fileApi, messages, messageBox, debugError } = vi.hoisted(() => ({
-  axiosMock: {
-    get: vi.fn(),
-    delete: vi.fn(),
-    post: vi.fn(),
-    put: vi.fn()
-  },
-  fileApi: {
-    getImageUrl: vi.fn(() => '/img.png'),
-    uploadProductImage: vi.fn(),
-    uploadAdVideo: vi.fn()
-  },
-  messages: {
-    success: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn()
-  },
-  messageBox: {
-    confirm: vi.fn()
-  },
-  debugError: vi.fn()
-}))
+const messages = {
+  success: vi.spyOn(ElMessage, 'success').mockImplementation(() => '' as any),
+  error: vi.spyOn(ElMessage, 'error').mockImplementation(() => '' as any),
+  warning: vi.spyOn(ElMessage, 'warning').mockImplementation(() => '' as any)
+}
 
-vi.mock('element-plus', () => ({
-  ElMessage: messages,
-  ElMessageBox: messageBox
-}))
+const messageBox = {
+  confirm: vi.spyOn(ElMessageBox, 'confirm')
+}
+
+const getMyProductsSpy = vi.spyOn(productApi, 'getMyProducts')
+const deleteProductSpy = vi.spyOn(productApi, 'deleteProduct')
+const submitProductSpy = vi.spyOn(productApi, 'submitProduct')
+const updateProductSpy = vi.spyOn(productApi, 'updateProduct')
+const getCategoriesSpy = vi.spyOn(categoryApi, 'getCategories')
+const getImageUrlSpy = vi.spyOn(fileApi, 'getImageUrl')
+const uploadProductImageSpy = vi.spyOn(fileApi, 'uploadProductImage')
+const uploadAdVideoSpy = vi.spyOn(fileApi, 'uploadAdVideo')
+const debugError = vi.spyOn(debugModule, 'debugError').mockImplementation(() => {})
 
 vi.mock('@element-plus/icons-vue', () => ({
   Plus: { template: '<span />' }
-}))
-
-vi.mock('@/utils/axios', () => ({
-  default: axiosMock
-}))
-
-vi.mock('@/api/fileApi', () => ({
-  default: fileApi
-}))
-
-vi.mock('@/utils/debug', () => ({
-  debugError
 }))
 
 import MyProductsView from '@/views/MyProductsView.vue'
@@ -61,22 +46,28 @@ describe('MyProductsView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     messageBox.confirm.mockResolvedValue(undefined)
-    axiosMock.get
-      .mockResolvedValueOnce({ code: 200, data: [] })
-      .mockResolvedValueOnce({
-        code: 200,
-        data: [
-          {
-            id: 5,
-            name: '商品A',
-            price: 99,
-            stock: 5,
-            sales: 1,
-            auditStatus: 1,
-            mainImage: '/a.png'
-          }
-        ]
-      })
+    getCategoriesSpy.mockResolvedValue({ code: 200, data: [] })
+    getMyProductsSpy.mockResolvedValue({
+      code: 200,
+      data: [
+        {
+          id: 5,
+          name: '商品A',
+          price: 99,
+          stock: 5,
+          sales: 1,
+          auditStatus: 1,
+          mainImage: '/a.png'
+        }
+      ]
+    })
+    deleteProductSpy.mockResolvedValue({ code: 200, message: '删除成功' } as any)
+    submitProductSpy.mockResolvedValue({ code: 200, data: { id: 8, auditStatus: 0, sales: 0 } } as any)
+    updateProductSpy.mockResolvedValue({ code: 200, data: { id: 5, auditStatus: 0 } } as any)
+    getImageUrlSpy.mockReturnValue('/img.png')
+    uploadProductImageSpy.mockResolvedValue({ code: 200, data: '/img.png' } as any)
+    uploadAdVideoSpy.mockResolvedValue({ code: 200, data: '/video.mp4' } as any)
+    debugError.mockImplementation(() => {})
   })
 
   const mountView = () =>
@@ -113,12 +104,12 @@ describe('MyProductsView', () => {
       .handleDelete({ id: 5, name: '商品A' })
     await flushPromises()
 
-    expect(axiosMock.delete).not.toHaveBeenCalled()
+    expect(productApi.deleteProduct).not.toHaveBeenCalled()
     expect(messages.error).not.toHaveBeenCalled()
   })
 
   it('shows an error when product deletion fails', async () => {
-    axiosMock.delete.mockRejectedValue(new Error('boom'))
+    productApi.deleteProduct.mockRejectedValue(new Error('boom'))
     const wrapper = mountView()
 
     await flushPromises()
@@ -131,7 +122,7 @@ describe('MyProductsView', () => {
   })
 
   it('shows backend message when deleting product returns non-200 payload', async () => {
-    axiosMock.delete.mockResolvedValue({ code: 500, message: '删除被拒绝' })
+    productApi.deleteProduct.mockResolvedValue({ code: 500, message: '删除被拒绝' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -144,16 +135,7 @@ describe('MyProductsView', () => {
   })
 
   it('logs when my products list returns non-200 payload', async () => {
-    axiosMock.get.mockReset()
-    axiosMock.get.mockImplementation((url: string) => {
-      if (url === '/categories') {
-        return Promise.resolve({ code: 200, data: [] })
-      }
-      if (url === '/products/my') {
-        return Promise.resolve({ code: 500, message: '读取失败' })
-      }
-      return Promise.resolve({ code: 200, data: [] })
-    })
+    productApi.getMyProducts.mockResolvedValue({ code: 500, message: '读取失败' })
 
     mountView()
     await flushPromises()
@@ -162,7 +144,7 @@ describe('MyProductsView', () => {
   })
 
   it('logs backend message when submitting product returns non-200 payload', async () => {
-    axiosMock.post.mockResolvedValue({ code: 500, message: '商品提交失败' })
+    productApi.submitProduct.mockResolvedValue({ code: 500, message: '商品提交失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -170,6 +152,7 @@ describe('MyProductsView', () => {
     ;(wrapper.vm as any).form.categoryId = 1
     ;(wrapper.vm as any).form.price = 99
     ;(wrapper.vm as any).form.stock = 5
+    ;(wrapper.vm as any).form.mainImage = '/a.png'
     ;(wrapper.vm as any).form.adVideo = ''
 
     await (wrapper.vm as any).submitProduct()
@@ -179,8 +162,7 @@ describe('MyProductsView', () => {
     expect(debugError).toHaveBeenCalledWith('提交我的商品失败', '商品提交失败')
   })
 
-  it('does not treat success flag without 200 code as a real submit success', async () => {
-    axiosMock.post.mockResolvedValue({ code: 500, success: true, message: '商品提交失败' })
+  it('blocks product submit when no product image has been uploaded', async () => {
     const wrapper = mountView()
 
     await flushPromises()
@@ -188,6 +170,28 @@ describe('MyProductsView', () => {
     ;(wrapper.vm as any).form.categoryId = 1
     ;(wrapper.vm as any).form.price = 99
     ;(wrapper.vm as any).form.stock = 5
+    ;(wrapper.vm as any).form.images = []
+    ;(wrapper.vm as any).form.mainImage = ''
+    ;(wrapper.vm as any).form.adVideo = ''
+
+    await (wrapper.vm as any).submitProduct()
+    await flushPromises()
+
+    expect(productApi.submitProduct).not.toHaveBeenCalled()
+    expect(productApi.updateProduct).not.toHaveBeenCalled()
+    expect((wrapper.vm as any).saving).toBe(false)
+  })
+
+  it('does not treat success flag without 200 code as a real submit success', async () => {
+    productApi.submitProduct.mockResolvedValue({ code: 500, success: true, message: '商品提交失败' })
+    const wrapper = mountView()
+
+    await flushPromises()
+    ;(wrapper.vm as any).form.name = '商品A'
+    ;(wrapper.vm as any).form.categoryId = 1
+    ;(wrapper.vm as any).form.price = 99
+    ;(wrapper.vm as any).form.stock = 5
+    ;(wrapper.vm as any).form.mainImage = '/a.png'
     ;(wrapper.vm as any).form.adVideo = ''
 
     await (wrapper.vm as any).submitProduct()
@@ -198,7 +202,7 @@ describe('MyProductsView', () => {
   })
 
   it('does not treat success flag without 200 code as a real delete success', async () => {
-    axiosMock.delete.mockResolvedValue({ code: 500, success: true, message: '删除失败' })
+    productApi.deleteProduct.mockResolvedValue({ code: 500, success: true, message: '删除失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -211,12 +215,10 @@ describe('MyProductsView', () => {
   })
 
   it('keeps submit success when refreshing my products fails afterward', async () => {
-    axiosMock.get.mockReset()
-    axiosMock.get
-      .mockResolvedValueOnce({ code: 200, data: [] })
+    productApi.getMyProducts
       .mockResolvedValueOnce({ code: 200, data: [] })
       .mockRejectedValue(new Error('刷新失败'))
-    axiosMock.post.mockResolvedValue({
+    productApi.submitProduct.mockResolvedValue({
       code: 200,
       message: '商品提交成功，等待管理员审核',
       data: { id: 8, auditStatus: 0, sales: 0 }
@@ -229,6 +231,7 @@ describe('MyProductsView', () => {
     ;(wrapper.vm as any).form.categoryId = 1
     ;(wrapper.vm as any).form.price = 99
     ;(wrapper.vm as any).form.stock = 5
+    ;(wrapper.vm as any).form.mainImage = '/a.png'
     ;(wrapper.vm as any).form.adVideo = ''
 
     await (wrapper.vm as any).submitProduct()
@@ -247,9 +250,7 @@ describe('MyProductsView', () => {
   })
 
   it('keeps edit success with local update when refreshing my products fails afterward', async () => {
-    axiosMock.get.mockReset()
-    axiosMock.get
-      .mockResolvedValueOnce({ code: 200, data: [] })
+    productApi.getMyProducts
       .mockResolvedValueOnce({
         code: 200,
         data: [
@@ -265,7 +266,7 @@ describe('MyProductsView', () => {
         ]
       })
       .mockRejectedValue(new Error('刷新失败'))
-    axiosMock.put.mockResolvedValue({
+    productApi.updateProduct.mockResolvedValue({
       code: 200,
       message: '商品修改成功，等待管理员审核',
       data: { id: 5, auditStatus: 0 }
@@ -299,9 +300,7 @@ describe('MyProductsView', () => {
   })
 
   it('keeps delete success when refreshing my products fails afterward', async () => {
-    axiosMock.get.mockReset()
-    axiosMock.get
-      .mockResolvedValueOnce({ code: 200, data: [] })
+    productApi.getMyProducts
       .mockResolvedValueOnce({
         code: 200,
         data: [
@@ -317,7 +316,7 @@ describe('MyProductsView', () => {
         ]
       })
       .mockRejectedValue(new Error('刷新失败'))
-    axiosMock.delete.mockResolvedValue({ code: 200, message: '删除成功' })
+    productApi.deleteProduct.mockResolvedValue({ code: 200, message: '删除成功' })
 
     const wrapper = mountView()
 
@@ -332,12 +331,9 @@ describe('MyProductsView', () => {
   })
 
   it('keeps newer product list when older request resolves later', async () => {
-    const categoriesResponse = Promise.resolve({ code: 200, data: [] })
     const first = deferred<any>()
     const second = deferred<any>()
-    axiosMock.get.mockReset()
-    axiosMock.get
-      .mockReturnValueOnce(categoriesResponse)
+    productApi.getMyProducts
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
 
@@ -371,15 +367,12 @@ describe('MyProductsView', () => {
   })
 
   it('does not let an in-flight products request overwrite local delete success', async () => {
-    const categoriesResponse = Promise.resolve({ code: 200, data: [] })
     const first = deferred<any>()
     const second = deferred<any>()
-    axiosMock.get.mockReset()
-    axiosMock.get
-      .mockReturnValueOnce(categoriesResponse)
+    productApi.getMyProducts
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
-    axiosMock.delete.mockResolvedValue({ code: 200, message: '删除成功' })
+    productApi.deleteProduct.mockResolvedValue({ code: 200, message: '删除成功' })
 
     const wrapper = mountView()
     await flushPromises()
@@ -406,15 +399,12 @@ describe('MyProductsView', () => {
   })
 
   it('does not let an in-flight products request overwrite local submit success', async () => {
-    const categoriesResponse = Promise.resolve({ code: 200, data: [] })
     const first = deferred<any>()
     const second = deferred<any>()
-    axiosMock.get.mockReset()
-    axiosMock.get
-      .mockReturnValueOnce(categoriesResponse)
+    productApi.getMyProducts
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
-    axiosMock.post.mockResolvedValue({
+    productApi.submitProduct.mockResolvedValue({
       code: 200,
       message: '商品提交成功，等待管理员审核',
       data: { id: 8, auditStatus: 0, sales: 0 }
@@ -470,10 +460,7 @@ describe('MyProductsView', () => {
   })
 
   it('closes product dialog when refreshed list no longer contains the editing product', async () => {
-    const categoriesResponse = Promise.resolve({ code: 200, data: [] })
-    axiosMock.get.mockReset()
-    axiosMock.get
-      .mockReturnValueOnce(categoriesResponse)
+    productApi.getMyProducts
       .mockResolvedValueOnce({
         code: 200,
         data: [

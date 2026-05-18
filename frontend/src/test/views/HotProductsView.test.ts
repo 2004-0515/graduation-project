@@ -1,62 +1,42 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-const { productApi, cartStore, userStore, messages, debugError, routerPush } = vi.hoisted(() => ({
-  productApi: {
-    getProducts: vi.fn()
-  },
-  cartStore: {
-    addToCart: vi.fn()
-  },
-  userStore: {
-    isLoggedIn: true,
-    userInfo: { id: 1, username: 'buyer' }
-  },
-  messages: {
-    warning: vi.fn(),
-    error: vi.fn()
-  },
-  debugError: vi.fn(),
-  routerPush: vi.fn()
-}))
-
-vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: routerPush })
-}))
-
-vi.mock('element-plus', () => ({
-  ElMessage: messages
-}))
-
-vi.mock('@/api/productApi', () => ({
-  default: productApi
-}))
-
-vi.mock('@/api/fileApi', () => ({
-  default: {
-    getImageUrl: vi.fn(() => '/img.png')
-  }
-}))
-
-vi.mock('@/stores/cartStore', () => ({
-  useCartStore: () => cartStore
-}))
-
-vi.mock('@/stores/userStore', () => ({
-  useUserStore: () => userStore
-}))
-
-vi.mock('@/utils/debug', () => ({
-  debugError
-}))
-
+import { ElMessage } from 'element-plus'
+import { createPinia, setActivePinia } from 'pinia'
+import productApi from '@/api/productApi'
+import fileApi from '@/api/fileApi'
+import { useCartStore } from '@/stores/cartStore'
+import { useUserStore } from '@/stores/userStore'
+import * as debugModule from '@/utils/debug'
 import HotProductsView from '@/views/HotProductsView.vue'
 
+const messages = {
+  warning: vi.spyOn(ElMessage, 'warning').mockImplementation(() => '' as any),
+  error: vi.spyOn(ElMessage, 'error').mockImplementation(() => '' as any)
+}
+
+const getProductsSpy = vi.spyOn(productApi, 'getProducts')
+const getImageUrlSpy = vi.spyOn(fileApi, 'getImageUrl')
+const debugError = vi.spyOn(debugModule, 'debugError').mockImplementation(() => {})
+
 describe('HotProductsView', () => {
+  let pinia: ReturnType<typeof createPinia>
+  let cartStore: ReturnType<typeof useCartStore>
+  let userStore: ReturnType<typeof useUserStore>
+  let routerPush: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
     vi.clearAllMocks()
-    userStore.isLoggedIn = true
-    productApi.getProducts.mockResolvedValue({
+    pinia = createPinia()
+    setActivePinia(pinia)
+    cartStore = useCartStore()
+    userStore = useUserStore()
+    routerPush = vi.fn()
+
+    userStore.token = 'token'
+    userStore.userInfo = { id: 1, username: 'buyer' } as any
+
+    vi.spyOn(cartStore, 'addToCart').mockResolvedValue({} as any)
+    getProductsSpy.mockResolvedValue({
       code: 200,
       data: {
         content: [
@@ -65,12 +45,18 @@ describe('HotProductsView', () => {
           { id: 3, name: '商品C', sales: 60, price: 70, mainImage: '/c.png' }
         ]
       }
-    })
+    } as any)
+    getImageUrlSpy.mockReturnValue('/img.png')
+    debugError.mockImplementation(() => {})
   })
 
   const mountView = () =>
     mount(HotProductsView, {
       global: {
+        plugins: [pinia],
+        mocks: {
+          $router: { push: routerPush }
+        },
         stubs: {
           Navbar: true,
           Footer: true
@@ -79,7 +65,7 @@ describe('HotProductsView', () => {
     })
 
   it('logs when ranking api returns non-200 payload', async () => {
-    productApi.getProducts.mockResolvedValue({ code: 500, message: '榜单读取失败' })
+    getProductsSpy.mockResolvedValue({ code: 500, message: '榜单读取失败' } as any)
 
     mountView()
     await flushPromises()
@@ -92,7 +78,7 @@ describe('HotProductsView', () => {
 
     await flushPromises()
 
-    expect(productApi.getProducts).toHaveBeenCalledWith({ pageNo: 0, pageSize: 20, sort: 'sales' })
+    expect(getProductsSpy).toHaveBeenCalledWith({ pageNo: 0, pageSize: 20, sort: 'sales' })
     expect(wrapper.find('.rank-num-1').text()).toBe('1')
     expect(wrapper.find('.rank-num-2').text()).toBe('2')
     expect(wrapper.find('.rank-num-3').text()).toBe('3')
@@ -100,7 +86,8 @@ describe('HotProductsView', () => {
   })
 
   it('warns guest user to login before adding hot product to cart', async () => {
-    userStore.isLoggedIn = false
+    userStore.token = null
+    userStore.userInfo = null
     const wrapper = mountView()
 
     await flushPromises()
@@ -111,7 +98,7 @@ describe('HotProductsView', () => {
   })
 
   it('shows backend message when adding hot product to cart fails', async () => {
-    cartStore.addToCart.mockRejectedValue({
+    vi.spyOn(cartStore, 'addToCart').mockRejectedValue({
       response: {
         data: {
           message: '库存不足'

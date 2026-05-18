@@ -42,6 +42,14 @@ const removeStorage = (key: string): void => {
   }
 }
 
+const clearSessionState = (store: Pick<UserState, 'token' | 'userInfo'>): void => {
+  invalidateFetchCurrentUserRequests()
+  store.token = null
+  store.userInfo = null
+  removeStorage(STORAGE_KEYS.TOKEN)
+  removeStorage(STORAGE_KEYS.USER_INFO)
+}
+
 /**
  * 用户状态管理
  * 统一处理用户认证、信息管理等功能
@@ -165,18 +173,44 @@ export const useUserStore = defineStore('user', {
      * 用户退出登录
      */
     async logout(): Promise<void> {
-      invalidateFetchCurrentUserRequests()
-      // 清除本地状态
-      this.token = null
-      this.userInfo = null
-      removeStorage(STORAGE_KEYS.TOKEN)
-      removeStorage(STORAGE_KEYS.USER_INFO)
+      clearSessionState(this)
 
       // 调用后端logout API
       try {
         await authApi.logout()
       } catch (error) {
         debugError('退出登录API调用失败', error)
+      }
+    },
+
+    /**
+     * 删除当前账号
+     */
+    async deleteAccount(): Promise<void> {
+      this.loading = true
+      this.error = null
+
+      try {
+        const response = await authApi.deleteCurrentUser() as ApiResponse<void>
+
+        if (!isSuccessfulResponse(response)) {
+          throw new Error(response.message || '注销失败')
+        }
+
+        clearSessionState(this)
+
+        try {
+          await authApi.logout()
+        } catch (error) {
+          debugError('账户注销成功后清理本地登录态失败:', error)
+        }
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : '注销失败'
+        this.error = errorMessage
+        debugError('注销账户失败', error)
+        throw error
+      } finally {
+        this.loading = false
       }
     },
 

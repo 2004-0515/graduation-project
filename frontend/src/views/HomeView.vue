@@ -13,7 +13,7 @@
     
     <main class="main">
       <section class="hero-carousel">
-        <div class="carousel-container">
+        <div v-if="slides.length > 0" class="carousel-container">
           <div class="carousel-track" :style="{ transform: `translateX(-${currentSlide * 100}%)` }">
             <div v-for="(slide, index) in slides" :key="index" class="carousel-slide">
               <div class="slide-bg" :style="{ backgroundImage: `url(${slide.image})` }"></div>
@@ -34,6 +34,13 @@
           <button class="carousel-arrow prev" @click="prevSlide"><span>&lt;</span></button>
           <button class="carousel-arrow next" @click="nextSlide"><span>&gt;</span></button>
         </div>
+        <div v-else class="carousel-container empty-hero">
+          <div class="slide-content">
+            <p class="slide-sub">内容准备中</p>
+            <h1 class="slide-title">本周精选正在更新</h1>
+            <p class="slide-desc">展示内容会在后台配置完成后出现在这里。</p>
+          </div>
+        </div>
       </section>
       
       <section class="category-section">
@@ -46,7 +53,7 @@
             <div class="category-tags">
               <span v-for="cat in visibleCategories" :key="cat.id" class="category-tag" @click="toCategory(cat)">{{ cat.name }}</span>
               <span v-if="categories.length > 8" class="category-tag more-tag" @click="categoriesExpanded = !categoriesExpanded">
-                {{ categoriesExpanded ? '收起' : '...' }}
+                {{ categoriesExpanded ? '收起分类' : '更多分类' }}
               </span>
             </div>
           </div>
@@ -228,6 +235,7 @@ import productApi from '@/api/productApi'
 import categoryApi from '@/api/categoryApi'
 import couponApi from '@/api/couponApi'
 import fileApi from '@/api/fileApi'
+import showcaseApi, { type ShowcaseBanner } from '@/api/showcaseApi'
 import { useUserStore } from '@/stores/userStore'
 import { debugError } from '@/utils/debug'
 
@@ -244,20 +252,35 @@ const countdownText = ref('')
 const maxDiscount = ref('50%')
 let latestCouponsRequestId = 0
 
-const slides = [
-  { image: '/external-cache/home-1.jpg', subtitle: '品质生活，从这里开始', title: '紫苑风鸢，精选好物', description: '发现生活中的美好，理性消费每一刻', buttonText: '开始选购', link: '/category' },
-  { image: '/external-cache/home-2.jpg', subtitle: '潮流新品上线', title: '时尚大牌，新品首发', description: '精选服饰、美妆、配饰，专属优惠', buttonText: '探索新品', link: '/category' },
-  { image: '/external-cache/home-3.jpg', subtitle: '限时特惠活动', title: '超值折扣，限时抢购', description: '精选商品低至5折，限时抢购中', buttonText: '立即抢购', link: '/promotions' },
-  { image: '/external-cache/home-4.jpg', subtitle: '数码精品专区', title: '科技好物，品质保证', description: '发现最新数码产品，品质保证', buttonText: '查看详情', link: '/category' }
-]
+interface HomeHeroSlide {
+  image: string
+  subtitle: string
+  title: string
+  description: string
+  buttonText: string
+  link: string
+}
+
+const slides = ref<HomeHeroSlide[]>([])
 
 const currentSlide = ref(0)
 let slideInterval: ReturnType<typeof setInterval> | null = null
 
-const nextSlide = () => { currentSlide.value = (currentSlide.value + 1) % slides.length }
-const prevSlide = () => { currentSlide.value = (currentSlide.value - 1 + slides.length) % slides.length }
+const nextSlide = () => {
+  if (slides.value.length === 0) return
+  currentSlide.value = (currentSlide.value + 1) % slides.value.length
+}
+const prevSlide = () => {
+  if (slides.value.length === 0) return
+  currentSlide.value = (currentSlide.value - 1 + slides.value.length) % slides.value.length
+}
 const goToSlide = (index: number) => { currentSlide.value = index }
-const startAutoPlay = () => { slideInterval = setInterval(nextSlide, 5000) }
+const startAutoPlay = () => {
+  stopAutoPlay()
+  if (slides.value.length > 1) {
+    slideInterval = setInterval(nextSlide, 5000)
+  }
+}
 const stopAutoPlay = () => { if (slideInterval) { clearInterval(slideInterval); slideInterval = null } }
 
 // 热销商品轮播
@@ -389,40 +412,76 @@ const fetchCategories = async () => {
   } catch (e) { debugError('获取首页分类失败', e) }
 }
 
-onMounted(async () => {
-  startAutoPlay()
-  updateCountdown()
-  countdownTimer = setInterval(updateCountdown, 1000)
-  
-  // 获取分类
-  fetchCategories()
-  
-  // 获取优惠券
-  fetchCoupons()
-  
+const resolveBannerLink = (banner: ShowcaseBanner) => {
+  const target = banner.linkTarget?.trim()
+  if (!target) return '/promotions'
+  if (banner.linkType === 'PRODUCT' && /^\d+$/.test(target)) return `/product/${target}`
+  if (banner.linkType === 'PROMOTION' && /^\d+$/.test(target)) return `/promotion/${target}`
+  if (banner.linkType === 'CATEGORY' && /^\d+$/.test(target)) return `/category?id=${target}`
+  return target
+}
+
+const fetchHomeBanners = async () => {
+  try {
+    const res: any = await showcaseApi.getPublicBanners('HOME_HERO')
+    if (res?.code === 200) {
+      const nextSlides = (res.data || []).map((banner: ShowcaseBanner) => ({
+        image: getImageUrl(banner.imagePath),
+        subtitle: banner.subtitle || banner.badgeText || '精选推荐',
+        title: banner.title,
+        description: banner.description || '',
+        buttonText: banner.buttonText || '查看详情',
+        link: resolveBannerLink(banner)
+      }))
+      slides.value = nextSlides
+      currentSlide.value = 0
+      startAutoPlay()
+    } else {
+      debugError('获取首页展示内容失败', res?.message || '首页展示内容返回异常')
+    }
+  } catch (error) {
+    debugError('获取首页展示内容失败', error)
+  }
+}
+
+const fetchHomeProducts = async () => {
   // 获取热销商品（按销量排序）
   try {
-    const hotRes: any = await productApi.getProducts({ page: 0, size: 8, sort: 'sales' })
+    const hotRes: any = await productApi.getProducts({ pageNo: 0, pageSize: 8, sort: 'sales' })
     if (hotRes?.code === 200) {
       const list = hotRes.data?.content || hotRes.data?.records || hotRes.data || []
       hotGames.value = list
     } else {
       debugError('获取首页热销商品失败', hotRes?.message || '首页热销商品返回异常')
     }
-  } catch (e) { debugError('获取首页热销商品失败', e) }
-  
+  } catch (e) {
+    debugError('获取首页热销商品失败', e)
+  }
+
   // 获取新品上架（按最新排序）
   try {
-    const newRes: any = await productApi.getProducts({ page: 0, size: 10, sort: 'newest' })
+    const newRes: any = await productApi.getProducts({ pageNo: 0, pageSize: 24, sort: 'newest' })
     if (newRes?.code === 200) {
       const list = newRes.data?.content || newRes.data?.records || newRes.data || []
-      newGames.value = list
+      const hotIds = new Set(hotGames.value.map((item: any) => item.id))
+      newGames.value = list.filter((item: any) => !hotIds.has(item.id)).slice(0, 10)
     } else {
       debugError('获取首页新品失败', newRes?.message || '首页新品返回异常')
     }
-  } catch (e) { debugError('获取首页新品失败', e) }
-  
-  loading.value = false
+  } catch (e) {
+    debugError('获取首页新品失败', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  updateCountdown()
+  countdownTimer = setInterval(updateCountdown, 1000)
+  void fetchHomeBanners()
+  void fetchCategories()
+  void fetchCoupons()
+  void fetchHomeProducts()
 })
 
 onUnmounted(() => { 
@@ -443,6 +502,7 @@ onUnmounted(() => {
 .main { position: relative; z-index: 1; padding-top: 72px; }
 .hero-carousel { position: relative; margin-bottom: 20px; }
 .carousel-container { position: relative; width: 100%; height: 480px; overflow: hidden; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+.empty-hero { background: linear-gradient(135deg, rgba(155, 135, 245, 0.18), rgba(99, 102, 241, 0.16)); }
 .carousel-track { display: flex; height: 100%; transition: transform 0.6s ease-in-out; }
 .carousel-slide { min-width: 100%; height: 100%; position: relative; }
 .slide-bg { position: absolute; inset: 0; background-size: cover; background-position: center; filter: brightness(0.7); }

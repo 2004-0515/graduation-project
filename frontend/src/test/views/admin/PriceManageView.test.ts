@@ -1,18 +1,20 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { adminApi, priceApi, axiosMock, messages, messageBox, debugError } = vi.hoisted(() => ({
+const { adminApi, priceApi, messages, messageBox, debugError } = vi.hoisted(() => ({
   adminApi: {
     getProducts: vi.fn()
   },
   priceApi: {
     getPriceHistory: vi.fn(),
-    getPriceStats: vi.fn()
-  },
-  axiosMock: {
-    get: vi.fn(),
-    post: vi.fn(),
-    delete: vi.fn()
+    getPriceStats: vi.fn(),
+    getAdminAlerts: vi.fn(),
+    getAdminActiveAlertCount: vi.fn(),
+    recordAdminPrice: vi.fn(),
+    deleteAdminPriceHistory: vi.fn(),
+    triggerAdminAlert: vi.fn(),
+    resetAdminAlert: vi.fn(),
+    deleteAdminAlert: vi.fn()
   },
   messages: {
     success: vi.fn(),
@@ -36,10 +38,6 @@ vi.mock('@/api/adminApi', () => ({
 
 vi.mock('@/api/priceApi', () => ({
   default: priceApi
-}))
-
-vi.mock('@/utils/axios', () => ({
-  default: axiosMock
 }))
 
 vi.mock('@/utils/debug', () => ({
@@ -71,15 +69,8 @@ describe('PriceManageView', () => {
     })
     priceApi.getPriceHistory.mockResolvedValue({ code: 200, data: [] })
     priceApi.getPriceStats.mockResolvedValue({ code: 200, data: null })
-    axiosMock.get.mockImplementation((url: string) => {
-      if (url === '/price/admin/alerts/count') {
-        return Promise.resolve({ code: 200, data: 3 })
-      }
-      if (url === '/price/admin/alerts') {
-        return Promise.resolve({ code: 200, data: [] })
-      }
-      return Promise.resolve({ code: 200, data: [] })
-    })
+    priceApi.getAdminActiveAlertCount.mockResolvedValue({ code: 200, data: 3 })
+    priceApi.getAdminAlerts.mockResolvedValue({ code: 200, data: [] })
   })
 
   const mountView = () =>
@@ -117,12 +108,12 @@ describe('PriceManageView', () => {
       .handleDeleteHistory({ id: 10 })
     await flushPromises()
 
-    expect(axiosMock.delete).not.toHaveBeenCalled()
+    expect(priceApi.deleteAdminPriceHistory).not.toHaveBeenCalled()
     expect(messages.error).not.toHaveBeenCalled()
   })
 
   it('shows an error when deleting price history fails', async () => {
-    axiosMock.delete.mockRejectedValue({ response: { data: { message: '价格记录删除失败' } } })
+    priceApi.deleteAdminPriceHistory.mockRejectedValue({ response: { data: { message: '价格记录删除失败' } } })
     const wrapper = mountView()
 
     await flushPromises()
@@ -135,19 +126,20 @@ describe('PriceManageView', () => {
   })
 
   it('refreshes alert list and count after triggering an alert', async () => {
-    axiosMock.post.mockResolvedValue({ code: 200 })
+    priceApi.triggerAdminAlert.mockResolvedValue({ code: 200 })
     const wrapper = mountView()
 
     await flushPromises()
-    axiosMock.get.mockClear()
+    priceApi.getAdminAlerts.mockClear()
+    priceApi.getAdminActiveAlertCount.mockClear()
 
     await (wrapper.vm as unknown as { handleTriggerAlert: (row: { id: number }) => Promise<void> })
       .handleTriggerAlert({ id: 11 })
     await flushPromises()
 
-    expect(axiosMock.post).toHaveBeenCalledWith('/price/admin/alert/11/trigger')
-    expect(axiosMock.get).toHaveBeenCalledWith('/price/admin/alerts', { params: {} })
-    expect(axiosMock.get).toHaveBeenCalledWith('/price/admin/alerts/count')
+    expect(priceApi.triggerAdminAlert).toHaveBeenCalledWith(11)
+    expect(priceApi.getAdminAlerts).toHaveBeenCalledWith({})
+    expect(priceApi.getAdminActiveAlertCount).toHaveBeenCalled()
     expect(messages.success).toHaveBeenCalledWith('已触发并发送通知')
   })
 
@@ -160,7 +152,7 @@ describe('PriceManageView', () => {
     ;(wrapper.vm as any).priceHistory = []
     ;(wrapper.vm as any).recordForm.price = 88
     ;(wrapper.vm as any).recordForm.originalPrice = 99
-    axiosMock.post.mockResolvedValue({ code: 200, data: { id: 21, recordedTime: '2026-05-12T10:00:00' } })
+    priceApi.recordAdminPrice.mockResolvedValue({ code: 200, data: { id: 21, recordedTime: '2026-05-12T10:00:00' } })
     priceApi.getPriceHistory.mockRejectedValue(new Error('刷新失败'))
     priceApi.getPriceStats.mockRejectedValue(new Error('刷新失败'))
 
@@ -186,7 +178,7 @@ describe('PriceManageView', () => {
   })
 
   it('logs backend message when deleting price history returns non-200 payload', async () => {
-    axiosMock.delete.mockResolvedValue({ code: 500, message: '价格记录已被引用' })
+    priceApi.deleteAdminPriceHistory.mockResolvedValue({ code: 500, message: '价格记录已被引用' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -199,7 +191,7 @@ describe('PriceManageView', () => {
   })
 
   it('shows an error when resetting an alert fails', async () => {
-    axiosMock.post.mockRejectedValue({ response: { data: { message: '回退提醒失败' } } })
+    priceApi.resetAdminAlert.mockRejectedValue({ response: { data: { message: '回退提醒失败' } } })
     const wrapper = mountView()
 
     await flushPromises()
@@ -212,7 +204,7 @@ describe('PriceManageView', () => {
   })
 
   it('logs backend message when triggering an alert returns non-200 payload', async () => {
-    axiosMock.post.mockResolvedValue({ code: 500, message: '提醒发送失败' })
+    priceApi.triggerAdminAlert.mockResolvedValue({ code: 500, message: '提醒发送失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -225,7 +217,7 @@ describe('PriceManageView', () => {
   })
 
   it('logs backend message when resetting an alert returns non-200 payload', async () => {
-    axiosMock.post.mockResolvedValue({ code: 500, message: '提醒回退失败' })
+    priceApi.resetAdminAlert.mockResolvedValue({ code: 500, message: '提醒回退失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -238,34 +230,32 @@ describe('PriceManageView', () => {
   })
 
   it('refreshes alert list and count after deleting an alert', async () => {
-    axiosMock.delete.mockResolvedValue({ code: 200 })
+    priceApi.deleteAdminAlert.mockResolvedValue({ code: 200 })
     const wrapper = mountView()
 
     await flushPromises()
-    axiosMock.get.mockClear()
+    priceApi.getAdminAlerts.mockClear()
+    priceApi.getAdminActiveAlertCount.mockClear()
 
     await (wrapper.vm as unknown as { handleDeleteAlert: (row: { id: number }) => Promise<void> })
       .handleDeleteAlert({ id: 13 })
     await flushPromises()
 
-    expect(axiosMock.delete).toHaveBeenCalledWith('/price/admin/alert/13')
-    expect(axiosMock.get).toHaveBeenCalledWith('/price/admin/alerts', { params: {} })
-    expect(axiosMock.get).toHaveBeenCalledWith('/price/admin/alerts/count')
+    expect(priceApi.deleteAdminAlert).toHaveBeenCalledWith(13)
+    expect(priceApi.getAdminAlerts).toHaveBeenCalledWith({})
+    expect(priceApi.getAdminActiveAlertCount).toHaveBeenCalled()
     expect(messages.success).toHaveBeenCalledWith('删除成功')
   })
 
   it('keeps trigger success when refreshing alerts fails afterward', async () => {
-    axiosMock.post.mockResolvedValue({ code: 200 })
+    priceApi.triggerAdminAlert.mockResolvedValue({ code: 200 })
     const wrapper = mountView()
 
     await flushPromises()
-    axiosMock.get.mockClear()
-    axiosMock.get.mockImplementation((url: string) => {
-      if (url === '/price/admin/alerts' || url === '/price/admin/alerts/count') {
-        return Promise.reject(new Error('刷新失败'))
-      }
-      return Promise.resolve({ code: 200, data: [] })
-    })
+    priceApi.getAdminAlerts.mockClear()
+    priceApi.getAdminActiveAlertCount.mockClear()
+    priceApi.getAdminAlerts.mockRejectedValue(new Error('刷新失败'))
+    priceApi.getAdminActiveAlertCount.mockRejectedValue(new Error('刷新失败'))
 
     await (wrapper.vm as unknown as { handleTriggerAlert: (row: { id: number }) => Promise<void> })
       .handleTriggerAlert({ id: 11 })
@@ -277,17 +267,14 @@ describe('PriceManageView', () => {
   })
 
   it('keeps delete-alert success when refreshing alerts fails afterward', async () => {
-    axiosMock.delete.mockResolvedValue({ code: 200 })
+    priceApi.deleteAdminAlert.mockResolvedValue({ code: 200 })
     const wrapper = mountView()
 
     await flushPromises()
-    axiosMock.get.mockClear()
-    axiosMock.get.mockImplementation((url: string) => {
-      if (url === '/price/admin/alerts' || url === '/price/admin/alerts/count') {
-        return Promise.reject(new Error('刷新失败'))
-      }
-      return Promise.resolve({ code: 200, data: [] })
-    })
+    priceApi.getAdminAlerts.mockClear()
+    priceApi.getAdminActiveAlertCount.mockClear()
+    priceApi.getAdminAlerts.mockRejectedValue(new Error('刷新失败'))
+    priceApi.getAdminActiveAlertCount.mockRejectedValue(new Error('刷新失败'))
 
     await (wrapper.vm as unknown as { handleDeleteAlert: (row: { id: number }) => Promise<void> })
       .handleDeleteAlert({ id: 13 })
@@ -299,7 +286,7 @@ describe('PriceManageView', () => {
   })
 
   it('logs backend message when deleting an alert returns non-200 payload', async () => {
-    axiosMock.delete.mockResolvedValue({ code: 500, message: '提醒删除失败' })
+    priceApi.deleteAdminAlert.mockResolvedValue({ code: 500, message: '提醒删除失败' })
     const wrapper = mountView()
 
     await flushPromises()
@@ -321,15 +308,8 @@ describe('PriceManageView', () => {
   })
 
   it('logs when alert count returns non-200 payload', async () => {
-    axiosMock.get.mockImplementation((url: string) => {
-      if (url === '/price/admin/alerts/count') {
-        return Promise.resolve({ code: 500, message: '提醒数量读取失败' })
-      }
-      if (url === '/price/admin/alerts') {
-        return Promise.resolve({ code: 200, data: [] })
-      }
-      return Promise.resolve({ code: 200, data: [] })
-    })
+    priceApi.getAdminActiveAlertCount.mockResolvedValue({ code: 500, message: '提醒数量读取失败' })
+    priceApi.getAdminAlerts.mockResolvedValue({ code: 200, data: [] })
 
     mountView()
     await flushPromises()
@@ -342,15 +322,10 @@ describe('PriceManageView', () => {
     const secondRequest = createDeferred<any>()
     let alertsCall = 0
 
-    axiosMock.get.mockImplementation((url: string) => {
-      if (url === '/price/admin/alerts/count') {
-        return Promise.resolve({ code: 200, data: 3 })
-      }
-      if (url === '/price/admin/alerts') {
-        alertsCall += 1
-        return alertsCall === 1 ? firstRequest.promise : secondRequest.promise
-      }
-      return Promise.resolve({ code: 200, data: [] })
+    priceApi.getAdminActiveAlertCount.mockResolvedValue({ code: 200, data: 3 })
+    priceApi.getAdminAlerts.mockImplementation(() => {
+      alertsCall += 1
+      return alertsCall === 1 ? firstRequest.promise : secondRequest.promise
     })
 
     const wrapper = mountView()
@@ -401,7 +376,7 @@ describe('PriceManageView', () => {
     ;(wrapper.vm as any).priceHistory = []
     ;(wrapper.vm as any).recordForm.price = 88
     ;(wrapper.vm as any).recordForm.originalPrice = 99
-    axiosMock.post.mockResolvedValue({ code: 200, data: { id: 21, recordedTime: '2026-05-12T10:00:00' } })
+    priceApi.recordAdminPrice.mockResolvedValue({ code: 200, data: { id: 21, recordedTime: '2026-05-12T10:00:00' } })
 
     const firstLoad = (wrapper.vm as any).fetchPriceHistory()
     await flushPromises()
@@ -486,15 +461,10 @@ describe('PriceManageView', () => {
     const secondCountRequest = createDeferred<any>()
     let countCall = 0
 
-    axiosMock.get.mockImplementation((url: string) => {
-      if (url === '/price/admin/alerts/count') {
-        countCall += 1
-        return countCall === 1 ? firstCountRequest.promise : secondCountRequest.promise
-      }
-      if (url === '/price/admin/alerts') {
-        return Promise.resolve({ code: 200, data: [] })
-      }
-      return Promise.resolve({ code: 200, data: [] })
+    priceApi.getAdminAlerts.mockResolvedValue({ code: 200, data: [] })
+    priceApi.getAdminActiveAlertCount.mockImplementation(() => {
+      countCall += 1
+      return countCall === 1 ? firstCountRequest.promise : secondCountRequest.promise
     })
 
     const wrapper = mountView()
@@ -567,17 +537,12 @@ describe('PriceManageView', () => {
     const secondAlertsRequest = createDeferred<any>()
     let alertsCall = 0
 
-    axiosMock.get.mockImplementation((url: string) => {
-      if (url === '/price/admin/alerts/count') {
-        return Promise.resolve({ code: 200, data: 1 })
-      }
-      if (url === '/price/admin/alerts') {
-        alertsCall += 1
-        return alertsCall === 1 ? firstAlertsRequest.promise : secondAlertsRequest.promise
-      }
-      return Promise.resolve({ code: 200, data: [] })
+    priceApi.getAdminActiveAlertCount.mockResolvedValue({ code: 200, data: 1 })
+    priceApi.getAdminAlerts.mockImplementation(() => {
+      alertsCall += 1
+      return alertsCall === 1 ? firstAlertsRequest.promise : secondAlertsRequest.promise
     })
-    axiosMock.post.mockResolvedValue({ code: 200 })
+    priceApi.triggerAdminAlert.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -614,7 +579,7 @@ describe('PriceManageView', () => {
       return historyCall === 1 ? firstHistory.promise : secondHistory.promise
     })
     priceApi.getPriceStats.mockResolvedValue({ code: 200, data: null })
-    axiosMock.delete.mockResolvedValue({ code: 200 })
+    priceApi.deleteAdminPriceHistory.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()

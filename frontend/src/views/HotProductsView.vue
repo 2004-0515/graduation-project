@@ -31,7 +31,7 @@
         <div class="top3" v-if="products.length >= 3" data-testid="hot-top3">
           <div class="top-card glass-card second" data-testid="hot-top-card-2" @click="$router.push(`/product/${products[1]?.id}`)">
             <span class="medal silver">2</span>
-            <div class="top-img"><img :src="getImageUrl(products[1]?.mainImage)" @error="imgErr" /></div>
+            <div class="top-img"><img :src="getImageUrl(products[1]?.mainImage)" :alt="products[1]?.name || '热销商品'" @error="imgErr" /></div>
             <h4>{{ products[1]?.name }}</h4>
             <p class="top-sales">已售{{ formatSales(products[1]?.sales) }}件</p>
             <span class="top-price">¥{{ products[1]?.price }}</span>
@@ -39,14 +39,14 @@
           <div class="top-card glass-card first" data-testid="hot-top-card-1" @click="$router.push(`/product/${products[0]?.id}`)">
             <span class="crown-badge">TOP</span>
             <span class="medal gold">1</span>
-            <div class="top-img"><img :src="getImageUrl(products[0]?.mainImage)" @error="imgErr" /></div>
+            <div class="top-img"><img :src="getImageUrl(products[0]?.mainImage)" :alt="products[0]?.name || '热销商品'" @error="imgErr" /></div>
             <h4>{{ products[0]?.name }}</h4>
             <p class="top-sales">已售{{ formatSales(products[0]?.sales) }}件</p>
             <span class="top-price">¥{{ products[0]?.price }}</span>
           </div>
           <div class="top-card glass-card third" data-testid="hot-top-card-3" @click="$router.push(`/product/${products[2]?.id}`)">
             <span class="medal bronze">3</span>
-            <div class="top-img"><img :src="getImageUrl(products[2]?.mainImage)" @error="imgErr" /></div>
+            <div class="top-img"><img :src="getImageUrl(products[2]?.mainImage)" :alt="products[2]?.name || '热销商品'" @error="imgErr" /></div>
             <h4>{{ products[2]?.name }}</h4>
             <p class="top-sales">已售{{ formatSales(products[2]?.sales) }}件</p>
             <span class="top-price">¥{{ products[2]?.price }}</span>
@@ -63,7 +63,7 @@
           <div class="rank-list" v-if="products.length" data-testid="hot-rank-list">
             <div v-for="(p, i) in products" :key="p.id" class="rank-item" :data-testid="`hot-rank-item-${p.id}`" @click="$router.push(`/product/${p.id}`)">
               <span :class="['rank-num', `rank-num-${i + 1}`, { top: i < 3 }]">{{ i + 1 }}</span>
-              <img :src="getImageUrl(p.mainImage)" class="rank-img" @error="imgErr" />
+              <img :src="getImageUrl(p.mainImage)" :alt="p.name || '热销商品'" class="rank-img" @error="imgErr" />
               <div class="rank-info">
                 <h4>{{ p.name }}</h4>
                 <p>{{ p.description?.slice(0, 40) || '品质好物' }}</p>

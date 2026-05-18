@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAdminStore } from '@/stores/adminStore'
-import axios from '@/utils/axios'
+import adminApi from '@/api/adminApi'
 import { debugError } from '@/utils/debug'
 
-vi.mock('@/utils/axios', () => ({
+vi.mock('@/api/adminApi', () => ({
   default: {
-    get: vi.fn()
+    getPendingFileCount: vi.fn(),
+    getPendingProductCount: vi.fn(),
+    getPendingOrderCount: vi.fn()
   }
 }))
 
@@ -15,7 +17,7 @@ vi.mock('@/utils/debug', () => ({
 }))
 
 describe('useAdminStore', () => {
-  const mockedAxios = vi.mocked(axios)
+  const mockedAdminApi = vi.mocked(adminApi)
   const mockedDebugError = vi.mocked(debugError)
 
   const createDeferred = <T>() => {
@@ -34,7 +36,7 @@ describe('useAdminStore', () => {
   })
 
   it('updates pending file count on success', async () => {
-    mockedAxios.get.mockResolvedValue({ code: 200, data: 5 } as any)
+    mockedAdminApi.getPendingFileCount.mockResolvedValue({ code: 200, data: 5 } as any)
     const store = useAdminStore()
 
     await store.fetchPendingFileCount()
@@ -43,7 +45,7 @@ describe('useAdminStore', () => {
   })
 
   it('keeps pending file count and logs on non-200 payload', async () => {
-    mockedAxios.get.mockResolvedValue({ code: 500, message: '文件数读取失败' } as any)
+    mockedAdminApi.getPendingFileCount.mockResolvedValue({ code: 500, message: '文件数读取失败' } as any)
     const store = useAdminStore()
     store.pendingFileCount = 4
 
@@ -54,7 +56,7 @@ describe('useAdminStore', () => {
   })
 
   it('keeps pending product count and logs on non-200 payload', async () => {
-    mockedAxios.get.mockResolvedValue({ code: 500, message: '读取失败' } as any)
+    mockedAdminApi.getPendingProductCount.mockResolvedValue({ code: 500, message: '读取失败' } as any)
     const store = useAdminStore()
     store.pendingProductCount = 2
 
@@ -65,7 +67,7 @@ describe('useAdminStore', () => {
   })
 
   it('keeps pending order count and logs on thrown error', async () => {
-    mockedAxios.get.mockRejectedValue(new Error('网络异常'))
+    mockedAdminApi.getPendingOrderCount.mockRejectedValue(new Error('网络异常'))
     const store = useAdminStore()
     store.pendingOrderCount = 3
 
@@ -76,7 +78,7 @@ describe('useAdminStore', () => {
   })
 
   it('keeps pending order count and logs on non-200 payload', async () => {
-    mockedAxios.get.mockResolvedValue({ code: 500, message: '取消申请数量读取失败' } as any)
+    mockedAdminApi.getPendingOrderCount.mockResolvedValue({ code: 500, message: '取消申请数量读取失败' } as any)
     const store = useAdminStore()
     store.pendingOrderCount = 3
 
@@ -87,22 +89,24 @@ describe('useAdminStore', () => {
   })
 
   it('refreshAllCounts triggers all count requests', async () => {
-    mockedAxios.get.mockResolvedValue({ code: 200, data: 0 } as any)
+    mockedAdminApi.getPendingFileCount.mockResolvedValue({ code: 200, data: 0 } as any)
+    mockedAdminApi.getPendingProductCount.mockResolvedValue({ code: 200, data: 0 } as any)
+    mockedAdminApi.getPendingOrderCount.mockResolvedValue({ code: 200, data: 0 } as any)
     const store = useAdminStore()
 
     store.refreshAllCounts()
 
     await Promise.resolve()
 
-    expect(mockedAxios.get).toHaveBeenCalledWith('/files/pending/count')
-    expect(mockedAxios.get).toHaveBeenCalledWith('/products/pending/count')
-    expect(mockedAxios.get).toHaveBeenCalledWith('/orders/cancel-requests/count')
+    expect(mockedAdminApi.getPendingFileCount).toHaveBeenCalled()
+    expect(mockedAdminApi.getPendingProductCount).toHaveBeenCalled()
+    expect(mockedAdminApi.getPendingOrderCount).toHaveBeenCalled()
   })
 
   it('ignores stale pending file count responses when a newer refresh finishes first', async () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
-    mockedAxios.get
+    mockedAdminApi.getPendingFileCount
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
     const store = useAdminStore()
@@ -122,7 +126,7 @@ describe('useAdminStore', () => {
   it('ignores stale pending product count responses when a newer refresh finishes first', async () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
-    mockedAxios.get
+    mockedAdminApi.getPendingProductCount
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
     const store = useAdminStore()
@@ -142,7 +146,7 @@ describe('useAdminStore', () => {
   it('ignores stale pending order count responses when a newer refresh finishes first', async () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
-    mockedAxios.get
+    mockedAdminApi.getPendingOrderCount
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
     const store = useAdminStore()
@@ -161,7 +165,7 @@ describe('useAdminStore', () => {
 
   it('does not let an in-flight pending file count request overwrite local decrease', async () => {
     const pendingRequest = createDeferred<any>()
-    mockedAxios.get.mockImplementationOnce(() => pendingRequest.promise)
+    mockedAdminApi.getPendingFileCount.mockImplementationOnce(() => pendingRequest.promise)
     const store = useAdminStore()
     store.setPendingFileCount(5)
 
@@ -176,7 +180,7 @@ describe('useAdminStore', () => {
 
   it('does not let an in-flight pending product count request overwrite local set', async () => {
     const pendingRequest = createDeferred<any>()
-    mockedAxios.get.mockImplementationOnce(() => pendingRequest.promise)
+    mockedAdminApi.getPendingProductCount.mockImplementationOnce(() => pendingRequest.promise)
     const store = useAdminStore()
     store.setPendingProductCount(2)
 
@@ -191,7 +195,7 @@ describe('useAdminStore', () => {
 
   it('does not let an in-flight pending order count request overwrite local decrease', async () => {
     const pendingRequest = createDeferred<any>()
-    mockedAxios.get.mockImplementationOnce(() => pendingRequest.promise)
+    mockedAdminApi.getPendingOrderCount.mockImplementationOnce(() => pendingRequest.promise)
     const store = useAdminStore()
     store.setPendingOrderCount(3)
 

@@ -54,7 +54,7 @@
         <div v-else-if="errorMsg" class="empty-state">
           <h3>加载失败</h3>
           <p class="error-text">{{ errorMsg }}</p>
-          <button class="browse-btn" @click="fetchOrders">重试</button>
+          <button class="browse-btn" @click="fetchOrders()">重试</button>
         </div>
 
         <div v-else-if="filteredOrders.length > 0" class="orders-list">
@@ -178,7 +178,7 @@
         <el-dialog v-model="reviewDialogVisible" title="发表评价" width="500px" class="review-dialog">
           <div v-if="currentReviewItem" class="review-form">
             <div class="review-product">
-              <img :src="getImageUrl(currentReviewItem.productImage)" class="product-thumb" />
+              <img :src="getImageUrl(currentReviewItem.productImage)" :alt="currentReviewItem.productName || '商品图片'" class="product-thumb" />
               <span>{{ currentReviewItem.productName }}</span>
             </div>
             <div class="form-item">
@@ -207,6 +207,30 @@
               />
             </div>
             <div class="form-item">
+              <label>评价图片</label>
+              <div class="review-images">
+                <el-upload
+                  class="review-upload"
+                  :show-file-list="false"
+                  :before-upload="beforeReviewImageUpload"
+                  :http-request="handleReviewImageUpload"
+                  accept="image/*"
+                >
+                  <div class="review-upload-trigger">
+                    <el-icon><Plus /></el-icon>
+                    <span>上传图片</span>
+                  </div>
+                </el-upload>
+                <div v-if="reviewForm.images.length > 0" class="review-image-grid">
+                  <div v-for="image in reviewForm.images" :key="image" class="review-image-card">
+                    <img :src="getImageUrl(image)" alt="评价图片" />
+                    <button type="button" class="remove-review-image" @click.stop="removeReviewImage(image)">删除</button>
+                  </div>
+                </div>
+                <div class="review-image-tip">最多 4 张，支持晒单细节图</div>
+              </div>
+            </div>
+            <div class="form-item">
               <el-checkbox v-model="reviewForm.anonymous">匿名发表</el-checkbox>
             </div>
           </div>
@@ -227,6 +251,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 import orderApi from '../api/orderApi'
 import reviewApi from '../api/reviewApi'
 import fileApi from '../api/fileApi'
@@ -259,7 +284,8 @@ const ratingTexts = ['很差', '较差', '一般', '不错', '非常好']
 const reviewForm = reactive({
   rating: 5,
   content: '',
-  anonymous: false
+  anonymous: false,
+  images: [] as string[]
 })
 
 const tabs = [
@@ -272,7 +298,7 @@ const tabs = [
   { label: '申请取消中', value: 6 }
 ]
 
-const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const getImageUrl = (path?: string) => fileApi.getImageUrl(path || '')
 const formatMoney = (amount: number | string) => Number(amount || 0).toFixed(2)
 
 const getErrorMessage = (error: unknown, fallback: string) => {
@@ -306,7 +332,7 @@ const isRetryableOrderError = (error: unknown) => {
   return false
 }
 
-const isRetryableOrderPayload = (response: ApiResponse<Order[]> | null | undefined) => {
+const isRetryableOrderPayload = (response: ApiResponse<Order[] | { content?: Order[] }> | null | undefined) => {
   const code = Number(response?.code)
   return RETRYABLE_ORDER_ERROR_CODES.has(code)
 }
@@ -410,12 +436,13 @@ const fetchOrders = async (allowRetry: boolean = true) => {
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = (await orderApi.getUserOrders()) as ApiResponse<Order[]>
+    const res = (await orderApi.getUserOrders()) as ApiResponse<Order[] | { content?: Order[] }>
     if (requestId !== latestOrdersRequestId) {
       return
     }
     if (res?.code === 200) {
-      orders.value = Array.isArray(res.data) ? res.data : []
+      const data = res.data
+      orders.value = Array.isArray(data) ? data : (data?.content || [])
       reconcileReviewContext()
     } else {
       if (allowRetry && isRetryableOrderPayload(res)) {
@@ -471,6 +498,7 @@ const closeReviewDialog = () => {
   reviewForm.rating = 5
   reviewForm.content = ''
   reviewForm.anonymous = false
+  reviewForm.images = []
 }
 
 const reconcileReviewContext = () => {
@@ -570,7 +598,49 @@ const openReviewDialog = (order: Order, item: OrderItem) => {
   reviewForm.rating = 5
   reviewForm.content = ''
   reviewForm.anonymous = false
+  reviewForm.images = []
   reviewDialogVisible.value = true
+}
+
+const beforeReviewImageUpload = (file: File) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt10M = file.size / 1024 / 1024 < 10
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件')
+    return false
+  }
+  if (!isLt10M) {
+    ElMessage.error('图片大小不能超过 10MB')
+    return false
+  }
+  return true
+}
+
+const handleReviewImageUpload = async (options: any) => {
+  if (reviewForm.images.length >= 4) {
+    ElMessage.warning('最多上传 4 张评价图片')
+    return
+  }
+  try {
+    const res: any = await fileApi.uploadReviewImage(options.file)
+    if (res?.code === 200 && res.data) {
+      if (!reviewForm.images.includes(res.data)) {
+        reviewForm.images = [...reviewForm.images, res.data]
+      }
+      ElMessage.success(res?.message || '图片上传成功')
+      return
+    }
+    const message = res?.message || '图片上传失败'
+    debugError('上传评价图片失败:', message)
+    ElMessage.error(message)
+  } catch (error) {
+    debugError('上传评价图片失败:', error)
+    ElMessage.error(getErrorMessage(error, '图片上传失败'))
+  }
+}
+
+const removeReviewImage = (image: string) => {
+  reviewForm.images = reviewForm.images.filter((item) => item !== image)
 }
 
 const submitReview = async () => {
@@ -585,12 +655,13 @@ const submitReview = async () => {
   const reviewProductId = currentReviewItem.value.productId
   submittingReview.value = true
   try {
-    const res = await reviewApi.createReview({
+    const res: any = await reviewApi.createReview({
       productId: reviewProductId,
       orderId: reviewOrderId,
       orderItemId: reviewItemId,
       rating: reviewForm.rating,
       content: reviewForm.content,
+      images: [...reviewForm.images],
       anonymous: reviewForm.anonymous
     })
 
@@ -738,6 +809,41 @@ onMounted(async () => {
 .review-dialog .rating-select .star:hover,
 .review-dialog .rating-select .star.filled { color: #ffc107; }
 .review-dialog .rating-text { margin-left: 12px; color: #666; font-size: 14px; }
+.review-images { display: flex; flex-direction: column; gap: 10px; }
+.review-upload { width: 110px; height: 110px; }
+.review-upload :deep(.el-upload) {
+  width: 110px;
+  height: 110px;
+  border: 1px dashed #d9d9d9;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.review-upload-trigger {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #666;
+}
+.review-image-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.review-image-card { position: relative; border-radius: 8px; overflow: hidden; background: #f5f5f5; }
+.review-image-card img { width: 100%; height: 92px; object-fit: cover; display: block; }
+.remove-review-image {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  border: none;
+  background: rgba(17, 24, 39, 0.72);
+  color: #fff;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.review-image-tip { color: #666; font-size: 12px; }
 @media (max-width: 768px) {
   .page-header,
   .order-footer {

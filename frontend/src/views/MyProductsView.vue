@@ -71,12 +71,23 @@
                 :before-upload="beforeUpload"
                 accept="image/*"
               >
-                <el-image v-if="form.mainImage" :src="getImageUrl(form.mainImage)" class="preview-image" fit="cover" />
-                <div v-else class="upload-placeholder">
+                <div class="upload-placeholder upload-trigger">
                   <el-icon><Plus /></el-icon>
                   <span>上传图片</span>
                 </div>
               </el-upload>
+              <div v-if="form.images.length > 0" class="image-grid">
+                <div v-for="image in form.images" :key="image" class="image-card" :class="{ active: form.mainImage === image }">
+                  <el-image :src="getImageUrl(image)" class="preview-image" fit="cover" />
+                  <div class="image-card-actions">
+                    <button type="button" class="mini-action" @click.stop="setMainImage(image)">
+                      {{ form.mainImage === image ? '主图' : '设为主图' }}
+                    </button>
+                    <button type="button" class="mini-action danger" @click.stop="removeProductImage(image)">删除</button>
+                  </div>
+                </div>
+              </div>
+              <div class="upload-tip">最多 6 张，第一张会作为默认主图展示</div>
             </div>
           </el-form-item>
           <el-form-item label="商品描述">
@@ -124,7 +135,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import Navbar from '@/components/Navbar.vue'
 import Footer from '@/components/Footer.vue'
-import axios from '@/utils/axios'
+import categoryApi from '@/api/categoryApi'
+import productApi from '@/api/productApi'
 import fileApi from '@/api/fileApi'
 import { debugError } from '@/utils/debug'
 
@@ -142,7 +154,30 @@ const invalidateProductRequests = () => {
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
-const buildProductImagesPayload = () => JSON.stringify(form.mainImage ? [form.mainImage] : [])
+const parseProductImages = (images: unknown, mainImage: string) => {
+  const values = Array.isArray(images)
+    ? images.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : typeof images === 'string' && images.trim()
+      ? (() => {
+          try {
+            const parsed = JSON.parse(images)
+            if (Array.isArray(parsed)) {
+              return parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+            }
+          } catch {
+            return images.split(',').filter(Boolean)
+          }
+          return []
+        })()
+      : []
+  const merged = [...new Set(values)]
+  if (mainImage && !merged.includes(mainImage)) {
+    merged.unshift(mainImage)
+  }
+  return merged
+}
+
+const buildProductImagesPayload = () => [...form.images]
 const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
 const getErrorMessage = (error: any, fallback: string) => error?.response?.data?.message || error?.message || fallback
 const isSuccessfulResponse = (res: any) => res?.code === 200
@@ -154,6 +189,7 @@ const form = reactive({
   originalPrice: null as number | null,
   stock: 1,
   mainImage: '',
+  images: [] as string[],
   description: '',
   adVideo: ''
 })
@@ -165,6 +201,7 @@ const resetForm = () => {
   form.originalPrice = null
   form.stock = 1
   form.mainImage = ''
+  form.images = []
   form.description = ''
   form.adVideo = ''
 }
@@ -197,6 +234,7 @@ const openDialog = (product?: any) => {
       originalPrice: product.originalPrice || 0,
       stock: product.stock,
       mainImage: product.mainImage,
+      images: parseProductImages(product.images, product.mainImage),
       description: product.description,
       adVideo: product.adVideo || ''
     })
@@ -210,7 +248,7 @@ const openDialog = (product?: any) => {
 
 const fetchCategories = async () => {
   try {
-    const res: any = await axios.get('/categories')
+    const res: any = await categoryApi.getCategories()
     if (res?.code === 200) {
       categories.value = res.data || []
     } else {
@@ -223,7 +261,7 @@ const fetchProducts = async () => {
   const requestId = ++latestProductsRequestId
   loading.value = true
   try {
-    const res: any = await axios.get('/products/my')
+    const res: any = await productApi.getMyProducts()
     if (requestId !== latestProductsRequestId) {
       return
     }
@@ -242,6 +280,7 @@ const fetchProducts = async () => {
             originalPrice: matchedProduct.originalPrice || 0,
             stock: matchedProduct.stock,
             mainImage: matchedProduct.mainImage,
+            images: parseProductImages(matchedProduct.images, matchedProduct.mainImage),
             description: matchedProduct.description,
             adVideo: matchedProduct.adVideo || ''
           })
@@ -277,6 +316,10 @@ const beforeUpload = (file: File) => {
 }
 
 const handleImageUpload = async (options: any) => {
+  if (form.images.length >= 6) {
+    ElMessage.warning('最多上传 6 张商品图片')
+    return
+  }
   try {
     // 获取当前选择的分类名称，用于按分类存储图片
     const categoryName = form.categoryId 
@@ -286,7 +329,12 @@ const handleImageUpload = async (options: any) => {
     const productId = isEdit.value && editId.value ? editId.value : undefined
     const res: any = await fileApi.uploadProductImage(options.file, categoryName, productId)
     if (res?.code === 200 && res.data) {
-      form.mainImage = res.data
+      if (!form.images.includes(res.data)) {
+        form.images = [...form.images, res.data]
+      }
+      if (!form.mainImage) {
+        form.mainImage = res.data
+      }
       ElMessage.success(res.message || '图片上传成功')
     } else {
       const message = getResponseMessage(res, '上传失败')
@@ -296,6 +344,18 @@ const handleImageUpload = async (options: any) => {
   } catch (e) {
     debugError('上传商品图片失败', e)
     ElMessage.error(getErrorMessage(e, '图片上传失败'))
+  }
+}
+
+const setMainImage = (image: string) => {
+  form.mainImage = image
+}
+
+const removeProductImage = (image: string) => {
+  const nextImages = form.images.filter((item) => item !== image)
+  form.images = nextImages
+  if (form.mainImage === image) {
+    form.mainImage = nextImages[0] || ''
   }
 }
 
@@ -354,8 +414,15 @@ const upsertLocalProduct = (product: any) => {
 }
 
 const submitProduct = async () => {
+  const normalizedImages = form.images.length > 0
+    ? buildProductImagesPayload()
+    : (form.mainImage ? [form.mainImage] : [])
   if (!form.name || !form.categoryId || !form.price || form.price <= 0 || form.stock < 1) {
     ElMessage.warning('请填写完整信息')
+    return
+  }
+  if (!form.mainImage || normalizedImages.length === 0) {
+    ElMessage.warning('请至少上传 1 张商品图片')
     return
   }
   
@@ -364,12 +431,12 @@ const submitProduct = async () => {
     const actionLabel = isEdit.value ? '编辑商品' : '提交商品'
     const productData = {
       ...form,
-      images: buildProductImagesPayload(),
+      images: normalizedImages,
       adVideo: form.adVideo || null
     }
     
     if (isEdit.value && editId.value) {
-      const res: any = await axios.put(`/products/${editId.value}`, productData)
+      const res: any = await productApi.updateProduct(editId.value, productData)
       if (isSuccessfulResponse(res)) {
         invalidateProductRequests()
         upsertLocalProduct({
@@ -387,7 +454,7 @@ const submitProduct = async () => {
         return
       }
     } else {
-      const res: any = await axios.post('/products/submit', productData)
+      const res: any = await productApi.submitProduct(productData)
       if (isSuccessfulResponse(res)) {
         invalidateProductRequests()
         upsertLocalProduct({
@@ -416,7 +483,7 @@ const submitProduct = async () => {
 const handleDelete = async (product: any) => {
   try {
     await ElMessageBox.confirm(`确定要删除商品"${product.name}"吗？`, '提示', { type: 'warning' })
-    const res: any = await axios.delete(`/products/${product.id}`)
+    const res: any = await productApi.deleteProduct(product.id)
     if (isSuccessfulResponse(res)) {
       ElMessage.success(getResponseMessage(res, '删除成功'))
     } else {
@@ -596,11 +663,14 @@ onMounted(() => {
 
 .image-upload-area {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .avatar-uploader {
-  width: 200px;
-  height: 200px;
+  width: 120px;
+  height: 120px;
   border: 1px dashed #d9d9d9;
   border-radius: 8px;
   cursor: pointer;
@@ -612,18 +682,65 @@ onMounted(() => {
 }
 
 .preview-image {
-  width: 200px;
-  height: 200px;
+  width: 100%;
+  height: 120px;
+  border-radius: 8px;
 }
 
 .upload-placeholder {
-  width: 200px;
-  height: 200px;
+  width: 120px;
+  height: 120px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   color: #999;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.image-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.image-card.active {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.18);
+}
+
+.image-card-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mini-action {
+  border: none;
+  background: #f3f4f6;
+  color: #374151;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mini-action.danger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.upload-tip {
+  color: #6b7280;
+  font-size: 12px;
 }
 
 .upload-placeholder .el-icon {

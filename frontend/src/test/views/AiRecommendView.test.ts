@@ -1,69 +1,39 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-const { mockPush, userStore, productApi, adminApi, couponApi, aiChat, debugError } = vi.hoisted(() => ({
-  mockPush: vi.fn(),
-  userStore: {
-    isLoggedIn: true,
-    userInfo: { id: 1, username: 'buyer', nickname: '小白' }
-  },
-  productApi: {
-    getProducts: vi.fn()
-  },
-  adminApi: {
-    getCategories: vi.fn()
-  },
-  couponApi: {
-    getAvailableCoupons: vi.fn()
-  },
-  aiChat: {
-    getAiResponse: vi.fn(),
-    quickQuestions: ['有什么热销商品'],
-    setApiKey: vi.fn(),
-    getStoredApiKey: vi.fn(() => ''),
-    setExtraData: vi.fn()
-  },
-  debugError: vi.fn()
-}))
-
-vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: mockPush })
-}))
-
-vi.mock('@/stores/userStore', () => ({
-  useUserStore: () => userStore
-}))
-
-vi.mock('@/utils/aiChat', () => aiChat)
-
-vi.mock('@/api/productApi', () => ({
-  default: productApi
-}))
-
-vi.mock('@/api/adminApi', () => ({
-  default: adminApi
-}))
-
-vi.mock('@/api/couponApi', () => ({
-  default: couponApi
-}))
-
-vi.mock('@/api/fileApi', () => ({
-  default: {
-    getImageUrl: vi.fn(() => '/img.png')
-  }
-}))
-
-vi.mock('@/utils/debug', () => ({
-  debugError
-}))
-
+import { createPinia, setActivePinia } from 'pinia'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import { useUserStore } from '@/stores/userStore'
+import productApi from '@/api/productApi'
+import adminApi from '@/api/adminApi'
+import couponApi from '@/api/couponApi'
+import fileApi from '@/api/fileApi'
+import * as aiChatModule from '@/utils/aiChat'
+import * as debugModule from '@/utils/debug'
 import AiRecommendView from '@/views/AiRecommendView.vue'
 
+const getProductsSpy = vi.spyOn(productApi, 'getProducts')
+const getCategoriesSpy = vi.spyOn(adminApi, 'getCategories')
+const getAvailableCouponsSpy = vi.spyOn(couponApi, 'getAvailableCoupons')
+const getImageUrlSpy = vi.spyOn(fileApi, 'getImageUrl')
+const getAiResponseSpy = vi.spyOn(aiChatModule, 'getAiResponse')
+const setApiKeySpy = vi.spyOn(aiChatModule, 'setApiKey')
+const getStoredApiKeySpy = vi.spyOn(aiChatModule, 'getStoredApiKey')
+const setExtraDataSpy = vi.spyOn(aiChatModule, 'setExtraData')
+const debugError = vi.spyOn(debugModule, 'debugError').mockImplementation(() => {})
+
 describe('AiRecommendView', () => {
+  let pinia: ReturnType<typeof createPinia>
+  let userStore: ReturnType<typeof useUserStore>
+
   beforeEach(() => {
     vi.clearAllMocks()
-    productApi.getProducts.mockResolvedValue({
+    pinia = createPinia()
+    setActivePinia(pinia)
+    userStore = useUserStore()
+    userStore.token = 'token'
+    userStore.userInfo = { id: 1, username: 'buyer', nickname: '小白' } as any
+
+    getProductsSpy.mockResolvedValue({
       code: 200,
       data: {
         content: [
@@ -71,23 +41,44 @@ describe('AiRecommendView', () => {
           { id: 2, name: '商品B', sales: 99, price: 80, mainImage: '/b.png' }
         ]
       }
-    })
-    adminApi.getCategories.mockResolvedValue({ data: [] })
-    couponApi.getAvailableCoupons.mockResolvedValue({ data: [] })
+    } as any)
+    getCategoriesSpy.mockResolvedValue({ data: [] } as any)
+    getAvailableCouponsSpy.mockResolvedValue({ data: [] } as any)
+    getImageUrlSpy.mockReturnValue('/img.png')
+    getAiResponseSpy.mockResolvedValue('推荐商品A')
+    getStoredApiKeySpy.mockReturnValue('')
+    setExtraDataSpy.mockImplementation(() => {})
+    debugError.mockImplementation(() => {})
   })
 
-  it('shows bounded capability copy instead of claiming personalized recommendation', async () => {
+  const mountView = async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        { path: '/category', component: { template: '<div />' } },
+        { path: '/product/:id', component: { template: '<div />' } }
+      ]
+    })
+
+    await router.push('/')
+    await router.isReady()
+
     const wrapper = mount(AiRecommendView, {
       global: {
+        plugins: [pinia, router],
         stubs: {
           Navbar: true,
-          Footer: true,
-          RouterLink: {
-            template: '<a><slot /></a>'
-          }
+          Footer: true
         }
       }
     })
+
+    return { wrapper, router }
+  }
+
+  it('shows bounded capability copy instead of claiming personalized recommendation', async () => {
+    const { wrapper } = await mountView()
 
     await flushPromises()
 
@@ -98,37 +89,17 @@ describe('AiRecommendView', () => {
   })
 
   it('requests first page with 0-based pagination and renders discovered products from a single page payload', async () => {
-    const wrapper = mount(AiRecommendView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: {
-            template: '<a><slot /></a>'
-          }
-        }
-      }
-    })
+    const { wrapper } = await mountView()
 
     await flushPromises()
 
-    expect(productApi.getProducts).toHaveBeenCalledWith({ pageNo: 0, pageSize: 100, sort: 'sales' })
+    expect(getProductsSpy).toHaveBeenCalledWith({ pageNo: 0, pageSize: 24, sort: 'sales' })
     expect(wrapper.findAll('.product-card')).toHaveLength(2)
     expect(wrapper.text()).toContain('商品B')
   })
 
   it('does not claim success when api key is empty', async () => {
-    const wrapper = mount(AiRecommendView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: {
-            template: '<a><slot /></a>'
-          }
-        }
-      }
-    })
+    const { wrapper } = await mountView()
 
     await flushPromises()
 
@@ -138,48 +109,26 @@ describe('AiRecommendView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('未填写 API 密钥，AI 对话仍不可用')
-    expect(aiChat.setApiKey).not.toHaveBeenCalled()
+    expect(setApiKeySpy).not.toHaveBeenCalled()
   })
 
   it('logs when ai product data returns non-200 payload', async () => {
-    productApi.getProducts.mockResolvedValue({ code: 500, message: '商品读取失败' })
+    getProductsSpy.mockResolvedValue({ code: 500, message: '商品读取失败' } as any)
 
-    mount(AiRecommendView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: {
-            template: '<a><slot /></a>'
-          }
-        }
-      }
-    })
-
+    await mountView()
     await flushPromises()
 
     expect(debugError).toHaveBeenCalledWith('获取 AI 商品数据失败:', '商品读取失败')
   })
 
   it('logs and falls back when ai product request throws', async () => {
-    productApi.getProducts.mockRejectedValue(new Error('商品服务失败'))
+    getProductsSpy.mockRejectedValue(new Error('商品服务失败'))
 
-    const wrapper = mount(AiRecommendView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: {
-            template: '<a><slot /></a>'
-          }
-        }
-      }
-    })
-
+    const { wrapper } = await mountView()
     await flushPromises()
 
     expect(debugError).toHaveBeenCalledWith('获取 AI 商品数据失败:', expect.any(Error))
-    expect(aiChat.setExtraData).toHaveBeenCalledWith({
+    expect(setExtraDataSpy).toHaveBeenCalledWith({
       categories: [],
       coupons: []
     })
@@ -187,25 +136,14 @@ describe('AiRecommendView', () => {
   })
 
   it('shows an explicit empty state when no products are available', async () => {
-    productApi.getProducts.mockResolvedValue({
+    getProductsSpy.mockResolvedValue({
       code: 200,
       data: {
         content: []
       }
-    })
+    } as any)
 
-    const wrapper = mount(AiRecommendView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: {
-            template: '<a><slot /></a>'
-          }
-        }
-      }
-    })
-
+    const { wrapper } = await mountView()
     await flushPromises()
 
     expect(wrapper.text()).toContain('当前暂无可展示商品')
@@ -213,20 +151,9 @@ describe('AiRecommendView', () => {
   })
 
   it('logs and falls back when ai chat request fails', async () => {
-    aiChat.getAiResponse.mockRejectedValue(new Error('ai unavailable'))
+    getAiResponseSpy.mockRejectedValue(new Error('ai unavailable'))
 
-    const wrapper = mount(AiRecommendView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: {
-            template: '<a><slot /></a>'
-          }
-        }
-      }
-    })
-
+    const { wrapper } = await mountView()
     await flushPromises()
 
     await wrapper.find('input').setValue('推荐一款耳机')
@@ -238,26 +165,15 @@ describe('AiRecommendView', () => {
   })
 
   it('logs category and coupon fetch errors when fallback data is used', async () => {
-    adminApi.getCategories.mockRejectedValue(new Error('分类服务失败'))
-    couponApi.getAvailableCoupons.mockRejectedValue(new Error('优惠券服务失败'))
+    getCategoriesSpy.mockRejectedValue(new Error('分类服务失败'))
+    getAvailableCouponsSpy.mockRejectedValue(new Error('优惠券服务失败'))
 
-    mount(AiRecommendView, {
-      global: {
-        stubs: {
-          Navbar: true,
-          Footer: true,
-          RouterLink: {
-            template: '<a><slot /></a>'
-          }
-        }
-      }
-    })
-
+    await mountView()
     await flushPromises()
 
     expect(debugError).toHaveBeenCalledWith('获取 AI 分类数据失败:', expect.any(Error))
     expect(debugError).toHaveBeenCalledWith('获取 AI 优惠券数据失败:', expect.any(Error))
-    expect(aiChat.setExtraData).toHaveBeenCalledWith({
+    expect(setExtraDataSpy).toHaveBeenCalledWith({
       categories: [],
       coupons: []
     })

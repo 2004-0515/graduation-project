@@ -13,10 +13,10 @@
 
         <section class="hero-section">
           <div class="hero-copy">
-            <span class="hero-tag">优惠专题</span>
-            <h1>{{ featuredCoupon?.name || '优惠活动详情' }}</h1>
+            <span class="hero-tag">{{ heroBanner?.badgeText || '优惠专题' }}</span>
+            <h1>{{ heroBanner?.title || '优惠活动详情' }}</h1>
             <p>
-              {{ featuredCoupon?.description || '这里展示当前可领取优惠券和可直接购买的真实商品，不再使用演示活动数据。' }}
+              {{ heroBanner?.description || '这里展示当前可领取优惠券和可直接购买的精选商品。' }}
             </p>
           </div>
 
@@ -50,6 +50,25 @@
               </button>
               <button class="secondary-btn" @click="router.push(`/coupon/${featuredCoupon.id}`)">查看优惠券详情</button>
             </div>
+          </div>
+        </section>
+
+        <section v-if="topicCards.length > 0" class="section-card">
+          <div class="section-head">
+            <h2>同场专题</h2>
+          </div>
+          <div class="topic-grid">
+            <button
+              v-for="banner in topicCards"
+              :key="banner.id"
+              class="topic-card"
+              :style="{ backgroundImage: `linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.62)), url(${getImageUrl(banner.imagePath)})` }"
+              @click="openBannerDetail(banner)"
+            >
+              <span class="topic-badge">{{ banner.badgeText || '专题' }}</span>
+              <h3>{{ banner.title }}</h3>
+              <p>{{ banner.subtitle || banner.description }}</p>
+            </button>
           </div>
         </section>
 
@@ -145,7 +164,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useCartStore } from '../stores/cartStore'
@@ -153,6 +172,7 @@ import { useUserStore } from '../stores/userStore'
 import couponApi from '../api/couponApi'
 import productApi from '../api/productApi'
 import fileApi from '../api/fileApi'
+import showcaseApi, { type ShowcaseBanner } from '../api/showcaseApi'
 import { debugError } from '../utils/debug'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
@@ -167,11 +187,12 @@ const loadingProducts = ref(false)
 const coupons = ref<any[]>([])
 const products = ref<any[]>([])
 const featuredCoupon = ref<any | null>(null)
-let latestFeaturedCouponRequestId = 0
+const promotionBanners = ref<ShowcaseBanner[]>([])
+const heroBanner = ref<ShowcaseBanner | null>(null)
+const topicCards = computed(() =>
+  promotionBanners.value.filter((banner) => banner.id !== heroBanner.value?.id).slice(0, 3)
+)
 let latestCouponsRequestId = 0
-const invalidateFeaturedCouponRequests = () => {
-  latestFeaturedCouponRequestId += 1
-}
 const invalidateCouponRequests = () => {
   latestCouponsRequestId += 1
 }
@@ -206,28 +227,27 @@ const couponDateRange = (coupon: any) =>
 
 const canClaim = (coupon: any) => !coupon?.claimed && Number(coupon?.remaining ?? 0) > 0
 
-const fetchFeaturedCoupon = async () => {
-  const id = Number(route.params.id)
-  if (!id) return
-  const requestId = ++latestFeaturedCouponRequestId
+const resolveBannerLink = (banner: ShowcaseBanner) => {
+  const target = banner.linkTarget?.trim()
+  if (!target) return '/promotions'
+  if (banner.linkType === 'PRODUCT' && /^\d+$/.test(target)) return `/product/${target}`
+  if (banner.linkType === 'CATEGORY' && /^\d+$/.test(target)) return `/category?id=${target}`
+  if (banner.linkType === 'PROMOTION' && /^\d+$/.test(target)) return `/promotion/${target}`
+  return target
+}
 
+const fetchPromotionBanners = async () => {
+  const id = Number(route.params.id)
   try {
-    const res: any = await couponApi.getCouponById(id)
-    if (requestId !== latestFeaturedCouponRequestId) {
-      return
-    }
-    if (res?.code === 200 && res.data) {
-      featuredCoupon.value = res.data
+    const res: any = await showcaseApi.getPublicBanners('PROMOTION_HERO')
+    if (res?.code === 200 && Array.isArray(res.data)) {
+      promotionBanners.value = res.data
+      heroBanner.value = res.data.find((item: ShowcaseBanner) => item.id === id) || res.data[0] || null
     } else {
-      debugError('获取优惠专题主优惠券失败:', res?.message || '业务返回异常')
-      ElMessage.warning('未找到对应优惠活动，已为你展示当前可用优惠券')
+      debugError('获取优惠专题主视觉失败:', res?.message || '业务返回异常')
     }
   } catch (error) {
-    if (requestId !== latestFeaturedCouponRequestId) {
-      return
-    }
-    debugError('获取优惠专题主优惠券失败:', error)
-    ElMessage.warning('未找到对应优惠活动，已为你展示当前可用优惠券')
+    debugError('获取优惠专题主视觉失败:', error)
   }
 }
 
@@ -241,7 +261,7 @@ const fetchCoupons = async () => {
     }
     if (res?.code === 200) {
       coupons.value = res.data || []
-      if (!featuredCoupon.value && coupons.value.length > 0) {
+      if (coupons.value.length > 0 && !featuredCoupon.value) {
         featuredCoupon.value = coupons.value[0]
       }
     } else {
@@ -276,8 +296,8 @@ const fetchProducts = async () => {
 }
 
 const refreshCouponsAfterClaimSuccess = async () => {
-  const results = await Promise.allSettled([fetchFeaturedCoupon(), fetchCoupons()])
-  const targetLabels = ['专题主优惠券', '优惠券列表']
+  const results = await Promise.allSettled([fetchCoupons()])
+  const targetLabels = ['优惠券列表']
 
   results.forEach((result, index) => {
     if (result.status !== 'rejected') {
@@ -317,7 +337,6 @@ const claimCoupon = async (coupon: any) => {
   try {
     const res: any = await couponApi.claimCoupon(coupon.id)
     if (res?.code === 200) {
-      invalidateFeaturedCouponRequests()
       invalidateCouponRequests()
       applyLocalCouponClaimState(coupon.id)
       ElMessage.success('领取成功')
@@ -341,7 +360,7 @@ const addToCart = async (product: any) => {
   }
 
   try {
-    await cartStore.addToCart(userStore.userInfo?.id || null, product.id, 1)
+    await cartStore.addToCart(userStore.userInfo?.id ?? undefined, product.id, 1)
   } catch (error) {
     debugError('优惠专题加入购物车失败:', error)
     ElMessage.error(getErrorMessage(error, '加入购物车失败'))
@@ -357,11 +376,20 @@ const buyNow = (product: any) => {
   router.push(`/checkout?productId=${product.id}&quantity=1`)
 }
 
+const openBannerDetail = (banner: ShowcaseBanner) => {
+  if (banner.id) {
+    router.push(`/promotion/${banner.id}`)
+    return
+  }
+  router.push(resolveBannerLink(banner))
+}
+
 const reloadPromotionDetailFromRoute = async () => {
+  heroBanner.value = null
   featuredCoupon.value = null
   coupons.value = []
   products.value = []
-  await Promise.all([fetchFeaturedCoupon(), fetchCoupons(), fetchProducts()])
+  await Promise.all([fetchPromotionBanners(), fetchCoupons(), fetchProducts()])
 }
 
 onMounted(async () => {
@@ -536,6 +564,42 @@ watch(() => route.params.id, async () => {
   line-height: 1.9;
 }
 
+.topic-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.topic-card {
+  min-height: 200px;
+  border: none;
+  border-radius: 8px;
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  text-align: left;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.topic-card h3,
+.topic-card p {
+  margin: 0;
+}
+
+.topic-badge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+}
+
 .coupon-grid,
 .product-grid {
   display: grid;
@@ -672,6 +736,10 @@ watch(() => route.params.id, async () => {
   .hero-section,
   .coupon-grid,
   .product-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topic-grid {
     grid-template-columns: 1fr;
   }
 }

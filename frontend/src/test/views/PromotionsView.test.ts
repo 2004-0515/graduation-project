@@ -6,6 +6,7 @@ const {
   mockPush,
   couponApi,
   productApi,
+  showcaseApi,
   userStore,
   debugError
 } = vi.hoisted(() => ({
@@ -17,6 +18,9 @@ const {
   },
   productApi: {
     getProducts: vi.fn()
+  },
+  showcaseApi: {
+    getPublicBanners: vi.fn()
   },
   userStore: {
     isLoggedIn: false
@@ -48,6 +52,10 @@ vi.mock('@/api/productApi', () => ({
   default: productApi
 }))
 
+vi.mock('@/api/showcaseApi', () => ({
+  default: showcaseApi
+}))
+
 vi.mock('@/api/fileApi', () => ({
   default: {
     getImageUrl: vi.fn(() => '/img.png')
@@ -77,6 +85,7 @@ describe('PromotionsView', () => {
     couponApi.getAvailableCoupons.mockResolvedValue({ code: 200, data: [] })
     couponApi.getMyCoupons.mockResolvedValue({ code: 200, data: [] })
     productApi.getProducts.mockResolvedValue({ code: 200, data: { content: [] } })
+    showcaseApi.getPublicBanners.mockResolvedValue({ code: 200, data: [] })
   })
 
   const mountView = () =>

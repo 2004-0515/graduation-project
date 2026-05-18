@@ -5,9 +5,8 @@ import {
   E2E_PASSWORD,
   E2E_USERS,
   getSession,
-  login,
+  openAdminPage,
   logout,
-  neutralizeFloatingUi
 } from './helpers/session'
 
 test('管理员可审核通过头像文件并删除审核记录', async ({ page }) => {
@@ -34,10 +33,7 @@ test('管理员可审核通过头像文件并删除审核记录', async ({ page 
   expect(uploadPayload?.code).toBe(200)
   expect(uploadPayload?.message).toContain('等待管理员审核')
 
-  await login(page, E2E_USERS.admin, E2E_PASSWORD)
-  await page.goto('/admin/files')
-  await neutralizeFloatingUi(page)
-  await expect(page.getByTestId('admin-files-view')).toBeVisible()
+  await openAdminPage(page, '/admin/files', { testId: 'admin-files-view' })
 
   let fileCard = page.locator('.file-card', { hasText: uniqueFilename }).first()
   await expect(fileCard).toBeVisible({ timeout: 15_000 })

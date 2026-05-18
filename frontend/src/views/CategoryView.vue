@@ -99,15 +99,37 @@
               <p>换个条件试试吧</p>
             </div>
 
-            <div class="pagination" v-if="total > 0">
-              <el-pagination 
-                v-model:current-page="currentPage" 
-                :page-size="pageSize" 
-                :total="total" 
-                :pager-count="5"
-                layout="prev, pager, next" 
-                @current-change="handlePageChange" 
-              />
+            <div class="pagination" v-if="totalPages > 1">
+              <button
+                class="page-btn page-nav"
+                :disabled="currentPage === 1"
+                @click="handlePageChange(currentPage - 1)"
+              >
+                <span aria-hidden="true">&lt;</span>
+                <span class="sr-only">上一页</span>
+              </button>
+              <template
+                v-for="item in paginationItems"
+                :key="`page-${item}`"
+              >
+                <button
+                  v-if="typeof item === 'number'"
+                  :class="['page-btn', { active: item === currentPage }]"
+                  @click="handlePageChange(item)"
+                >
+                  {{ item }}
+                </button>
+                <span v-else class="page-ellipsis" aria-hidden="true">...</span>
+              </template>
+              <button
+                class="page-btn page-nav"
+                :disabled="currentPage === totalPages"
+                @click="handlePageChange(currentPage + 1)"
+              >
+                <span class="sr-only">下一页</span>
+                <span aria-hidden="true">&gt;</span>
+              </button>
+              <span class="page-summary">第 {{ currentPage }} / {{ totalPages }} 页</span>
             </div>
           </div>
         </div>
@@ -142,6 +164,7 @@ const total = ref(0)
 const loading = ref(false)
 let latestFetchProductsRequestId = 0
 const getResponseMessage = (res: any, fallback: string) => res?.message || fallback
+type PaginationItem = number | 'ellipsis-left' | 'ellipsis-right'
 
 // 搜索关键词
 const searchKeyword = computed(() => {
@@ -169,6 +192,25 @@ const imgErr = (e: Event) => {
 }
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+
+const paginationItems = computed<PaginationItem[]>(() => {
+  const pageCount = totalPages.value
+  const page = currentPage.value
+  if (pageCount <= 6) {
+    return Array.from({ length: pageCount }, (_, index) => index + 1)
+  }
+
+  if (page <= 3) {
+    return [1, 2, 3, 4, 'ellipsis-right', pageCount]
+  }
+
+  if (page >= pageCount - 2) {
+    return [1, 'ellipsis-left', pageCount - 3, pageCount - 2, pageCount - 1, pageCount]
+  }
+
+  return [1, 'ellipsis-left', page - 1, page, page + 1, 'ellipsis-right', pageCount]
+})
 
 const fetchProducts = async () => {
   const requestId = ++latestFetchProductsRequestId
@@ -251,6 +293,9 @@ const clearPriceFilter = () => {
 }
 
 const handlePageChange = (page: number) => {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) {
+    return
+  }
   currentPage.value = page
   fetchProducts()
   window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -480,15 +525,60 @@ onMounted(() => {
 .empty p { font-size: 14px; color: var(--text-tertiary); margin: 0; }
 
 /* 分页 */
-.pagination { margin-top: 40px; display: flex; justify-content: center; }
-:deep(.el-pagination button), :deep(.el-pager li) { 
-  background: var(--white) !important; 
-  border: 1px solid var(--gray-300) !important; 
+.pagination { margin-top: 40px; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; }
+.page-btn {
+  min-width: 42px;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
-:deep(.el-pager li.is-active) { 
-  background: var(--primary) !important; 
-  color: var(--white) !important; 
-  border-color: var(--primary) !important; 
+.page-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.page-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--white);
+  font-weight: 600;
+}
+.page-btn:disabled {
+  opacity: 0.55;
+}
+.page-btn.page-nav {
+  font-size: 16px;
+}
+.page-ellipsis {
+  min-width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  user-select: none;
+}
+.page-summary {
+  margin-left: 8px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (max-width: 1024px) { 

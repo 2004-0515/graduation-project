@@ -40,8 +40,8 @@
             <nav class="sidebar-nav">
               <router-link to="/profile" class="nav-item active">个人资料</router-link>
               <router-link to="/orders" class="nav-item">我的订单</router-link>
-              <router-link to="/my-products" class="nav-item">我的商品</router-link>
-              <router-link to="/seller-orders" class="nav-item">
+              <router-link v-if="isSeller" to="/my-products" class="nav-item">我的商品</router-link>
+              <router-link v-if="isSeller" to="/seller-orders" class="nav-item">
                 卖家订单
                 <span v-if="showSellerPendingBadge" class="nav-badge">{{ sellerPendingCount }}</span>
               </router-link>
@@ -185,8 +185,9 @@ import { useUserStore } from '../stores/userStore'
 import { useCartStore } from '../stores/cartStore'
 import orderApi from '../api/orderApi'
 import fileApi from '../api/fileApi'
-import axios from '../utils/axios'
+import priceApi from '../api/priceApi'
 import { debugError } from '../utils/debug'
+import { isSellerUser } from '../utils/roles'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 import type { ApiResponse, Order } from '../types'
@@ -196,6 +197,7 @@ const userStore = useUserStore()
 const cartStore = useCartStore()
 
 const userInfo = computed(() => userStore.userInfo)
+const isSeller = computed(() => isSellerUser(userInfo.value))
 const userInitial = computed(
   () => userInfo.value?.nickname?.charAt(0) || userInfo.value?.username?.charAt(0)?.toUpperCase() || 'U'
 )
@@ -224,11 +226,11 @@ const pendingReceiveDisplay = computed(() => orderStatsAvailable.value ? String(
 const priceAlertCountDisplay = computed(() => priceAlertStatsAvailable.value ? String(priceAlertCount.value) : unavailableMarker)
 const cartCountDisplay = computed(() => cartStatsAvailable.value ? String(cartCount.value) : unavailableMarker)
 const showPriceAlertBadge = computed(() => priceAlertStatsAvailable.value && priceAlertCount.value > 0)
-const showSellerPendingBadge = computed(() => sellerPendingStatsAvailable.value && sellerPendingCount.value > 0)
+const showSellerPendingBadge = computed(() => isSeller.value && sellerPendingStatsAvailable.value && sellerPendingCount.value > 0)
 const hasUnavailableStats = computed(() =>
   !orderStatsAvailable.value ||
   !priceAlertStatsAvailable.value ||
-  !sellerPendingStatsAvailable.value ||
+  (isSeller.value && !sellerPendingStatsAvailable.value) ||
   !cartStatsAvailable.value
 )
 
@@ -370,7 +372,7 @@ const loadOrderStats = async () => {
 const loadPriceAlertCount = async () => {
   const requestId = ++latestPriceAlertCountRequestId
   try {
-    const res = (await axios.get('/price/alerts')) as ApiResponse<Array<{ status?: number }>>
+    const res = await priceApi.getUserAlerts()
     if (requestId !== latestPriceAlertCountRequestId) {
       return
     }
@@ -392,9 +394,14 @@ const loadPriceAlertCount = async () => {
 }
 
 const loadSellerPendingCount = async () => {
+  if (!isSeller.value) {
+    sellerPendingCount.value = 0
+    sellerPendingStatsAvailable.value = true
+    return
+  }
   const requestId = ++latestSellerPendingCountRequestId
   try {
-    const res: any = await axios.get('/orders/seller/pending/count')
+    const res = await orderApi.getSellerPendingCount()
     if (requestId !== latestSellerPendingCountRequestId) {
       return
     }

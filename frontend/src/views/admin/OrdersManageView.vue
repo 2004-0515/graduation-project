@@ -121,12 +121,11 @@ import { useAdminStore } from '@/stores/adminStore'
 import { debugError } from '@/utils/debug'
 import type { Order } from '@/types'
 
-const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const getImageUrl = (path?: string) => fileApi.getImageUrl(path || '')
 
 // 使用 admin store 来刷新侧边栏数量
 const adminStore = useAdminStore()
 
-const allOrders = ref<Order[]>([]) // 所有订单数据
 const orders = ref<Order[]>([]) // 当前页显示的订单
 const loading = ref(false)
 const detailVisible = ref(false)
@@ -141,7 +140,7 @@ let latestOrdersRequestId = 0
 const invalidateOrderRequests = () => {
   latestOrdersRequestId += 1
 }
-type TagType = '' | 'success' | 'info' | 'warning' | 'danger' | 'primary'
+type TagType = 'success' | 'info' | 'warning' | 'danger' | 'primary'
 
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (error && typeof error === 'object') {
@@ -153,8 +152,10 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 }
 
 const getStatusText = (status: number) => ({ 0: '待付款', 1: '待发货', 2: '待收货', 3: '已完成', 4: '已取消', 5: '退款中', 6: '申请取消中' }[status] || '未知')
-const getStatusType = (status: number): TagType =>
-  ({ 0: 'warning', 1: 'primary', 2: 'info', 3: 'success', 4: 'danger', 5: 'danger', 6: 'warning' }[status] || 'info')
+const getStatusType = (status: number): TagType => {
+  const map: Record<number, TagType> = { 0: 'warning', 1: 'primary', 2: 'info', 3: 'success', 4: 'danger', 5: 'danger', 6: 'warning' }
+  return map[status] || 'info'
+}
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '-'
@@ -180,7 +181,7 @@ const fetchOrders = async (showError: boolean = true) => {
   const requestId = ++latestOrdersRequestId
   loading.value = true
   try {
-    const params: { page: number; size: number; status?: number } = { page: 0, size: 1000 } // 获取所有订单
+    const params: { page: number; size: number; status?: number } = { page: currentPage.value - 1, size: pageSize.value }
     // 只有当 filterStatus 是数字时才传 status 参数
     if (filterStatus.value !== '' && typeof filterStatus.value === 'number') {
       params.status = filterStatus.value
@@ -191,14 +192,12 @@ const fetchOrders = async (showError: boolean = true) => {
       return
     }
     if (res?.code === 200) {
-      let list = Array.isArray(res.data) ? res.data : []
+      let list = Array.isArray(res.data?.content) ? res.data.content : (Array.isArray(res.data) ? res.data : [])
       if (searchKeyword.value) {
         list = list.filter((o) => o.orderNo?.includes(searchKeyword.value))
       }
-      allOrders.value = list
-      total.value = list.length
-      // 计算当前页数据
-      updatePageData()
+      orders.value = list
+      total.value = Number(res.data?.totalElements || list.length)
       return
     }
     const message = res?.message || '获取订单列表失败'
@@ -242,9 +241,7 @@ const refreshOrdersAndPendingCountAfterSuccess = async (actionLabel: string) => 
 }
 
 const applyLocalOrders = (nextOrders: Order[]) => {
-  allOrders.value = nextOrders
-  total.value = nextOrders.length
-  updatePageData()
+  orders.value = nextOrders
 
   if (currentOrder.value) {
     currentOrder.value = nextOrders.find((item) => item.id === currentOrder.value?.id) || null
@@ -254,17 +251,10 @@ const applyLocalOrders = (nextOrders: Order[]) => {
   }
 }
 
-// 更新当前页数据
-const updatePageData = () => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  orders.value = allOrders.value.slice(start, end)
-}
-
 // 页码变化
 const handlePageChange = (page: number) => {
   currentPage.value = page
-  updatePageData()
+  fetchOrders()
 }
 
 // 筛选状态变化
@@ -296,7 +286,7 @@ const cancelOrder = async (order: Order) => {
     }
     invalidateOrderRequests()
     applyLocalOrders(
-      allOrders.value.map((item) =>
+      orders.value.map((item) =>
         item.id === order.id
           ? {
               ...item,
@@ -333,7 +323,7 @@ const reviewCancel = async (order: Order, approved: boolean) => {
     if (approved) {
       invalidateOrderRequests()
       applyLocalOrders(
-        allOrders.value.map((item) =>
+        orders.value.map((item) =>
           item.id === order.id
             ? {
                 ...item,
@@ -370,7 +360,8 @@ const deleteOrder = async (order: Order) => {
       return
     }
     invalidateOrderRequests()
-    applyLocalOrders(allOrders.value.filter((item) => item.id !== order.id))
+    total.value = Math.max(0, total.value - 1)
+    applyLocalOrders(orders.value.filter((item) => item.id !== order.id))
     ElMessage.success('订单已删除')
     await refreshOrdersAfterSuccess('删除订单')
   } catch (error: any) {

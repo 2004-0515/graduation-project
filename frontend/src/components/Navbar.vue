@@ -70,12 +70,12 @@
         <template v-if="userStore.isLoggedIn">
           <div class="user-dropdown" @mouseenter="showDropdown = true" @mouseleave="showDropdown = false">
             <div class="user-link" @click="$router.push('/profile')">
-              <img :src="userAvatar" class="avatar" />
+              <img :src="userAvatar" alt="用户头像" class="avatar" />
             </div>
             <transition name="fade">
               <div v-if="showDropdown" class="dropdown-menu">
                 <div class="dropdown-header">
-                  <img :src="userAvatar" class="dropdown-avatar" />
+                  <img :src="userAvatar" alt="用户头像" class="dropdown-avatar" />
                   <div class="dropdown-info">
                     <span class="dropdown-name">{{ userStore.userInfo?.nickname || userStore.userInfo?.username || '用户' }}</span>
                     <span class="dropdown-email">{{ userStore.userInfo?.email || '' }}</span>
@@ -90,11 +90,11 @@
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                   我的订单
                 </router-link>
-                <router-link to="/my-products" class="dropdown-item">
+                <router-link v-if="isSeller" to="/my-products" class="dropdown-item">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
                   我的商品
                 </router-link>
-                <router-link to="/seller-orders" class="dropdown-item">
+                <router-link v-if="isSeller" to="/seller-orders" class="dropdown-item">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
                   卖家发货
                 </router-link>
@@ -146,8 +146,8 @@
         <template v-else>
           <router-link to="/profile" @click="open = false">个人中心</router-link>
           <router-link to="/orders" @click="open = false">我的订单</router-link>
-          <router-link to="/my-products" @click="open = false">我的商品</router-link>
-          <router-link to="/seller-orders" @click="open = false">卖家发货</router-link>
+          <router-link v-if="isSeller" to="/my-products" @click="open = false">我的商品</router-link>
+          <router-link v-if="isSeller" to="/seller-orders" @click="open = false">卖家发货</router-link>
           <router-link to="/price-alerts" @click="open = false">降价提醒</router-link>
           <router-link to="/rational-consumption" @click="open = false">理性消费</router-link>
           <router-link to="/address" @click="open = false">收货地址</router-link>
@@ -169,6 +169,7 @@ import fileApi from '@/api/fileApi'
 import searchApi from '@/api/searchApi'
 import SearchDropdown from '@/components/SearchDropdown.vue'
 import { debugError } from '@/utils/debug'
+import { isAdminUser, isSellerUser } from '@/utils/roles'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -182,9 +183,6 @@ const showSearchDropdown = ref(false)
 const searchDropdownRef = ref<InstanceType<typeof SearchDropdown> | null>(null)
 let unreadTimer: ReturnType<typeof setInterval> | null = null
 
-// 默认头像 - 使用本地SVG或用户首字母
-const defaultAvatarUrl = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="#9b87f5" width="100" height="100"/><text x="50" y="60" font-size="40" fill="white" text-anchor="middle" font-family="Arial">U</text></svg>`)
-
 // 计算属性：用户头像
 const userAvatar = computed(() => {
   const avatar = userStore.userInfo?.avatar
@@ -196,8 +194,8 @@ const userAvatar = computed(() => {
   return 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#FFB7D5"/><stop offset="50%" style="stop-color:#C7A3FF"/><stop offset="100%" style="stop-color:#A3D5FF"/></linearGradient></defs><rect fill="url(#g)" width="100" height="100"/><text x="50" y="62" font-size="42" fill="white" text-anchor="middle" font-family="Arial, sans-serif" font-weight="600">${initial}</text></svg>`)
 })
 
-// 判断是否为管理员（用户名为 admin）
-const isAdmin = computed(() => userStore.userInfo?.username === 'admin')
+const isAdmin = computed(() => isAdminUser(userStore.userInfo))
+const isSeller = computed(() => isSellerUser(userStore.userInfo))
 
 const recordSearchKeyword = async (keyword: string) => {
   try {

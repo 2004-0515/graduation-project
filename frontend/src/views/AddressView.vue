@@ -82,6 +82,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import type { CascaderOption, CascaderValue } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import addressApi from '../api/addressApi'
 import Navbar from '../components/Navbar.vue'
@@ -169,13 +170,6 @@ const regionData: Record<string, Record<string, string[]>> = {
   }
 }
 
-// 级联选择器选项
-interface CascaderOption {
-  value: string
-  label: string
-  children?: CascaderOption[]
-}
-
 const cascaderOptions = computed<CascaderOption[]>(() => {
   return Object.entries(regionData).map(([province, cities]) => ({
     value: province,
@@ -207,11 +201,12 @@ const getResponseMessage = (response: { message?: string } | null | undefined, f
   response?.message || fallback
 const isSuccessfulResponse = (res: any) => res?.code === 200
 
-const onRegionChange = (val: string[]) => {
-  if (val && val.length === 3) {
-    addressForm.province = val[0]
-    addressForm.city = val[1]
-    addressForm.district = val[2]
+const onRegionChange = (val: CascaderValue | null | undefined) => {
+  const values = Array.isArray(val) ? val.map((item) => String(item)) : []
+  if (values.length === 3) {
+    addressForm.province = values[0]
+    addressForm.city = values[1]
+    addressForm.district = values[2]
   } else {
     addressForm.province = ''
     addressForm.city = ''

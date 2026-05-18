@@ -41,6 +41,14 @@ describe('MusicPlayer', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockRoute.path = '/'
+    Object.defineProperty(window, 'innerWidth', {
+      value: 1024,
+      configurable: true
+    })
+    Object.defineProperty(window, 'innerHeight', {
+      value: 768,
+      configurable: true
+    })
     Object.defineProperty(window, 'requestIdleCallback', {
       value: undefined,
       configurable: true
@@ -382,5 +390,29 @@ describe('MusicPlayer', () => {
     await flushPromises()
     vm.handleMiniClick()
     expect(vm.isMinimized).toBe(false)
+  })
+
+  it('locks mobile viewport to mini mode and places it near the lower-right corner', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      value: 390,
+      configurable: true
+    })
+    Object.defineProperty(window, 'innerHeight', {
+      value: 1000,
+      configurable: true
+    })
+    musicApi.getEnabledMusic.mockResolvedValue({ code: 200, data: [] })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    expect(vm.isMinimized).toBe(true)
+    expect(vm.isExpanded).toBe(false)
+    expect(vm.position.x).toBeGreaterThanOrEqual(250)
+    expect(vm.position.y).toBeGreaterThanOrEqual(900)
+
+    vm.handleMiniClick()
+    expect(vm.isMinimized).toBe(true)
   })
 })

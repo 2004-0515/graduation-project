@@ -14,6 +14,10 @@
         </el-select>
         <el-select v-model="filters.fileType" placeholder="文件类型" clearable @change="fetchFiles">
           <el-option label="用户头像" value="AVATAR" />
+          <el-option label="商品图片" value="PRODUCT" />
+          <el-option label="展示内容图片" value="BANNER" />
+          <el-option label="分类图片" value="CATEGORY" />
+          <el-option label="促销图片" value="PROMOTION" />
           <el-option label="评价图片" value="REVIEW" />
         </el-select>
         <el-button @click="fetchFiles">刷新</el-button>
@@ -65,7 +69,7 @@
 
       <!-- 图片预览 -->
       <el-dialog v-model="previewVisible" title="图片预览" width="600px">
-        <img :src="previewUrl" style="width: 100%;" />
+        <img :src="previewUrl" alt="文件预览" style="width: 100%;" />
       </el-dialog>
 
       <!-- 拒绝原因弹窗 -->
@@ -84,7 +88,6 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminLayout from '@/components/AdminLayout.vue'
-import axios from '@/utils/axios'
 import fileApi from '@/api/fileApi'
 import { useAdminStore } from '@/stores/adminStore'
 import { debugError } from '@/utils/debug'
@@ -126,6 +129,8 @@ const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 const getFileTypeLabel = (type: string) => {
   const map: Record<string, string> = {
     AVATAR: '用户头像',
+    PRODUCT: '商品图片',
+    BANNER: '展示内容图片',
     CATEGORY: '分类图片',
     PROMOTION: '促销图片',
     REVIEW: '评价图片'
@@ -153,7 +158,7 @@ const fetchFiles = async () => {
     if (filters.status !== null) params.status = filters.status
     if (filters.fileType) params.fileType = filters.fileType
     
-    const res: any = await axios.get('/files/pending', { params })
+    const res: any = await fileApi.getPendingFiles(params)
     if (requestId !== latestFilesRequestId) {
       return
     }
@@ -212,7 +217,7 @@ const handleReview = async (file: any, status: number) => {
   }
   
   try {
-    const res: any = await axios.put(`/files/${file.id}/review`, { status, remark: '审核通过' })
+    const res: any = await fileApi.reviewFile(file.id, status, '审核通过')
     if (res?.code === 200) {
       adminStore.decreasePendingFileCount()
       invalidateFileRequests()
@@ -234,10 +239,11 @@ const confirmReject = async () => {
   if (!currentFile.value) return
   
   try {
-    const res: any = await axios.put(`/files/${currentFile.value.id}/review`, { 
-      status: 2, 
-      remark: rejectRemark.value || '审核未通过' 
-    })
+    const res: any = await fileApi.reviewFile(
+      currentFile.value.id,
+      2,
+      rejectRemark.value || '审核未通过'
+    )
     if (res?.code === 200) {
       adminStore.decreasePendingFileCount()
       invalidateFileRequests()
@@ -264,7 +270,7 @@ const handleDelete = async (file: any) => {
       type: 'warning'
     })
     
-    const res: any = await axios.delete(`/files/${file.id}`)
+    const res: any = await fileApi.deleteFile(file.id)
     if (res?.code === 200) {
       invalidateFileRequests()
       removeLocalFile(file.id)

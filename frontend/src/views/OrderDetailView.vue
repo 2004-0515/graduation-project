@@ -43,7 +43,7 @@
             <h3>商品信息</h3>
             <div class="items-list">
               <div v-for="item in order.items" :key="item.id" class="order-item" @click="$router.push(`/product/${item.productId}`)">
-                <img :src="getImageUrl(item.productImage)" class="item-img" @error="imgErr" />
+                <img :src="getImageUrl(item.productImage)" :alt="item.productName || '商品图片'" class="item-img" @error="imgErr" />
                 <div class="item-info">
                   <h4>{{ item.productName }}</h4>
                   <p>¥{{ item.price }} × {{ item.quantity }}</p>
@@ -83,7 +83,7 @@ import Footer from '../components/Footer.vue'
 import { debugError } from '@/utils/debug'
 import type { Order } from '@/types'
 
-const getImageUrl = (path: string) => fileApi.getImageUrl(path)
+const getImageUrl = (path?: string) => fileApi.getImageUrl(path || '')
 
 const route = useRoute()
 const router = useRouter()

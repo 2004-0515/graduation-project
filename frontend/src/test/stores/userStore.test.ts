@@ -7,10 +7,10 @@ import { debugError } from '@/utils/debug'
 
 // Mock localStorage
 const localStorageMock = {
-  getItem: vi.fn(() => null),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn()
+  getItem: vi.fn((_: string) => null as string | null),
+  setItem: vi.fn((_: string, __: string) => undefined),
+  removeItem: vi.fn((_: string) => undefined),
+  clear: vi.fn(() => undefined)
 }
 Object.defineProperty(window, 'localStorage', { value: localStorageMock })
 
@@ -30,6 +30,7 @@ vi.mock('@/api/authApi', () => ({
     login: vi.fn(),
     register: vi.fn(),
     getCurrentUser: vi.fn(),
+    deleteCurrentUser: vi.fn(),
     updateUserInfo: vi.fn(),
     changePassword: vi.fn(),
     logout: vi.fn()
@@ -301,6 +302,96 @@ describe('useUserStore', () => {
         `删除本地存储失败(${STORAGE_KEYS.USER_INFO})`,
         expect.any(Error)
       )
+    })
+
+    it('should clear local session and notify logout endpoint after account deletion succeeds', async () => {
+      userStore.token = 'token'
+      userStore.userInfo = { id: 1, username: 'buyer' } as any
+      mockedAuthApi.deleteCurrentUser.mockResolvedValue({
+        code: 200,
+        message: '账号删除成功'
+      } as any)
+      mockedAuthApi.logout.mockResolvedValue({} as any)
+
+      await userStore.deleteAccount()
+
+      expect(mockedAuthApi.deleteCurrentUser).toHaveBeenCalled()
+      expect(mockedAuthApi.logout).toHaveBeenCalled()
+      expect(userStore.token).toBeNull()
+      expect(userStore.userInfo).toBeNull()
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith(STORAGE_KEYS.TOKEN)
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith(STORAGE_KEYS.USER_INFO)
+      expect(userStore.error).toBeNull()
+    })
+
+    it('should keep account deletion successful when logout cleanup call fails', async () => {
+      userStore.token = 'token'
+      userStore.userInfo = { id: 1, username: 'buyer' } as any
+      mockedAuthApi.deleteCurrentUser.mockResolvedValue({
+        code: 200,
+        message: '账号删除成功'
+      } as any)
+      mockedAuthApi.logout.mockRejectedValue(new Error('logout cleanup failed'))
+
+      await userStore.deleteAccount()
+
+      expect(userStore.token).toBeNull()
+      expect(userStore.userInfo).toBeNull()
+      expect(vi.mocked(debugError)).toHaveBeenCalledWith(
+        '账户注销成功后清理本地登录态失败:',
+        expect.any(Error)
+      )
+    })
+
+    it('should keep session when account deletion returns validation failure', async () => {
+      userStore.token = 'token'
+      userStore.userInfo = { id: 1, username: 'buyer' } as any
+      mockedAuthApi.deleteCurrentUser.mockResolvedValue({
+        code: 422,
+        message: '账户仍有关联订单，无法注销'
+      } as any)
+
+      await expect(userStore.deleteAccount()).rejects.toThrow('账户仍有关联订单，无法注销')
+
+      expect(mockedAuthApi.logout).not.toHaveBeenCalled()
+      expect(userStore.token).toBe('token')
+      expect(userStore.userInfo).toMatchObject({ username: 'buyer' })
+      expect(userStore.error).toBe('账户仍有关联订单，无法注销')
+      expect(vi.mocked(debugError)).toHaveBeenCalledWith('注销账户失败', expect.any(Error))
+    })
+
+    it('should return success message when password change succeeds', async () => {
+      mockedAuthApi.changePassword.mockResolvedValue({
+        code: 200,
+        message: '密码修改成功'
+      } as any)
+
+      const result = await userStore.changePassword({
+        currentPassword: 'old-pass',
+        newPassword: 'new-pass-1',
+        confirmPassword: 'new-pass-1'
+      })
+
+      expect(result).toBe('密码修改成功')
+      expect(userStore.error).toBeNull()
+    })
+
+    it('should expose backend message when password change returns non-200 payload', async () => {
+      mockedAuthApi.changePassword.mockResolvedValue({
+        code: 500,
+        message: '当前密码不正确'
+      } as any)
+
+      await expect(
+        userStore.changePassword({
+          currentPassword: 'old-pass',
+          newPassword: 'new-pass-1',
+          confirmPassword: 'new-pass-1'
+        })
+      ).rejects.toThrow('当前密码不正确')
+
+      expect(userStore.error).toBe('当前密码不正确')
+      expect(vi.mocked(debugError)).toHaveBeenCalledWith('修改密码失败', expect.any(Error))
     })
 
     it('should not treat success flag without 200 code as login success', async () => {

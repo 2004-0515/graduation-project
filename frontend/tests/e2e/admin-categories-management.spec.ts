@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test'
 import {
+  confirmMessageBox,
   E2E_PASSWORD,
   E2E_USERS,
   getSession,
-  login,
-  logout,
-  neutralizeFloatingUi
+  openAdminPage,
+  logout
 } from './helpers/session'
 
 test('管理员可创建并删除分类', async ({ page }) => {
@@ -13,10 +13,7 @@ test('管理员可创建并删除分类', async ({ page }) => {
   const uniqueName = `E2E分类${Date.now()}`
   const uniqueDescription = `后台分类说明-${Date.now()}`
 
-  await login(page, E2E_USERS.admin, E2E_PASSWORD)
-  await page.goto('/admin/categories')
-  await neutralizeFloatingUi(page)
-  await expect(page.getByTestId('admin-categories-view')).toBeVisible()
+  await openAdminPage(page, '/admin/categories', { testId: 'admin-categories-view' })
 
   await page.getByTestId('admin-category-add').click()
   const dialog = page.getByRole('dialog', { name: '添加分类' })
@@ -41,15 +38,12 @@ test('管理员可创建并删除分类', async ({ page }) => {
   await expect(createdRow).toContainText(uniqueDescription)
 
   await createdRow.getByRole('button', { name: '删除' }).click()
-  const confirmDialog = page.locator('.el-overlay-message-box, .el-message-box__wrapper').filter({ has: page.locator('.el-message-box') }).last()
-  await expect(confirmDialog).toBeVisible({ timeout: 10_000 })
-
   const deleteResponsePromise = page.waitForResponse((response) =>
     response.request().method() === 'DELETE' &&
     response.url().includes('/api/categories/')
   )
 
-  await confirmDialog.getByRole('button', { name: '确定' }).press('Enter')
+  await confirmMessageBox(page)
   const deleteResponse = await deleteResponsePromise
   expect(deleteResponse.ok(), `删除分类失败: ${deleteResponse.status()} ${deleteResponse.url()}`).toBeTruthy()
   await expect(page.getByText('分类删除成功').or(page.getByText('删除成功'))).toBeVisible({ timeout: 15_000 })

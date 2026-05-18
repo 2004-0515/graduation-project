@@ -206,7 +206,7 @@ const reconcileRelatedCoupon = () => {
 const fetchUsers = async () => {
   const requestId = ++latestUsersRequestId
   try {
-    const res: any = await adminApi.getUsers({ page: 0, size: 1000 })
+    const res: any = await adminApi.getUsers({ page: 0, size: 100 })
     if (requestId !== latestUsersRequestId) {
       return
     }
@@ -293,7 +293,7 @@ const sendMessage = async () => {
       type: form.type,
       title: form.title,
       message: form.message,
-      relatedId: form.relatedId
+      relatedId: form.relatedId ?? undefined
     })
     if (res?.code === 200) {
       ElMessage.success(`消息已发送给 ${userIds.length} 位用户`)

@@ -35,7 +35,7 @@ describe('axios storage guards', () => {
 
     await import('@/utils/axios')
     const requestInterceptor = useRequest.mock.calls[0][0]
-    const config = { headers: {} }
+    const config: { headers: Record<string, string> } = { headers: {} }
 
     expect(requestInterceptor(config)).toBe(config)
     expect(debugError).toHaveBeenCalledWith(`读取本地存储失败(${STORAGE_KEYS.TOKEN})`, expect.any(Error))

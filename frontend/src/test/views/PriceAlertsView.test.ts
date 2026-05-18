@@ -1,13 +1,11 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockPush, mockBack, axiosMock, priceApi, messageBox, messages, debugError } = vi.hoisted(() => ({
+const { mockPush, mockBack, priceApi, messageBox, messages, debugError } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockBack: vi.fn(),
-  axiosMock: {
-    get: vi.fn()
-  },
   priceApi: {
+    getUserAlertDetails: vi.fn(),
     cancelAlert: vi.fn(),
     deleteAlertRecord: vi.fn(),
     createAlert: vi.fn()
@@ -30,10 +28,6 @@ vi.mock('vue-router', () => ({
 vi.mock('element-plus', () => ({
   ElMessage: messages,
   ElMessageBox: messageBox
-}))
-
-vi.mock('@/utils/axios', () => ({
-  default: axiosMock
 }))
 
 vi.mock('@/api/priceApi', () => ({
@@ -69,7 +63,7 @@ describe('PriceAlertsView', () => {
   })
 
   it('uses delete record action for non-monitoring alerts', async () => {
-    axiosMock.get.mockResolvedValue({
+    priceApi.getUserAlertDetails.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -113,7 +107,7 @@ describe('PriceAlertsView', () => {
   })
 
   it('does not show an error when user cancels deleting an alert record', async () => {
-    axiosMock.get.mockResolvedValue({
+    priceApi.getUserAlertDetails.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -154,7 +148,7 @@ describe('PriceAlertsView', () => {
   })
 
   it('shows an error when deleting an alert record fails', async () => {
-    axiosMock.get.mockResolvedValue({
+    priceApi.getUserAlertDetails.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -195,7 +189,7 @@ describe('PriceAlertsView', () => {
   })
 
   it('shows backend chinese message when updating target price fails', async () => {
-    axiosMock.get.mockResolvedValue({
+    priceApi.getUserAlertDetails.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -243,7 +237,7 @@ describe('PriceAlertsView', () => {
   })
 
   it('refreshes the list after updating target price successfully', async () => {
-    axiosMock.get
+    priceApi.getUserAlertDetails
       .mockResolvedValueOnce({
         code: 200,
         data: [
@@ -302,12 +296,12 @@ describe('PriceAlertsView', () => {
     await flushPromises()
 
     expect(priceApi.createAlert).toHaveBeenCalledWith(100, 77)
-    expect(axiosMock.get).toHaveBeenCalledTimes(2)
+    expect(priceApi.getUserAlertDetails).toHaveBeenCalledTimes(2)
     expect(messages.success).toHaveBeenCalledWith('目标价格已更新')
   })
 
   it('logs backend message when loading alerts returns non-200 payload', async () => {
-    axiosMock.get.mockResolvedValue({ code: 500, message: '降价提醒列表加载失败' })
+    priceApi.getUserAlertDetails.mockResolvedValue({ code: 500, message: '降价提醒列表加载失败' })
 
     mount(PriceAlertsView, {
       global: {
@@ -328,7 +322,7 @@ describe('PriceAlertsView', () => {
   })
 
   it('logs backend message when updating target price returns non-200 payload', async () => {
-    axiosMock.get.mockResolvedValue({
+    priceApi.getUserAlertDetails.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -373,7 +367,7 @@ describe('PriceAlertsView', () => {
   })
 
   it('logs backend message when cancel action returns non-200 payload', async () => {
-    axiosMock.get.mockResolvedValue({
+    priceApi.getUserAlertDetails.mockResolvedValue({
       code: 200,
       data: [
         {
@@ -413,7 +407,7 @@ describe('PriceAlertsView', () => {
   })
 
   it('keeps success feedback when refresh fails after updating target price', async () => {
-    axiosMock.get
+    priceApi.getUserAlertDetails
       .mockResolvedValueOnce({
         code: 200,
         data: [
@@ -462,7 +456,7 @@ describe('PriceAlertsView', () => {
   })
 
   it('keeps success feedback when refresh fails after canceling alert', async () => {
-    axiosMock.get
+    priceApi.getUserAlertDetails
       .mockResolvedValueOnce({
         code: 200,
         data: [
@@ -509,7 +503,7 @@ describe('PriceAlertsView', () => {
     const firstRequest = createDeferred<{ code: number; data: Array<Record<string, unknown>> }>()
     const secondRequest = createDeferred<{ code: number; data: Array<Record<string, unknown>> }>()
 
-    axiosMock.get
+    priceApi.getUserAlertDetails
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
 
@@ -578,7 +572,7 @@ describe('PriceAlertsView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    axiosMock.get
+    priceApi.getUserAlertDetails
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
     priceApi.createAlert.mockResolvedValue({ code: 200 })
@@ -649,7 +643,7 @@ describe('PriceAlertsView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    axiosMock.get
+    priceApi.getUserAlertDetails
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
     priceApi.cancelAlert.mockResolvedValue({ code: 200 })
@@ -718,7 +712,7 @@ describe('PriceAlertsView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    axiosMock.get
+    priceApi.getUserAlertDetails
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
     priceApi.deleteAlertRecord.mockResolvedValue({ code: 200 })
@@ -773,7 +767,7 @@ describe('PriceAlertsView', () => {
   })
 
   it('clears edit dialog state after target price updates successfully', async () => {
-    axiosMock.get
+    priceApi.getUserAlertDetails
       .mockResolvedValueOnce({
         code: 200,
         data: [
@@ -842,7 +836,7 @@ describe('PriceAlertsView', () => {
   })
 
   it('closes edit dialog when refreshed alerts no longer contain the edited alert', async () => {
-    axiosMock.get
+    priceApi.getUserAlertDetails
       .mockResolvedValueOnce({
         code: 200,
         data: [

@@ -4,9 +4,8 @@ import {
   E2E_PASSWORD,
   E2E_USERS,
   getSession,
-  login,
+  openAdminPage,
   logout,
-  neutralizeFloatingUi
 } from './helpers/session'
 
 async function resolveCategoryId(page: Page) {
@@ -38,10 +37,7 @@ test('管理员可审核通过卖家商品并从后台删除', async ({ page }) 
   expect(submitPayload?.code).toBe(200)
   expect(submitPayload?.message).toContain('等待管理员审核')
 
-  await login(page, E2E_USERS.admin, E2E_PASSWORD)
-  await page.goto('/admin/products?tab=pending')
-  await neutralizeFloatingUi(page)
-  await expect(page.getByTestId('admin-products-view')).toBeVisible()
+  await openAdminPage(page, '/admin/products?tab=pending', { testId: 'admin-products-view' })
 
   const searchInput = page.getByPlaceholder('搜索商品名称')
   await searchInput.fill(uniqueName)
@@ -56,9 +52,7 @@ test('管理员可审核通过卖家商品并从后台删除', async ({ page }) 
   await expect(page.getByText('审核通过')).toBeVisible()
   await expect(page.locator('.el-table__row', { hasText: uniqueName })).toHaveCount(0)
 
-  await page.goto('/admin/products')
-  await neutralizeFloatingUi(page)
-  await expect(page.getByTestId('admin-products-view')).toBeVisible()
+  await openAdminPage(page, '/admin/products', { testId: 'admin-products-view' })
 
   await searchInput.fill(uniqueName)
   await searchInput.press('Enter')

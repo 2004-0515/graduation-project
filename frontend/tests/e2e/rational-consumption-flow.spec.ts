@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  confirmMessageBox,
   E2E_PASSWORD,
   E2E_USERS,
   authedDelete,
@@ -93,15 +94,13 @@ test('用户可在理性消费页移除想要清单项并刷新列表', async ({
   await expect(wishlistItem).toContainText(uniqueReason)
 
   await page.getByTestId(`wishlist-remove-${createdItemId}`).click()
-  const confirmDialog = page.locator('.el-overlay-message-box, .el-message-box__wrapper').filter({ has: page.locator('.el-message-box') }).last()
-  await expect(confirmDialog).toBeVisible({ timeout: 10_000 })
 
   const deleteResponsePromise = page.waitForResponse((response) =>
     response.request().method() === 'DELETE' &&
     response.url().includes(`/api/rational-consumption/wishlist/${createdItemId}`)
   )
 
-  await confirmDialog.getByRole('button', { name: '确定' }).press('Enter')
+  await confirmMessageBox(page)
   const deleteResponse = await deleteResponsePromise
   expect(deleteResponse.ok(), `移除想要清单失败: ${deleteResponse.status()} ${deleteResponse.url()}`).toBeTruthy()
 

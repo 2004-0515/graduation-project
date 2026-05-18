@@ -24,7 +24,12 @@ const {
   },
   userStore: {
     isLoggedIn: true,
-    userInfo: { username: 'buyer', nickname: '买家', email: 'buyer@example.com', avatar: '' },
+    userInfo: { username: 'buyer', nickname: '买家', email: 'buyer@example.com', avatar: '' } as {
+      username: string
+      nickname: string
+      email: string
+      avatar: string
+    } | null,
     logout: vi.fn()
   },
   cartStore: {

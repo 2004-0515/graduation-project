@@ -140,7 +140,7 @@
           </div>
           <div class="activity-list">
             <div v-for="item in wishlistActivity" :key="item.id" class="activity-item">
-              <img :src="getImageUrl(item.productImage)" class="product-img" @error="imgErr" />
+              <img :src="getImageUrl(item.productImage)" :alt="item.productName || '商品图片'" class="product-img" @error="imgErr" />
               <div class="activity-info">
                 <div class="activity-main">
                   <span class="username">{{ item.username }}</span>
@@ -245,7 +245,7 @@ import {
   LegendComponent,
   TooltipComponent
 } from 'echarts/components'
-import { init, type ECharts, type EChartsOption } from 'echarts/core'
+import { init, type ECharts, type EChartsCoreOption } from 'echarts/core'
 import AdminLayout from '@/components/AdminLayout.vue'
 import rationalApi from '@/api/rationalApi'
 import fileApi from '@/api/fileApi'
@@ -478,7 +478,7 @@ const initTrendChart = () => {
   const amounts = consumptionTrend.value.map(t => t.totalAmount || 0)
   const orders = consumptionTrend.value.map(t => t.orderCount || 0)
   
-  const option: EChartsOption = {
+  const option: EChartsCoreOption = {
     tooltip: { trigger: 'axis' },
     legend: { data: ['消费总额', '订单数'], bottom: 0 },
     grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },

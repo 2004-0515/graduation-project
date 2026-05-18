@@ -40,6 +40,13 @@ const authApi = {
   getCurrentUser(): Promise<ApiResponse<User>> {
     return axios.get(API_PATHS.AUTH.ME)
   },
+
+  /**
+   * 删除当前登录用户
+   */
+  deleteCurrentUser(): Promise<ApiResponse<void>> {
+    return axios.delete(API_PATHS.USERS.ME)
+  },
   
   /**
    * 更新用户信息

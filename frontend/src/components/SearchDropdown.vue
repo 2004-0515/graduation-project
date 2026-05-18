@@ -100,7 +100,6 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import searchApi from '@/api/searchApi'
 import type { SearchSuggestion, HotKeyword, SearchHistory } from '@/types'
-import { STORAGE_KEYS } from '@/constants'
 import { debugError } from '@/utils/debug'
 
 const props = defineProps<{

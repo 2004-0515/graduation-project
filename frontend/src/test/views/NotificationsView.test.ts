@@ -1,52 +1,45 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-const { mockPush, notificationApi, messageBox, messages, mockUserStore, debugError } = vi.hoisted(() => ({
-  mockPush: vi.fn(),
-  notificationApi: {
-    getNotifications: vi.fn(),
-    markAsRead: vi.fn(),
-    markAllAsRead: vi.fn(),
-    deleteNotification: vi.fn(),
-    clearAll: vi.fn()
-  },
-  messageBox: {
-    confirm: vi.fn()
-  },
-  messages: {
-    success: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn()
-  },
-  mockUserStore: {
-    userInfo: { id: 1, username: 'buyer' }
-  },
-  debugError: vi.fn()
-}))
-
-vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: mockPush })
-}))
-
-vi.mock('element-plus', () => ({
-  ElMessage: messages,
-  ElMessageBox: messageBox
-}))
-
-vi.mock('@/api/notificationApi', () => ({
-  default: notificationApi
-}))
-
-vi.mock('@/utils/debug', () => ({
-  debugError
-}))
-
-vi.mock('@/stores/userStore', () => ({
-  useUserStore: () => mockUserStore
-}))
-
+import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import notificationApi from '@/api/notificationApi'
+import { useNotificationStore } from '@/stores/notificationStore'
+import { useUserStore } from '@/stores/userStore'
+import * as debugModule from '@/utils/debug'
 import NotificationsView from '@/views/NotificationsView.vue'
+
+const messages = {
+  success: vi.spyOn(ElMessage, 'success').mockImplementation(() => '' as any),
+  error: vi.spyOn(ElMessage, 'error').mockImplementation(() => '' as any),
+  warning: vi.spyOn(ElMessage, 'warning').mockImplementation(() => '' as any)
+}
+
+const messageBox = {
+  confirm: vi.spyOn(ElMessageBox, 'confirm')
+}
+
+vi.spyOn(notificationApi, 'getNotifications')
+vi.spyOn(notificationApi, 'markAsRead')
+vi.spyOn(notificationApi, 'markAllAsRead')
+vi.spyOn(notificationApi, 'deleteNotification')
+vi.spyOn(notificationApi, 'clearAll')
+
+const debugError = vi.spyOn(debugModule, 'debugError').mockImplementation(() => {})
+
+let pinia: ReturnType<typeof createPinia>
+let router: Router
+let mockPush: ReturnType<typeof vi.spyOn>
+let userStore: ReturnType<typeof useUserStore>
+
+const mockUserStore = {
+  get userInfo() {
+    return userStore.userInfo
+  },
+  set userInfo(value) {
+    userStore.userInfo = value as any
+  }
+}
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void
@@ -61,6 +54,7 @@ function createDeferred<T>() {
 const mountView = () =>
   mount(NotificationsView, {
     global: {
+      plugins: [pinia, router],
       directives: {
         loading: {}
       },
@@ -68,7 +62,9 @@ const mountView = () =>
         Navbar: true,
         Footer: true,
         ElDialog: {
-          template: '<div><slot /><slot name="footer" /></div>'
+          props: ['modelValue', 'title'],
+          emits: ['update:modelValue'],
+          template: '<div v-if="modelValue"><slot /><slot name="footer" /></div>'
         },
         ElButton: {
           template: '<button @click="$emit(\'click\')"><slot /></button>'
@@ -78,10 +74,44 @@ const mountView = () =>
   })
 
 describe('NotificationsView', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
-    setActivePinia(createPinia())
-    mockUserStore.userInfo = { id: 1, username: 'buyer' }
+    pinia = createPinia()
+    setActivePinia(pinia)
+    userStore = useUserStore()
+    userStore.token = 'token'
+    mockUserStore.userInfo = { id: 1, username: 'buyer', role: 'BUYER' }
+    useNotificationStore().setCount(0)
+
+    router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/notifications', component: { template: '<div />' } },
+        { path: '/order/:id', component: { template: '<div />' } },
+        { path: '/orders', component: { template: '<div />' } },
+        { path: '/seller-orders', component: { template: '<div />' } },
+        { path: '/admin/orders', component: { template: '<div />' } },
+        { path: '/price-alerts', component: { template: '<div />' } },
+        { path: '/product/:id', component: { template: '<div />' } },
+        { path: '/coupon/:id', component: { template: '<div />' } },
+        { path: '/promotions', component: { template: '<div />' } },
+        { path: '/admin/files', component: { template: '<div />' } },
+        { path: '/profile', component: { template: '<div />' } },
+        { path: '/admin/products', component: { template: '<div />' } },
+        { path: '/my-products', component: { template: '<div />' } }
+      ]
+    })
+    await router.push('/notifications')
+    await router.isReady()
+    mockPush = vi.spyOn(router, 'push')
+
+    notificationApi.getNotifications.mockResolvedValue({ code: 200, data: [] } as any)
+    notificationApi.markAsRead.mockResolvedValue({ code: 200 } as any)
+    notificationApi.markAllAsRead.mockResolvedValue({ code: 200 } as any)
+    notificationApi.deleteNotification.mockResolvedValue({ code: 200 } as any)
+    notificationApi.clearAll.mockResolvedValue({ code: 200 } as any)
+    messageBox.confirm.mockResolvedValue('confirm' as any)
+    debugError.mockImplementation(() => {})
   })
 
   it('routes order notifications to order detail when relatedId exists', async () => {
@@ -114,6 +144,7 @@ describe('NotificationsView', () => {
   })
 
   it('routes seller shipment notifications to seller orders', async () => {
+    mockUserStore.userInfo = { id: 2, username: 'lisi', role: 'SELLER' }
     notificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [
@@ -142,8 +173,38 @@ describe('NotificationsView', () => {
     expect(mockPush).toHaveBeenCalledWith('/seller-orders')
   })
 
+  it('does not route non-seller shipment-looking notifications to seller orders', async () => {
+    mockUserStore.userInfo = { id: 1, username: 'zhangsan', role: 'BUYER' }
+    notificationApi.getNotifications.mockResolvedValue({
+      code: 200,
+      data: [
+        {
+          id: 31,
+          type: 'order',
+          title: '新订单待发货',
+          message: '用户购买了您的商品，请尽快发货',
+          relatedId: 99,
+          read: false,
+          createdTime: '2026-05-07T10:00:00',
+          timeAgo: '刚刚'
+        }
+      ]
+    })
+    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+
+    const wrapper = mountView()
+
+    await flushPromises()
+    await wrapper.find('.notification-item').trigger('click')
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text() === '查看订单')!.trigger('click')
+
+    expect(mockPush).toHaveBeenCalledWith('/order/99')
+  })
+
   it('routes admin order notifications without own-order wording to admin orders', async () => {
-    mockUserStore.userInfo = { id: 1, username: 'admin' }
+    mockUserStore.userInfo = { id: 1, username: 'admin', role: 'ADMIN' }
     notificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [
@@ -173,7 +234,7 @@ describe('NotificationsView', () => {
   })
 
   it('routes price alerts without product id to price alerts list', async () => {
-    mockUserStore.userInfo = { id: 1, username: 'buyer' }
+    mockUserStore.userInfo = { id: 1, username: 'buyer', role: 'BUYER' }
     notificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [
@@ -899,7 +960,7 @@ describe('NotificationsView', () => {
   })
 
   it('routes file review notifications to admin files for admin users', async () => {
-    mockUserStore.userInfo = { id: 1, username: 'admin' }
+    mockUserStore.userInfo = { id: 1, username: 'admin', role: 'ADMIN' }
     notificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
@@ -948,7 +1009,7 @@ describe('NotificationsView', () => {
   })
 
   it('routes product review notifications by role', async () => {
-    mockUserStore.userInfo = { id: 1, username: 'admin' }
+    mockUserStore.userInfo = { id: 1, username: 'admin', role: 'ADMIN' }
     notificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
@@ -971,7 +1032,7 @@ describe('NotificationsView', () => {
     expect(mockPush).toHaveBeenCalledWith('/admin/products?tab=pending')
 
     vi.clearAllMocks()
-    mockUserStore.userInfo = { id: 2, username: 'buyer' }
+    mockUserStore.userInfo = { id: 2, username: 'lisi', role: 'SELLER' }
     notificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{
@@ -992,6 +1053,30 @@ describe('NotificationsView', () => {
     await flushPromises()
     await sellerWrapper.findAll('button').find((button) => button.text() === '查看我的商品')!.trigger('click')
     expect(mockPush).toHaveBeenCalledWith('/my-products')
+  })
+
+  it('does not show seller product-review action for buyer users', async () => {
+    mockUserStore.userInfo = { id: 2, username: 'zhangsan', role: 'BUYER' }
+    notificationApi.getNotifications.mockResolvedValue({
+      code: 200,
+      data: [{
+        id: 121,
+        type: 'product_review',
+        title: '商品审核结果',
+        message: '你的商品审核已完成',
+        read: false,
+        createdTime: '2026-05-07T10:00:00',
+        timeAgo: '刚刚'
+      }]
+    })
+    notificationApi.markAsRead.mockResolvedValue({ code: 200 })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.find('.notification-item').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('button').some((button) => button.text() === '查看我的商品')).toBe(false)
   })
 
   it('routes review notifications to product detail or my products fallback', async () => {
@@ -1018,6 +1103,7 @@ describe('NotificationsView', () => {
     expect(mockPush).toHaveBeenCalledWith('/product/66')
 
     vi.clearAllMocks()
+    mockUserStore.userInfo = { id: 2, username: 'lisi', role: 'SELLER' }
     notificationApi.getNotifications.mockResolvedValue({
       code: 200,
       data: [{

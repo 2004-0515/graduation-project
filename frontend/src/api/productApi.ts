@@ -47,6 +47,34 @@ const productApi = {
    */
   searchProductsByName(name: string): Promise<ApiResponse<Product[]>> {
     return axios.get(API_PATHS.PRODUCTS.SEARCH, { params: { name } })
+  },
+
+  /**
+   * 获取当前卖家的商品列表
+   */
+  getMyProducts(): Promise<ApiResponse<Product[]>> {
+    return axios.get(`${API_PATHS.PRODUCTS.BASE}/my`)
+  },
+
+  /**
+   * 提交商品审核
+   */
+  submitProduct(data: Record<string, unknown>): Promise<ApiResponse<Product>> {
+    return axios.post(`${API_PATHS.PRODUCTS.BASE}/submit`, data)
+  },
+
+  /**
+   * 更新商品
+   */
+  updateProduct(id: number, data: Record<string, unknown>): Promise<ApiResponse<Product>> {
+    return axios.put(`${API_PATHS.PRODUCTS.BASE}/${id}`, data)
+  },
+
+  /**
+   * 删除商品
+   */
+  deleteProduct(id: number): Promise<ApiResponse<void>> {
+    return axios.delete(`${API_PATHS.PRODUCTS.BASE}/${id}`)
   }
 }
 

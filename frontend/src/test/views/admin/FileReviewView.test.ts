@@ -1,11 +1,12 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { axiosMock, adminStore, messages, messageBox, debugError } = vi.hoisted(() => ({
-  axiosMock: {
-    get: vi.fn(),
-    put: vi.fn(),
-    delete: vi.fn()
+const { fileApi, adminStore, messages, messageBox, debugError } = vi.hoisted(() => ({
+  fileApi: {
+    getPendingFiles: vi.fn(),
+    reviewFile: vi.fn(),
+    deleteFile: vi.fn(),
+    getImageUrl: vi.fn(() => '/img.png')
   },
   adminStore: {
     fetchPendingFileCount: vi.fn(),
@@ -27,14 +28,8 @@ vi.mock('element-plus', () => ({
   ElMessageBox: messageBox
 }))
 
-vi.mock('@/utils/axios', () => ({
-  default: axiosMock
-}))
-
 vi.mock('@/api/fileApi', () => ({
-  default: {
-    getImageUrl: vi.fn(() => '/img.png')
-  }
+  default: fileApi
 }))
 
 vi.mock('@/stores/adminStore', () => ({
@@ -86,11 +81,11 @@ describe('FileReviewView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     messageBox.confirm.mockResolvedValue(undefined)
-    axiosMock.get.mockResolvedValue({ code: 200, data: { content: [pendingFile], totalElements: 1 } })
+    fileApi.getPendingFiles.mockResolvedValue({ code: 200, data: { content: [pendingFile], totalElements: 1 } })
   })
 
   it('shows backend message when approve review throws', async () => {
-    axiosMock.put.mockRejectedValue({ response: { data: { message: '审核失败' } } })
+    fileApi.reviewFile.mockRejectedValue({ response: { data: { message: '审核失败' } } })
     const wrapper = mountView()
     await flushPromises()
 
@@ -102,7 +97,7 @@ describe('FileReviewView', () => {
   })
 
   it('shows backend message when approve review returns non-200 payload', async () => {
-    axiosMock.put.mockResolvedValue({ code: 500, message: '审核状态非法' })
+    fileApi.reviewFile.mockResolvedValue({ code: 500, message: '审核状态非法' })
     const wrapper = mountView()
     await flushPromises()
 
@@ -114,7 +109,7 @@ describe('FileReviewView', () => {
   })
 
   it('shows backend message when reject review returns non-200 payload', async () => {
-    axiosMock.put.mockResolvedValue({ code: 500, message: '拒绝原因校验失败' })
+    fileApi.reviewFile.mockResolvedValue({ code: 500, message: '拒绝原因校验失败' })
     const wrapper = mountView()
     await flushPromises()
 
@@ -135,12 +130,12 @@ describe('FileReviewView', () => {
     await (wrapper.vm as any).handleDelete(pendingFile)
     await flushPromises()
 
-    expect(axiosMock.delete).not.toHaveBeenCalled()
+    expect(fileApi.deleteFile).not.toHaveBeenCalled()
     expect(messages.error).not.toHaveBeenCalled()
   })
 
   it('shows backend message when deleting file record throws', async () => {
-    axiosMock.delete.mockRejectedValue({ response: { data: { message: '删除记录失败' } } })
+    fileApi.deleteFile.mockRejectedValue({ response: { data: { message: '删除记录失败' } } })
     const wrapper = mountView()
     await flushPromises()
 
@@ -152,7 +147,7 @@ describe('FileReviewView', () => {
   })
 
   it('shows backend message when deleting file record returns non-200 payload', async () => {
-    axiosMock.delete.mockResolvedValue({ code: 500, message: '文件记录已锁定' })
+    fileApi.deleteFile.mockResolvedValue({ code: 500, message: '文件记录已锁定' })
     const wrapper = mountView()
     await flushPromises()
 
@@ -164,22 +159,22 @@ describe('FileReviewView', () => {
   })
 
   it('refreshes files after approving review successfully', async () => {
-    axiosMock.put.mockResolvedValue({ code: 200 })
+    fileApi.reviewFile.mockResolvedValue({ code: 200 })
     const wrapper = mountView()
     await flushPromises()
 
     await (wrapper.vm as any).handleReview(pendingFile, 1)
     await flushPromises()
 
-    expect(axiosMock.get).toHaveBeenCalledTimes(2)
+    expect(fileApi.getPendingFiles).toHaveBeenCalledTimes(2)
     expect(adminStore.fetchPendingFileCount).toHaveBeenCalled()
     expect(adminStore.decreasePendingFileCount).toHaveBeenCalled()
     expect(messages.success).toHaveBeenCalledWith('审核通过')
   })
 
   it('keeps approve success when refreshing files fails afterward', async () => {
-    axiosMock.put.mockResolvedValue({ code: 200 })
-    axiosMock.get
+    fileApi.reviewFile.mockResolvedValue({ code: 200 })
+    fileApi.getPendingFiles
       .mockResolvedValueOnce({ code: 200, data: { content: [pendingFile], totalElements: 1 } })
       .mockRejectedValue(new Error('刷新失败'))
 
@@ -195,8 +190,8 @@ describe('FileReviewView', () => {
   })
 
   it('keeps delete success when refreshing files fails afterward', async () => {
-    axiosMock.delete.mockResolvedValue({ code: 200 })
-    axiosMock.get
+    fileApi.deleteFile.mockResolvedValue({ code: 200 })
+    fileApi.getPendingFiles
       .mockResolvedValueOnce({ code: 200, data: { content: [pendingFile], totalElements: 1 } })
       .mockRejectedValue(new Error('刷新失败'))
 
@@ -216,7 +211,7 @@ describe('FileReviewView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    axiosMock.get
+    fileApi.getPendingFiles
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
 
@@ -255,10 +250,10 @@ describe('FileReviewView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    axiosMock.get
+    fileApi.getPendingFiles
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
-    axiosMock.put.mockResolvedValue({ code: 200 })
+    fileApi.reviewFile.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -284,10 +279,10 @@ describe('FileReviewView', () => {
     const firstRequest = createDeferred<any>()
     const secondRequest = createDeferred<any>()
 
-    axiosMock.get
+    fileApi.getPendingFiles
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
-    axiosMock.delete.mockResolvedValue({ code: 200 })
+    fileApi.deleteFile.mockResolvedValue({ code: 200 })
 
     const wrapper = mountView()
     await flushPromises()
@@ -310,7 +305,7 @@ describe('FileReviewView', () => {
   })
 
   it('clears reject dialog state after rejecting a file successfully', async () => {
-    axiosMock.put.mockResolvedValue({ code: 200 })
+    fileApi.reviewFile.mockResolvedValue({ code: 200 })
     const wrapper = mountView()
     await flushPromises()
 

@@ -5,6 +5,7 @@ import {
   authedDelete,
   getSession,
   login,
+  openAdminPage,
   logout,
   neutralizeFloatingUi
 } from './helpers/session'
@@ -19,10 +20,7 @@ test('管理员可向指定用户发送通知，用户侧可收到并查看', as
 
   await authedDelete(page.request, buyerSession.token, '/api/notifications/clear')
 
-  await login(page, E2E_USERS.admin, E2E_PASSWORD)
-  await page.goto('/admin/notifications')
-  await neutralizeFloatingUi(page)
-  await expect(page.getByTestId('admin-notifications-view')).toBeVisible()
+  await openAdminPage(page, '/admin/notifications', { testId: 'admin-notifications-view' })
 
   await page.getByText('指定用户').click()
   await page.getByTestId('notification-users-select').click()

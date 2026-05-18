@@ -1,42 +1,26 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-const { adminApi, messages, messageBox, debugError } = vi.hoisted(() => ({
-  adminApi: {
-    getUsers: vi.fn(),
-    updateUserStatus: vi.fn(),
-    resetUserCoupons: vi.fn()
-  },
-  messages: {
-    success: vi.fn(),
-    error: vi.fn()
-  },
-  messageBox: {
-    confirm: vi.fn()
-  },
-  debugError: vi.fn()
-}))
-
-vi.mock('element-plus', () => ({
-  ElMessage: messages,
-  ElMessageBox: messageBox
-}))
-
-vi.mock('@/api/adminApi', () => ({
-  default: adminApi
-}))
-
-vi.mock('@/api/fileApi', () => ({
-  default: {
-    getImageUrl: vi.fn(() => '/avatar.png')
-  }
-}))
-
-vi.mock('@/utils/debug', () => ({
-  debugError
-}))
-
+import { ElMessage, ElMessageBox } from 'element-plus'
+import adminApi from '@/api/adminApi'
+import fileApi from '@/api/fileApi'
+import * as debugModule from '@/utils/debug'
 import UsersView from '@/views/admin/UsersView.vue'
+
+const messages = {
+  success: vi.spyOn(ElMessage, 'success').mockImplementation(() => '' as any),
+  error: vi.spyOn(ElMessage, 'error').mockImplementation(() => '' as any)
+}
+
+const messageBox = {
+  confirm: vi.spyOn(ElMessageBox, 'confirm')
+}
+
+vi.spyOn(adminApi, 'getUsers')
+vi.spyOn(adminApi, 'updateUserStatus')
+vi.spyOn(adminApi, 'updateUserRole')
+vi.spyOn(adminApi, 'resetUserCoupons')
+vi.spyOn(fileApi, 'getImageUrl')
+const debugError = vi.spyOn(debugModule, 'debugError').mockImplementation(() => {})
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void
@@ -51,7 +35,8 @@ function createDeferred<T>() {
 describe('UsersView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    messageBox.confirm.mockResolvedValue(undefined)
+    messageBox.confirm.mockResolvedValue('confirm' as any)
+    fileApi.getImageUrl.mockReturnValue('/avatar.png')
     adminApi.getUsers.mockResolvedValue({
       code: 200,
       data: {
@@ -62,6 +47,7 @@ describe('UsersView', () => {
             nickname: 'Alice',
             email: 'alice@example.com',
             phone: '13800138000',
+            role: 'BUYER',
             status: 1,
             createdTime: '2026-05-07T10:00:00'
           }
@@ -69,6 +55,10 @@ describe('UsersView', () => {
         totalElements: 1
       }
     })
+    adminApi.updateUserStatus.mockResolvedValue({ code: 200 } as any)
+    adminApi.updateUserRole.mockResolvedValue({ code: 200, data: { id: 1, role: 'BUYER' } } as any)
+    adminApi.resetUserCoupons.mockResolvedValue({ code: 200, message: '重置成功' } as any)
+    debugError.mockImplementation(() => {})
   })
 
   const mountView = () =>
@@ -88,7 +78,10 @@ describe('UsersView', () => {
           ElTag: true,
           ElPagination: true,
           ElDialog: true,
-          ElAvatar: true
+          ElAvatar: true,
+          ElDropdown: { template: '<div><slot /></div>' },
+          ElDropdownMenu: { template: '<div><slot /></div>' },
+          ElDropdownItem: { template: '<button @click="$emit(\'click\')"><slot /></button>' }
         }
       }
     })
@@ -417,5 +410,69 @@ describe('UsersView', () => {
     expect((wrapper.vm as any).users).toEqual([])
     expect((wrapper.vm as any).detailVisible).toBe(false)
     expect((wrapper.vm as any).currentUser).toBeNull()
+  })
+
+  it('updates user role and refreshes list successfully', async () => {
+    adminApi.updateUserRole.mockResolvedValue({ code: 200, data: { id: 1, role: 'SELLER' } })
+    adminApi.getUsers
+      .mockResolvedValueOnce({
+        code: 200,
+        data: {
+          content: [
+            {
+              id: 1,
+              username: 'alice',
+              nickname: 'Alice',
+              email: 'alice@example.com',
+              phone: '13800138000',
+              role: 'BUYER',
+              status: 1,
+              createdTime: '2026-05-07T10:00:00'
+            }
+          ],
+          totalElements: 1
+        }
+      })
+      .mockResolvedValueOnce({
+        code: 200,
+        data: {
+          content: [
+            {
+              id: 1,
+              username: 'alice',
+              nickname: 'Alice',
+              email: 'alice@example.com',
+              phone: '13800138000',
+              role: 'SELLER',
+              status: 1,
+              createdTime: '2026-05-07T10:00:00'
+            }
+          ],
+          totalElements: 1
+        }
+      })
+    const wrapper = mountView()
+
+    await flushPromises()
+    await (wrapper.vm as unknown as { changeRole: (user: { id: number; username: string; role: string }, role: string) => Promise<void> })
+      .changeRole({ id: 1, username: 'alice', role: 'BUYER' }, 'SELLER')
+    await flushPromises()
+
+    expect(adminApi.updateUserRole).toHaveBeenCalledWith(1, 'SELLER')
+    expect(messages.success).toHaveBeenCalledWith('用户角色已更新')
+    expect((wrapper.vm as any).users[0].role).toBe('SELLER')
+  })
+
+  it('shows backend message when updating user role returns non-200 payload', async () => {
+    adminApi.updateUserRole.mockResolvedValue({ code: 422, message: '至少保留一个管理员' })
+    const wrapper = mountView()
+
+    await flushPromises()
+    await (wrapper.vm as unknown as { changeRole: (user: { id: number; username: string; role: string }, role: string) => Promise<void> })
+      .changeRole({ id: 1, username: 'alice', role: 'ADMIN' }, 'BUYER')
+    await flushPromises()
+
+    expect(messages.error).toHaveBeenCalledWith('至少保留一个管理员')
+    expect(debugError).toHaveBeenCalledWith('管理员更新用户角色失败:', '至少保留一个管理员')
   })
 })
