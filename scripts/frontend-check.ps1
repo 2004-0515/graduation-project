@@ -4,14 +4,25 @@ param(
 
 . (Join-Path $PSScriptRoot "project-env.ps1")
 
+$nodeTooling = Resolve-ProjectNodeTooling
+$null = Initialize-ProjectNodeTooling -Tooling $nodeTooling
+Write-ProjectNodeToolingDiagnostics -Tooling $nodeTooling
+
 $frontendRoot = Get-FrontendRoot
-Invoke-ProjectCommand -Command "npm" -Arguments @("run", "build") -WorkingDirectory $frontendRoot | Out-Host
+
+$buildInvocation = Resolve-ProjectNodeInvocation -CommandName "npx" -Arguments @("vite", "build") -Tooling $nodeTooling
+Write-Host "Frontend build launcher: $(Format-NodeInvocation -Invocation $buildInvocation)"
+
+Invoke-ProjectNodeInvocation -Invocation $buildInvocation -WorkingDirectory $frontendRoot
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
 if (-not $BuildOnly) {
-    Invoke-ProjectCommand -Command "npm" -Arguments @("run", "test:run") -WorkingDirectory $frontendRoot | Out-Host
+    $testInvocation = Resolve-ProjectNodeInvocation -CommandName "npx" -Arguments @("vitest", "run", "src/test", "--maxWorkers=1", "--minWorkers=1") -Tooling $nodeTooling
+    Write-Host "Frontend test launcher: $(Format-NodeInvocation -Invocation $testInvocation)"
+
+    Invoke-ProjectNodeInvocation -Invocation $testInvocation -WorkingDirectory $frontendRoot
     exit $LASTEXITCODE
 }
 

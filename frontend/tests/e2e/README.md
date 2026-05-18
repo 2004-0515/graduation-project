@@ -60,7 +60,7 @@
 ## 运行命令
 
 ```powershell
-cd D:\graduation project\frontend
+cd .\frontend
 npm run test:e2e
 ```
 
@@ -71,7 +71,7 @@ npm run test:e2e
 如果要强制走“固定端口 + 自动回收”的真实浏览器栈，优先使用：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\run-real-browser-e2e.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\run-real-browser-e2e.ps1
 ```
 
 这个脚本会：
@@ -84,13 +84,13 @@ powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\run-real-
 如果你要给 `@浏览器`、手工巡检或独立调试先单独拉起固定端口栈，可以直接用：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\start-real-browser-stack.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\start-real-browser-stack.ps1
 ```
 
 如果测试库不在本地默认 MySQL 实例上，可以直接带上同一套 DB 参数：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\start-real-browser-stack.ps1 -DatabaseName shopping_mall_test -DatabaseHost 127.0.0.1 -DatabasePort 3306
+powershell -ExecutionPolicy Bypass -File .\scripts\start-real-browser-stack.ps1 -DatabaseName shopping_mall_test -DatabaseHost 127.0.0.1 -DatabasePort 3306
 ```
 
 启动成功后默认地址固定为：
@@ -101,19 +101,19 @@ powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\start-rea
 巡检或调试结束后，用下面的脚本回收固定端口实例，避免端口残留后一路自增：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\stop-real-browser-stack.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\stop-real-browser-stack.ps1
 ```
 
 只跑指定脚本示例：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\run-real-browser-e2e.ps1 -Specs tests/e2e/smoke.spec.ts
+powershell -ExecutionPolicy Bypass -File .\scripts\run-real-browser-e2e.ps1 -Specs tests/e2e/smoke.spec.ts
 ```
 
 一次跑多个指定脚本时，PowerShell 下建议直接用数组写法：
 
 ```powershell
-& 'D:\graduation project\scripts\run-real-browser-e2e.ps1' -Specs @(
+& '.\scripts\run-real-browser-e2e.ps1' -Specs @(
   'tests/e2e/user-smoke.spec.ts',
   'tests/e2e/search-dropdown-flow.spec.ts',
   'tests/e2e/hot-products-browse.spec.ts'
@@ -129,6 +129,65 @@ npm run test:e2e:orders
 npm run test:e2e:admin
 npm run test:e2e:smoke
 ```
+
+## Node 工具解析与沙盒兜底
+
+- 仓库脚本现在统一通过 `scripts/node-tooling.ps1` 解析 `node`、`npm`、`npx`。
+- 支持的显式覆盖变量：
+  - `NODE_EXE`
+  - `NPM_CMD`
+  - `NPX_CMD`
+- 解析顺序：
+  - 显式环境变量
+  - 当前可见 PATH
+  - 常见安装目录
+  - 仓库本地 CLI 兜底（仅 `playwright` / `vite` / `vitest`）
+- 对 `playwright` / `vite` / `vitest`，如果真实 `npx` 在当前工作目录不可用（例如 Windows 路径含空格，或 PATH 里的 Node 版本过旧），脚本会自动回退到仓库本地 CLI，并尽量选择一个可执行该 CLI 的 Node 运行时。
+- `npm` 没有仓库本地安装兜底；像 `npm ci` 这类命令仍需要真实 npm。
+
+脚本运行前会输出：
+
+- `node` 解析来源
+- `npm` 解析来源
+- `npx` 解析来源
+- 当前是否存在仓库本地 CLI 兜底
+
+推荐只保留两种受支持的调用方式：
+
+1. 同一个 PowerShell 会话内先引导 shim，再继续沿用原来的 `npm` / `npx` 形态：
+
+```powershell
+. .\scripts\project-env.ps1
+Initialize-ProjectNodeTooling | Out-Null
+
+Set-Location .\frontend
+npx playwright test tests/e2e/coupon-flow.spec.ts
+```
+
+如果当前 PowerShell 会话会被执行策略拦截，直接改用第二种入口。
+
+2. 无状态直连入口，每次都显式绕过第一跳执行策略：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\invoke-node-tool.ps1 -Tool npx playwright test tests/e2e/coupon-flow.spec.ts
+```
+
+`invoke-node-tool.ps1` 默认把 `FrontendRoot` 指向仓库内的 `frontend` 目录。只有在前端根目录不标准时才需要额外传 `-FrontendRoot`。
+
+如果 `npm` / `npx` 仍然无法解析，优先显式指定宿主机工具路径，例如：
+
+```powershell
+$env:NODE_EXE = (Join-Path $env:ProgramFiles 'nodejs\node.exe')
+$env:NPM_CMD = (Join-Path $env:ProgramFiles 'nodejs\npm.cmd')
+$env:NPX_CMD = (Join-Path $env:ProgramFiles 'nodejs\npx.cmd')
+```
+
+如果预检输出类似 `blocked | ... | access denied by current session`，含义是：
+
+- 工具路径已经找到
+- 但当前会话不能执行这份宿主机命令
+
+这类环境里，`playwright` / `vite` / `vitest` 仍可依赖 repo-local fallback；`npm ci`、`npm install` 这类安装命令仍然需要宿主机可执行的真实 `npm`。
 
 ## CI 基线
 
@@ -155,7 +214,7 @@ npm run test:e2e:smoke
 如果要在本地尽量贴近 CI，优先使用：
 
 ```powershell
-cd D:\graduation project\frontend
+cd .\frontend
 npm run test:e2e:all
 ```
 
@@ -179,7 +238,7 @@ npm run test:e2e:smoke
 ```powershell
 mysql --default-character-set=utf8mb4 -uroot -p -e "DROP DATABASE IF EXISTS shopping_mall_test; CREATE DATABASE shopping_mall_test DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_unicode_ci;"
 mysql --default-character-set=utf8mb4 -uroot -p shopping_mall_test < backend/src/main/resources/schema.sql
-powershell -ExecutionPolicy Bypass -File D:\graduation project\scripts\rebuild-graduation-data.ps1 -Mode execute -DatabaseName shopping_mall_test
+powershell -ExecutionPolicy Bypass -File .\scripts\rebuild-graduation-data.ps1 -Mode execute -DatabaseName shopping_mall_test
 ```
 
 如果 MySQL 不是本地默认实例，可以补上 `-DatabaseHost 127.0.0.1 -DatabasePort 3306`。

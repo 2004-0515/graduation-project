@@ -9,7 +9,7 @@ The default local setup is designed for a two-command demo: start the backend, s
 Prerequisites:
 
 - JDK 17
-- Node.js `>=20.19.0`
+- Node.js `>=20.19.0` or `>=22.12.0`
 - MySQL 8 with database `shopping_mall`
 - Redis 7
 - Frontend dependencies installed once with `npm install`
@@ -86,6 +86,34 @@ Backend:
 cd backend
 mvn spring-boot:run
 ```
+
+## Node Tooling Entry Points
+
+Project scripts support two explicit Node tooling entry modes:
+
+1. Same-session shim bootstrap for a shell you plan to keep using:
+
+```powershell
+. .\scripts\project-env.ps1
+Initialize-ProjectNodeTooling | Out-Null
+
+Set-Location .\frontend
+npx vitest --version
+```
+
+2. Stateless direct invocation for restricted or disposable PowerShell sessions:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\invoke-node-tool.ps1 -Tool npx vite --version
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\invoke-node-tool.ps1 -Tool npx playwright --version
+```
+
+`invoke-node-tool.ps1` defaults `FrontendRoot` to the repo's `frontend` directory. Only pass `-FrontendRoot` when you need a nonstandard location.
+
+`Node tooling preflight` may report a status like `blocked | ... | access denied by current session`. That means the tool path was found, but the current shell cannot execute it. In that state:
+
+- repo-local fallback still covers `playwright`, `vite`, and `vitest`
+- `npm install` / `npm ci` still require a host shell where real `npm` is executable, or an explicit runnable `NPM_CMD`
 
 Practical strict project checks:
 

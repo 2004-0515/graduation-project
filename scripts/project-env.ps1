@@ -1,6 +1,8 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+. (Join-Path $PSScriptRoot "node-tooling.ps1")
+
 $script:ProjectRoot = Split-Path $PSScriptRoot -Parent
 $script:BackendRoot = Join-Path $script:ProjectRoot "backend"
 $script:FrontendRoot = Join-Path $script:ProjectRoot "frontend"
@@ -10,13 +12,6 @@ function Set-ProjectUtf8Environment {
     [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
     $global:OutputEncoding = [System.Text.UTF8Encoding]::new($false)
     chcp 65001 | Out-Null
-
-    $javaFlags = @("-Dfile.encoding=UTF-8", "-Dsun.jnu.encoding=UTF-8")
-    $currentJavaToolOptions = @($env:JAVA_TOOL_OPTIONS -split "\s+" | Where-Object { $_ })
-    $currentMavenOptions = @($env:MAVEN_OPTS -split "\s+" | Where-Object { $_ })
-
-    $env:JAVA_TOOL_OPTIONS = (@($currentJavaToolOptions + $javaFlags) | Select-Object -Unique) -join " "
-    $env:MAVEN_OPTS = (@($currentMavenOptions + $javaFlags) | Select-Object -Unique) -join " "
 }
 
 function Get-ProjectRoot {
@@ -29,6 +24,45 @@ function Get-BackendRoot {
 
 function Get-FrontendRoot {
     return $script:FrontendRoot
+}
+
+function Resolve-ProjectNodeTooling {
+    return Resolve-NodeTooling -ProjectRoot $script:ProjectRoot -FrontendRoot $script:FrontendRoot
+}
+
+function Write-ProjectNodeToolingDiagnostics {
+    param([pscustomobject]$Tooling = $(Resolve-ProjectNodeTooling))
+
+    Write-NodeToolingDiagnostics -Tooling $Tooling
+}
+
+function Initialize-ProjectNodeTooling {
+    param([pscustomobject]$Tooling = $(Resolve-ProjectNodeTooling))
+
+    return Initialize-NodeToolingBootstrap -Tooling $Tooling
+}
+
+function Resolve-ProjectNodeInvocation {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("node", "npm", "npx")]
+        [string]$CommandName,
+        [string[]]$Arguments = @(),
+        [pscustomobject]$Tooling = $(Resolve-ProjectNodeTooling)
+    )
+
+    return Resolve-NodeCommandInvocation -CommandName $CommandName -Arguments $Arguments -Tooling $Tooling
+}
+
+function Invoke-ProjectNodeInvocation {
+    param(
+        [Parameter(Mandatory = $true)]
+        [pscustomobject]$Invocation,
+        [string]$WorkingDirectory = $script:FrontendRoot
+    )
+
+    Set-ProjectUtf8Environment
+    Invoke-ResolvedNodeCommand -Invocation $Invocation -WorkingDirectory $WorkingDirectory
 }
 
 function Invoke-ProjectCommand {

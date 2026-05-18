@@ -14,16 +14,16 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$projectRoot = Split-Path $PSScriptRoot -Parent
-$frontendRoot = Join-Path $projectRoot 'frontend'
-$backendRoot = Join-Path $projectRoot 'backend'
+. (Join-Path $PSScriptRoot 'project-env.ps1')
+
+$projectRoot = Get-ProjectRoot
+$frontendRoot = Get-FrontendRoot
+$backendRoot = Get-BackendRoot
 $stackStateFile = Join-Path $projectRoot 'tmp-browser-stack.json'
 $uploadsRoot = Join-Path $projectRoot 'uploads'
 $tempRoot = Join-Path $projectRoot '.tmp'
 $e2eUploadsRoot = Join-Path $tempRoot 'e2e-uploads'
 $seedScript = Join-Path $PSScriptRoot 'rebuild-graduation-data.ps1'
-$viteCli = './node_modules/vite/bin/vite.js'
-$playwrightCli = './node_modules/playwright/cli.js'
 $isWindowsPlatform = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 $suiteSpecsMap = @{
     smoke = @(
@@ -104,28 +104,30 @@ function Resolve-CommandPath {
     throw "Unable to locate $Label via PATH or environment variables. Candidates: $($Candidates -join ', ')"
 }
 
-$nodeCandidates = @(
-    $env:NODE_EXE
-)
-if ($isWindowsPlatform) {
-    $nodeCandidates += @(
-        'C:\Users\Administrator\AppData\Local\Programs\cursor\resources\app\resources\helpers\node.exe',
-        'C:\Program Files\cursor\resources\app\resources\helpers\node.exe',
-        'node'
-    )
-} else {
-    $nodeCandidates += 'node'
-}
-$node = Resolve-CommandPath -Candidates $nodeCandidates -Label 'Node'
-
 $mavenCandidates = @($env:MAVEN_CMD)
 if ($isWindowsPlatform) {
+    foreach ($mavenHome in @($env:MAVEN_HOME, $env:M2_HOME) | Where-Object { $_ } | Select-Object -Unique) {
+        $mavenCandidates += (Join-Path $mavenHome 'bin\mvn.cmd')
+    }
+
+    foreach ($programFilesRoot in @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ } | Select-Object -Unique) {
+        $mavenCandidates += @(
+            (Join-Path $programFilesRoot 'Apache\maven\bin\mvn.cmd'),
+            (Join-Path $programFilesRoot 'Apache\Maven\bin\mvn.cmd')
+        )
+    }
+
     $mavenCandidates += @(
         'mvn.cmd',
-        'mvn',
-        'D:\apache-maven-3.9.9\bin\mvn.cmd'
+        'mvn'
     )
 } else {
+    if ($env:MAVEN_HOME) {
+        $mavenCandidates += (Join-Path $env:MAVEN_HOME 'bin/mvn')
+    }
+    if ($env:M2_HOME) {
+        $mavenCandidates += (Join-Path $env:M2_HOME 'bin/mvn')
+    }
     $mavenCandidates += 'mvn'
 }
 $maven = Resolve-CommandPath -Candidates $mavenCandidates -Label 'Maven'
@@ -265,6 +267,24 @@ function Wait-HttpReady {
     throw "Service did not become ready: $Url"
 }
 
+function Format-ManagedProcessArgument {
+    param([string]$Value)
+
+    if (-not $isWindowsPlatform) {
+        return $Value
+    }
+
+    if ($null -eq $Value -or $Value -eq '') {
+        return '""'
+    }
+
+    if ($Value -notmatch '[\s"]') {
+        return $Value
+    }
+
+    return '"' + ($Value.Replace('"', '\"')) + '"'
+}
+
 function Start-ManagedProcess {
     param(
         [string]$FilePath,
@@ -276,7 +296,11 @@ function Start-ManagedProcess {
 
     $params = @{
         FilePath = $FilePath
-        ArgumentList = $ArgumentList
+        ArgumentList = if ($isWindowsPlatform) {
+            @($ArgumentList | ForEach-Object { Format-ManagedProcessArgument -Value $_ })
+        } else {
+            $ArgumentList
+        }
         WorkingDirectory = $WorkingDirectory
         PassThru = $true
         RedirectStandardOutput = $StdoutPath
@@ -436,6 +460,9 @@ $Specs = @(
         Where-Object { $_ }
 )
 
+$nodeTooling = Resolve-ProjectNodeTooling
+Write-ProjectNodeToolingDiagnostics -Tooling $nodeTooling
+
 try {
     Remove-StaleManagedStackState
 
@@ -493,7 +520,7 @@ try {
             $backendFilePath = 'cmd.exe'
             $backendArgs = @(
                 '/c',
-                "`"$maven`"",
+                $maven,
                 'spring-boot:run',
                 '-Dspring-boot.run.profiles=demo,browser',
                 "-Dspring-boot.run.arguments=--server.port=$BackendPort"
@@ -519,8 +546,9 @@ try {
     if (-not $reusedFrontend) {
         $env:VITE_PROXY_TARGET = "http://127.0.0.1:$BackendPort"
         $env:VITE_E2E = 'true'
-        $frontendArgs = @($viteCli, '--host', '127.0.0.1', '--port', "$FrontendPort")
-        $frontendProc = Start-ManagedProcess -FilePath $node -ArgumentList $frontendArgs -WorkingDirectory $frontendRoot -StdoutPath $frontendLog -StderrPath $frontendErrLog
+        $frontendInvocation = Resolve-ProjectNodeInvocation -CommandName 'npx' -Arguments @('vite', '--host', '127.0.0.1', '--port', "$FrontendPort") -Tooling $nodeTooling
+        Write-Host "Frontend launcher: $(Format-NodeInvocation -Invocation $frontendInvocation)"
+        $frontendProc = Start-ManagedProcess -FilePath $frontendInvocation.CommandPath -ArgumentList $frontendInvocation.Arguments -WorkingDirectory $frontendRoot -StdoutPath $frontendLog -StderrPath $frontendErrLog
         $startedFrontend = $true
     }
 
@@ -573,22 +601,19 @@ try {
     $env:E2E_ADMIN_USERNAME = $AdminUsername
     $env:E2E_PASSWORD = $Password
 
-    $playwrightArgs = @($playwrightCli, 'test')
+    $playwrightArgs = @('playwright', 'test')
     if ($Specs.Count -gt 0) {
         $playwrightArgs += $Specs
     }
     $playwrightArgs += '--reporter=line'
+    $playwrightInvocation = Resolve-ProjectNodeInvocation -CommandName 'npx' -Arguments $playwrightArgs -Tooling $nodeTooling
 
     Write-Host "Running Playwright specs: $($Specs -join ', ')"
+    Write-Host "Playwright launcher: $(Format-NodeInvocation -Invocation $playwrightInvocation)"
 
-    Push-Location $frontendRoot
-    try {
-        & $node @playwrightArgs
-        if ($LASTEXITCODE -ne 0) {
-            throw "Playwright failed with exit code: $LASTEXITCODE"
-        }
-    } finally {
-        Pop-Location
+    Invoke-ResolvedNodeCommand -Invocation $playwrightInvocation -WorkingDirectory $frontendRoot
+    if ($LASTEXITCODE -ne 0) {
+        throw "Playwright failed with exit code: $LASTEXITCODE"
     }
 }
 finally {

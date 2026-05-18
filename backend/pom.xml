@@ -20,6 +20,8 @@
         <java.version>17</java.version>
         <springdoc.version>2.2.0</springdoc.version>
         <jjwt.version>0.12.5</jjwt.version>
+        <spring-boot.run.baseJvmArguments>-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8</spring-boot.run.baseJvmArguments>
+        <spring-boot.run.jvmArguments>${spring-boot.run.baseJvmArguments}</spring-boot.run.jvmArguments>
     </properties>
 
     <dependencies>
@@ -152,10 +154,10 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <argLine>-Xshare:off -Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8</argLine>
+                    <redirectTestOutputToFile>true</redirectTestOutputToFile>
                     <systemPropertyVariables>
                         <spring.profiles.active>test</spring.profiles.active>
-                        <file.encoding>UTF-8</file.encoding>
-                        <sun.jnu.encoding>UTF-8</sun.jnu.encoding>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
@@ -163,7 +165,8 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <jvmArguments>-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8</jvmArguments>
+                    <!-- Keep startup encoding stable and use an OS-specific socket temp override only where needed. -->
+                    <jvmArguments>${spring-boot.run.jvmArguments}</jvmArguments>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
@@ -174,5 +177,19 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>windows-local-sockets</id>
+            <activation>
+                <os>
+                    <family>Windows</family>
+                </os>
+            </activation>
+            <properties>
+                <spring-boot.run.jvmArguments>${spring-boot.run.baseJvmArguments} -Djdk.net.unixdomain.tmpdir=${env:SystemRoot}/Temp</spring-boot.run.jvmArguments>
+            </properties>
+        </profile>
+    </profiles>
 
 </project>
