@@ -11,6 +11,7 @@
         <span class="logo text-title">紫苑风鸢</span>
         <h2>创建账号</h2>
         <p>加入我们，开启品质生活</p>
+        <router-link class="entry-link" to="/">返回首页</router-link>
       </div>
 
       <div class="card-body">
@@ -115,13 +116,15 @@ const handleRegister = async () => {
 <style scoped>
 .register-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--white); position: relative; }
 .deco-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-.deco-bg { position: absolute; bottom: -20%; left: -10%; width: 60%; height: 70%; background: url('/external-cache/register-bg.jpg') center/cover; opacity: 0.1; filter: blur(50px) saturate(1.2); }
+.deco-bg { position: absolute; bottom: -20%; left: -10%; width: 60%; height: 70%; background: radial-gradient(circle at center, rgba(255, 140, 182, 0.22), rgba(255, 140, 182, 0) 70%); opacity: 0.9; filter: blur(50px) saturate(1.1); }
 .shape { position: absolute; border-radius: 50%; filter: blur(80px); animation: float 20s ease-in-out infinite; }
 .s1 { width: 600px; height: 600px; top: 5%; right: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.12), transparent); opacity: 0.5; }
 .s2 { width: 500px; height: 500px; bottom: 5%; left: -5%; background: radial-gradient(circle, rgba(155, 135, 245, 0.15), transparent); opacity: 0.5; animation-delay: -10s; }
 @keyframes float { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(30px, -30px) scale(1.05); } 66% { transform: translate(-20px, 20px) scale(0.95); } }
 .register-card { width: 100%; max-width: 420px; position: relative; z-index: 1; }
 .card-header { padding: 40px 32px 20px; text-align: center; }
+.entry-link { display: inline-flex; align-items: center; justify-content: center; margin-top: 14px; font-size: 14px; color: var(--text-secondary); text-decoration: none; }
+.entry-link:hover { color: var(--primary); }
 .logo { font-size: 28px; font-weight: 600; letter-spacing: 4px; display: block; margin-bottom: 20px; }
 .card-header h2 { font-size: 24px; font-weight: 600; color: var(--text-primary); margin: 0 0 8px; }
 .card-header p { font-size: 16px; color: var(--text-tertiary); margin: 0; }
