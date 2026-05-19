@@ -1,6 +1,8 @@
 package com.shopping.service;
 
+import com.shopping.constants.OrderConstants;
 import com.shopping.constants.UserRole;
+import com.shopping.dto.UserProfileSummaryDto;
 import com.shopping.entity.User;
 import com.shopping.exception.ValidationException;
 import com.shopping.repository.AddressRepository;
@@ -271,6 +273,23 @@ public class UserService {
      */
     public List<User> getAdminUsers() {
         return userRepository.findByRole(UserRole.ADMIN);
+    }
+
+    public UserProfileSummaryDto getProfileSummary(User user) {
+        Long userId = user.getId();
+        long sellerPendingCount = UserRole.SELLER.equals(user.getRole())
+                ? orderItemRepository.countBySellerIdAndShipStatus(userId, 0)
+                : 0L;
+
+        return new UserProfileSummaryDto(
+                orderRepository.countByUserId(userId),
+                orderRepository.countByUserIdAndOrderStatus(userId, OrderConstants.OrderStatus.PENDING_PAYMENT),
+                orderRepository.countByUserIdAndOrderStatus(userId, OrderConstants.OrderStatus.PENDING_SHIPMENT),
+                orderRepository.countByUserIdAndOrderStatus(userId, OrderConstants.OrderStatus.PENDING_RECEIPT),
+                cartRepository.sumQuantityByUserId(userId),
+                priceAlertRepository.countByUserIdAndStatus(userId, 0),
+                sellerPendingCount
+        );
     }
 
     private void deleteUserInternal(User user) {

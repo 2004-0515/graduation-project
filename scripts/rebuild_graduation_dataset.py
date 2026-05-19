@@ -28,6 +28,7 @@ from young_catalog_data import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_UPLOAD_ROOT = PROJECT_ROOT / "uploads"
 DEFAULT_PASSWORD_HASH = "$2a$10$ion4ZW8KGoDWpPAzbobIPeOR5FLFr.0BBeWI8O.FzqAlbHBZFmdae"
 PROFILE = "graduation-localized"
 RANDOM_SEED = 20260518
@@ -394,6 +395,7 @@ class Seeder:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
         self.rng = random.Random(RANDOM_SEED)
+        self.upload_root = self._resolve_upload_root()
         self.user_ids: dict[str, int] = {}
         self.category_ids: dict[str, int] = {}
         self.coupon_ids: list[int] = []
@@ -408,12 +410,24 @@ class Seeder:
         self.asset_manifest = self._load_asset_manifest()
         self.local_asset_pools = self._build_local_asset_pools()
 
+    def _resolve_upload_root(self) -> Path:
+        configured = os.environ.get("FILE_UPLOAD_DIR", "").strip()
+        if not configured:
+            return DEFAULT_UPLOAD_ROOT
+        return Path(configured).expanduser().resolve()
+
+    def _resolve_asset_path(self, relative_url: str) -> Path:
+        normalized = (relative_url or "").replace("\\", "/")
+        if normalized.startswith("/uploads/"):
+            return self.upload_root / normalized[len("/uploads/"):]
+        return PROJECT_ROOT / normalized.lstrip("/")
+
     def _scan_uploads(self, sub_path: str | Path, suffixes: set[str]) -> list[str]:
-        base = PROJECT_ROOT / "uploads" / Path(sub_path)
+        base = self.upload_root / Path(sub_path)
         if not base.exists():
             return []
         files = [
-            "/" + path.relative_to(PROJECT_ROOT).as_posix()
+            "/uploads/" + path.relative_to(self.upload_root).as_posix()
             for path in sorted(base.rglob("*"))
             if path.is_file() and path.suffix.lower() in suffixes
         ]
@@ -435,11 +449,11 @@ class Seeder:
         return pools
 
     def copy_upload_asset(self, source_path: str, target_folder: str, target_stem: str) -> str:
-        source = PROJECT_ROOT / source_path.lstrip("/")
+        source = self._resolve_asset_path(source_path)
         if not source.exists():
             raise RuntimeError(f"缺少本地素材文件: {source_path}")
         extension = source.suffix.lower() or ".jpg"
-        target_dir = PROJECT_ROOT / "uploads" / target_folder / "2026" / "05"
+        target_dir = self.upload_root / target_folder / "2026" / "05"
         target = target_dir / f"{target_stem}{extension}"
         try:
             target_dir.mkdir(parents=True, exist_ok=True)
@@ -449,7 +463,7 @@ class Seeder:
             raise RuntimeError(
                 f"复制上传素材失败: source={source.as_posix()} target_dir={target_dir.as_posix()} error={error}"
             ) from error
-        return "/" + target.relative_to(PROJECT_ROOT).as_posix()
+        return "/uploads/" + target.relative_to(self.upload_root).as_posix()
 
     def product_row_by_slug(self, slug: str) -> tuple[int, ProductSeed]:
         product_id = self.product_ids_by_slug.get(slug)
@@ -519,17 +533,17 @@ class Seeder:
             if spec.get("download_queries"):
                 entry = asset_entries.get(spec["slug"])
                 local_path = entry.get("local_path") if entry else None
-                if not local_path or not (PROJECT_ROOT / local_path.lstrip("/")).exists():
+                if not local_path or not self._resolve_asset_path(local_path).exists():
                     missing.append(f"downloaded:{spec['slug']}")
                 continue
             explicit_image_path = spec.get("image_path")
             if explicit_image_path:
-                if not (PROJECT_ROOT / explicit_image_path.lstrip("/")).exists():
+                if not self._resolve_asset_path(explicit_image_path).exists():
                     missing.append(f"explicit:{spec['slug']}")
                 continue
             missing.append(f"unmapped:{spec['slug']}")
         for slug in AD_VIDEO_SLUGS:
-            expected = PROJECT_ROOT / "uploads" / "videos" / "2026" / "05" / f"{slug}-ad.mp4"
+            expected = self.upload_root / "videos" / "2026" / "05" / f"{slug}-ad.mp4"
             if not expected.exists():
                 missing.append(f"video:{slug}")
         if missing:
@@ -1491,14 +1505,14 @@ FROM tb_product;
         missing_video_files = []
         for row in product_media_rows:
             product_id_raw, name, main_image, images_json, sales_raw, created_time_raw, audit_status_raw, status_raw, ad_video = (row.split("\t") + [""] * 9)[:9]
-            if main_image and not (PROJECT_ROOT / main_image.lstrip("/")).exists():
+            if main_image and not self._resolve_asset_path(main_image).exists():
                 missing_product_files.append(f"{product_id_raw}:{main_image}")
             try:
                 images = json.loads(images_json) if images_json else []
             except json.JSONDecodeError:
                 images = [part for part in images_json.split(",") if part]
             for image in images:
-                if not (PROJECT_ROOT / image.lstrip("/")).exists():
+                if not self._resolve_asset_path(image).exists():
                     missing_product_files.append(f"{product_id_raw}:{image}")
             if audit_status_raw == "1" and status_raw == "1":
                 approved_rows.append(
@@ -1510,7 +1524,7 @@ FROM tb_product;
                         "created_time": created_time_raw,
                     }
                 )
-            if ad_video and ad_video != "NULL" and not (PROJECT_ROOT / ad_video.lstrip("/")).exists():
+            if ad_video and ad_video != "NULL" and not self._resolve_asset_path(ad_video).exists():
                 missing_video_files.append(f"{product_id_raw}:{ad_video}")
         report["missing_product_files"] = missing_product_files
         report["missing_video_files"] = missing_video_files
@@ -1523,7 +1537,7 @@ FROM tb_product;
             if not icon_path:
                 missing_category_icons.append(f"{category_id_raw}:<empty>")
                 continue
-            if not (PROJECT_ROOT / icon_path.lstrip("/")).exists():
+            if not self._resolve_asset_path(icon_path).exists():
                 missing_category_icons.append(f"{category_id_raw}:{icon_path}")
             if not icon_path.startswith("/uploads/categories/"):
                 invalid_category_icons.append(f"{category_id_raw}:{icon_path}")
@@ -1546,7 +1560,7 @@ FROM tb_product;
                     if label == "image":
                         missing_showcase_files.append(f"{banner_id_raw}:{label}:<empty>")
                     continue
-                if not (PROJECT_ROOT / path.lstrip("/")).exists():
+                if not self._resolve_asset_path(path).exists():
                     missing_showcase_files.append(f"{banner_id_raw}:{label}:{path}")
                 if not path.startswith(expected_prefix):
                     invalid_showcase_paths.append(f"{banner_id_raw}:{label}:{path}")

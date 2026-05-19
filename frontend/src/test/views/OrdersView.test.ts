@@ -104,6 +104,18 @@ function buildOrder(overrides: Partial<Order> = {}): Order {
   }
 }
 
+function orderPage(content: Order[]) {
+  return {
+    content,
+    totalElements: content.length,
+    totalPages: content.length > 0 ? 1 : 0,
+    size: content.length || 10,
+    number: 0,
+    first: true,
+    last: true
+  }
+}
+
 describe('OrdersView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -114,10 +126,10 @@ describe('OrdersView', () => {
   it('applies route status filter on load', async () => {
     orderApi.getUserOrders.mockResolvedValue({
       code: 200,
-      data: [
+      data: orderPage([
         buildOrder({ id: 1, orderNo: 'ORD-1', orderStatus: 1, orderStatusName: '待发货' }),
         buildOrder({ id: 2, orderNo: 'ORD-2', orderStatus: 0, orderStatusName: '待支付' })
-      ]
+      ])
     })
 
     const wrapper = mount(OrdersView, {
@@ -146,11 +158,11 @@ describe('OrdersView', () => {
     orderApi.getUserOrders
       .mockResolvedValueOnce({
         code: 200,
-        data: [buildOrder({ id: 1, orderStatus: 1, orderStatusName: '待发货', paymentStatus: 1 })]
+        data: orderPage([buildOrder({ id: 1, orderStatus: 1, orderStatusName: '待发货', paymentStatus: 1 })])
       })
       .mockResolvedValueOnce({
         code: 200,
-        data: [buildOrder({ id: 1, orderStatus: 6, orderStatusName: '申请取消中', paymentStatus: 1 })]
+        data: orderPage([buildOrder({ id: 1, orderStatus: 6, orderStatusName: '申请取消中', paymentStatus: 1 })])
       })
     orderApi.requestCancelOrder.mockResolvedValue({ code: 200 })
 
@@ -201,15 +213,15 @@ describe('OrdersView', () => {
     orderApi.getUserOrders
       .mockResolvedValueOnce({
         code: 200,
-        data: [buildOrder({ id: 1, orderStatus: 3, orderStatusName: '已完成' })]
+        data: orderPage([buildOrder({ id: 1, orderStatus: 3, orderStatusName: '已完成' })])
       })
       .mockResolvedValueOnce({
         code: 200,
-        data: [reviewedOrder]
+        data: orderPage([reviewedOrder])
       })
       .mockResolvedValue({
         code: 200,
-        data: [reviewedOrder]
+        data: orderPage([reviewedOrder])
       })
     reviewApi.createReview.mockResolvedValue({ code: 200 })
 
@@ -283,7 +295,7 @@ describe('OrdersView', () => {
     mockRoute.query.status = undefined
     orderApi.getUserOrders.mockResolvedValue({
       code: 200,
-      data: [buildOrder({ id: 3, orderStatus: 2, orderStatusName: '待收货', paymentStatus: 1 })]
+      data: orderPage([buildOrder({ id: 3, orderStatus: 2, orderStatusName: '待收货', paymentStatus: 1 })])
     })
     orderApi.confirmReceive.mockRejectedValue({ response: { data: { message: '订单状态已变更' } } })
 
@@ -315,7 +327,7 @@ describe('OrdersView', () => {
     mockRoute.query.status = '3'
     orderApi.getUserOrders.mockResolvedValue({
       code: 200,
-      data: [buildOrder({ id: 1, orderStatus: 3, orderStatusName: '已完成' })]
+      data: orderPage([buildOrder({ id: 1, orderStatus: 3, orderStatusName: '已完成' })])
     })
     reviewApi.createReview.mockResolvedValue({ code: 422, message: '评价内容不能为空' })
 
@@ -353,7 +365,7 @@ describe('OrdersView', () => {
     mockRoute.query.status = undefined
     orderApi.getUserOrders.mockResolvedValue({
       code: 200,
-      data: [buildOrder({ id: 1, orderStatus: 0, orderStatusName: '待支付' })]
+      data: orderPage([buildOrder({ id: 1, orderStatus: 0, orderStatusName: '待支付' })])
     })
     orderApi.cancelOrder.mockResolvedValue({ code: 500, message: '订单无法取消' })
 
@@ -384,7 +396,7 @@ describe('OrdersView', () => {
     mockRoute.query.status = undefined
     orderApi.getUserOrders.mockResolvedValue({
       code: 200,
-      data: [buildOrder({ id: 1, orderStatus: 1, orderStatusName: '待发货', paymentStatus: 1 })]
+      data: orderPage([buildOrder({ id: 1, orderStatus: 1, orderStatusName: '待发货', paymentStatus: 1 })])
     })
     orderApi.requestCancelOrder.mockResolvedValue({ code: 500, message: '当前订单不可申请取消' })
 
@@ -415,7 +427,7 @@ describe('OrdersView', () => {
     mockRoute.query.status = undefined
     orderApi.getUserOrders.mockResolvedValue({
       code: 200,
-      data: [buildOrder({ id: 3, orderStatus: 2, orderStatusName: '待收货', paymentStatus: 1 })]
+      data: orderPage([buildOrder({ id: 3, orderStatus: 2, orderStatusName: '待收货', paymentStatus: 1 })])
     })
     orderApi.confirmReceive.mockResolvedValue({ code: 500, message: '订单尚未发货完成' })
 
@@ -447,7 +459,7 @@ describe('OrdersView', () => {
     orderApi.getUserOrders
       .mockResolvedValueOnce({
         code: 200,
-        data: [buildOrder({ id: 1, orderStatus: 0, orderStatusName: '待支付' })]
+        data: orderPage([buildOrder({ id: 1, orderStatus: 0, orderStatusName: '待支付' })])
       })
       .mockRejectedValueOnce(new Error('刷新失败'))
     orderApi.cancelOrder.mockResolvedValue({ code: 200 })
@@ -481,7 +493,7 @@ describe('OrdersView', () => {
     orderApi.getUserOrders
       .mockResolvedValueOnce({
         code: 200,
-        data: [buildOrder({ id: 1, orderStatus: 1, orderStatusName: '待发货', paymentStatus: 1 })]
+        data: orderPage([buildOrder({ id: 1, orderStatus: 1, orderStatusName: '待发货', paymentStatus: 1 })])
       })
       .mockRejectedValueOnce(new Error('刷新失败'))
     orderApi.requestCancelOrder.mockResolvedValue({ code: 200 })
@@ -515,7 +527,7 @@ describe('OrdersView', () => {
     orderApi.getUserOrders
       .mockResolvedValueOnce({
         code: 200,
-        data: [buildOrder({ id: 3, orderStatus: 2, orderStatusName: '待收货', paymentStatus: 1 })]
+        data: orderPage([buildOrder({ id: 3, orderStatus: 2, orderStatusName: '待收货', paymentStatus: 1 })])
       })
       .mockRejectedValueOnce(new Error('刷新失败'))
     orderApi.confirmReceive.mockResolvedValue({ code: 200 })
@@ -549,7 +561,7 @@ describe('OrdersView', () => {
     orderApi.getUserOrders
       .mockResolvedValueOnce({
         code: 200,
-        data: [buildOrder({ id: 1, orderStatus: 3, orderStatusName: '已完成' })]
+        data: orderPage([buildOrder({ id: 1, orderStatus: 3, orderStatusName: '已完成' })])
       })
       .mockRejectedValue(new Error('刷新失败'))
     reviewApi.createReview.mockResolvedValue({ code: 200 })
@@ -587,8 +599,8 @@ describe('OrdersView', () => {
 
   it('ignores stale order responses when newer fetch finishes later', async () => {
     mockRoute.query.status = undefined
-    const firstRequest = createDeferred<{ code: number; data: Order[] }>()
-    const secondRequest = createDeferred<{ code: number; data: Order[] }>()
+    const firstRequest = createDeferred<{ code: number; data: ReturnType<typeof orderPage> }>()
+    const secondRequest = createDeferred<{ code: number; data: ReturnType<typeof orderPage> }>()
 
     orderApi.getUserOrders
       .mockImplementationOnce(() => firstRequest.promise)
@@ -617,7 +629,7 @@ describe('OrdersView', () => {
 
     secondRequest.resolve({
       code: 200,
-      data: [buildOrder({ id: 2, orderNo: 'ORD-NEW' })]
+      data: orderPage([buildOrder({ id: 2, orderNo: 'ORD-NEW' })])
     })
     await refetchPromise
     await flushPromises()
@@ -626,7 +638,7 @@ describe('OrdersView', () => {
 
     firstRequest.resolve({
       code: 200,
-      data: [buildOrder({ id: 1, orderNo: 'ORD-OLD' })]
+      data: orderPage([buildOrder({ id: 1, orderNo: 'ORD-OLD' })])
     })
     await flushPromises()
 
@@ -641,7 +653,7 @@ describe('OrdersView', () => {
       .mockRejectedValueOnce({ code: 429, response: { data: { code: 429, message: '请求过于频繁，请稍后重试' } } })
       .mockResolvedValueOnce({
         code: 200,
-        data: [buildOrder({ id: 5, orderNo: 'ORD-RETRY', orderStatus: 1, orderStatusName: '待发货' })]
+        data: orderPage([buildOrder({ id: 5, orderNo: 'ORD-RETRY', orderStatus: 1, orderStatusName: '待发货' })])
       })
 
     const wrapper = mount(OrdersView, {
@@ -671,8 +683,8 @@ describe('OrdersView', () => {
 
   it('does not let an in-flight order request overwrite local cancel success', async () => {
     mockRoute.query.status = undefined
-    const firstRequest = createDeferred<{ code: number; data: Order[] }>()
-    const secondRequest = createDeferred<{ code: number; data: Order[] }>()
+    const firstRequest = createDeferred<{ code: number; data: ReturnType<typeof orderPage> }>()
+    const secondRequest = createDeferred<{ code: number; data: ReturnType<typeof orderPage> }>()
     orderApi.getUserOrders
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
@@ -703,14 +715,14 @@ describe('OrdersView', () => {
 
     secondRequest.resolve({
       code: 200,
-      data: [buildOrder({ id: 1, orderStatus: 4, orderStatusName: '已取消' })]
+      data: orderPage([buildOrder({ id: 1, orderStatus: 4, orderStatusName: '已取消' })])
     })
     await cancelPromise
     await flushPromises()
 
     firstRequest.resolve({
       code: 200,
-      data: [buildOrder({ id: 1, orderStatus: 0, orderStatusName: '待支付' })]
+      data: orderPage([buildOrder({ id: 1, orderStatus: 0, orderStatusName: '待支付' })])
     })
     await flushPromises()
 
@@ -719,8 +731,8 @@ describe('OrdersView', () => {
 
   it('does not let an in-flight order request overwrite local review success', async () => {
     mockRoute.query.status = '3'
-    const firstRequest = createDeferred<{ code: number; data: Order[] }>()
-    const secondRequest = createDeferred<{ code: number; data: Order[] }>()
+    const firstRequest = createDeferred<{ code: number; data: ReturnType<typeof orderPage> }>()
+    const secondRequest = createDeferred<{ code: number; data: ReturnType<typeof orderPage> }>()
     orderApi.getUserOrders
       .mockImplementationOnce(() => firstRequest.promise)
       .mockImplementationOnce(() => secondRequest.promise)
@@ -757,19 +769,19 @@ describe('OrdersView', () => {
 
     secondRequest.resolve({
       code: 200,
-      data: [buildOrder({
+      data: orderPage([buildOrder({
         id: 1,
         orderStatus: 3,
         orderStatusName: '已完成',
         items: [{ ...buildOrder().items[0], reviewed: true }]
-      })]
+      })])
     })
     await reviewPromise
     await flushPromises()
 
     firstRequest.resolve({
       code: 200,
-      data: [buildOrder({ id: 1, orderStatus: 3, orderStatusName: '已完成' })]
+      data: orderPage([buildOrder({ id: 1, orderStatus: 3, orderStatusName: '已完成' })])
     })
     await flushPromises()
 

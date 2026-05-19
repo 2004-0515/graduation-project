@@ -258,7 +258,7 @@ import fileApi from '../api/fileApi'
 import { debugError } from '../utils/debug'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
-import type { ApiResponse, Order, OrderItem } from '../types'
+import type { ApiResponse, Order, OrderItem, PageResponse } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -332,9 +332,13 @@ const isRetryableOrderError = (error: unknown) => {
   return false
 }
 
-const isRetryableOrderPayload = (response: ApiResponse<Order[] | { content?: Order[] }> | null | undefined) => {
+const isRetryableOrderPayload = (response: ApiResponse<PageResponse<Order>> | null | undefined) => {
   const code = Number(response?.code)
   return RETRYABLE_ORDER_ERROR_CODES.has(code)
+}
+
+const extractPagedOrders = (response: ApiResponse<PageResponse<Order>>): Order[] => {
+  return Array.isArray(response.data?.content) ? response.data.content : []
 }
 
 const pendingCount = computed(() =>
@@ -436,13 +440,12 @@ const fetchOrders = async (allowRetry: boolean = true) => {
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = (await orderApi.getUserOrders()) as ApiResponse<Order[] | { content?: Order[] }>
+    const res = (await orderApi.getUserOrders()) as ApiResponse<PageResponse<Order>>
     if (requestId !== latestOrdersRequestId) {
       return
     }
     if (res?.code === 200) {
-      const data = res.data
-      orders.value = Array.isArray(data) ? data : (data?.content || [])
+      orders.value = extractPagedOrders(res)
       reconcileReviewContext()
     } else {
       if (allowRetry && isRetryableOrderPayload(res)) {

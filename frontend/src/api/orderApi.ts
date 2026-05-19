@@ -1,6 +1,6 @@
 import axios from '@/utils/axios'
 import { API_PATHS, PAGINATION } from '@/constants'
-import type { Order, CreateOrderRequest, ApiResponse, SellerOrderItem } from '@/types'
+import type { Order, CreateOrderRequest, ApiResponse, PageResponse, SellerOrderItem } from '@/types'
 
 const orderApi = {
   createOrder(orderData: CreateOrderRequest): Promise<ApiResponse<Order>> {
@@ -11,7 +11,7 @@ const orderApi = {
     pageNo: number = PAGINATION.DEFAULT_PAGE,
     pageSize: number = PAGINATION.DEFAULT_SIZE,
     status?: number
-  ): Promise<ApiResponse<Order[]>> {
+  ): Promise<ApiResponse<PageResponse<Order>>> {
     const params: Record<string, number | undefined> = {
       page: pageNo - 1,
       size: pageSize
@@ -22,7 +22,7 @@ const orderApi = {
     return axios.get(API_PATHS.ORDERS.BASE, { params })
   },
 
-  getUserOrders(_userId?: number): Promise<ApiResponse<Order[]>> {
+  getUserOrders(_userId?: number): Promise<ApiResponse<PageResponse<Order>>> {
     return axios.get(API_PATHS.ORDERS.BASE, {
       params: {
         page: 0,

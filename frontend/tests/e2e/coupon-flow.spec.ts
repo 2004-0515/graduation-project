@@ -63,8 +63,8 @@ test('四个优惠券入口未登录时统一中文提示并引导登录', async
     await expectLoginRedirect(page)
 
     await page.goto(`/promotion/${couponId}`)
-    await expect(page.getByTestId('promotion-detail-view')).toBeVisible()
-    await page.getByTestId('promotion-featured-claim').click()
+    await expect(page.getByTestId('promotions-view')).toBeVisible()
+    await page.getByTestId(`promotions-claim-${couponId}`).click()
     await expectLoginRedirect(page)
 
     await page.goto(`/coupon/${couponId}`)

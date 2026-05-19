@@ -52,7 +52,13 @@ const router = createRouter({
     {
       path: '/promotion/:id',
       name: 'promotionDetail',
-      component: () => import('@/views/PromotionDetailView.vue')
+      redirect: (to) => ({
+        path: '/promotions',
+        query: {
+          ...to.query,
+          bannerId: String(to.params.id)
+        }
+      })
     },
     {
       path: '/coupon/:id',

@@ -27,7 +27,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\rebuild-graduation-data.ps1 -
 
 `verify` is read-only. It reports whether the current database still matches the target snapshot, but it does not normalize roles or mutate data.
 
-`execute` is the repair path. It applies the required schema compatibility fix, then rebuilds the localized snapshot from scratch.
+`execute` is the repair path. It creates the target database when missing, applies the required schema compatibility fix, then rebuilds the localized snapshot from scratch.
 
 Seed the isolated browser/E2E database:
 

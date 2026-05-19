@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockPush, messages, userStore, cartStore, orderApi, priceApi, fileApi, debugError } = vi.hoisted(() => ({
+const { mockPush, messages, userStore, authApi, fileApi, debugError } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   messages: {
     success: vi.fn(),
@@ -22,17 +22,8 @@ const { mockPush, messages, userStore, cartStore, orderApi, priceApi, fileApi, d
     fetchCurrentUser: vi.fn(),
     updateUserInfo: vi.fn()
   },
-  cartStore: {
-    items: [] as Array<{ id: number }>,
-    fetchCart: vi.fn()
-  },
-  orderApi: {
-    getOrders: vi.fn(),
-    getUserOrders: vi.fn(),
-    getSellerPendingCount: vi.fn()
-  },
-  priceApi: {
-    getUserAlerts: vi.fn()
+  authApi: {
+    getProfileSummary: vi.fn()
   },
   fileApi: {
     getImageUrl: vi.fn((path: string) => path),
@@ -53,16 +44,8 @@ vi.mock('@/stores/userStore', () => ({
   useUserStore: () => userStore
 }))
 
-vi.mock('@/stores/cartStore', () => ({
-  useCartStore: () => cartStore
-}))
-
-vi.mock('@/api/orderApi', () => ({
-  default: orderApi
-}))
-
-vi.mock('@/api/priceApi', () => ({
-  default: priceApi
+vi.mock('@/api/authApi', () => ({
+  default: authApi
 }))
 
 vi.mock('@/api/fileApi', () => ({
@@ -116,18 +99,21 @@ describe('ProfileView', () => {
       bio: '简介',
       avatar: ''
     }
-    orderApi.getOrders.mockReset()
-    orderApi.getSellerPendingCount.mockReset()
-    priceApi.getUserAlerts.mockReset()
-    cartStore.fetchCart.mockReset()
+    authApi.getProfileSummary.mockResolvedValue({
+      code: 200,
+      data: {
+        orderCount: 4,
+        pendingPayment: 1,
+        pendingShipment: 1,
+        pendingReceive: 2,
+        cartCount: 3,
+        priceAlertCount: 2,
+        sellerPendingCount: 0
+      }
+    })
     userStore.fetchCurrentUser.mockReset()
     userStore.updateUserInfo.mockReset()
     fileApi.uploadAvatar.mockReset()
-    orderApi.getOrders.mockResolvedValue({ code: 200, data: [] })
-    priceApi.getUserAlerts.mockResolvedValue({ code: 200, data: [] })
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 0 })
-    cartStore.items = []
-    cartStore.fetchCart.mockResolvedValue(undefined)
   })
 
   it('routes security actions to settings security section', async () => {
@@ -192,30 +178,31 @@ describe('ProfileView', () => {
     expect(wrapper.text()).not.toContain('用于联系沟通')
   })
 
-  it('loads order statistics from an explicit large page size', async () => {
-    orderApi.getOrders.mockResolvedValue({
-      code: 200,
-      data: [
-        { id: 1, orderStatus: 0, items: [] },
-        { id: 2, orderStatus: 1, items: [] },
-        { id: 3, orderStatus: 2, items: [] },
-        { id: 4, orderStatus: 2, items: [] }
-      ]
-    })
-
+  it('loads profile statistics from the server summary endpoint only', async () => {
     const wrapper = mountView()
     await flushPromises()
 
-    expect(orderApi.getOrders).toHaveBeenCalledWith(1, 1000)
+    expect(authApi.getProfileSummary).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('4')
+    expect(wrapper.text()).toContain('3')
     expect(wrapper.text()).toContain('2')
   })
 
-  it('shows alert and seller badges only when corresponding stats are available', async () => {
-    userStore.userInfo.username = 'lisi'
+  it('shows alert and seller badges only when summary data is available', async () => {
+    userStore.userInfo.username = 'seller'
     userStore.userInfo.role = 'SELLER'
-    priceApi.getUserAlerts.mockResolvedValue({ code: 200, data: [{ status: 0 }, { status: 0 }] })
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 3 })
+    authApi.getProfileSummary.mockResolvedValue({
+      code: 200,
+      data: {
+        orderCount: 8,
+        pendingPayment: 1,
+        pendingShipment: 2,
+        pendingReceive: 3,
+        cartCount: 4,
+        priceAlertCount: 2,
+        sellerPendingCount: 5
+      }
+    })
 
     const wrapper = mountView()
     await flushPromises()
@@ -228,75 +215,49 @@ describe('ProfileView', () => {
     }
     expect(vm.showSellerPendingBadge).toBe(true)
     expect(vm.showPriceAlertBadge).toBe(true)
-    expect(vm.sellerPendingCount).toBe(3)
+    expect(vm.sellerPendingCount).toBe(5)
     expect(vm.priceAlertCount).toBe(2)
   })
 
-  it('shows unavailable hint instead of fake zero when stats loading fails', async () => {
-    orderApi.getOrders.mockRejectedValue(new Error('orders failed'))
-    priceApi.getUserAlerts.mockRejectedValue(new Error('alerts failed'))
-    orderApi.getSellerPendingCount.mockRejectedValue(new Error('seller failed'))
-    cartStore.fetchCart.mockRejectedValue(new Error('cart failed'))
+  it('shows unified unavailable state when summary loading fails', async () => {
+    authApi.getProfileSummary.mockRejectedValue(new Error('summary failed'))
 
     const wrapper = mountView()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('部分统计暂未同步，请稍后刷新重试。')
+    expect(wrapper.text()).toContain('统计暂不可用，请稍后重试。')
     expect(wrapper.text()).toContain('--')
-    expect(debugError).toHaveBeenCalled()
+    expect(debugError).toHaveBeenCalledWith('获取个人中心摘要失败:', expect.any(Error))
   })
 
-  it('shows unavailable hint when stats API returns non-200 payloads', async () => {
-    userStore.userInfo.username = 'lisi'
-    userStore.userInfo.role = 'SELLER'
-    orderApi.getOrders.mockReset()
-    orderApi.getOrders.mockResolvedValue({ code: 500, message: 'boom' })
-    priceApi.getUserAlerts.mockResolvedValue({ code: 500, message: 'alerts failed' })
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 500, message: 'seller failed' })
+  it('shows unified unavailable state when summary API returns non-200 payload', async () => {
+    authApi.getProfileSummary.mockResolvedValue({ code: 500, message: 'summary boom' })
 
     const wrapper = mountView()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('部分统计暂未同步，请稍后刷新重试。')
+    expect(wrapper.text()).toContain('统计暂不可用，请稍后重试。')
     expect(wrapper.text()).toContain('--')
-    expect(debugError).toHaveBeenCalledWith('获取订单统计失败:', 'boom')
-    expect(debugError).toHaveBeenCalledWith('获取降价提醒失败:', expect.anything())
-    expect(debugError).toHaveBeenCalledWith('获取卖家待处理数量失败:', expect.anything())
+    expect(debugError).toHaveBeenCalledWith('获取个人中心摘要失败:', 'summary boom')
   })
 
-  it('hides alert and seller badges after stats refresh falls back to unavailable', async () => {
-    userStore.userInfo.username = 'lisi'
+  it('hides badges after summary refresh falls back to unavailable', async () => {
+    userStore.userInfo.username = 'seller'
     userStore.userInfo.role = 'SELLER'
-    priceApi.getUserAlerts.mockResolvedValue({ code: 200, data: [{ status: 0 }, { status: 0 }] })
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 3 })
 
     const wrapper = mountView()
     await flushPromises()
 
-    priceApi.getUserAlerts.mockResolvedValue({ code: 500, message: 'alerts failed again' })
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 500, message: 'seller failed again' })
+    authApi.getProfileSummary.mockResolvedValue({ code: 500, message: 'summary failed again' })
 
     const vm = wrapper.vm as unknown as {
-      loadPriceAlertCount: () => Promise<void>
-      loadSellerPendingCount: () => Promise<void>
+      loadProfileSummary: () => Promise<void>
     }
-    await vm.loadPriceAlertCount()
-    await vm.loadSellerPendingCount()
+    await vm.loadProfileSummary()
     await flushPromises()
 
     expect(wrapper.findAll('.nav-badge')).toHaveLength(0)
-    expect(wrapper.text()).toContain('部分统计暂未同步，请稍后刷新重试。')
-  })
-
-  it('uses cached cart items without forcing cart stats unavailable', async () => {
-    cartStore.items = [{ id: 1 }, { id: 2 }]
-
-    const wrapper = mountView()
-    await flushPromises()
-
-    expect(cartStore.fetchCart).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('2')
-    expect(wrapper.text()).not.toContain('部分统计暂未同步，请稍后刷新重试。')
+    expect(wrapper.text()).toContain('统计暂不可用，请稍后重试。')
   })
 
   it('logs backend message when avatar upload returns non-200 payload', async () => {
@@ -342,42 +303,53 @@ describe('ProfileView', () => {
     expect(messages.error).not.toHaveBeenCalled()
   })
 
-  it('keeps newer order stats when older request resolves later', async () => {
+  it('keeps newer summary when older request resolves later', async () => {
     const first = deferred<any>()
     const second = deferred<any>()
-    orderApi.getOrders
+    authApi.getProfileSummary
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
-    priceApi.getUserAlerts.mockResolvedValue({ code: 200, data: [] })
-    orderApi.getSellerPendingCount.mockResolvedValue({ code: 200, data: 0 })
 
     const wrapper = mountView()
     await flushPromises()
 
     const vm = wrapper.vm as any
-    const secondLoad = vm.loadOrderStats()
+    const secondLoad = vm.loadProfileSummary()
     await flushPromises()
 
     second.resolve({
       code: 200,
-      data: [
-        { id: 1, orderStatus: 0, items: [] },
-        { id: 2, orderStatus: 2, items: [] }
-      ]
+      data: {
+        orderCount: 2,
+        pendingPayment: 0,
+        pendingShipment: 1,
+        pendingReceive: 1,
+        cartCount: 1,
+        priceAlertCount: 0,
+        sellerPendingCount: 0
+      }
     })
     await secondLoad
     await flushPromises()
 
-    expect(vm.orderCount).toBe(2)
-    expect(vm.pendingReceive).toBe(1)
+    expect(vm.orderCountDisplay).toBe('2')
+    expect(vm.pendingReceiveDisplay).toBe('1')
 
     first.resolve({
       code: 200,
-      data: [{ id: 1, orderStatus: 1, items: [] }]
+      data: {
+        orderCount: 9,
+        pendingPayment: 3,
+        pendingShipment: 2,
+        pendingReceive: 4,
+        cartCount: 5,
+        priceAlertCount: 6,
+        sellerPendingCount: 0
+      }
     })
     await flushPromises()
 
-    expect(vm.orderCount).toBe(2)
-    expect(vm.pendingReceive).toBe(1)
+    expect(vm.orderCountDisplay).toBe('2')
+    expect(vm.pendingReceiveDisplay).toBe('1')
   })
 })

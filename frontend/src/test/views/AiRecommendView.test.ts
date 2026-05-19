@@ -16,6 +16,7 @@ const getCategoriesSpy = vi.spyOn(adminApi, 'getCategories')
 const getAvailableCouponsSpy = vi.spyOn(couponApi, 'getAvailableCoupons')
 const getImageUrlSpy = vi.spyOn(fileApi, 'getImageUrl')
 const getAiResponseSpy = vi.spyOn(aiChatModule, 'getAiResponse')
+const isApiConfiguredSpy = vi.spyOn(aiChatModule, 'isApiConfigured')
 const setApiKeySpy = vi.spyOn(aiChatModule, 'setApiKey')
 const getStoredApiKeySpy = vi.spyOn(aiChatModule, 'getStoredApiKey')
 const setExtraDataSpy = vi.spyOn(aiChatModule, 'setExtraData')
@@ -47,6 +48,7 @@ describe('AiRecommendView', () => {
     getImageUrlSpy.mockReturnValue('/img.png')
     getAiResponseSpy.mockResolvedValue('推荐商品A')
     getStoredApiKeySpy.mockReturnValue('')
+    isApiConfiguredSpy.mockReturnValue(false)
     setExtraDataSpy.mockImplementation(() => {})
     debugError.mockImplementation(() => {})
   })
@@ -83,9 +85,22 @@ describe('AiRecommendView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('基于当前商品数据提供问答和选购参考')
-    expect(wrapper.text()).toContain('聊天能力需要自行配置 AI 密钥')
+    expect(wrapper.text()).toContain('未配置 AI 服务')
+    expect(wrapper.text()).toContain('未配置时仅保留商品发现能力')
     expect(wrapper.text()).toContain('不代表个性化建模推荐')
     expect(wrapper.text()).not.toContain('为您提供个性化推荐')
+  })
+
+  it('keeps product discovery available when ai service is not configured', async () => {
+    const { wrapper } = await mountView()
+
+    await flushPromises()
+
+    expect(wrapper.find('.chat-offline-banner').exists()).toBe(true)
+    expect(wrapper.find('input').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('.send-btn').attributes('disabled')).toBeDefined()
+    expect(wrapper.findAll('.product-card')).toHaveLength(2)
+    expect(wrapper.text()).toContain('商品发现')
   })
 
   it('requests first page with 0-based pagination and renders discovered products from a single page payload', async () => {
@@ -151,6 +166,8 @@ describe('AiRecommendView', () => {
   })
 
   it('logs and falls back when ai chat request fails', async () => {
+    getStoredApiKeySpy.mockReturnValue('sk-test')
+    isApiConfiguredSpy.mockReturnValue(true)
     getAiResponseSpy.mockRejectedValue(new Error('ai unavailable'))
 
     const { wrapper } = await mountView()

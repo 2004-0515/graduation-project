@@ -22,6 +22,7 @@ vi.mock('@/views/HomeView.vue', () => ({ default: routeStub('HomeView') }))
 vi.mock('@/views/LoginView.vue', () => ({ default: routeStub('LoginView') }))
 vi.mock('@/views/OrdersView.vue', () => ({ default: routeStub('OrdersView') }))
 vi.mock('@/views/ProfileView.vue', () => ({ default: routeStub('ProfileView') }))
+vi.mock('@/views/PromotionsView.vue', () => ({ default: routeStub('PromotionsView') }))
 vi.mock('@/views/MyProductsView.vue', () => ({ default: routeStub('MyProductsView') }))
 vi.mock('@/views/SellerOrdersView.vue', () => ({ default: routeStub('SellerOrdersView') }))
 vi.mock('@/views/admin/DashboardView.vue', () => ({ default: routeStub('AdminDashboardView') }))
@@ -116,5 +117,12 @@ describe('router guards', () => {
     await router.push('/seller-orders')
 
     expect(router.currentRoute.value.name).toBe('sellerOrders')
+  })
+
+  it('redirects legacy promotion route to promotions with bannerId query', async () => {
+    await router.push('/promotion/12')
+
+    expect(router.currentRoute.value.name).toBe('promotions')
+    expect(router.currentRoute.value.query.bannerId).toBe('12')
   })
 })

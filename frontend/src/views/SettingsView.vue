@@ -102,6 +102,9 @@
               <div class="card-header">
                 <h3>通知设置</h3>
                 <p>管理您接收的通知类型</p>
+                <span v-if="notificationSyncText" class="sync-status" :class="notificationSaveState">
+                  {{ notificationSyncText }}
+                </span>
               </div>
               <div class="card-body">
                 <div
@@ -129,6 +132,9 @@
               <div class="card-header">
                 <h3>隐私设置</h3>
                 <p>控制您的隐私和数据</p>
+                <span v-if="privacySyncText" class="sync-status" :class="privacySaveState">
+                  {{ privacySyncText }}
+                </span>
               </div>
               <div class="card-body">
                 <div class="setting-item">
@@ -158,7 +164,8 @@
             <div class="settings-card" data-testid="settings-section-appearance" v-show="activeSection === 'appearance'">
               <div class="card-header">
                 <h3>外观设置</h3>
-                <p>自定义您的界面外观</p>
+                <p>仅在当前浏览器保存和生效</p>
+                <span class="scope-badge">仅当前浏览器</span>
               </div>
               <div class="card-body">
                 <div class="theme-section">
@@ -224,7 +231,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { computed, nextTick, ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
@@ -238,6 +245,7 @@ const router = useRouter()
 const userStore = useUserStore()
 const activeSection = ref('security')
 const loading = ref(false)
+type AccountSyncState = 'idle' | 'saving' | 'saved' | 'error'
 type NotificationSettingsState = {
   order: boolean
   promotion: boolean
@@ -302,8 +310,30 @@ const phoneForm = reactive({ phone: '' })
 const emailForm = reactive({ email: '' })
 const notificationSettingsReady = ref(false)
 const privacySettingsReady = ref(false)
+const notificationSaveState = ref<AccountSyncState>('idle')
+const privacySaveState = ref<AccountSyncState>('idle')
 let latestNotificationSettingsRequestId = 0
 let latestPrivacySettingsRequestId = 0
+let skipNotificationSave = false
+let skipPrivacySave = false
+const confirmedNotificationSettings = reactive<NotificationSettingsState>({
+  order: true,
+  promotion: true,
+  system: true,
+  logistics: true,
+  comment: false
+})
+const confirmedPrivacySettings = reactive<PrivacySettingsState>({ profileVisibility: 'public' })
+
+const getSyncStateText = (state: AccountSyncState) => {
+  if (state === 'saving') return '保存中'
+  if (state === 'saved') return '已同步到账号'
+  if (state === 'error') return '保存失败并回退'
+  return ''
+}
+
+const notificationSyncText = computed(() => getSyncStateText(notificationSaveState.value))
+const privacySyncText = computed(() => getSyncStateText(privacySaveState.value))
 
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (error && typeof error === 'object') {
@@ -316,6 +346,38 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 
 const getResponseMessage = (response: { message?: string } | null | undefined, fallback: string) =>
   response?.message || fallback
+
+const snapshotNotificationSettings = (): NotificationSettingsState => ({
+  order: notifySettings.order,
+  promotion: notifySettings.promotion,
+  system: notifySettings.system,
+  logistics: notifySettings.logistics,
+  comment: notifySettings.comment
+})
+
+const applyNotificationSettings = (snapshot: NotificationSettingsState) => {
+  skipNotificationSave = true
+  notifySettings.order = snapshot.order
+  notifySettings.promotion = snapshot.promotion
+  notifySettings.system = snapshot.system
+  notifySettings.logistics = snapshot.logistics
+  notifySettings.comment = snapshot.comment
+  void nextTick(() => {
+    skipNotificationSave = false
+  })
+}
+
+const snapshotPrivacySettings = (): PrivacySettingsState => ({
+  profileVisibility: privacySettings.profileVisibility
+})
+
+const applyPrivacySettings = (snapshot: PrivacySettingsState) => {
+  skipPrivacySave = true
+  privacySettings.profileVisibility = snapshot.profileVisibility
+  void nextTick(() => {
+    skipPrivacySave = false
+  })
+}
 
 const openPhoneDialog = () => {
   phoneForm.phone = userStore.userInfo?.phone || ''
@@ -389,10 +451,16 @@ const loadNotificationSettings = async () => {
       return
     }
     if (res?.code === 200 && res.data) {
-      notifySettings.order = res.data.orderStatusEnabled ?? true
-      notifySettings.promotion = res.data.promotionsEnabled ?? true
-      notifySettings.system = res.data.systemEnabled ?? true
-      notifySettings.logistics = res.data.deliveryEnabled ?? true
+      const nextSettings = {
+        order: res.data.orderStatusEnabled ?? true,
+        promotion: res.data.promotionsEnabled ?? true,
+        system: res.data.systemEnabled ?? true,
+        logistics: res.data.deliveryEnabled ?? true,
+        comment: notifySettings.comment
+      }
+      applyNotificationSettings(nextSettings)
+      Object.assign(confirmedNotificationSettings, nextSettings)
+      notificationSaveState.value = 'saved'
     } else {
       debugError('获取通知设置失败:', getResponseMessage(res, '通知设置返回异常'))
     }
@@ -417,7 +485,10 @@ const loadPrivacySettings = async () => {
       return
     }
     if (res?.code === 200 && res.data) {
-      privacySettings.profileVisibility = res.data.profileVisibility || 'public'
+      const nextSettings = { profileVisibility: res.data.profileVisibility || 'public' }
+      applyPrivacySettings(nextSettings)
+      Object.assign(confirmedPrivacySettings, nextSettings)
+      privacySaveState.value = 'saved'
     } else {
       debugError('获取隐私设置失败:', getResponseMessage(res, '隐私设置返回异常'))
     }
@@ -435,33 +506,51 @@ const loadPrivacySettings = async () => {
 }
 
 const saveNotificationSettings = async () => {
+  const pendingSettings = snapshotNotificationSettings()
+  notificationSaveState.value = 'saving'
   try {
     const res: any = await settingsApi.updateNotificationSettings({
-      orderStatusEnabled: notifySettings.order, deliveryEnabled: notifySettings.logistics,
-      promotionsEnabled: notifySettings.promotion, systemEnabled: notifySettings.system,
+      orderStatusEnabled: pendingSettings.order, deliveryEnabled: pendingSettings.logistics,
+      promotionsEnabled: pendingSettings.promotion, systemEnabled: pendingSettings.system,
       newProductsEnabled: true, inAppEnabled: true, emailEnabled: true, smsEnabled: false,
       notificationFrequency: 'immediate', notifyStartTime: 8, notifyEndTime: 22
     })
     if (res?.code !== 200) {
       const message = getResponseMessage(res, '保存通知设置失败')
+      applyNotificationSettings({ ...confirmedNotificationSettings })
+      notificationSaveState.value = 'error'
       debugError('保存通知设置失败:', message)
       ElMessage.error(message)
+      return
     }
+    Object.assign(confirmedNotificationSettings, pendingSettings)
+    notificationSaveState.value = 'saved'
   } catch (error) {
+    applyNotificationSettings({ ...confirmedNotificationSettings })
+    notificationSaveState.value = 'error'
     debugError('保存通知设置失败:', error)
     ElMessage.error(getErrorMessage(error, '保存通知设置失败'))
   }
 }
 
 const savePrivacySettings = async () => {
+  const pendingSettings = snapshotPrivacySettings()
+  privacySaveState.value = 'saving'
   try {
-    const res: any = await settingsApi.updatePrivacySettings({ profileVisibility: privacySettings.profileVisibility })
+    const res: any = await settingsApi.updatePrivacySettings({ profileVisibility: pendingSettings.profileVisibility })
     if (res?.code !== 200) {
       const message = getResponseMessage(res, '保存隐私设置失败')
+      applyPrivacySettings({ ...confirmedPrivacySettings })
+      privacySaveState.value = 'error'
       debugError('保存隐私设置失败:', message)
       ElMessage.error(message)
+      return
     }
+    Object.assign(confirmedPrivacySettings, pendingSettings)
+    privacySaveState.value = 'saved'
   } catch (error) {
+    applyPrivacySettings({ ...confirmedPrivacySettings })
+    privacySaveState.value = 'error'
     debugError('保存隐私设置失败:', error)
     ElMessage.error(getErrorMessage(error, '保存隐私设置失败'))
   }
@@ -469,11 +558,17 @@ const savePrivacySettings = async () => {
 
 watch(notifySettings, () => {
   if (!notificationSettingsReady.value) return
+  if (skipNotificationSave) {
+    return
+  }
   saveNotificationSettings()
 }, { deep: true })
 
 watch(() => privacySettings.profileVisibility, () => {
   if (!privacySettingsReady.value) return
+  if (skipPrivacySave) {
+    return
+  }
   savePrivacySettings()
 })
 
@@ -703,9 +798,41 @@ onUnmounted(() => {
 .nav-text { font-size: 15px; font-weight: 500; color: var(--text-secondary); }
 .nav-item.active .nav-text { color: var(--primary); font-weight: 600; }
 .settings-card { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(24px); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); box-shadow: 0 8px 32px rgba(155, 135, 245, 0.08); margin-bottom: 20px; overflow: hidden; }
-.card-header { padding: 24px; border-bottom: 1px solid var(--gray-200); }
+.card-header { position: relative; padding: 24px; border-bottom: 1px solid var(--gray-200); }
 .card-header h3 { font-size: 20px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
 .card-header p { font-size: 14px; color: var(--text-tertiary); margin: 0; }
+.sync-status,
+.scope-badge {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1;
+}
+.sync-status {
+  background: rgba(155, 135, 245, 0.1);
+  color: var(--primary);
+}
+.sync-status.saving {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+.sync-status.saved {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+.sync-status.error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+.scope-badge {
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--text-secondary);
+}
 .card-body { padding: 24px; }
 .form-section h4 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0 0 16px; }
 .setting-form { max-width: 400px; }

@@ -1,5 +1,6 @@
 package com.shopping.controller;
 
+import com.shopping.dto.UserProfileSummaryDto;
 import com.shopping.handler.GlobalExceptionHandler;
 import com.shopping.entity.User;
 import com.shopping.exception.ValidationException;
@@ -113,6 +114,65 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(422))
                 .andExpect(jsonPath("$.message").value("该用户有关联数据，无法删除"));
+    }
+
+    @Test
+    void getCurrentUserProfileSummary_WhenAnonymous_ShouldReturn401() throws Exception {
+        mockMvc.perform(get("/users/me/profile-summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("用户未认证或认证失效"));
+    }
+
+    @Test
+    void getCurrentUserProfileSummary_WhenUserMissing_ShouldReturn401() throws Exception {
+        setAuthenticatedUser("ghost");
+        when(userService.findByUsername("ghost")).thenReturn(null);
+
+        mockMvc.perform(get("/users/me/profile-summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("用户未认证或认证失效"));
+    }
+
+    @Test
+    void getCurrentUserProfileSummary_WhenBuyerAuthenticated_ShouldReturnServerSummary() throws Exception {
+        setAuthenticatedUser("buyer");
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("buyer");
+        user.setRole("BUYER");
+        when(userService.findByUsername("buyer")).thenReturn(user);
+        when(userService.getProfileSummary(user))
+                .thenReturn(new UserProfileSummaryDto(12, 2, 3, 4, 5, 6, 0));
+
+        mockMvc.perform(get("/users/me/profile-summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.orderCount").value(12))
+                .andExpect(jsonPath("$.data.pendingPayment").value(2))
+                .andExpect(jsonPath("$.data.pendingShipment").value(3))
+                .andExpect(jsonPath("$.data.pendingReceive").value(4))
+                .andExpect(jsonPath("$.data.cartCount").value(5))
+                .andExpect(jsonPath("$.data.priceAlertCount").value(6))
+                .andExpect(jsonPath("$.data.sellerPendingCount").value(0));
+    }
+
+    @Test
+    void getCurrentUserProfileSummary_WhenSellerAuthenticated_ShouldReturnSellerPendingCount() throws Exception {
+        setAuthenticatedUser("seller");
+        User user = new User();
+        user.setId(2L);
+        user.setUsername("seller");
+        user.setRole("SELLER");
+        when(userService.findByUsername("seller")).thenReturn(user);
+        when(userService.getProfileSummary(user))
+                .thenReturn(new UserProfileSummaryDto(8, 1, 2, 3, 4, 5, 7));
+
+        mockMvc.perform(get("/users/me/profile-summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.sellerPendingCount").value(7));
     }
 
     @Test

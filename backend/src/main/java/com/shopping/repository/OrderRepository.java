@@ -20,6 +20,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     // 根据用户ID查询订单
     List<Order> findByUserId(Long userId);
 
+    long countByUserId(Long userId);
+
+    long countByUserIdAndOrderStatus(Long userId, Integer orderStatus);
+
     Page<Order> findByUserIdOrderByCreatedTimeDesc(Long userId, Pageable pageable);
 
     Page<Order> findByUserIdAndOrderStatusOrderByCreatedTimeDesc(Long userId, Integer orderStatus, Pageable pageable);

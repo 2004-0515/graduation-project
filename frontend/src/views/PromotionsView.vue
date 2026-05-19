@@ -12,12 +12,13 @@
       <div class="container">
         <div class="hero glass-card" :style="heroStyle">
           <div class="hero-content">
-            <span class="hero-tag">{{ heroBanner?.badgeText || '限时特惠' }}</span>
-            <h1 class="text-title">{{ heroBanner?.title || '优惠券中心' }}</h1>
+            <span class="hero-tag">优惠专题</span>
+            <h1 class="text-title">{{ heroBanner?.title || '优惠专题 / 优惠券中心' }}</h1>
             <p>{{ heroBanner?.description || '领券享优惠，精选好物等你来' }}</p>
+            <p class="hero-note">下方优惠券和商品列表属于当前优惠中心统一内容，不按单个主视觉单独隔离。</p>
             <div class="hero-actions">
               <button class="btn btn-primary btn-sm" @click="goToHeroTarget">
-                {{ heroBanner?.buttonText || '查看活动' }}
+                进入优惠中心
               </button>
               <router-link to="/profile" class="btn btn-glass btn-sm">我的优惠券</router-link>
             </div>
@@ -26,8 +27,8 @@
 
         <section v-if="topicCards.length > 0" class="section">
           <div class="section-head">
-            <h2 class="text-title">专题活动</h2>
-            <span class="sub">精选主视觉</span>
+            <h2 class="text-title">优惠专题</h2>
+            <span class="sub">切换主视觉</span>
           </div>
           <div class="topic-grid">
             <button
@@ -37,7 +38,7 @@
               :style="{ backgroundImage: `linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.62)), url(${getImageUrl(banner.imagePath)})` }"
               @click="openBannerDetail(banner)"
             >
-              <span class="topic-badge">{{ banner.badgeText || '活动专题' }}</span>
+              <span class="topic-badge">优惠专题</span>
               <h3>{{ banner.title }}</h3>
               <p>{{ banner.subtitle || banner.description }}</p>
             </button>
@@ -46,8 +47,8 @@
 
         <section class="section">
           <div class="section-head">
-            <h2 class="text-title">可领取优惠券</h2>
-            <span class="sub">领券立减</span>
+            <h2 class="text-title">优惠券中心</h2>
+            <span class="sub">当前优惠中心统一内容</span>
           </div>
           
           <div v-if="loading" class="loading-state">加载中...</div>
@@ -133,7 +134,7 @@
 
         <section class="section">
           <div class="section-head">
-            <h2 class="text-title">关联商品</h2>
+            <h2 class="text-title">优惠中心在售商品</h2>
             <router-link to="/hot" class="more">查看全部 ></router-link>
           </div>
           <div class="flash-grid">
@@ -190,8 +191,18 @@ const invalidateMyCouponRequests = () => {
 }
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
-const heroBanner = computed(() => promotionBanners.value[0] || null)
-const topicCards = computed(() => promotionBanners.value.slice(1, 4))
+const selectedBannerId = computed(() => {
+  const raw = route.query.bannerId
+  const normalized = Array.isArray(raw) ? raw[0] : raw
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+})
+const heroBanner = computed(
+  () => promotionBanners.value.find((banner) => banner.id === selectedBannerId.value) || promotionBanners.value[0] || null
+)
+const topicCards = computed(() =>
+  promotionBanners.value.filter((banner) => banner.id !== heroBanner.value?.id).slice(0, 4)
+)
 const heroStyle = computed(() => {
   if (!heroBanner.value?.imagePath) return {}
   return {
@@ -236,7 +247,7 @@ const resolveBannerLink = (banner: ShowcaseBanner) => {
   if (!target) return '/promotions'
   if (banner.linkType === 'PRODUCT' && /^\d+$/.test(target)) return `/product/${target}`
   if (banner.linkType === 'CATEGORY' && /^\d+$/.test(target)) return `/category?id=${target}`
-  if (banner.linkType === 'PROMOTION' && /^\d+$/.test(target)) return `/promotion/${target}`
+  if (banner.linkType === 'PROMOTION' && /^\d+$/.test(target)) return `/promotions?bannerId=${target}`
   return target
 }
 
@@ -384,7 +395,7 @@ const goToCouponDetail = (id: number) => {
 
 const openBannerDetail = (banner: ShowcaseBanner) => {
   if (banner.id) {
-    router.push(`/promotion/${banner.id}`)
+    router.push(`/promotions?bannerId=${banner.id}`)
     return
   }
   router.push(resolveBannerLink(banner))
@@ -420,6 +431,7 @@ onMounted(() => {
 .hero-tag { display: inline-block; padding: 8px 20px; background: var(--primary); color: #fff; border-radius: 20px; font-size: 15px; font-weight: 500; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(155, 135, 245, 0.3); }
 .hero h1 { font-size: 2.5rem; font-weight: 600; margin: 0 0 12px; }
 .hero p { font-size: 18px; color: rgba(255, 255, 255, 0.86); margin: 0; }
+.hero-note { margin-top: 12px; font-size: 13px; color: rgba(255, 255, 255, 0.8); line-height: 1.7; }
 .hero-actions { display: flex; justify-content: center; gap: 12px; margin-top: 20px; }
 
 .topic-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }

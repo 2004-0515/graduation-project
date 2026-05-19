@@ -64,7 +64,7 @@ cd .\frontend
 npm run test:e2e
 ```
 
-现在 `npm run test:e2e`、`test:e2e:all`、`test:e2e:public`、`test:e2e:user`、`test:e2e:orders`、`test:e2e:admin`、`test:e2e:smoke`
+现在 `npm run test:e2e`、`test:e2e:all`、`test:e2e:headed`、`test:e2e:public`、`test:e2e:user`、`test:e2e:orders`、`test:e2e:admin`、`test:e2e:smoke`
 都会统一走 `scripts/run-real-browser-e2e.ps1`，默认复用或拉起固定端口真实浏览器栈 `5178 -> 8085`，不再依赖手工先设
 `PLAYWRIGHT_BASE_URL`。
 
@@ -72,6 +72,12 @@ npm run test:e2e
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run-real-browser-e2e.ps1
+```
+
+显式跑完整套 E2E 时，也可以直接指定：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run-real-browser-e2e.ps1 -Suite all
 ```
 
 这个脚本会：
@@ -123,6 +129,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run-real-browser-e2e.ps1 -Spe
 按分组执行：
 
 ```powershell
+npm run test:e2e:all
 npm run test:e2e:public
 npm run test:e2e:user
 npm run test:e2e:orders
@@ -206,6 +213,7 @@ $env:NPX_CMD = (Join-Path $env:ProgramFiles 'nodejs\npx.cmd')
     - 由脚本校验或重建 `shopping_mall_test`，并管理 `127.0.0.1:5178 -> 8085` 浏览器栈
     - 失败时上传 Playwright 报告和浏览器栈日志
     - 本地 `npm run test:e2e:smoke/public/user/orders/admin` 与 CI 共用同一份 suite 映射，避免分组漂移
+    - 本地 `npm run test:e2e` 与 `npm run test:e2e:all` 都显式走 `scripts/run-real-browser-e2e.ps1 -Suite all`
 - 本地与 CI 的端口语义保持一致：
   - 前端 `5178`
   - 后端 `8085`
@@ -224,11 +232,10 @@ npm run test:e2e:all
 npm run test:e2e:headed
 ```
 
-如果前端不是 `5173`：
+如果只是针对单个脚本或少量脚本做有头调试，直接用：
 
 ```powershell
-$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:5174'
-npm run test:e2e:smoke
+powershell -ExecutionPolicy Bypass -File .\scripts\run-real-browser-e2e.ps1 -Headed -Specs tests/e2e/smoke.spec.ts
 ```
 
 ## 隔离测试库初始化
@@ -448,7 +455,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\rebuild-graduation-data.ps1 -
 - 当前已经补到这些页面：
   - `HomeView`
   - `PromotionsView`
-  - `PromotionDetailView`
+  - legacy `/promotion/:id` redirect to `PromotionsView`
   - `CouponDetailView`
   - `NotificationsView`
   - `ProfileView`

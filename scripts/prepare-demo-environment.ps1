@@ -17,6 +17,7 @@ $ErrorActionPreference = "Stop"
 
 $seedScript = Join-Path $PSScriptRoot "rebuild-graduation-data.ps1"
 $startStackScript = Join-Path $PSScriptRoot "start-real-browser-stack.ps1"
+$stackStateFile = Join-Path $projectRoot 'tmp-browser-stack.json'
 
 if (-not (Test-Path $seedScript)) {
     throw "未找到脚本: $seedScript"
@@ -26,7 +27,38 @@ if (-not (Test-Path $startStackScript)) {
     throw "未找到脚本: $startStackScript"
 }
 
-Ensure-UploadDirectoriesWritable
+function Get-ActiveManagedUploadRoot {
+    if ($env:FILE_UPLOAD_DIR -and (Test-Path $env:FILE_UPLOAD_DIR)) {
+        return [System.IO.Path]::GetFullPath($env:FILE_UPLOAD_DIR)
+    }
+
+    if (-not (Test-Path $stackStateFile)) {
+        return $null
+    }
+
+    try {
+        $state = Get-Content $stackStateFile | ConvertFrom-Json
+        if (
+            $state `
+            -and $state.PSObject.Properties.Name -contains 'backendPid' `
+            -and $state.PSObject.Properties.Name -contains 'uploadRoot' `
+            -and $state.backendPid `
+            -and (Get-Process -Id ([int]$state.backendPid) -ErrorAction SilentlyContinue) `
+            -and $state.uploadRoot `
+            -and (Test-Path $state.uploadRoot)
+        ) {
+            return [System.IO.Path]::GetFullPath([string]$state.uploadRoot)
+        }
+    } catch {
+    }
+
+    return $null
+}
+
+$activeManagedUploadRoot = Get-ActiveManagedUploadRoot
+if ($activeManagedUploadRoot) {
+    $env:FILE_UPLOAD_DIR = $activeManagedUploadRoot
+}
 
 function ConvertTo-GraduationDatasetStatus {
     param([string[]]$Lines)
@@ -94,36 +126,7 @@ if ($VerifyOnly) {
     exit 0
 }
 
-if ($ForceReseed -or -not $isReady) {
-    if ($ForceReseed) {
-        Write-Host "Force rebuild requested. Rebuilding localized graduation dataset."
-    } elseif ($status.PSObject.Properties.Name -contains 'verifyError' -and $status.verifyError) {
-        Write-Host "Localized dataset verification failed. Rebuilding local database content."
-    } else {
-        Write-Host "Localized dataset is incomplete. Rebuilding local database content."
-    }
-
-    if ($DatabaseHost -or $DatabasePort) {
-        $executeArgs = @{
-            Mode = "execute"
-            DatabaseName = $DatabaseName
-            DatabaseUser = $DatabaseUser
-            DatabasePassword = $DatabasePassword
-        }
-        if ($DatabaseHost) {
-            $executeArgs.DatabaseHost = $DatabaseHost
-        }
-        if ($DatabasePort) {
-            $executeArgs.DatabasePort = $DatabasePort
-        }
-        & $seedScript @executeArgs
-    } else {
-        & $seedScript -Mode execute -DatabaseName $DatabaseName
-    }
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
-    }
-} else {
+if (-not ($ForceReseed -or -not $isReady)) {
     Write-Host "Localized graduation dataset already matches the target snapshot."
 }
 
@@ -133,5 +136,16 @@ $env:DB_USERNAME = $DatabaseUser
 $env:DB_PASSWORD = $DatabasePassword
 $env:DB_HOST = $DatabaseHost
 $env:DB_PORT = $DatabasePort
-& $startStackScript -FrontendPort $FrontendPort -BackendPort $BackendPort
+if ($ForceReseed -or -not $isReady) {
+    if ($ForceReseed) {
+        Write-Host "Force rebuild requested. Rebuilding localized graduation dataset."
+    } elseif ($status.PSObject.Properties.Name -contains 'verifyError' -and $status.verifyError) {
+        Write-Host "Localized dataset verification failed. Rebuilding local database content."
+    } else {
+        Write-Host "Localized dataset is incomplete. Rebuilding local database content."
+    }
+    & $startStackScript -FrontendPort $FrontendPort -BackendPort $BackendPort -DatabaseName $DatabaseName -DatabaseUser $DatabaseUser -DatabasePassword $DatabasePassword -DatabaseHost $DatabaseHost -DatabasePort $DatabasePort -SeedGraduationData
+} else {
+    & $startStackScript -FrontendPort $FrontendPort -BackendPort $BackendPort -DatabaseName $DatabaseName -DatabaseUser $DatabaseUser -DatabasePassword $DatabasePassword -DatabaseHost $DatabaseHost -DatabasePort $DatabasePort
+}
 exit $LASTEXITCODE

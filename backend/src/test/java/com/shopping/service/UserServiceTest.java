@@ -1,6 +1,7 @@
 package com.shopping.service;
 
 import com.shopping.constants.UserRole;
+import com.shopping.dto.UserProfileSummaryDto;
 import com.shopping.entity.User;
 import com.shopping.exception.ValidationException;
 import com.shopping.repository.AddressRepository;
@@ -114,6 +115,53 @@ class UserServiceTest {
         buyer.setRole(UserRole.BUYER);
 
         stubNoBlockingData(buyer);
+    }
+
+    @Test
+    void getProfileSummary_WhenBuyer_ShouldAggregateServerCounts() {
+        when(orderRepository.countByUserId(1L)).thenReturn(12L);
+        when(orderRepository.countByUserIdAndOrderStatus(1L, 0)).thenReturn(2L);
+        when(orderRepository.countByUserIdAndOrderStatus(1L, 1)).thenReturn(3L);
+        when(orderRepository.countByUserIdAndOrderStatus(1L, 2)).thenReturn(4L);
+        when(cartRepository.sumQuantityByUserId(1L)).thenReturn(5L);
+        when(priceAlertRepository.countByUserIdAndStatus(1L, 0)).thenReturn(6L);
+
+        UserProfileSummaryDto summary = userService.getProfileSummary(buyer);
+
+        assertEquals(12L, summary.getOrderCount());
+        assertEquals(2L, summary.getPendingPayment());
+        assertEquals(3L, summary.getPendingShipment());
+        assertEquals(4L, summary.getPendingReceive());
+        assertEquals(5L, summary.getCartCount());
+        assertEquals(6L, summary.getPriceAlertCount());
+        assertEquals(0L, summary.getSellerPendingCount());
+        verify(orderItemRepository, never()).countBySellerIdAndShipStatus(any(), any());
+    }
+
+    @Test
+    void getProfileSummary_WhenSeller_ShouldIncludeSellerPendingCount() {
+        User seller = new User();
+        seller.setId(2L);
+        seller.setUsername("seller");
+        seller.setRole(UserRole.SELLER);
+
+        when(orderRepository.countByUserId(2L)).thenReturn(7L);
+        when(orderRepository.countByUserIdAndOrderStatus(2L, 0)).thenReturn(1L);
+        when(orderRepository.countByUserIdAndOrderStatus(2L, 1)).thenReturn(2L);
+        when(orderRepository.countByUserIdAndOrderStatus(2L, 2)).thenReturn(3L);
+        when(cartRepository.sumQuantityByUserId(2L)).thenReturn(4L);
+        when(priceAlertRepository.countByUserIdAndStatus(2L, 0)).thenReturn(5L);
+        when(orderItemRepository.countBySellerIdAndShipStatus(2L, 0)).thenReturn(8L);
+
+        UserProfileSummaryDto summary = userService.getProfileSummary(seller);
+
+        assertEquals(7L, summary.getOrderCount());
+        assertEquals(1L, summary.getPendingPayment());
+        assertEquals(2L, summary.getPendingShipment());
+        assertEquals(3L, summary.getPendingReceive());
+        assertEquals(4L, summary.getCartCount());
+        assertEquals(5L, summary.getPriceAlertCount());
+        assertEquals(8L, summary.getSellerPendingCount());
     }
 
     @Test

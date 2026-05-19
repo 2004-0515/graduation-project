@@ -13,7 +13,8 @@ const {
 } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockRoute: {
-    fullPath: '/promotions'
+    fullPath: '/promotions',
+    query: {} as Record<string, string>
   },
   couponApi: {
     getAvailableCoupons: vi.fn(),
@@ -91,6 +92,8 @@ describe('PromotionsView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     userStore.isLoggedIn = false
+    mockRoute.fullPath = '/promotions'
+    mockRoute.query = {}
     couponApi.getAvailableCoupons.mockResolvedValue({ code: 200, data: [] })
     couponApi.getMyCoupons.mockResolvedValue({ code: 200, data: [] })
     productApi.getProducts.mockResolvedValue({ code: 200, data: { content: [] } })
@@ -122,6 +125,24 @@ describe('PromotionsView', () => {
     expect(ElMessage.warning).toHaveBeenCalledWith('请先登录')
     expect(mockPush).toHaveBeenCalledWith({ path: '/login', query: { redirect: '/promotions' } })
     expect(couponApi.claimCoupon).not.toHaveBeenCalled()
+  })
+
+  it('selects hero banner from bannerId query and keeps coupons as global content', async () => {
+    mockRoute.query = { bannerId: '20' }
+    showcaseApi.getPublicBanners.mockResolvedValue({
+      code: 200,
+      data: [
+        { id: 12, title: '旧主视觉', description: '旧说明', imagePath: '/old.png' },
+        { id: 20, title: '当前专题主视觉', description: '当前说明', imagePath: '/current.png' }
+      ]
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('.hero').text()).toContain('当前专题主视觉')
+    expect(wrapper.text()).toContain('当前优惠中心统一内容')
+    expect(wrapper.text()).toContain('优惠券中心')
   })
 
   it('refetches list and my coupons after successful claim', async () => {

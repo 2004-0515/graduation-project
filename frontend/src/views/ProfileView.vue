@@ -35,7 +35,7 @@
                 <span class="stat-label">提醒</span>
               </div>
             </div>
-            <p v-if="hasUnavailableStats" class="stats-hint">部分统计暂未同步，请稍后刷新重试。</p>
+            <p v-if="showSummaryUnavailableHint" class="stats-hint">统计暂不可用，请稍后重试。</p>
 
             <nav class="sidebar-nav">
               <router-link to="/profile" class="nav-item active">个人资料</router-link>
@@ -182,19 +182,16 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
-import { useCartStore } from '../stores/cartStore'
-import orderApi from '../api/orderApi'
+import authApi from '../api/authApi'
 import fileApi from '../api/fileApi'
-import priceApi from '../api/priceApi'
 import { debugError } from '../utils/debug'
 import { isSellerUser } from '../utils/roles'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
-import type { ApiResponse, Order } from '../types'
+import type { UserOrderStats } from '../types'
 
 const router = useRouter()
 const userStore = useUserStore()
-const cartStore = useCartStore()
 
 const userInfo = computed(() => userStore.userInfo)
 const isSeller = computed(() => isSellerUser(userInfo.value))
@@ -203,36 +200,31 @@ const userInitial = computed(
 )
 
 const showAvatarPreview = ref(false)
-const orderCount = ref(0)
-const pendingPayment = ref(0)
-const pendingShipment = ref(0)
-const pendingReceive = ref(0)
-const priceAlertCount = ref(0)
-const sellerPendingCount = ref(0)
-const orderStatsAvailable = ref(true)
-const priceAlertStatsAvailable = ref(true)
-const sellerPendingStatsAvailable = ref(true)
-const cartStatsAvailable = ref(true)
-let latestOrderStatsRequestId = 0
-let latestPriceAlertCountRequestId = 0
-let latestSellerPendingCountRequestId = 0
+const profileSummary = ref<UserOrderStats | null>(null)
+const summaryAvailable = ref(true)
+const summaryLoading = ref(true)
+let latestProfileSummaryRequestId = 0
 
-const cartCount = computed(() => cartStore.items.length)
 const unavailableMarker = '--'
-const orderCountDisplay = computed(() => orderStatsAvailable.value ? String(orderCount.value) : unavailableMarker)
-const pendingPaymentDisplay = computed(() => orderStatsAvailable.value ? String(pendingPayment.value) : unavailableMarker)
-const pendingShipmentDisplay = computed(() => orderStatsAvailable.value ? String(pendingShipment.value) : unavailableMarker)
-const pendingReceiveDisplay = computed(() => orderStatsAvailable.value ? String(pendingReceive.value) : unavailableMarker)
-const priceAlertCountDisplay = computed(() => priceAlertStatsAvailable.value ? String(priceAlertCount.value) : unavailableMarker)
-const cartCountDisplay = computed(() => cartStatsAvailable.value ? String(cartCount.value) : unavailableMarker)
-const showPriceAlertBadge = computed(() => priceAlertStatsAvailable.value && priceAlertCount.value > 0)
-const showSellerPendingBadge = computed(() => isSeller.value && sellerPendingStatsAvailable.value && sellerPendingCount.value > 0)
-const hasUnavailableStats = computed(() =>
-  !orderStatsAvailable.value ||
-  !priceAlertStatsAvailable.value ||
-  (isSeller.value && !sellerPendingStatsAvailable.value) ||
-  !cartStatsAvailable.value
+const summaryValue = (key: keyof UserOrderStats) =>
+  !summaryLoading.value && summaryAvailable.value && profileSummary.value
+    ? String(profileSummary.value[key] ?? 0)
+    : unavailableMarker
+const orderCountDisplay = computed(() => summaryValue('orderCount'))
+const pendingPaymentDisplay = computed(() => summaryValue('pendingPayment'))
+const pendingShipmentDisplay = computed(() => summaryValue('pendingShipment'))
+const pendingReceiveDisplay = computed(() => summaryValue('pendingReceive'))
+const priceAlertCountDisplay = computed(() => summaryValue('priceAlertCount'))
+const cartCountDisplay = computed(() => summaryValue('cartCount'))
+const sellerPendingCount = computed(() => Number(profileSummary.value?.sellerPendingCount || 0))
+const priceAlertCount = computed(() => Number(profileSummary.value?.priceAlertCount || 0))
+const showPriceAlertBadge = computed(
+  () => !summaryLoading.value && summaryAvailable.value && priceAlertCount.value > 0
 )
+const showSellerPendingBadge = computed(
+  () => isSeller.value && !summaryLoading.value && summaryAvailable.value && sellerPendingCount.value > 0
+)
+const showSummaryUnavailableHint = computed(() => !summaryLoading.value && !summaryAvailable.value)
 
 const profileForm = reactive({
   username: '',
@@ -342,99 +334,37 @@ const saveProfile = async () => {
   }
 }
 
-const loadOrderStats = async () => {
-  const requestId = ++latestOrderStatsRequestId
+const loadProfileSummary = async () => {
+  const requestId = ++latestProfileSummaryRequestId
+  summaryLoading.value = true
   try {
-    const res = (await orderApi.getOrders(1, 1000)) as ApiResponse<Order[]>
-    if (requestId !== latestOrderStatsRequestId) {
+    const res = await authApi.getProfileSummary()
+    if (requestId !== latestProfileSummaryRequestId) {
       return
     }
-    if (res?.code === 200) {
-      const orders = Array.isArray(res.data) ? res.data : []
-      orderCount.value = orders.length
-      pendingPayment.value = orders.filter((item) => item.orderStatus === 0).length
-      pendingShipment.value = orders.filter((item) => item.orderStatus === 1).length
-      pendingReceive.value = orders.filter((item) => item.orderStatus === 2).length
-      orderStatsAvailable.value = true
+    if (res?.code === 200 && res.data) {
+      profileSummary.value = res.data
+      summaryAvailable.value = true
       return
     }
-    orderStatsAvailable.value = false
-    debugError('获取订单统计失败:', res?.message || '订单统计返回异常')
+    summaryAvailable.value = false
+    debugError('获取个人中心摘要失败:', res?.message || '个人中心摘要返回异常')
   } catch (error) {
-    if (requestId !== latestOrderStatsRequestId) {
+    if (requestId !== latestProfileSummaryRequestId) {
       return
     }
-    orderStatsAvailable.value = false
-    debugError('获取订单统计失败:', error)
-  }
-}
-
-const loadPriceAlertCount = async () => {
-  const requestId = ++latestPriceAlertCountRequestId
-  try {
-    const res = await priceApi.getUserAlerts()
-    if (requestId !== latestPriceAlertCountRequestId) {
-      return
+    summaryAvailable.value = false
+    debugError('获取个人中心摘要失败:', error)
+  } finally {
+    if (requestId === latestProfileSummaryRequestId) {
+      summaryLoading.value = false
     }
-    if (res?.code === 200) {
-      const alerts = Array.isArray(res.data) ? res.data : []
-      priceAlertCount.value = alerts.filter((item) => item.status === 0).length
-      priceAlertStatsAvailable.value = true
-      return
-    }
-    priceAlertStatsAvailable.value = false
-    debugError('获取降价提醒失败:', res?.message || '降价提醒返回异常')
-  } catch (error) {
-    if (requestId !== latestPriceAlertCountRequestId) {
-      return
-    }
-    priceAlertStatsAvailable.value = false
-    debugError('获取降价提醒失败:', error)
-  }
-}
-
-const loadSellerPendingCount = async () => {
-  if (!isSeller.value) {
-    sellerPendingCount.value = 0
-    sellerPendingStatsAvailable.value = true
-    return
-  }
-  const requestId = ++latestSellerPendingCountRequestId
-  try {
-    const res = await orderApi.getSellerPendingCount()
-    if (requestId !== latestSellerPendingCountRequestId) {
-      return
-    }
-    if (res?.code === 200) {
-      sellerPendingCount.value = Number(res.data || 0)
-      sellerPendingStatsAvailable.value = true
-      return
-    }
-    sellerPendingStatsAvailable.value = false
-    debugError('获取卖家待处理数量失败:', res?.message || '卖家待处理数量返回异常')
-  } catch (error) {
-    if (requestId !== latestSellerPendingCountRequestId) {
-      return
-    }
-    sellerPendingStatsAvailable.value = false
-    debugError('获取卖家待处理数量失败:', error)
   }
 }
 
 onMounted(async () => {
   syncProfileFormFromUserInfo()
-
-  if (cartStore.items.length === 0) {
-    try {
-      await cartStore.fetchCart()
-      cartStatsAvailable.value = true
-    } catch (error) {
-      cartStatsAvailable.value = false
-      debugError('获取购物车失败:', error)
-    }
-  }
-
-  await Promise.all([loadOrderStats(), loadPriceAlertCount(), loadSellerPendingCount()])
+  await loadProfileSummary()
 })
 </script>
 

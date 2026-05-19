@@ -7,6 +7,7 @@ Shion Fuuen is a full-stack e-commerce showcase built with Vue 3, Element Plus, 
 The project is optimized for local portfolio review:
 
 - two-command startup for the default MySQL-backed application
+- one-command startup for the isolated browser/demo stack on fixed ports
 - local showcase media under `uploads/` and `frontend/public/seed/`
 - role-based buyer, seller, and administrator workflows
 - focused unit tests plus real-browser E2E coverage for core flows
@@ -59,8 +60,24 @@ powershell -ExecutionPolicy Bypass -File .\scripts\ensure-portfolio-schema.ps1
 
 Before recording or review:
 
-- Start backend with `cd backend; mvn spring-boot:run`.
-- Start frontend with `cd frontend; node node_modules\vite\bin\vite.js --host 127.0.0.1 --port 5173`.
+- Prefer the isolated fixed-port showcase stack:
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\scripts\start-real-browser-stack.ps1
+  ```
+
+- Fixed review URLs:
+  - Frontend: `http://127.0.0.1:5178`
+  - Backend API: `http://127.0.0.1:8085/api`
+- Stop the fixed review stack when finished:
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\scripts\stop-real-browser-stack.ps1
+  ```
+
+- Optional direct dev startup remains:
+  - Backend: `cd backend; mvn spring-boot:run`
+  - Frontend: `cd frontend; node node_modules\vite\bin\vite.js --host 127.0.0.1 --port 5173`
 - Log in as `admin`, confirm dashboard and management pages load.
 - Log in as `zhangsan`, complete product browsing, cart, checkout, payment, and order review.
 - Log in as `lisi`, confirm seller product/order workflows.
@@ -71,5 +88,6 @@ Before recording or review:
 
 - Default backend profile uses MySQL database `shopping_mall` and Redis DB `0`.
 - Browser/E2E helper scripts may use isolated `shopping_mall_test` and Redis DB `1`.
+- Fixed browser/demo helper ports are frontend `5178` and backend `8085`.
 - The optional `local` Spring profile is a small H2 fallback only; it is not the portfolio showcase dataset.
 - `frontend/.env.development` intentionally leaves `VITE_AI_API_KEY` empty. The AI assistant remains optional.

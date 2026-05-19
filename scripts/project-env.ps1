@@ -50,22 +50,25 @@ function Test-UploadDirectoryWriteProbe {
 
 function Ensure-UploadDirectoriesWritable {
     param(
+        [string]$UploadRoot = $(if ($env:FILE_UPLOAD_DIR) { $env:FILE_UPLOAD_DIR } else { Join-Path $script:ProjectRoot "uploads" }),
         [string[]]$RelativePaths = @(
-            "uploads/avatars",
-            "uploads/banners",
-            "uploads/categories",
-            "uploads/music",
-            "uploads/products",
-            "uploads/promotions",
-            "uploads/reviews",
-            "uploads/videos"
+            "avatars",
+            "banners",
+            "categories",
+            "images",
+            "music",
+            "music/covers",
+            "products",
+            "promotions",
+            "reviews",
+            "videos"
         )
     )
 
     $isWindowsPlatform = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 
     foreach ($relativePath in $RelativePaths) {
-        $targetPath = Join-Path $script:ProjectRoot $relativePath
+        $targetPath = Join-Path $UploadRoot $relativePath
 
         try {
             [System.IO.Directory]::CreateDirectory($targetPath) | Out-Null

@@ -4,6 +4,7 @@ import com.shopping.entity.Cart;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,9 @@ public interface CartRepository extends JpaRepository<Cart, Long> {
 
     // 根据用户ID查询购物车（原有方法）
     List<Cart> findByUserId(Long userId);
+
+    @Query("SELECT COALESCE(SUM(c.quantity), 0) FROM Cart c WHERE c.user.id = :userId")
+    long sumQuantityByUserId(@Param("userId") Long userId);
     
     // 根据用户ID和商品ID查询购物车项，使用JOIN FETCH初始化关联的Product和User实体
     @Query("SELECT c FROM Cart c JOIN FETCH c.product JOIN FETCH c.user WHERE c.user.id = :userId AND c.product.id = :productId")

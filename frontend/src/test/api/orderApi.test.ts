@@ -28,7 +28,7 @@ describe('orderApi', () => {
   })
 
   it('gets orders with default paging', async () => {
-    const response = { code: 200, data: [] }
+    const response = { code: 200, data: { content: [], totalElements: 0, totalPages: 0, size: 10, number: 0, first: true, last: true } }
     axiosMock.get.mockResolvedValue(response)
 
     await expect(orderApi.getOrders()).resolves.toBe(response)
@@ -36,7 +36,7 @@ describe('orderApi', () => {
   })
 
   it('gets orders with custom paging and status', async () => {
-    const response = { code: 200, data: [] }
+    const response = { code: 200, data: { content: [], totalElements: 0, totalPages: 0, size: 20, number: 2, first: false, last: true } }
     axiosMock.get.mockResolvedValue(response)
 
     await expect(orderApi.getOrders(3, 20, 2)).resolves.toBe(response)
@@ -44,7 +44,7 @@ describe('orderApi', () => {
   })
 
   it('gets user orders with fixed paging', async () => {
-    const response = { code: 200, data: [] }
+    const response = { code: 200, data: { content: [], totalElements: 0, totalPages: 0, size: 200, number: 0, first: true, last: true } }
     axiosMock.get.mockResolvedValue(response)
 
     await expect(orderApi.getUserOrders(99)).resolves.toBe(response)

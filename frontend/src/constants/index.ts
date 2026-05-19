@@ -158,7 +158,8 @@ export const API_PATHS = {
     CHANGE_PASSWORD: '/auth/change-password'
   },
   USERS: {
-    ME: '/users/me'
+    ME: '/users/me',
+    PROFILE_SUMMARY: '/users/me/profile-summary'
   },
   PRODUCTS: {
     BASE: '/products',

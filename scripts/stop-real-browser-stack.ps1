@@ -69,6 +69,7 @@ function Test-ManagedProcessIdentity {
 if (Test-Path $stackStateFile) {
     try {
         $state = Get-Content $stackStateFile | ConvertFrom-Json
+        $uploadRoot = if ($state.PSObject.Properties.Name -contains 'uploadRoot') { [string]$state.uploadRoot } else { '' }
         $managedTargets = @(
             [pscustomobject]@{
                 Name = 'frontend'
@@ -113,6 +114,16 @@ if (Test-Path $stackStateFile) {
                 }
             } else {
                 Write-Host "Skipping $($target.Name) PID $($target.Pid): state file does not match a current project-owned process."
+            }
+        }
+
+        if ($uploadRoot) {
+            $allowedRoot = Join-Path $projectRoot '.tmp\e2e-uploads'
+            $resolvedAllowedRoot = [System.IO.Path]::GetFullPath($allowedRoot)
+            $resolvedUploadRoot = [System.IO.Path]::GetFullPath($uploadRoot)
+            if ($resolvedUploadRoot.StartsWith($resolvedAllowedRoot, [System.StringComparison]::OrdinalIgnoreCase) -and (Test-Path $resolvedUploadRoot)) {
+                Remove-Item -LiteralPath $resolvedUploadRoot -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Host "Removed managed upload root $resolvedUploadRoot."
             }
         }
     } catch {

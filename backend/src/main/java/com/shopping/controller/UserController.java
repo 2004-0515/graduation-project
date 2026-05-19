@@ -1,6 +1,7 @@
 package com.shopping.controller;
 
 import com.shopping.dto.Response;
+import com.shopping.dto.UserProfileSummaryDto;
 import com.shopping.entity.User;
 import com.shopping.service.UserService;
 import com.shopping.utils.AdminUtils;
@@ -151,5 +152,20 @@ public class UserController {
         } else {
             return Response.fail(404, "用户不存在");
         }
+    }
+
+    @GetMapping("/me/profile-summary")
+    public Response<UserProfileSummaryDto> getCurrentUserProfileSummary() {
+        if (!SecurityUtils.isAuthenticated()) {
+            return Response.fail(401, AUTH_FAILED_MESSAGE);
+        }
+
+        String username = SecurityUtils.getCurrentUsername();
+        User user = userService.findByUsername(username);
+        if (user == null) {
+            return Response.fail(401, AUTH_FAILED_MESSAGE);
+        }
+
+        return Response.success(userService.getProfileSummary(user));
     }
 }

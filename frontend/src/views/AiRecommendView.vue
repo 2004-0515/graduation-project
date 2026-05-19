@@ -31,8 +31,8 @@
               <div class="header-info">
                 <h3>AI购物助手 · 小雅</h3>
                 <div class="status-wrapper">
-                  <span class="status-dot"></span>
-                  <span class="status">在线 · 随时为您服务</span>
+                  <span class="status-dot" :class="{ offline: !chatConfigured }"></span>
+                  <span class="status">{{ chatStatusText }}</span>
                 </div>
               </div>
               <button class="settings-btn" @click="openApiKeyModal" title="设置API密钥">
@@ -40,6 +40,10 @@
                   <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                 </svg>
               </button>
+            </div>
+
+            <div v-if="!chatConfigured" class="chat-offline-banner">
+              未配置 AI 服务。聊天输入已关闭，右侧商品发现区仍可正常使用。
             </div>
 
             <div class="chat-messages" ref="messagesRef">
@@ -85,7 +89,13 @@
                 <span>快捷提问</span>
               </div>
               <div class="quick-list">
-                <button v-for="q in quickQuestions" :key="q" @click="sendQuickQuestion(q)" class="quick-btn">
+                <button
+                  v-for="q in quickQuestions"
+                  :key="q"
+                  @click="sendQuickQuestion(q)"
+                  class="quick-btn"
+                  :disabled="!chatConfigured || isTyping"
+                >
                   {{ q }}
                 </button>
               </div>
@@ -96,10 +106,10 @@
                 <input 
                   v-model="inputText" 
                   @keyup.enter="sendMessage" 
-                  placeholder="输入您想咨询的问题..."
-                  :disabled="isTyping"
+                  :placeholder="chatConfigured ? '输入您想咨询的问题...' : '未配置 AI 服务，先在右上角完成设置'"
+                  :disabled="!chatConfigured || isTyping"
                 />
-                <button class="send-btn" @click="sendMessage" :disabled="!inputText.trim() || isTyping">
+                <button class="send-btn" @click="sendMessage" :disabled="!chatConfigured || !inputText.trim() || isTyping">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
                   </svg>
@@ -108,7 +118,7 @@
               <div class="input-hint">按 Enter 发送消息</div>
             </div>
             <div class="chat-note">
-              聊天能力需要自行配置 AI 密钥，回答基于当前商品、分类和优惠券数据生成。
+              {{ chatConfigured ? '回答基于当前商品、分类和优惠券数据生成。' : '配置 AI 密钥后可开启问答；未配置时仅保留商品发现能力。' }}
             </div>
           </div>
 
@@ -222,7 +232,14 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
-import { getAiResponse, quickQuestions, setApiKey, getStoredApiKey, setExtraData } from '@/utils/aiChat'
+import {
+  getAiResponse,
+  isApiConfigured,
+  quickQuestions,
+  setApiKey,
+  getStoredApiKey,
+  setExtraData
+} from '@/utils/aiChat'
 import productApi from '@/api/productApi'
 import fileApi from '@/api/fileApi'
 import adminApi from '@/api/adminApi'
@@ -244,6 +261,7 @@ const inputText = ref('')
 const isTyping = ref(false)
 const messages = ref<Message[]>([])
 const allProducts = ref<any[]>([])
+const chatConfigured = ref(isApiConfigured())
 const showApiKeyModal = ref(false)
 const apiKeyInput = ref('')
 const refreshKey = ref(0)
@@ -252,6 +270,9 @@ const getResponseMessage = (res: any, fallback: string) => res?.message || fallb
 const userInitial = computed(() => 
   userStore.userInfo?.nickname?.charAt(0) || 
   userStore.userInfo?.username?.charAt(0)?.toUpperCase() || 'U'
+)
+const chatStatusText = computed(() =>
+  chatConfigured.value ? '已配置 AI 服务' : '未配置 AI 服务'
 )
 
 const recommendProducts = computed(() => {
@@ -310,7 +331,7 @@ const scrollToBottom = async () => {
 
 const sendMessage = async () => {
   const text = inputText.value.trim()
-  if (!text || isTyping.value) return
+  if (!chatConfigured.value || !text || isTyping.value) return
 
   messages.value.push({
     role: 'user',
@@ -353,6 +374,7 @@ const openApiKeyModal = () => {
 const saveApiKey = () => {
   const trimmedKey = apiKeyInput.value.trim()
   if (!trimmedKey) {
+    chatConfigured.value = isApiConfigured()
     showApiKeyModal.value = false
     messages.value.push({
       role: 'ai',
@@ -363,6 +385,7 @@ const saveApiKey = () => {
   }
 
   setApiKey(trimmedKey)
+  chatConfigured.value = isApiConfigured()
   showApiKeyModal.value = false
   messages.value.push({
     role: 'ai',
@@ -372,14 +395,19 @@ const saveApiKey = () => {
 }
 
 const sendQuickQuestion = (question: string) => {
+  if (!chatConfigured.value) return
   inputText.value = question
   sendMessage()
 }
 
 onMounted(async () => {
-  const greeting = userStore.isLoggedIn 
-    ? `您好，${userStore.userInfo?.nickname || userStore.userInfo?.username}！我是紫苑风鸢的 AI 购物助手，有什么可以帮您的吗？\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 订单查询\n• 售后问题`
-    : '您好！我是紫苑风鸢的 AI 购物助手，很高兴为您服务！\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 购物流程\n• 常见问题'
+  const greeting = chatConfigured.value
+    ? (
+        userStore.isLoggedIn
+          ? `您好，${userStore.userInfo?.nickname || userStore.userInfo?.username}！我是商城 AI 助手，可以基于当前商品、分类和优惠券信息给您参考建议。`
+          : '您好，我是商城 AI 助手，可以基于当前商品、分类和优惠券信息给您参考建议。'
+      )
+    : '当前未配置 AI 服务，聊天问答已关闭。您仍可浏览右侧商品发现区，或先在右上角配置密钥后再开始对话。'
   
   messages.value.push({
     role: 'ai',
@@ -564,6 +592,11 @@ onMounted(async () => {
   animation: blink 2s infinite;
 }
 
+.status-dot.offline {
+  background: #94a3b8;
+  animation: none;
+}
+
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
@@ -593,6 +626,16 @@ onMounted(async () => {
 .settings-btn:hover {
   background: rgba(255, 255, 255, 0.3);
   transform: rotate(45deg);
+}
+
+.chat-offline-banner {
+  padding: 10px 20px;
+  background: rgba(148, 163, 184, 0.14);
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 /* 消息区域 */
@@ -771,6 +814,15 @@ onMounted(async () => {
   color: #fff;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(155, 135, 245, 0.3);
+}
+
+.quick-btn:disabled {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* 输入框 */

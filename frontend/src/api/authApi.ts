@@ -2,6 +2,7 @@ import axios from '@/utils/axios'
 import { API_PATHS } from '@/constants'
 import type { 
   User, 
+  UserOrderStats,
   LoginCredentials, 
   RegisterData, 
   PasswordChangeData, 
@@ -39,6 +40,10 @@ const authApi = {
    */
   getCurrentUser(): Promise<ApiResponse<User>> {
     return axios.get(API_PATHS.AUTH.ME)
+  },
+
+  getProfileSummary(): Promise<ApiResponse<UserOrderStats>> {
+    return axios.get(API_PATHS.USERS.PROFILE_SUMMARY)
   },
 
   /**

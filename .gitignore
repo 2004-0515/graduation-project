@@ -113,3 +113,4 @@ dist/
 tmp-browser-pids.json
 backend/.jqwik-database
 backend/.m2repo/
+format_check/

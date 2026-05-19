@@ -8,7 +8,7 @@ import { debugError } from '@/utils/debug'
 export const quickQuestions = [
   '有什么热销商品',
   '100元以下推荐',
-  '有什么优惠活动',
+  '当前有哪些优惠券',
   '怎么查看订单',
   '如何退换货'
 ]
@@ -104,8 +104,8 @@ function buildSystemPrompt(products: any[]): string {
 
 你的职责：
 1. 根据用户需求推荐合适商品
-2. 解答购物流程、订单、支付、售后等问题
-3. 介绍当前优惠活动和优惠券信息
+2. 介绍当前真实可见的优惠券和分类信息
+3. 当用户问到个人订单、物流、售后资格等你无法直接确认的信息时，明确说明边界并引导到对应页面
 
 ===== 商城数据 =====
 
@@ -126,6 +126,7 @@ ${couponInfo}
 - 不使用 emoji
 - 推荐商品时必须带价格
 - 只推荐数据中已有的商品，不编造商品
+- 如果用户问到个人订单、物流、退款、售后规则等当前数据里没有的信息，直接说明你无法确认，并引导到相关页面
 - 如果用户问到不存在的商品，直接说明暂无相关商品
 - 可根据预算推荐不同价位商品
 - 如涉及优惠券，优先介绍可领取和可使用条件`
@@ -194,69 +195,67 @@ VITE_AI_API_KEY=你的密钥`
     return content.trim()
   } catch (error: any) {
     debugError('AI 调用失败:', error.message, error)
-
-    if (error.message?.includes('Failed to fetch') || error.name === 'TypeError') {
-      return `网络请求失败，可能是跨域或网络连接问题。
-
-错误信息：${error.message}
-
-建议打开浏览器控制台（F12）查看详细错误。`
-    }
-
     return getLocalFallbackResponse(userMessage, products)
   }
 }
 
 function getLocalFallbackResponse(text: string, products: any[]): string {
   const lowerText = text.toLowerCase()
+  const trimmedProducts = [...products].filter((item) => item && item.name)
+  const sortedProducts = [...trimmedProducts].sort((a, b) => (b.sales || 0) - (a.sales || 0))
+
+  const formatCoupon = (coupon: any) => {
+    if (coupon.type === 2) {
+      return `${coupon.name}（${(Number(coupon.discountRate || 0) * 10).toFixed(0)}折${
+        Number(coupon.minAmount || 0) > 0 ? `，满${coupon.minAmount}可用` : ''
+      }）`
+    }
+    return `${coupon.name}（减${coupon.discountAmount}${
+      Number(coupon.minAmount || 0) > 0 ? `，满${coupon.minAmount}可用` : ''
+    }）`
+  }
+
+  const buildProductReply = (matchedProducts: any[], title: string) => {
+    if (matchedProducts.length === 0) {
+      return '当前未找到匹配的真实商品数据，建议前往分类页继续筛选。'
+    }
+
+    return `${title}：\n${matchedProducts
+      .slice(0, 3)
+      .map((product, index) => `${index + 1}. ${product.name} - ¥${product.price}`)
+      .join('\n')}`
+  }
 
   if (lowerText.includes('优惠') || lowerText.includes('活动') || lowerText.includes('折扣')) {
-    return `目前商城有以下优惠：
-1. 新人专享：首单立减 10 元
-2. 满减活动：满 199 减 20，满 399 减 50
-3. 限时特惠：部分商品低至 5 折
-
-你可以在“促销活动”页面查看更多详情。`
+    if (cachedCoupons.length > 0) {
+      return `当前已加载的真实优惠券有：\n${cachedCoupons
+        .slice(0, 3)
+        .map((coupon) => `- ${formatCoupon(coupon)}`)
+        .join('\n')}\n\n更多内容可前往“优惠专题 / 优惠券中心”查看。`
+    }
+    return '当前没有加载到可确认的优惠券数据。你可以前往“优惠专题 / 优惠券中心”查看最新可领取内容。'
   }
 
   if (lowerText.includes('订单') || lowerText.includes('物流') || lowerText.includes('快递')) {
-    return `查看订单的方法：
-1. 点击右上角头像
-2. 进入“我的订单”
-3. 可按状态筛选订单
-
-如果有更具体的问题，可以继续问我。`
+    return '我当前不能读取你的个人订单或物流状态。请前往“我的订单”页面查看真实进度，必要时再进入订单详情页确认。'
   }
 
   if (lowerText.includes('退') || lowerText.includes('换货') || lowerText.includes('售后')) {
-    return `退换货流程：
-1. 在“我的订单”中找到对应订单
-2. 点击“申请退款”或相关售后入口
-3. 填写原因并提交
-4. 等待审核，通常 1-3 个工作日完成
+    return '我当前不能确认具体订单的退款、换货或售后资格。请前往“我的订单”查看对应订单状态，并从订单详情进入真实入口确认。'
+  }
 
-商品签收 7 天内通常可申请退换。`
+  const budgetMatch = lowerText.match(/(\d+)\s*元/)
+  if (budgetMatch) {
+    const budget = Number(budgetMatch[1])
+    const budgetProducts = sortedProducts.filter((product) => Number(product.price || 0) <= budget)
+    return buildProductReply(budgetProducts, `${budget}元以内可参考这些商品`)
   }
 
   if (lowerText.includes('热销') || lowerText.includes('推荐') || lowerText.includes('热门')) {
-    if (products.length > 0) {
-      const hot = [...products].sort((a, b) => (b.sales || 0) - (a.sales || 0)).slice(0, 3)
-      let reply = '为您推荐以下热销商品：\n\n'
-      hot.forEach((p, i) => {
-        reply += `${i + 1}. ${p.name} - ¥${p.price}\n`
-      })
-      return reply
-    }
+    return buildProductReply(sortedProducts, '可参考这些真实热销商品')
   }
 
-  return `当前网络连接不稳定，暂时无法获取 AI 回复。
-
-你可以尝试：
-- 刷新页面后重试
-- 检查网络连接
-- 稍后再试
-
-也可以先直接浏览商品列表进行选购。`
+  return '当前无法稳定连接 AI 服务。我可以继续依赖当前页面里的真实商品和优惠券数据给建议；如果你要看更完整内容，建议先前往分类页或优惠中心。'
 }
 
 export async function getAiResponse(userMessage: string, products: any[]): Promise<string> {

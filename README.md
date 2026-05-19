@@ -2,36 +2,48 @@
 
 Vue 3 + Spring Boot full-stack e-commerce project for portfolio and graduation showcase use.
 
-The default local setup is designed for a two-command demo: start the backend, start the frontend, then open the Vite URL. Business data and media assets are kept local to the repository so the main showcase does not depend on external placeholder image, audio, or font providers.
+The recommended local showcase path is the fixed-port browser/demo stack on the isolated `shopping_mall_test` dataset. Business data and media assets are kept local to the repository so the main showcase does not depend on external placeholder image, audio, or font providers.
 
-## Two-Line Showcase Startup
+## Recommended Demo Startup
 
 Prerequisites:
 
 - JDK 17
 - Node.js `>=20.19.0` or `>=22.12.0`
-- MySQL 8 with database `shopping_mall`
+- MySQL 8 with permission to create local databases
 - Redis 7
 - Frontend dependencies installed once with `npm install`
 
-Start backend:
+Start the fixed-port browser/demo stack:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\prepare-demo-environment.ps1
+```
+
+On first run, the script creates `shopping_mall_test` automatically when it is missing.
+
+Open:
+
+- Frontend: `http://127.0.0.1:5178`
+- Backend API: `http://127.0.0.1:8085/api`
+
+Stop the fixed review stack when finished:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\stop-real-browser-stack.ps1
+```
+
+Optional direct dev startup remains available:
 
 ```powershell
 cd backend
 mvn spring-boot:run
 ```
 
-Start frontend:
-
 ```powershell
 cd frontend
 node node_modules\vite\bin\vite.js --host 127.0.0.1 --port 5173
 ```
-
-Open:
-
-- Frontend: `http://127.0.0.1:5173`
-- Backend API: `http://127.0.0.1:8080/api`
 
 Showcase accounts:
 
@@ -57,8 +69,10 @@ Portfolio review notes:
 ## Default Local Environment
 
 - MySQL database: `shopping_mall`
+- Browser/demo database: `shopping_mall_test`
 - Backend default port: `8080`
 - Frontend showcase port: `5173`
+- Fixed browser/demo frontend port: `5178`
 - Backend demo profile port: `8085`
 - Backend default local credentials come from [application.properties](/d:/graduation%20project/backend/src/main/resources/application.properties)
 - Upload/media root: [uploads](/d:/graduation%20project/uploads)
@@ -183,6 +197,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\prepare-demo-environment.ps1
 ```
 
 This wrapper targets the isolated browser database `shopping_mall_test` by default.
+If the database does not exist yet, the execute path creates it automatically before reseeding.
+
+Stop the managed stack:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\stop-real-browser-stack.ps1
+```
 
 Force rebuild before startup:
 
@@ -201,6 +222,26 @@ If the isolated test DB is not exposed as the default local MySQL instance, pass
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-real-browser-stack.ps1 -SeedGraduationData -DatabaseName shopping_mall_test -DatabaseHost 127.0.0.1 -DatabasePort 3306
 ```
+
+## Browser E2E Entry Points
+
+From `frontend/`:
+
+```powershell
+npm run test:e2e
+npm run test:e2e:smoke
+npm run test:e2e:headed
+```
+
+Direct wrapper entry from the repo root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run-real-browser-e2e.ps1 -Suite all
+```
+
+The wrapper reuses or starts the fixed browser stack on `127.0.0.1:5178 -> 8085`, verifies the localized browser dataset, and restores it after Playwright finishes.
+
+Detailed suite mapping and debugging notes live in [frontend/tests/e2e/README.md](/d:/graduation%20project/frontend/tests/e2e/README.md).
 
 ## Notes
 

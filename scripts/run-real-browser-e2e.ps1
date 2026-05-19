@@ -8,7 +8,8 @@ param(
     [string]$AdminUsername = 'admin',
     [string]$Password = '123456',
     [switch]$SkipPlaywright,
-    [switch]$KeepRunning
+    [switch]$KeepRunning,
+    [switch]$Headed
 )
 
 Set-StrictMode -Version Latest
@@ -27,6 +28,7 @@ $e2eUploadsRoot = $null
 $seedScript = Join-Path $PSScriptRoot 'rebuild-graduation-data.ps1'
 $isWindowsPlatform = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 $suiteSpecsMap = @{
+    all = @()
     smoke = @(
         'tests/e2e/smoke.spec.ts',
         'tests/e2e/user-smoke.spec.ts',
@@ -444,6 +446,7 @@ $reusedFrontend = $false
 $reusedBackend = $false
 $activeFrontendPid = $null
 $activeBackendPid = $null
+$ownsE2EUploadsRoot = $false
 if ($Suite) {
     if (-not $suiteSpecsMap.ContainsKey($Suite)) {
         throw "Unknown E2E suite: $Suite. Allowed values: $($suiteSpecsMap.Keys -join ', ')"
@@ -466,6 +469,15 @@ Write-ProjectNodeToolingDiagnostics -Tooling $nodeTooling
 try {
     Remove-StaleManagedStackState
 
+    $existingState = $null
+    if (Test-Path $stackStateFile) {
+        try {
+            $existingState = Get-Content $stackStateFile | ConvertFrom-Json
+        } catch {
+            $existingState = $null
+        }
+    }
+
     if (-not $env:DB_NAME) {
         $env:DB_NAME = 'shopping_mall_test'
     }
@@ -477,10 +489,6 @@ try {
     $dbPassword = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { '123456' }
     $dbHost = if ($env:DB_HOST) { $env:DB_HOST } else { '' }
     $dbPort = if ($env:DB_PORT) { $env:DB_PORT } else { '' }
-    Ensure-GraduationDatasetReady -DatabaseName $env:DB_NAME -DatabaseUser $dbUser -DatabasePassword $dbPassword -DatabaseHost $dbHost -DatabasePort $dbPort
-
-    $e2eUploadsRoot = New-E2EUploadsDirectory -SourcePath $uploadsRoot -TargetBasePath $e2eUploadsRootBase
-    $env:FILE_UPLOAD_DIR = $e2eUploadsRoot
 
     $frontendPortOccupied = @(Get-ListeningProcessIds -Ports @($FrontendPort)).Count -gt 0
     $backendPortOccupied = @(Get-ListeningProcessIds -Ports @($BackendPort)).Count -gt 0
@@ -508,6 +516,37 @@ try {
     if ($reusedFrontend -and -not $reusedBackend) {
         throw "A project frontend is already listening on port $FrontendPort, but the matching backend on port $BackendPort is not ready. Release the frontend instance or start the matching backend first."
     }
+
+    if ($reusedBackend) {
+        if (
+            $existingState `
+            -and $existingState.PSObject.Properties.Name -contains 'backendPid' `
+            -and $existingState.PSObject.Properties.Name -contains 'uploadRoot' `
+            -and $existingState.backendPid `
+            -and ([int]$existingState.backendPid) -eq [int]$activeBackendPid `
+            -and $existingState.uploadRoot `
+            -and (Test-Path $existingState.uploadRoot)
+        ) {
+            $e2eUploadsRoot = [string]$existingState.uploadRoot
+        } else {
+            $e2eUploadsRoot = $uploadsRoot
+        }
+    } else {
+        if ($env:FILE_UPLOAD_DIR -and (Test-Path $env:FILE_UPLOAD_DIR)) {
+            $e2eUploadsRoot = [System.IO.Path]::GetFullPath($env:FILE_UPLOAD_DIR)
+        } else {
+            $e2eUploadsRoot = New-E2EUploadsDirectory -SourcePath $uploadsRoot -TargetBasePath $e2eUploadsRootBase
+        }
+
+        $resolvedUploadsBase = [System.IO.Path]::GetFullPath($e2eUploadsRootBase)
+        $resolvedUploadRoot = [System.IO.Path]::GetFullPath($e2eUploadsRoot)
+        if ($resolvedUploadRoot.StartsWith($resolvedUploadsBase, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $ownsE2EUploadsRoot = $true
+        }
+    }
+
+    $env:FILE_UPLOAD_DIR = $e2eUploadsRoot
+    Ensure-GraduationDatasetReady -DatabaseName $env:DB_NAME -DatabaseUser $dbUser -DatabasePassword $dbPassword -DatabaseHost $dbHost -DatabasePort $dbPort
 
     $backendLog = Join-Path $backendRoot "spring-browser.log"
     $backendErrLog = Join-Path $backendRoot "spring-browser.err.log"
@@ -557,17 +596,28 @@ try {
         $activeFrontendPid = Get-ListeningProcessId -Port $FrontendPort
     }
 
-    if ($KeepRunning -or $startedFrontend -or $startedBackend) {
+    if ($KeepRunning) {
+        $frontendManagedForState = $startedFrontend
+        if (-not $frontendManagedForState -and $existingState -and $existingState.PSObject.Properties.Name -contains 'frontendPid' -and $existingState.PSObject.Properties.Name -contains 'frontendManaged' -and $existingState.frontendPid -and ([int]$existingState.frontendPid) -eq [int]$activeFrontendPid) {
+            $frontendManagedForState = [bool]$existingState.frontendManaged
+        }
+
+        $backendManagedForState = $startedBackend
+        if (-not $backendManagedForState -and $existingState -and $existingState.PSObject.Properties.Name -contains 'backendPid' -and $existingState.PSObject.Properties.Name -contains 'backendManaged' -and $existingState.backendPid -and ([int]$existingState.backendPid) -eq [int]$activeBackendPid) {
+            $backendManagedForState = [bool]$existingState.backendManaged
+        }
+
         @{
             stackKind = 'browser-stack'
             frontendPort = $FrontendPort
             backendPort = $BackendPort
             frontendPid = if ($activeFrontendPid) { [int]$activeFrontendPid } else { $null }
             backendPid = if ($activeBackendPid) { [int]$activeBackendPid } else { $null }
-            frontendManaged = $startedFrontend
-            backendManaged = $startedBackend
+            frontendManaged = $frontendManagedForState
+            backendManaged = $backendManagedForState
             frontendUrl = "http://127.0.0.1:$FrontendPort"
             backendUrl = "http://127.0.0.1:$BackendPort/api"
+            uploadRoot = $e2eUploadsRoot
             dbName = $env:DB_NAME
             redisDb = $env:REDIS_DB
             updatedAt = (Get-Date).ToString('s')
@@ -605,15 +655,24 @@ try {
     if ($Specs.Count -gt 0) {
         $playwrightArgs += $Specs
     }
+    if ($Headed) {
+        $playwrightArgs += '--headed'
+    }
     $playwrightArgs += '--reporter=line'
     $playwrightInvocation = Resolve-ProjectNodeInvocation -CommandName 'npx' -Arguments $playwrightArgs -Tooling $nodeTooling
 
-    Write-Host "Running Playwright specs: $($Specs -join ', ')"
+    $specDisplay = if ($Specs.Count -gt 0) { $Specs -join ', ' } else { 'entire suite' }
+    Write-Host "Running Playwright specs: $specDisplay"
     Write-Host "Playwright launcher: $(Format-NodeInvocation -Invocation $playwrightInvocation)"
 
     Invoke-ResolvedNodeCommand -Invocation $playwrightInvocation -WorkingDirectory $frontendRoot
     if ($LASTEXITCODE -ne 0) {
         throw "Playwright failed with exit code: $LASTEXITCODE"
+    }
+
+    if ($reusedBackend -or $KeepRunning) {
+        Write-Host "Restoring localized graduation dataset after Playwright run."
+        Ensure-GraduationDatasetReady -DatabaseName $env:DB_NAME -DatabaseUser $dbUser -DatabasePassword $dbPassword -DatabaseHost $dbHost -DatabasePort $dbPort
     }
 }
 finally {
@@ -642,9 +701,7 @@ finally {
                 Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
             }
         }
-
-        Remove-Item $stackStateFile -ErrorAction SilentlyContinue
-        if ($e2eUploadsRoot -and (Test-Path $e2eUploadsRoot)) {
+        if ($ownsE2EUploadsRoot -and $e2eUploadsRoot -and (Test-Path $e2eUploadsRoot)) {
             Remove-Item -LiteralPath $e2eUploadsRoot -Recurse -Force -ErrorAction SilentlyContinue
         }
     }

@@ -418,7 +418,7 @@ const resolveBannerLink = (banner: ShowcaseBanner) => {
   const target = banner.linkTarget?.trim()
   if (!target) return '/promotions'
   if (banner.linkType === 'PRODUCT' && /^\d+$/.test(target)) return `/product/${target}`
-  if (banner.linkType === 'PROMOTION' && /^\d+$/.test(target)) return `/promotion/${target}`
+  if (banner.linkType === 'PROMOTION' && /^\d+$/.test(target)) return `/promotions?bannerId=${target}`
   if (banner.linkType === 'CATEGORY' && /^\d+$/.test(target)) return `/category?id=${target}`
   return target
 }

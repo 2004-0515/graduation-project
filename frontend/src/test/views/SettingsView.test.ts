@@ -159,6 +159,17 @@ describe('SettingsView', () => {
     expect(wrapper.text()).toContain('当前服务器已接入的隐私项只有资料可见性')
   })
 
+  it('marks appearance settings as browser-local only', async () => {
+    mockRoute.query.section = 'appearance'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const appearanceSection = wrapper.get('[data-testid="settings-section-appearance"]')
+    expect(appearanceSection.text()).toContain('仅在当前浏览器保存和生效')
+    expect(appearanceSection.text()).toContain('仅当前浏览器')
+  })
+
   it('does not show unsupported comment notification toggle', async () => {
     mockRoute.query.section = 'notification'
 
@@ -306,6 +317,40 @@ describe('SettingsView', () => {
     expect(messages.error).toHaveBeenCalledWith('通知设置保存失败')
   })
 
+  it('shows notification autosave states and rolls back after failure', async () => {
+    mockRoute.query.section = 'notification'
+    settingsApi.getNotificationSettings.mockResolvedValue({
+      code: 200,
+      data: {
+        orderStatusEnabled: true,
+        promotionsEnabled: true,
+        systemEnabled: true,
+        deliveryEnabled: true
+      }
+    })
+    const pendingSave = deferred<any>()
+    settingsApi.updateNotificationSettings.mockReturnValueOnce(pendingSave.promise)
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const toggle = wrapper.find('input[type="checkbox"]')
+    expect((toggle.element as HTMLInputElement).checked).toBe(true)
+
+    await toggle.setValue(false)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('保存中')
+    expect((toggle.element as HTMLInputElement).checked).toBe(false)
+
+    pendingSave.resolve({ code: 500, message: '通知设置保存失败' })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('保存失败并回退')
+    expect((toggle.element as HTMLInputElement).checked).toBe(true)
+    expect(messages.error).toHaveBeenCalledWith('通知设置保存失败')
+  })
+
   it('shows backend message when saving privacy settings returns non-200 payload', async () => {
     mockRoute.query.section = 'privacy'
     settingsApi.updatePrivacySettings.mockResolvedValue({ code: 500, message: '隐私设置保存失败' })
@@ -317,6 +362,35 @@ describe('SettingsView', () => {
     await select.setValue('private')
     await flushPromises()
 
+    expect(messages.error).toHaveBeenCalledWith('隐私设置保存失败')
+  })
+
+  it('shows privacy autosave states and rolls back after failure', async () => {
+    mockRoute.query.section = 'privacy'
+    settingsApi.getPrivacySettings.mockResolvedValue({
+      code: 200,
+      data: { profileVisibility: 'friends' }
+    })
+    const pendingSave = deferred<any>()
+    settingsApi.updatePrivacySettings.mockReturnValueOnce(pendingSave.promise)
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const select = wrapper.find('select')
+    expect((select.element as HTMLSelectElement).value).toBe('friends')
+
+    await select.setValue('private')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('保存中')
+    expect((select.element as HTMLSelectElement).value).toBe('private')
+
+    pendingSave.resolve({ code: 500, message: '隐私设置保存失败' })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('保存失败并回退')
+    expect((select.element as HTMLSelectElement).value).toBe('friends')
     expect(messages.error).toHaveBeenCalledWith('隐私设置保存失败')
   })
 
