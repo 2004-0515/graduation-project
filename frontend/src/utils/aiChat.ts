@@ -1,8 +1,8 @@
 import { debugError } from '@/utils/debug'
 
 /**
- * AI 聊天助手 - 接入硅基流动 (SiliconFlow) API
- * 默认使用 Qwen 免费模型。
+ * AI 聊天助手
+ * 当前实现直接调用 DeepSeek Chat Completions 接口。
  */
 
 export const quickQuestions = [
@@ -10,12 +10,12 @@ export const quickQuestions = [
   '100元以下推荐',
   '有什么优惠活动',
   '怎么查看订单',
-  '如何退换货'
+  '订单问题怎么处理'
 ]
 
 const API_CONFIG = {
-  baseUrl: 'https://api.siliconflow.cn/v1/chat/completions',
-  model: 'Qwen/Qwen3-8B'
+  baseUrl: 'https://api.deepseek.com/v1/chat/completions',
+  model: 'deepseek-chat'
 }
 
 const readApiKeyFromStorage = (): string => {
@@ -104,7 +104,7 @@ function buildSystemPrompt(products: any[]): string {
 
 你的职责：
 1. 根据用户需求推荐合适商品
-2. 解答购物流程、订单、支付、售后等问题
+2. 解答购物流程、订单、支付和页面使用相关问题
 3. 介绍当前优惠活动和优惠券信息
 
 ===== 商城数据 =====
@@ -137,11 +137,7 @@ async function callAiApi(userMessage: string, products: any[]): Promise<string> 
   if (!apiKey) {
     return `抱歉，AI 服务尚未配置。
 
-请按以下步骤开启 AI 功能：
-1. 访问 https://cloud.siliconflow.cn 注册账号
-2. 新用户可获得免费额度
-3. 在“API 密钥”页面创建密钥
-4. 将密钥填写到本页设置中
+请先准备可访问 api.deepseek.com 的有效 API 密钥，并在本页设置中填写。
 
 或者在项目的 frontend/.env 文件中添加：
 VITE_AI_API_KEY=你的密钥`
@@ -229,13 +225,12 @@ function getLocalFallbackResponse(text: string, products: any[]): string {
   }
 
   if (lowerText.includes('退') || lowerText.includes('换货') || lowerText.includes('售后')) {
-    return `退换货流程：
-1. 在“我的订单”中找到对应订单
-2. 点击“申请退款”或相关售后入口
-3. 填写原因并提交
-4. 等待审核，通常 1-3 个工作日完成
+    return `当前版本没有独立的退换货自动化入口。
 
-商品签收 7 天内通常可申请退换。`
+你可以优先这样处理：
+1. 未支付订单可直接取消
+2. 已支付待发货订单可提交取消申请
+3. 其他订单问题可前往“联系我们”页面留言，平台会人工跟进`
   }
 
   if (lowerText.includes('热销') || lowerText.includes('推荐') || lowerText.includes('热门')) {

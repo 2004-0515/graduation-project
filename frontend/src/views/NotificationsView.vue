@@ -56,6 +56,9 @@
                   <svg v-else-if="getActualType(item) === 'promotion'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/>
                   </svg>
+                  <svg v-else-if="getActualType(item) === 'price_alert'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/><path d="M12 6v4l3 2"/>
+                  </svg>
                   <svg v-else-if="getActualType(item) === 'file_review'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
                   </svg>
@@ -125,7 +128,12 @@
           <el-button v-if="getActualType(currentNotification) === 'promotion'" 
                      data-testid="notification-detail-promotion-action"
                      type="primary" @click="goToPromotion">
-            {{ isPriceAlertNotification(currentNotification) ? '查看商品' : (currentNotification?.relatedId ? '查看优惠券' : '领取优惠券') }}
+            {{ currentNotification?.relatedId ? '查看优惠券' : '领取优惠券' }}
+          </el-button>
+          <el-button v-if="getActualType(currentNotification) === 'price_alert'"
+                     data-testid="notification-detail-price-alert-action"
+                     type="primary" @click="goToPriceAlert">
+            查看商品
           </el-button>
           <el-button v-if="isAdmin && getActualType(currentNotification) === 'file_review'" 
                      data-testid="notification-detail-file-review-action"
@@ -188,6 +196,7 @@ const tabs = [
   { name: 'system', label: '系统' },
   { name: 'order', label: '订单' },
   { name: 'promotion', label: '促销' },
+  { name: 'price_alert', label: '价格提醒' },
   { name: 'file_review', label: '文件审核' },
   { name: 'product_review', label: '商品审核' },
   { name: 'review', label: '评价' }
@@ -212,7 +221,8 @@ const filteredNotifications = computed(() => {
     case 'read': return notifications.value.filter(n => n.read)
     case 'system': return notifications.value.filter(n => n.type === 'system' && !isFileReviewNotification(n) && !isProductReviewNotification(n))
     case 'order': return notifications.value.filter(n => n.type === 'order')
-    case 'promotion': return notifications.value.filter(n => n.type === 'promotion')
+    case 'promotion': return notifications.value.filter(n => n.type === 'promotion' && !isPriceAlertNotification(n))
+    case 'price_alert': return notifications.value.filter(n => isPriceAlertNotification(n))
     case 'file_review': return notifications.value.filter(n => n.type === 'file_review' || isFileReviewNotification(n))
     case 'product_review': return notifications.value.filter(n => n.type === 'product_review' || isProductReviewNotification(n))
     case 'review': return notifications.value.filter(n => n.type === 'review')
@@ -250,6 +260,7 @@ const isProductReviewNotification = (n: Notification | null) => {
 // 获取通知的实际类型（用于显示样式）
 const getActualType = (n: Notification | null) => {
   if (!n) return 'system'
+  if (isPriceAlertNotification(n)) return 'price_alert'
   if (n.type === 'file_review' || isFileReviewNotification(n)) return 'file_review'
   if (n.type === 'product_review' || isProductReviewNotification(n)) return 'product_review'
   if (n.type === 'review') return 'review'
@@ -261,6 +272,7 @@ const getTypeName = (type: string) => {
     system: '系统通知',
     order: '订单消息',
     promotion: '促销活动',
+    price_alert: '价格提醒',
     file_review: '文件审核',
     product_review: '商品审核',
     review: '商品评价'
@@ -418,27 +430,37 @@ const goToOrder = () => {
 // 判断是否是降价提醒通知
 const isPriceAlertNotification = (n: Notification | null) => {
   if (!n) return false
-  return n.type === 'promotion' && (n.title?.includes('降价提醒') || n.message?.includes('已降价至'))
+  if (n.type === 'price_alert') return true
+  if (n.type !== 'promotion') return false
+  const title = n.title || ''
+  const message = n.message || ''
+  return title.includes('降价提醒') ||
+    title.includes('价格提醒') ||
+    message.includes('已降价至') ||
+    message.includes('价格有变化') ||
+    message.includes('价格变化') ||
+    message.includes('商品详情查看走势') ||
+    message.includes('查看走势')
+}
+
+const goToPriceAlert = () => {
+  const notification = currentNotification.value
+  closeDetail()
+  if (notification?.relatedId) {
+    router.push(`/product/${notification.relatedId}`)
+  } else {
+    router.push('/price-alerts')
+  }
 }
 
 // 跳转到促销相关页面
 const goToPromotion = () => {
   const notification = currentNotification.value
   closeDetail()
-  if (isPriceAlertNotification(notification)) {
-    // 降价提醒优先回到商品详情；缺少商品ID时回到提醒列表
-    if (notification?.relatedId) {
-      router.push(`/product/${notification.relatedId}`)
-    } else {
-      router.push('/price-alerts')
-    }
+  if (notification?.relatedId) {
+    router.push(`/coupon/${notification.relatedId}`)
   } else {
-    // 其他促销通知，跳转到优惠券页面
-    if (notification?.relatedId) {
-      router.push(`/coupon/${notification.relatedId}`)
-    } else {
-      router.push('/promotions')
-    }
+    router.push('/promotions')
   }
 }
 
@@ -756,6 +778,17 @@ onMounted(() => {
   box-shadow: 0 4px 20px rgba(142, 124, 195, 0.15);
 }
 
+/* 价格提醒 - 蓝绿色 */
+.notification-item.price_alert {
+  border-left-color: #16A085;
+  background: linear-gradient(135deg, rgba(22, 160, 133, 0.08) 0%, rgba(26, 188, 156, 0.04) 100%);
+}
+
+.notification-item.price_alert:hover {
+  background: linear-gradient(135deg, rgba(22, 160, 133, 0.15) 0%, rgba(26, 188, 156, 0.08) 100%);
+  box-shadow: 0 4px 20px rgba(22, 160, 133, 0.15);
+}
+
 /* 文件审核 - 橙色 */
 .notification-item.file_review {
   border-left-color: #E67E22;
@@ -806,6 +839,10 @@ onMounted(() => {
   background: linear-gradient(135deg, rgba(142, 124, 195, 0.15) 0%, rgba(165, 148, 210, 0.08) 100%);
 }
 
+.notification-item.unread.price_alert {
+  background: linear-gradient(135deg, rgba(22, 160, 133, 0.15) 0%, rgba(26, 188, 156, 0.08) 100%);
+}
+
 .notification-item.unread.file_review {
   background: linear-gradient(135deg, rgba(230, 126, 34, 0.15) 0%, rgba(243, 156, 18, 0.08) 100%);
 }
@@ -833,6 +870,7 @@ onMounted(() => {
 .item-icon.system { color: var(--primary); background: rgba(155, 135, 245, 0.15); }
 .item-icon.order { color: #5DADE2; background: rgba(93, 173, 226, 0.15); }
 .item-icon.promotion { color: #8E7CC3; background: rgba(142, 124, 195, 0.15); }
+.item-icon.price_alert { color: #16A085; background: rgba(22, 160, 133, 0.15); }
 .item-icon.file_review { color: #E67E22; background: rgba(230, 126, 34, 0.15); }
 .item-icon.product_review { color: #27AE60; background: rgba(39, 174, 96, 0.15); }
 .item-icon.review { color: #F1C40F; background: rgba(241, 196, 15, 0.15); }
@@ -864,6 +902,12 @@ onMounted(() => {
   background: linear-gradient(135deg, #8E7CC3, #A594D2);
   color: #fff;
   box-shadow: 0 2px 8px rgba(142, 124, 195, 0.3);
+}
+
+.type-tag.price_alert {
+  background: linear-gradient(135deg, #16A085, #1ABC9C);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(22, 160, 133, 0.3);
 }
 
 .type-tag.file_review {
@@ -904,6 +948,10 @@ onMounted(() => {
 
 .type-indicator.promotion {
   background: linear-gradient(180deg, #8E7CC3, #A594D2);
+}
+
+.type-indicator.price_alert {
+  background: linear-gradient(180deg, #16A085, #1ABC9C);
 }
 
 .type-indicator.file_review {
@@ -1069,6 +1117,11 @@ onMounted(() => {
 
 .detail-type.promotion {
   background: linear-gradient(135deg, #8E7CC3, #A594D2);
+  color: #fff;
+}
+
+.detail-type.price_alert {
+  background: linear-gradient(135deg, #16A085, #1ABC9C);
   color: #fff;
 }
 

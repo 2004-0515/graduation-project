@@ -79,6 +79,18 @@ $suiteSpecsMap = @{
         'tests/e2e/my-products-management.spec.ts',
         'tests/e2e/notification-routing.spec.ts'
     )
+    defense = @(
+        'tests/e2e/route-guard-smoke.spec.ts',
+        'tests/e2e/admin-users-management.spec.ts',
+        'tests/e2e/review-image-draft.spec.ts',
+        'tests/e2e/visual-confirm-dialogs.spec.ts',
+        'tests/e2e/seller-product-demo-hardening.spec.ts',
+        'tests/e2e/dual-end-interaction-audit.spec.ts',
+        'tests/e2e/tri-end-refresh-consistency.spec.ts',
+        'tests/e2e/site-display-health.spec.ts',
+        'tests/e2e/defense-demo-hardening.spec.ts',
+        'tests/e2e/defense-edge-cases.spec.ts'
+    )
 }
 
 function Resolve-CommandPath {
@@ -337,20 +349,33 @@ function New-E2EUploadsDirectory {
 function ConvertTo-GraduationDatasetStatus {
     param([string[]]$Lines)
 
+    $jsonBlocks = [System.Collections.Generic.List[string]]::new()
     $startIndex = -1
+    $depth = 0
     for ($i = 0; $i -lt $Lines.Count; $i++) {
-        if ($Lines[$i].Trim().StartsWith("{")) {
+        $line = $Lines[$i]
+        if ($depth -eq 0 -and $line.Trim().StartsWith("{")) {
             $startIndex = $i
-            break
+        }
+
+        if ($startIndex -ge 0) {
+            $depth += [regex]::Matches($line, '\{').Count
+            $depth -= [regex]::Matches($line, '\}').Count
+            if ($depth -eq 0) {
+                $jsonBlocks.Add(($Lines[$startIndex..$i] -join [Environment]::NewLine))
+                $startIndex = -1
+            }
         }
     }
 
-    if ($startIndex -lt 0) {
-        return $null
+    for ($i = $jsonBlocks.Count - 1; $i -ge 0; $i--) {
+        try {
+            return $jsonBlocks[$i] | ConvertFrom-Json
+        } catch {
+        }
     }
 
-    $jsonText = ($Lines[$startIndex..($Lines.Count - 1)] -join [Environment]::NewLine)
-    return $jsonText | ConvertFrom-Json
+    return $null
 }
 
 function Get-GraduationDatasetStatus {
@@ -601,12 +626,24 @@ try {
     $env:E2E_ADMIN_USERNAME = $AdminUsername
     $env:E2E_PASSWORD = $Password
 
-    $playwrightArgs = @('playwright', 'test')
+    $playwrightTestArgs = @('test')
     if ($Specs.Count -gt 0) {
-        $playwrightArgs += $Specs
+        $playwrightTestArgs += $Specs
     }
-    $playwrightArgs += '--reporter=line'
-    $playwrightInvocation = Resolve-ProjectNodeInvocation -CommandName 'npx' -Arguments $playwrightArgs -Tooling $nodeTooling
+    $playwrightTestArgs += '--reporter=line'
+    if ($nodeTooling.RepoLocal.playwright.Available) {
+        $playwrightInvocation = [pscustomobject]@{
+            RequestedCommand = 'playwright'
+            CommandPath = $nodeTooling.RepoLocal.playwright.CommandPath
+            Arguments = @($nodeTooling.RepoLocal.playwright.ArgumentsPrefix) + @($playwrightTestArgs)
+            Source = $nodeTooling.RepoLocal.playwright.Source
+            Resolution = $nodeTooling.RepoLocal.playwright.Resolution
+            RepoLocalFallback = $true
+        }
+    } else {
+        $playwrightArgs = @('playwright') + @($playwrightTestArgs)
+        $playwrightInvocation = Resolve-ProjectNodeInvocation -CommandName 'npx' -Arguments $playwrightArgs -Tooling $nodeTooling
+    }
 
     Write-Host "Running Playwright specs: $($Specs -join ', ')"
     Write-Host "Playwright launcher: $(Format-NodeInvocation -Invocation $playwrightInvocation)"
@@ -649,4 +686,3 @@ finally {
         }
     }
 }
-

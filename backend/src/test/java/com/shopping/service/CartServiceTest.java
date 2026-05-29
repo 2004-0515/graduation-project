@@ -144,6 +144,23 @@ class CartServiceTest {
     }
 
     @Test
+    @DisplayName("添加商品到购物车 - 商品未审核通过")
+    void addToCart_ProductPendingAudit_ShouldThrowException() {
+        // Arrange
+        testProduct.setAuditStatus(0);
+        when(userService.getUserByUsername("testuser")).thenReturn(testUser);
+        when(productService.getProductById(1L)).thenReturn(testProduct);
+
+        // Act & Assert
+        ValidationException exception = assertThrows(
+            ValidationException.class,
+            () -> cartService.addToCart("testuser", 1L, 2)
+        );
+        assertEquals("商品未通过审核，暂不可加入购物车", exception.getMessage());
+        verify(cartRepository, never()).save(any(Cart.class));
+    }
+
+    @Test
     @DisplayName("添加商品到购物车 - 库存不足")
     void addToCart_InsufficientStock_ShouldThrowException() {
         // Arrange

@@ -82,8 +82,8 @@ describe('AiRecommendView', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('基于当前商品数据提供问答和选购参考')
-    expect(wrapper.text()).toContain('聊天能力需要自行配置 AI 密钥')
+    expect(wrapper.text()).toContain('基于当前商品、分类和优惠券数据提供问答与选购参考')
+    expect(wrapper.text()).toContain('聊天能力需要自行配置外部 API 密钥')
     expect(wrapper.text()).toContain('不代表个性化建模推荐')
     expect(wrapper.text()).not.toContain('为您提供个性化推荐')
   })
@@ -132,7 +132,7 @@ describe('AiRecommendView', () => {
       categories: [],
       coupons: []
     })
-    expect(wrapper.text()).toContain('基于当前商品数据提供问答和选购参考')
+    expect(wrapper.text()).toContain('基于当前商品、分类和优惠券数据提供问答与选购参考')
   })
 
   it('shows an explicit empty state when no products are available', async () => {
@@ -177,5 +177,16 @@ describe('AiRecommendView', () => {
       categories: [],
       coupons: []
     })
+  })
+
+  it('describes the external key requirement without claiming a different provider', async () => {
+    const { wrapper } = await mountView()
+
+    await flushPromises()
+    await wrapper.find('.settings-btn').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('当前页面按 DeepSeek Chat Completions 接口发起请求')
+    expect(wrapper.text()).not.toContain('SiliconFlow')
   })
 })

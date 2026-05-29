@@ -334,6 +334,38 @@ export function getMessageBox(page: Page): Locator {
     .last()
 }
 
+export async function expectMessageBoxCentered(page: Page, label: string = '确认框') {
+  const viewport = page.viewportSize()
+  expect(viewport, `${label}: 无法获取浏览器视口`).toBeTruthy()
+
+  const overlay = getMessageBox(page)
+  await expect(overlay, `${label}: 遮罩层未显示`).toBeVisible({ timeout: 10_000 })
+
+  const messageBox = page.locator('.el-message-box').last()
+  await expect(messageBox, `${label}: 弹窗主体未显示`).toBeVisible({ timeout: 10_000 })
+
+  const box = await messageBox.boundingBox()
+  expect(box, `${label}: 无法读取弹窗位置`).toBeTruthy()
+
+  const view = viewport!
+  const centerX = box!.x + box!.width / 2
+  const centerY = box!.y + box!.height / 2
+
+  expect(box!.width, `${label}: 弹窗宽度异常`).toBeGreaterThan(Math.min(260, view.width * 0.65))
+  expect(box!.height, `${label}: 弹窗高度异常`).toBeGreaterThan(110)
+  expect(box!.x, `${label}: 弹窗贴到左侧`).toBeGreaterThanOrEqual(12)
+  expect(box!.y, `${label}: 弹窗贴到顶部`).toBeGreaterThanOrEqual(12)
+  expect(centerX, `${label}: 弹窗未水平居中`).toBeGreaterThan(view.width * 0.25)
+  expect(centerX, `${label}: 弹窗未水平居中`).toBeLessThan(view.width * 0.75)
+  expect(centerY, `${label}: 弹窗未垂直居中`).toBeGreaterThan(view.height * 0.2)
+  expect(centerY, `${label}: 弹窗未垂直居中`).toBeLessThan(view.height * 0.8)
+
+  const overlayBox = await page.locator('.el-overlay').last().boundingBox()
+  expect(overlayBox, `${label}: 无法读取遮罩层位置`).toBeTruthy()
+  expect(overlayBox!.width, `${label}: 遮罩层宽度异常`).toBeGreaterThan(view.width * 0.9)
+  expect(overlayBox!.height, `${label}: 遮罩层高度异常`).toBeGreaterThan(view.height * 0.9)
+}
+
 export async function confirmMessageBox(page: Page, buttonName: string = '确定') {
   const dialog = getMessageBox(page)
   await expect(dialog).toBeVisible({ timeout: 10_000 })

@@ -2,7 +2,10 @@ package com.shopping.service;
 
 import com.shopping.entity.Product;
 import com.shopping.exception.ValidationException;
+import com.shopping.exception.ResourceNotFoundException;
 import com.shopping.repository.ProductRepository;
+import com.shopping.constants.AuditConstants;
+import com.shopping.constants.ProductConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
@@ -143,6 +146,33 @@ public class ProductService {
     public Product getProductById(Long id) {
         return productRepository.findById(id).orElse(null);
     }
+
+    public boolean isApproved(Product product) {
+        return product != null
+                && Integer.valueOf(AuditConstants.AuditStatus.APPROVED).equals(product.getAuditStatus());
+    }
+
+    public boolean isOnShelf(Product product) {
+        return product != null
+                && Integer.valueOf(ProductConstants.Status.ON_SHELF).equals(product.getStatus());
+    }
+
+    public boolean isPurchasable(Product product) {
+        return isOnShelf(product) && isApproved(product);
+    }
+
+    public void requirePurchasable(Product product, Long productId, String actionText) {
+        if (product == null) {
+            throw new ResourceNotFoundException("商品", productId);
+        }
+        String productName = product.getName() != null ? product.getName() : String.valueOf(productId);
+        if (!isOnShelf(product)) {
+            throw new ValidationException("商品[" + productName + "]已下架，" + actionText);
+        }
+        if (!isApproved(product)) {
+            throw new ValidationException("商品[" + productName + "]未通过审核，" + actionText);
+        }
+    }
     
     /**
      * 根据ID获取商品（别名方法）
@@ -157,7 +187,7 @@ public class ProductService {
      * @return 商品列表
      */
     public List<Product> getProductsByCategoryId(Long categoryId) {
-        return productRepository.findByCategory_Id(categoryId);
+        return getApprovedProductsByCategory(categoryId);
     }
     
     /**
@@ -166,7 +196,10 @@ public class ProductService {
      * @return 商品列表
      */
     public List<Product> getProductsByStatus(Integer status) {
-        return productRepository.findByStatus(status);
+        if (!Integer.valueOf(ProductConstants.Status.ON_SHELF).equals(status)) {
+            return List.of();
+        }
+        return getApprovedProducts();
     }
     
     /**
@@ -175,7 +208,10 @@ public class ProductService {
      * @return 商品列表
      */
     public List<Product> searchProductsByName(String name) {
-        return productRepository.findByNameContaining(name);
+        return productRepository.findByNameContainingIgnoreCaseAndAuditStatusAndStatus(
+                name == null ? "" : name,
+                AuditConstants.AuditStatus.APPROVED,
+                ProductConstants.Status.ON_SHELF);
     }
     
     /**
@@ -245,6 +281,14 @@ public class ProductService {
      */
     public void deleteProduct(Long id) {
         productRepository.deleteById(id);
+    }
+
+    public boolean isImagePathInUse(String imagePath) {
+        if (imagePath == null || imagePath.isBlank()) {
+            return false;
+        }
+        return productRepository.existsByMainImage(imagePath)
+                || productRepository.existsByImagesContaining(imagePath);
     }
     
     /**
@@ -379,12 +423,24 @@ public class ProductService {
      */
     @org.springframework.transaction.annotation.Transactional
     public void reduceStock(Long productId, Integer quantity) {
+        if (quantity == null || quantity <= 0) {
+            throw new com.shopping.exception.ValidationException("库存扣减数量必须大于0");
+        }
+
         int rowsUpdated = productRepository.reduceStockAtomic(productId, quantity);
         
         if (rowsUpdated == 0) {
             // Either product doesn't exist or insufficient stock
             Product product = productRepository.findById(productId).orElseThrow(
                 () -> new com.shopping.exception.ResourceNotFoundException("商品", productId));
+
+            if (!isOnShelf(product)) {
+                throw new com.shopping.exception.ValidationException("商品已下架");
+            }
+
+            if (!isApproved(product)) {
+                throw new com.shopping.exception.ValidationException("商品未通过审核");
+            }
             
             if (product.getStock() < quantity) {
                 throw new com.shopping.exception.ValidationException("商品库存不足");
@@ -401,6 +457,13 @@ public class ProductService {
      * @param quantity 增加的数量
      */
     public void increaseStock(Long productId, Integer quantity) {
+        if (quantity == null || quantity < 0) {
+            throw new com.shopping.exception.ValidationException("库存增加数量必须大于0");
+        }
+        if (quantity == 0) {
+            return;
+        }
+
         Product product = productRepository.findById(productId).orElseThrow(
             () -> new com.shopping.exception.ResourceNotFoundException("商品", productId));
 
@@ -415,6 +478,10 @@ public class ProductService {
      * @param quantity 增加的数量
      */
     public void increaseSales(Long productId, Integer quantity) {
+        if (quantity == null || quantity <= 0) {
+            throw new com.shopping.exception.ValidationException("销量增加数量必须大于0");
+        }
+
         Product product = productRepository.findById(productId).orElseThrow(
             () -> new com.shopping.exception.ResourceNotFoundException("商品", productId));
 
@@ -430,6 +497,10 @@ public class ProductService {
      * @param quantity 减少的数量
      */
     public void decreaseSales(Long productId, Integer quantity) {
+        if (quantity == null || quantity <= 0) {
+            throw new com.shopping.exception.ValidationException("销量减少数量必须大于0");
+        }
+
         Product product = productRepository.findById(productId).orElseThrow(
             () -> new com.shopping.exception.ResourceNotFoundException("商品", productId));
 

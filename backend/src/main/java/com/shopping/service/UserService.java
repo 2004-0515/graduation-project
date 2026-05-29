@@ -187,6 +187,10 @@ public class UserService {
     public boolean existsByEmail(String email) {
         return findByEmail(email) != null;
     }
+
+    public boolean isAvatarPathInUse(String avatarPath) {
+        return avatarPath != null && !avatarPath.isBlank() && userRepository.existsByAvatar(avatarPath);
+    }
     
     /**
      * 更新用户密码
@@ -224,11 +228,22 @@ public class UserService {
      * @param userId 用户ID
      * @param status 新状态
      */
-    public void updateUserStatus(Long userId, Integer status) {
+    public User updateUserStatus(Long userId, Integer status) {
+        if (status == null || (status != 0 && status != 1)) {
+            throw new ValidationException("用户状态无效");
+        }
+
         User user = userRepository.findById(userId).orElseThrow(
             () -> new com.shopping.exception.ResourceNotFoundException("用户", userId));
+
+        if (status == 0
+                && UserRole.ADMIN.equals(user.getRole())
+                && userRepository.countByRoleAndStatus(UserRole.ADMIN, 1) <= 1) {
+            throw new ValidationException("至少保留一个启用管理员");
+        }
+
         user.setStatus(status);
-        userRepository.save(user);
+        return userRepository.save(user);
     }
 
     /**
@@ -244,7 +259,7 @@ public class UserService {
             () -> new com.shopping.exception.ResourceNotFoundException("用户", userId));
 
         if (UserRole.ADMIN.equals(user.getRole()) && !UserRole.ADMIN.equals(normalizedRole)
-                && userRepository.countByRole(UserRole.ADMIN) <= 1) {
+                && userRepository.countByRoleAndStatus(UserRole.ADMIN, 1) <= 1) {
             throw new ValidationException("至少保留一个管理员");
         }
 
@@ -286,7 +301,7 @@ public class UserService {
     }
 
     private void validateDeleteAllowed(User user) {
-        if (UserRole.ADMIN.equals(user.getRole()) && userRepository.countByRole(UserRole.ADMIN) <= 1) {
+        if (UserRole.ADMIN.equals(user.getRole()) && userRepository.countByRoleAndStatus(UserRole.ADMIN, 1) <= 1) {
             throw new ValidationException("至少保留一个管理员");
         }
 

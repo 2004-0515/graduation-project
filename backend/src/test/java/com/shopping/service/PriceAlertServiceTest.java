@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -156,6 +158,30 @@ class PriceAlertServiceTest {
                 () -> priceAlertService.manualTriggerAlert(10L));
         assertEquals("该提醒已不在监控状态", ex.getMessage());
         verify(notificationService, never()).createNotification(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("手动触发降价提醒 - 发送价格提醒类型通知")
+    void manualTriggerAlert_ShouldSendPriceAlertNotificationType() {
+        PriceAlert alert = new PriceAlert();
+        alert.setId(12L);
+        alert.setUserId(5L);
+        alert.setProductId(1L);
+        alert.setTargetPrice(BigDecimal.valueOf(80));
+        alert.setStatus(PriceAlertConstants.AlertStatus.MONITORING);
+
+        when(priceAlertRepository.findById(12L)).thenReturn(Optional.of(alert));
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(priceAlertRepository.save(any(PriceAlert.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        priceAlertService.manualTriggerAlert(12L);
+
+        verify(notificationService).createNotification(
+                eq(5L),
+                eq("price_alert"),
+                eq("降价提醒"),
+                contains("测试商品"),
+                eq(1L));
     }
 
     @Test

@@ -114,6 +114,36 @@ describe('HomeView', () => {
     expect(claimCouponSpy).not.toHaveBeenCalled()
   })
 
+  it('keeps homepage fallback copy within implemented scope', async () => {
+    getProductsSpy
+      .mockResolvedValueOnce({ code: 200, data: { content: [] } } as any)
+      .mockResolvedValueOnce({
+        code: 200,
+        data: {
+          content: [
+            {
+              id: 2,
+              name: '新品商品',
+              description: '',
+              mainImage: '/new.png',
+              price: 88,
+              originalPrice: 108
+            }
+          ]
+        }
+      } as any)
+
+    const { wrapper } = await mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('已审核上架')
+    expect(wrapper.text()).toContain('价格可追踪')
+    expect(wrapper.text()).toContain('支持想要清单')
+    expect(wrapper.text()).not.toContain('品质保证')
+    expect(wrapper.text()).not.toContain('正品保障')
+    expect(wrapper.text()).not.toContain('极速发货')
+  })
+
   it('refetches coupons after quick claim succeeds', async () => {
     userStore.token = 'token'
     userStore.userInfo = { id: 1, username: 'buyer' } as any

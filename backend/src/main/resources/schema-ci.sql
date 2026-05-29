@@ -127,8 +127,8 @@ CREATE TABLE tb_order (
     total_amount DECIMAL(10, 2) NOT NULL COMMENT '订单总金额',
     pay_amount DECIMAL(10, 2) DEFAULT NULL COMMENT '实付金额',
     payment_method TINYINT DEFAULT 1 NOT NULL COMMENT '支付方式：1-微信，2-支付宝，3-银行卡',
-    payment_status TINYINT DEFAULT 0 NOT NULL COMMENT '支付状态：0-未支付，1-已支付，2-已退款',
-    order_status TINYINT DEFAULT 0 NOT NULL COMMENT '订单状态：0-待付款，1-待发货，2-待收货，3-已完成，4-已取消，5-已退款',
+    payment_status TINYINT DEFAULT 0 NOT NULL COMMENT '支付状态：0-未支付，1-已支付，2-支付失败',
+    order_status TINYINT DEFAULT 0 NOT NULL COMMENT '订单状态：0-待支付，1-待发货，2-待收货，3-已完成，4-已取消，5-退款中，6-申请取消中',
     shipping_address TEXT COMMENT '收货地址（JSON格式）',
     payment_time DATETIME DEFAULT NULL COMMENT '支付时间',
     shipping_time DATETIME DEFAULT NULL COMMENT '发货时间',
@@ -245,7 +245,7 @@ DROP TABLE IF EXISTS notifications;
 CREATE TABLE notifications (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '通知ID',
     user_id BIGINT NOT NULL COMMENT '用户ID',
-    type VARCHAR(20) NOT NULL COMMENT '通知类型：system-系统，order-订单，promotion-促销',
+    type VARCHAR(20) NOT NULL COMMENT '通知类型：system-系统，order-订单，promotion-促销，price_alert-价格提醒，file_review-文件审核，product_review-商品审核，review-评价',
     title VARCHAR(100) NOT NULL COMMENT '通知标题',
     message VARCHAR(500) NOT NULL COMMENT '通知内容',
     is_read BOOLEAN DEFAULT FALSE NOT NULL COMMENT '是否已读',
@@ -602,4 +602,3 @@ CREATE TABLE tb_search_stats (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='搜索统计表';
 
 SET FOREIGN_KEY_CHECKS=1;
-

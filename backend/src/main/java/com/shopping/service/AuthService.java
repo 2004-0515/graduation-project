@@ -101,6 +101,12 @@ public class AuthService {
      */
     public String login(String username, String password) {
         logger.info("Processing user login for: {}", username);
+        User user = userRepository.findByUsername(username);
+        if (user != null && Integer.valueOf(AuditConstants.UserStatus.DISABLED).equals(user.getStatus())) {
+            logger.warn("Disabled user login rejected: {}", username);
+            throw new AuthenticationException("账号已被禁用，请联系管理员");
+        }
+
         try {
             // 认证用户
             authenticationManager.authenticate(
@@ -112,7 +118,6 @@ public class AuthService {
         }
 
         // 更新最后登录时间
-        User user = userRepository.findByUsername(username);
         if (user != null) {
             user.setLastLoginTime(java.time.LocalDateTime.now());
             userRepository.save(user);

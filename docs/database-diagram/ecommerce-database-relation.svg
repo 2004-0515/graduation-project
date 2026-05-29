@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="3000" height="2100" viewBox="0 0 3000 2100">
+<rect x="0" y="0" width="3000" height="2100" fill="#fff"/>
+<polyline points="280,849 280,950" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="100,770 50,770 50,1370 80,1370" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="460,670 960,670" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="460,735 560,735 560,985 600,985" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="460,790 560,790 560,1235 600,1235" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="460,820 540,820 540,1635 600,1635" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="280,560 280,60 1820,60 1820,420" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="460,610 520,610 520,50 2740,50 2740,840 1820,840 1820,860" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="100,835 70,835 70,1880 1795,1880 1795,1531" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="460,585 520,585 520,40 2740,40 2740,945 2690,945" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="1180,333 1180,470" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="960,760 880,760 880,910" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="970,797 970,1235 980,1235" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="1180,797 1180,1180" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="960,710 565,710 565,1510 815,1510" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="1400,760 1600,760 1600,995" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="1400,790 1560,790 1560,1320 1600,1320" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="1820,709 1820,860" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="2040,620 2100,620 2100,1400 1990,1400" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="2040,550 2170,550 2170,945 2260,945" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="2260,500 2040,500" fill="none" stroke="#000" stroke-width="1.1"/>
+<polyline points="2475,728 2475,860" fill="none" stroke="#000" stroke-width="1.1"/>
+<rect x="100" y="560" width="360" height="289" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="100" y1="594" x2="460" y2="594" stroke="#000" stroke-width="1"/>
+<text x="280" y="582" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">tb_user（用户表）</text>
+<text x="110" y="610" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="110" y="629" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">username: VARCHAR(50)</text>
+<text x="110" y="648" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">password: VARCHAR(100)</text>
+<text x="110" y="667" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">email: VARCHAR(100)</text>
+<text x="110" y="686" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">phone: VARCHAR(20)</text>
+<text x="110" y="705" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">avatar: VARCHAR(200)</text>
+<text x="110" y="724" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">nickname: VARCHAR(50)</text>
+<text x="110" y="743" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">points: INT</text>
+<text x="110" y="762" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">growth_value: INT</text>
+<text x="110" y="781" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">status: TINYINT</text>
+<text x="110" y="800" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">role: VARCHAR(20)</text>
+<text x="110" y="819" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">created_time: DATETIME</text>
+<text x="110" y="838" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">updated_time: DATETIME</text>
+<rect x="100" y="950" width="360" height="232" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="100" y1="984" x2="460" y2="984" stroke="#000" stroke-width="1"/>
+<text x="280" y="972" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">addresses（地址表）</text>
+<text x="110" y="1000" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="110" y="1019" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">user_id: BIGINT</text>
+<text x="110" y="1038" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">name: VARCHAR(50)</text>
+<text x="110" y="1057" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">phone: VARCHAR(20)</text>
+<text x="110" y="1076" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">province: VARCHAR(50)</text>
+<text x="110" y="1095" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">city: VARCHAR(50)</text>
+<text x="110" y="1114" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">district: VARCHAR(50)</text>
+<text x="110" y="1133" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">detail: VARCHAR(200)</text>
+<text x="110" y="1152" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">is_default: BOOLEAN</text>
+<text x="110" y="1171" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">status: INT</text>
+<rect x="80" y="1280" width="390" height="194" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="80" y1="1314" x2="470" y2="1314" stroke="#000" stroke-width="1"/>
+<text x="275" y="1302" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">tb_consumption_budget（消费预算表）</text>
+<text x="90" y="1330" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="90" y="1349" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">user_id: BIGINT</text>
+<text x="90" y="1368" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">monthly_budget: DECIMAL(10,2)</text>
+<text x="90" y="1387" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">budget_month: VARCHAR(6)</text>
+<text x="90" y="1406" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">alert_enabled: TINYINT</text>
+<text x="90" y="1425" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">alert_threshold: INT</text>
+<text x="90" y="1444" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">created_time: DATETIME</text>
+<text x="90" y="1463" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">updated_time: DATETIME</text>
+<rect x="960" y="120" width="400" height="213" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="960" y1="154" x2="1360" y2="154" stroke="#000" stroke-width="1"/>
+<text x="1160" y="142" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">tb_category（分类表）</text>
+<text x="970" y="170" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="970" y="189" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">name: VARCHAR(50)</text>
+<text x="970" y="208" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">description: VARCHAR(200)</text>
+<text x="970" y="227" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">parent_id: BIGINT</text>
+<text x="970" y="246" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">sort_order: INT</text>
+<text x="970" y="265" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">icon: VARCHAR(100)</text>
+<text x="970" y="284" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">status: TINYINT</text>
+<text x="970" y="303" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">created_time: DATETIME</text>
+<text x="970" y="322" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">updated_time: DATETIME</text>
+<rect x="960" y="470" width="440" height="327" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="960" y1="504" x2="1400" y2="504" stroke="#000" stroke-width="1"/>
+<text x="1180" y="492" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">tb_product（商品表）</text>
+<text x="970" y="520" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="970" y="539" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">name: VARCHAR(100)</text>
+<text x="970" y="558" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">description: TEXT</text>
+<text x="970" y="577" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">category_id: BIGINT</text>
+<text x="970" y="596" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">seller_id: BIGINT</text>
+<text x="970" y="615" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">price: DECIMAL(10,2)</text>
+<text x="970" y="634" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">original_price: DECIMAL(10,2)</text>
+<text x="970" y="653" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">pending_price: DECIMAL(10,2)</text>
+<text x="970" y="672" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">pending_original_price: DECIMAL(10,2)</text>
+<text x="970" y="691" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">stock: INT</text>
+<text x="970" y="710" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">sales: INT</text>
+<text x="970" y="729" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">main_image: VARCHAR(200)</text>
+<text x="970" y="748" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">status: TINYINT</text>
+<text x="970" y="767" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">audit_status: TINYINT</text>
+<text x="970" y="786" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">created_time: DATETIME</text>
+<rect x="600" y="910" width="340" height="156" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="600" y1="944" x2="940" y2="944" stroke="#000" stroke-width="1"/>
+<text x="770" y="932" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">tb_cart（购物车表）</text>
+<text x="610" y="960" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="610" y="979" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">user_id: BIGINT</text>
+<text x="610" y="998" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">product_id: BIGINT</text>
+<text x="610" y="1017" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">quantity: INT</text>
+<text x="610" y="1036" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">selected: TINYINT</text>
+<text x="610" y="1055" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">created_time: DATETIME</text>
+<rect x="600" y="1130" width="380" height="213" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="600" y1="1164" x2="980" y2="1164" stroke="#000" stroke-width="1"/>
+<text x="790" y="1152" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">tb_wishlist（心愿单表）</text>
+<text x="610" y="1180" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="610" y="1199" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">user_id: BIGINT</text>
+<text x="610" y="1218" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">product_id: BIGINT</text>
+<text x="610" y="1237" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">added_price: DECIMAL(10,2)</text>
+<text x="610" y="1256" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">cooling_days: INT</text>
+<text x="610" y="1275" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">cooling_end_time: DATETIME</text>
+<text x="610" y="1294" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">status: TINYINT</text>
+<text x="610" y="1313" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">reason: VARCHAR(500)</text>
+<text x="610" y="1332" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">created_time: DATETIME</text>
+<rect x="1010" y="1180" width="390" height="194" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="1010" y1="1214" x2="1400" y2="1214" stroke="#000" stroke-width="1"/>
+<text x="1205" y="1202" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">tb_price_history（价格历史表）</text>
+<text x="1020" y="1230" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="1020" y="1249" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">product_id: BIGINT</text>
+<text x="1020" y="1268" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">price: DECIMAL(10,2)</text>
+<text x="1020" y="1287" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">original_price: DECIMAL(10,2)</text>
+<text x="1020" y="1306" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">recorded_time: DATETIME</text>
+<text x="1020" y="1325" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">change_type: VARCHAR(20)</text>
+<text x="1020" y="1344" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">change_amount: DECIMAL(10,2)</text>
+<text x="1020" y="1363" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">change_rate: DECIMAL(5,2)</text>
+<rect x="600" y="1510" width="430" height="251" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="600" y1="1544" x2="1030" y2="1544" stroke="#000" stroke-width="1"/>
+<text x="815" y="1532" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">tb_price_alert（降价提醒表）</text>
+<text x="610" y="1560" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="610" y="1579" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">user_id: BIGINT</text>
+<text x="610" y="1598" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">product_id: BIGINT</text>
+<text x="610" y="1617" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">target_price: DECIMAL(10,2)</text>
+<text x="610" y="1636" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">current_price: DECIMAL(10,2)</text>
+<text x="610" y="1655" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">status: TINYINT</text>
+<text x="610" y="1674" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">triggered_time: DATETIME</text>
+<text x="610" y="1693" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">triggered_price: DECIMAL(10,2)</text>
+<text x="610" y="1712" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">notified: TINYINT</text>
+<text x="610" y="1731" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">created_time: DATETIME</text>
+<text x="610" y="1750" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">updated_time: DATETIME</text>
+<rect x="1600" y="420" width="440" height="289" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="1600" y1="454" x2="2040" y2="454" stroke="#000" stroke-width="1"/>
+<text x="1820" y="442" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">tb_order（订单表）</text>
+<text x="1610" y="470" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="1610" y="489" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">order_no: VARCHAR(50)</text>
+<text x="1610" y="508" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">user_id: BIGINT</text>
+<text x="1610" y="527" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">total_amount: DECIMAL(10,2)</text>
+<text x="1610" y="546" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">pay_amount: DECIMAL(10,2)</text>
+<text x="1610" y="565" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">coupon_id: BIGINT</text>
+<text x="1610" y="584" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">coupon_discount: DECIMAL(10,2)</text>
+<text x="1610" y="603" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">payment_method: TINYINT</text>
+<text x="1610" y="622" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">payment_status: TINYINT</text>
+<text x="1610" y="641" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">order_status: TINYINT</text>
+<text x="1610" y="660" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">shipping_address: TEXT</text>
+<text x="1610" y="679" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">payment_time: DATETIME</text>
+<text x="1610" y="698" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">created_time: DATETIME</text>
+<rect x="1600" y="860" width="440" height="270" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="1600" y1="894" x2="2040" y2="894" stroke="#000" stroke-width="1"/>
+<text x="1820" y="882" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">tb_order_item（订单项表）</text>
+<text x="1610" y="910" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="1610" y="929" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">order_id: BIGINT</text>
+<text x="1610" y="948" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">product_id: BIGINT</text>
+<text x="1610" y="967" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">product_name: VARCHAR(100)</text>
+<text x="1610" y="986" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">product_price: DECIMAL(10,2)</text>
+<text x="1610" y="1005" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">quantity: INT</text>
+<text x="1610" y="1024" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">total_price: DECIMAL(10,2)</text>
+<text x="1610" y="1043" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">product_image: VARCHAR(200)</text>
+<text x="1610" y="1062" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">seller_id: BIGINT</text>
+<text x="1610" y="1081" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">seller_name: VARCHAR(50)</text>
+<text x="1610" y="1100" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">ship_status: TINYINT</text>
+<text x="1610" y="1119" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">created_time: DATETIME</text>
+<rect x="1600" y="1280" width="390" height="251" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="1600" y1="1314" x2="1990" y2="1314" stroke="#000" stroke-width="1"/>
+<text x="1795" y="1302" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">tb_review（评价表）</text>
+<text x="1610" y="1330" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="1610" y="1349" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">product_id: BIGINT</text>
+<text x="1610" y="1368" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">user_id: BIGINT</text>
+<text x="1610" y="1387" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">order_id: BIGINT</text>
+<text x="1610" y="1406" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">order_item_id: BIGINT</text>
+<text x="1610" y="1425" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">rating: INT</text>
+<text x="1610" y="1444" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">content: VARCHAR(500)</text>
+<text x="1610" y="1463" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">images: TEXT</text>
+<text x="1610" y="1482" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">is_anonymous: TINYINT</text>
+<text x="1610" y="1501" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">reply: VARCHAR(500)</text>
+<text x="1610" y="1520" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">created_time: DATETIME</text>
+<rect x="2260" y="420" width="430" height="308" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="2260" y1="454" x2="2690" y2="454" stroke="#000" stroke-width="1"/>
+<text x="2475" y="442" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">tb_coupon（优惠券表）</text>
+<text x="2270" y="470" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="2270" y="489" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">name: VARCHAR(100)</text>
+<text x="2270" y="508" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">description: VARCHAR(500)</text>
+<text x="2270" y="527" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">type: TINYINT</text>
+<text x="2270" y="546" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">discount_amount: DECIMAL(10,2)</text>
+<text x="2270" y="565" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">discount_rate: DECIMAL(3,2)</text>
+<text x="2270" y="584" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">min_amount: DECIMAL(10,2)</text>
+<text x="2270" y="603" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">max_discount: DECIMAL(10,2)</text>
+<text x="2270" y="622" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">total_count: INT</text>
+<text x="2270" y="641" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">claimed_count: INT</text>
+<text x="2270" y="660" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">limit_per_user: INT</text>
+<text x="2270" y="679" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">start_time: DATETIME</text>
+<text x="2270" y="698" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">end_time: DATETIME</text>
+<text x="2270" y="717" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">status: TINYINT</text>
+<rect x="2260" y="860" width="430" height="175" fill="#fff" stroke="#000" stroke-width="1.2"/>
+<line x1="2260" y1="894" x2="2690" y2="894" stroke="#000" stroke-width="1"/>
+<text x="2475" y="882" font-family="Arial, Microsoft YaHei, SimSun" font-size="15" font-weight="bold" text-anchor="middle" text-decoration="underline" fill="#000">tb_user_coupon（用户优惠券表）</text>
+<text x="2270" y="910" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">id: BIGINT</text>
+<text x="2270" y="929" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">user_id: BIGINT</text>
+<text x="2270" y="948" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">coupon_id: BIGINT</text>
+<text x="2270" y="967" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">status: TINYINT</text>
+<text x="2270" y="986" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">order_id: BIGINT</text>
+<text x="2270" y="1005" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">used_time: DATETIME</text>
+<text x="2270" y="1024" font-family="Arial, Microsoft YaHei, SimSun" font-size="13" fill="#000">created_time: DATETIME</text>
+<line x1="288" y1="853" x2="272" y2="853" stroke="#000" stroke-width="1.1"/>
+<line x1="288" y1="859" x2="272" y2="859" stroke="#000" stroke-width="1.1"/>
+<line x1="280" y1="950" x2="280" y2="937" stroke="#000" stroke-width="1.1"/>
+<line x1="280" y1="950" x2="287" y2="937" stroke="#000" stroke-width="1.1"/>
+<line x1="280" y1="950" x2="273" y2="937" stroke="#000" stroke-width="1.1"/>
+<circle cx="280" cy="926" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="288" y="871" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="288" y="932" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="96" y1="778" x2="96" y2="762" stroke="#000" stroke-width="1.1"/>
+<line x1="90" y1="778" x2="90" y2="762" stroke="#000" stroke-width="1.1"/>
+<line x1="80" y1="1370" x2="67" y2="1370" stroke="#000" stroke-width="1.1"/>
+<line x1="80" y1="1370" x2="67" y2="1363" stroke="#000" stroke-width="1.1"/>
+<line x1="80" y1="1370" x2="67" y2="1377" stroke="#000" stroke-width="1.1"/>
+<circle cx="56" cy="1370" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="86" y="764" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="50" y="1364" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="464" y1="662" x2="464" y2="678" stroke="#000" stroke-width="1.1"/>
+<line x1="470" y1="662" x2="470" y2="678" stroke="#000" stroke-width="1.1"/>
+<line x1="960" y1="670" x2="947" y2="670" stroke="#000" stroke-width="1.1"/>
+<line x1="960" y1="670" x2="947" y2="663" stroke="#000" stroke-width="1.1"/>
+<line x1="960" y1="670" x2="947" y2="677" stroke="#000" stroke-width="1.1"/>
+<circle cx="936" cy="670" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="474" y="664" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="930" y="664" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="464" y1="727" x2="464" y2="743" stroke="#000" stroke-width="1.1"/>
+<line x1="470" y1="727" x2="470" y2="743" stroke="#000" stroke-width="1.1"/>
+<line x1="600" y1="985" x2="587" y2="985" stroke="#000" stroke-width="1.1"/>
+<line x1="600" y1="985" x2="587" y2="978" stroke="#000" stroke-width="1.1"/>
+<line x1="600" y1="985" x2="587" y2="992" stroke="#000" stroke-width="1.1"/>
+<circle cx="576" cy="985" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="474" y="729" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="570" y="979" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="464" y1="782" x2="464" y2="798" stroke="#000" stroke-width="1.1"/>
+<line x1="470" y1="782" x2="470" y2="798" stroke="#000" stroke-width="1.1"/>
+<line x1="600" y1="1235" x2="587" y2="1235" stroke="#000" stroke-width="1.1"/>
+<line x1="600" y1="1235" x2="587" y2="1228" stroke="#000" stroke-width="1.1"/>
+<line x1="600" y1="1235" x2="587" y2="1242" stroke="#000" stroke-width="1.1"/>
+<circle cx="576" cy="1235" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="474" y="784" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="570" y="1229" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="464" y1="812" x2="464" y2="828" stroke="#000" stroke-width="1.1"/>
+<line x1="470" y1="812" x2="470" y2="828" stroke="#000" stroke-width="1.1"/>
+<line x1="600" y1="1635" x2="587" y2="1635" stroke="#000" stroke-width="1.1"/>
+<line x1="600" y1="1635" x2="587" y2="1628" stroke="#000" stroke-width="1.1"/>
+<line x1="600" y1="1635" x2="587" y2="1642" stroke="#000" stroke-width="1.1"/>
+<circle cx="576" cy="1635" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="474" y="814" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="570" y="1629" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="272" y1="556" x2="288" y2="556" stroke="#000" stroke-width="1.1"/>
+<line x1="272" y1="550" x2="288" y2="550" stroke="#000" stroke-width="1.1"/>
+<line x1="1820" y1="420" x2="1820" y2="407" stroke="#000" stroke-width="1.1"/>
+<line x1="1820" y1="420" x2="1827" y2="407" stroke="#000" stroke-width="1.1"/>
+<line x1="1820" y1="420" x2="1813" y2="407" stroke="#000" stroke-width="1.1"/>
+<circle cx="1820" cy="396" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="288" y="544" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="1828" y="402" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="464" y1="602" x2="464" y2="618" stroke="#000" stroke-width="1.1"/>
+<line x1="470" y1="602" x2="470" y2="618" stroke="#000" stroke-width="1.1"/>
+<line x1="1820" y1="860" x2="1820" y2="847" stroke="#000" stroke-width="1.1"/>
+<line x1="1820" y1="860" x2="1827" y2="847" stroke="#000" stroke-width="1.1"/>
+<line x1="1820" y1="860" x2="1813" y2="847" stroke="#000" stroke-width="1.1"/>
+<circle cx="1820" cy="836" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="474" y="604" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="1828" y="842" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="96" y1="843" x2="96" y2="827" stroke="#000" stroke-width="1.1"/>
+<line x1="90" y1="843" x2="90" y2="827" stroke="#000" stroke-width="1.1"/>
+<line x1="1795" y1="1531" x2="1795" y2="1544" stroke="#000" stroke-width="1.1"/>
+<line x1="1795" y1="1531" x2="1788" y2="1544" stroke="#000" stroke-width="1.1"/>
+<line x1="1795" y1="1531" x2="1802" y2="1544" stroke="#000" stroke-width="1.1"/>
+<circle cx="1795" cy="1555" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="86" y="829" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="1803" y="1573" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="464" y1="577" x2="464" y2="593" stroke="#000" stroke-width="1.1"/>
+<line x1="470" y1="577" x2="470" y2="593" stroke="#000" stroke-width="1.1"/>
+<line x1="2690" y1="945" x2="2703" y2="945" stroke="#000" stroke-width="1.1"/>
+<line x1="2690" y1="945" x2="2703" y2="952" stroke="#000" stroke-width="1.1"/>
+<line x1="2690" y1="945" x2="2703" y2="938" stroke="#000" stroke-width="1.1"/>
+<circle cx="2714" cy="945" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="474" y="579" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="2720" y="939" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="1188" y1="337" x2="1172" y2="337" stroke="#000" stroke-width="1.1"/>
+<line x1="1188" y1="343" x2="1172" y2="343" stroke="#000" stroke-width="1.1"/>
+<line x1="1180" y1="470" x2="1180" y2="457" stroke="#000" stroke-width="1.1"/>
+<line x1="1180" y1="470" x2="1187" y2="457" stroke="#000" stroke-width="1.1"/>
+<line x1="1180" y1="470" x2="1173" y2="457" stroke="#000" stroke-width="1.1"/>
+<circle cx="1180" cy="446" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="1188" y="355" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="1188" y="452" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="956" y1="768" x2="956" y2="752" stroke="#000" stroke-width="1.1"/>
+<line x1="950" y1="768" x2="950" y2="752" stroke="#000" stroke-width="1.1"/>
+<line x1="880" y1="910" x2="880" y2="897" stroke="#000" stroke-width="1.1"/>
+<line x1="880" y1="910" x2="887" y2="897" stroke="#000" stroke-width="1.1"/>
+<line x1="880" y1="910" x2="873" y2="897" stroke="#000" stroke-width="1.1"/>
+<circle cx="880" cy="886" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="946" y="754" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="888" y="892" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="978" y1="801" x2="962" y2="801" stroke="#000" stroke-width="1.1"/>
+<line x1="978" y1="807" x2="962" y2="807" stroke="#000" stroke-width="1.1"/>
+<line x1="980" y1="1235" x2="967" y2="1235" stroke="#000" stroke-width="1.1"/>
+<line x1="980" y1="1235" x2="967" y2="1228" stroke="#000" stroke-width="1.1"/>
+<line x1="980" y1="1235" x2="967" y2="1242" stroke="#000" stroke-width="1.1"/>
+<circle cx="956" cy="1235" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="978" y="819" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="950" y="1229" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="1188" y1="801" x2="1172" y2="801" stroke="#000" stroke-width="1.1"/>
+<line x1="1188" y1="807" x2="1172" y2="807" stroke="#000" stroke-width="1.1"/>
+<line x1="1180" y1="1180" x2="1180" y2="1167" stroke="#000" stroke-width="1.1"/>
+<line x1="1180" y1="1180" x2="1187" y2="1167" stroke="#000" stroke-width="1.1"/>
+<line x1="1180" y1="1180" x2="1173" y2="1167" stroke="#000" stroke-width="1.1"/>
+<circle cx="1180" cy="1156" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="1188" y="819" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="1188" y="1162" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="956" y1="718" x2="956" y2="702" stroke="#000" stroke-width="1.1"/>
+<line x1="950" y1="718" x2="950" y2="702" stroke="#000" stroke-width="1.1"/>
+<line x1="815" y1="1510" x2="802" y2="1510" stroke="#000" stroke-width="1.1"/>
+<line x1="815" y1="1510" x2="802" y2="1503" stroke="#000" stroke-width="1.1"/>
+<line x1="815" y1="1510" x2="802" y2="1517" stroke="#000" stroke-width="1.1"/>
+<circle cx="791" cy="1510" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="946" y="704" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="785" y="1504" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="1404" y1="752" x2="1404" y2="768" stroke="#000" stroke-width="1.1"/>
+<line x1="1410" y1="752" x2="1410" y2="768" stroke="#000" stroke-width="1.1"/>
+<line x1="1600" y1="995" x2="1600" y2="982" stroke="#000" stroke-width="1.1"/>
+<line x1="1600" y1="995" x2="1607" y2="982" stroke="#000" stroke-width="1.1"/>
+<line x1="1600" y1="995" x2="1593" y2="982" stroke="#000" stroke-width="1.1"/>
+<circle cx="1600" cy="971" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="1414" y="754" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="1608" y="977" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="1404" y1="782" x2="1404" y2="798" stroke="#000" stroke-width="1.1"/>
+<line x1="1410" y1="782" x2="1410" y2="798" stroke="#000" stroke-width="1.1"/>
+<line x1="1600" y1="1320" x2="1587" y2="1320" stroke="#000" stroke-width="1.1"/>
+<line x1="1600" y1="1320" x2="1587" y2="1313" stroke="#000" stroke-width="1.1"/>
+<line x1="1600" y1="1320" x2="1587" y2="1327" stroke="#000" stroke-width="1.1"/>
+<circle cx="1576" cy="1320" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="1414" y="784" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="1570" y="1314" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="1828" y1="713" x2="1812" y2="713" stroke="#000" stroke-width="1.1"/>
+<line x1="1828" y1="719" x2="1812" y2="719" stroke="#000" stroke-width="1.1"/>
+<line x1="1820" y1="860" x2="1820" y2="847" stroke="#000" stroke-width="1.1"/>
+<line x1="1820" y1="860" x2="1827" y2="847" stroke="#000" stroke-width="1.1"/>
+<line x1="1820" y1="860" x2="1813" y2="847" stroke="#000" stroke-width="1.1"/>
+<circle cx="1820" cy="836" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="1828" y="731" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="1828" y="842" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="2044" y1="612" x2="2044" y2="628" stroke="#000" stroke-width="1.1"/>
+<line x1="2050" y1="612" x2="2050" y2="628" stroke="#000" stroke-width="1.1"/>
+<line x1="1990" y1="1400" x2="2003" y2="1400" stroke="#000" stroke-width="1.1"/>
+<line x1="1990" y1="1400" x2="2003" y2="1407" stroke="#000" stroke-width="1.1"/>
+<line x1="1990" y1="1400" x2="2003" y2="1393" stroke="#000" stroke-width="1.1"/>
+<circle cx="2014" cy="1400" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="2054" y="614" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="2020" y="1394" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="2044" y1="542" x2="2044" y2="558" stroke="#000" stroke-width="1.1"/>
+<line x1="2050" y1="542" x2="2050" y2="558" stroke="#000" stroke-width="1.1"/>
+<line x1="2260" y1="945" x2="2247" y2="945" stroke="#000" stroke-width="1.1"/>
+<line x1="2260" y1="945" x2="2247" y2="938" stroke="#000" stroke-width="1.1"/>
+<line x1="2260" y1="945" x2="2247" y2="952" stroke="#000" stroke-width="1.1"/>
+<circle cx="2236" cy="945" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="2054" y="544" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="2230" y="939" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="2256" y1="508" x2="2256" y2="492" stroke="#000" stroke-width="1.1"/>
+<line x1="2250" y1="508" x2="2250" y2="492" stroke="#000" stroke-width="1.1"/>
+<line x1="2040" y1="500" x2="2053" y2="500" stroke="#000" stroke-width="1.1"/>
+<line x1="2040" y1="500" x2="2053" y2="507" stroke="#000" stroke-width="1.1"/>
+<line x1="2040" y1="500" x2="2053" y2="493" stroke="#000" stroke-width="1.1"/>
+<circle cx="2064" cy="500" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="2246" y="494" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="2070" y="494" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+<line x1="2483" y1="732" x2="2467" y2="732" stroke="#000" stroke-width="1.1"/>
+<line x1="2483" y1="738" x2="2467" y2="738" stroke="#000" stroke-width="1.1"/>
+<line x1="2475" y1="860" x2="2475" y2="847" stroke="#000" stroke-width="1.1"/>
+<line x1="2475" y1="860" x2="2482" y2="847" stroke="#000" stroke-width="1.1"/>
+<line x1="2475" y1="860" x2="2468" y2="847" stroke="#000" stroke-width="1.1"/>
+<circle cx="2475" cy="836" r="5" fill="#fff" stroke="#000" stroke-width="1.1"/>
+<text x="2483" y="750" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">1</text>
+<text x="2483" y="842" font-family="Arial, Microsoft YaHei, SimSun" font-size="12" font-weight="bold" fill="#000">N</text>
+</svg>

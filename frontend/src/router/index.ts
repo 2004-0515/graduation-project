@@ -244,13 +244,17 @@ router.beforeEach(async (to, _from, next) => {
       return
     }
 
-    if (!userStore.userInfo || !userStore.userInfo.role) {
-      try {
-        await userStore.fetchCurrentUser()
-      } catch (error) {
-        next({ name: 'login', query: { redirect: to.fullPath } })
-        return
-      }
+    try {
+      await userStore.fetchCurrentUser()
+    } catch (error) {
+      next({ name: 'login', query: { redirect: to.fullPath } })
+      return
+    }
+
+    if (userStore.userInfo?.status === 0) {
+      await userStore.logout()
+      next({ name: 'login', query: { redirect: to.fullPath } })
+      return
     }
     
     // 检查管理员权限

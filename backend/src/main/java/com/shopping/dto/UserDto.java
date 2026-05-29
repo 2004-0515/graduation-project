@@ -28,6 +28,8 @@ public class UserDto {
     private String avatar;
 
     private String role;
+
+    private Integer status;
     
     // 以下字段存在于数据库但前端已不再使用（会员系统功能已移除）
     private Integer points;
@@ -103,6 +105,14 @@ public class UserDto {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public Integer getStatus() {
+        return status;
+    }
+
+    public void setStatus(Integer status) {
+        this.status = status;
     }
 
     public Integer getPoints() {

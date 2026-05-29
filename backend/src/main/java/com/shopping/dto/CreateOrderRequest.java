@@ -3,6 +3,7 @@ package com.shopping.dto;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.Valid;
 
 /**
  * 创建订单请求DTO
@@ -16,7 +17,7 @@ public class CreateOrderRequest {
     private Integer paymentMethod;
 
     @NotEmpty(message = "商品列表不能为空")
-    private java.util.List<OrderItemRequest> items;
+    private java.util.List<@Valid OrderItemRequest> items;
 
     private String remark;
     

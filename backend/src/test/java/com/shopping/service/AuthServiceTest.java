@@ -171,6 +171,22 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("登录失败 - 禁用用户不能获取令牌")
+    void login_WithDisabledUser_ShouldThrowAuthenticationException() {
+        testUser.setStatus(0);
+        when(userRepository.findByUsername("testuser")).thenReturn(testUser);
+
+        com.shopping.exception.AuthenticationException exception = assertThrows(
+                com.shopping.exception.AuthenticationException.class,
+                () -> authService.login("testuser", "password")
+        );
+
+        assertEquals("账号已被禁用，请联系管理员", exception.getMessage());
+        verify(authenticationManager, never()).authenticate(any(UsernamePasswordAuthenticationToken.class));
+        verify(jwtUtil, never()).generateToken(anyString());
+    }
+
+    @Test
     @DisplayName("修改密码成功")
     void changePassword_WithValidData_ShouldSucceed() {
         // Arrange

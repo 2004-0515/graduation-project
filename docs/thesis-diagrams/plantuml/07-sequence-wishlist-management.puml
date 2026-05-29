@@ -1,0 +1,80 @@
+@startuml
+!include common-sequence-style.pumlinc
+
+title 图4.8 心愿单管理时序图
+
+actor "用户" as User
+participant "<u>:ProductDetailView</u>" as ProductDetailView
+participant "<u>:RationalConsumptionView</u>" as RationalView
+participant "<u>:RationalConsumptionController</u>" as RationalController
+participant "<u>:RationalConsumptionService</u>" as RationalService
+participant "<u>:WishlistRepository</u>" as WishlistRepository
+
+autonumber 1
+
+User -> ProductDetailView : 打开商品详情页
+activate ProductDetailView
+ProductDetailView -> RationalController : 请求重复购买检查
+activate RationalController
+RationalController -> RationalService : 检查重复购买记录
+activate RationalService
+deactivate RationalService
+RationalController --> ProductDetailView : 返回提示信息
+deactivate RationalController
+
+User -> ProductDetailView : 确认加入心愿单
+ProductDetailView -> RationalController : 提交加入心愿单请求
+activate RationalController
+RationalController -> RationalService : 创建冷静期记录
+activate RationalService
+RationalService -> WishlistRepository : 查询活动清单记录
+activate WishlistRepository
+deactivate WishlistRepository
+alt 已存在活动记录
+  RationalController --> ProductDetailView : 提示重复加入
+else 可创建新记录
+  RationalService -> WishlistRepository : 保存冷静期记录
+  activate WishlistRepository
+  deactivate WishlistRepository
+  RationalController --> ProductDetailView : 返回加入成功
+end
+deactivate RationalService
+deactivate RationalController
+ProductDetailView --> User : 显示加入结果
+deactivate ProductDetailView
+
+User -> RationalView : 查看心愿单
+activate RationalView
+RationalView -> RationalController : 请求心愿单列表
+activate RationalController
+RationalController -> RationalService : 刷新冷静期并查询清单
+activate RationalService
+RationalService -> WishlistRepository : 更新可购买状态并查询清单
+activate WishlistRepository
+deactivate WishlistRepository
+deactivate RationalService
+RationalController --> RationalView : 返回冷静中/可购买列表
+deactivate RationalController
+RationalView --> User : 显示剩余时间或购买入口
+
+User -> RationalView : 选择清单项操作
+alt 移除清单项
+  RationalView -> RationalController : 请求移除清单项
+activate RationalController
+  RationalController -> RationalService : 标记为已移除
+activate RationalService
+  deactivate RationalService
+  RationalController --> RationalView : 返回处理结果
+  deactivate RationalController
+else 标记已购买并前往商品页
+  RationalView -> RationalController : 请求标记已购买
+  activate RationalController
+  RationalController -> RationalService : 标记为已购买
+  activate RationalService
+deactivate RationalService
+  RationalController --> RationalView : 返回处理结果
+deactivate RationalController
+end
+RationalView --> User : 刷新清单或跳转商品详情页
+deactivate RationalView
+@enduml

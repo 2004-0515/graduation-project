@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Auto Login</title>
+</head>
+<body>
+  <p>Logging in...</p>
+  <script>
+    localStorage.setItem('token', 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjaGVubW8iLCJpYXQiOjE3NzkzODUzNTYsImV4cCI6MTc3OTQ3MTc1Nn0.gBW0tzjeSMrGXPRB72sqQFDP09fihoS79oD7dyqg1WU');
+    localStorage.setItem('userInfo', JSON.stringify({"id":7,"username":"chenmo","email":"chenmo@shionmall.com","phone":"13800138006","nickname":"陈默","bio":"侧重理性消费与预算管理。","avatar":null,"role":"BUYER","points":629,"growthValue":306,"memberDays":98,"createdTime":"2026-02-06T03:00:00","updatedTime":"2026-05-22T01:42:37","lastLoginTime":"2026-05-22T01:42:37"}));
+    window.location.href = 'http://127.0.0.1:5179/rational-consumption';
+  </script>
+</body>
+</html>

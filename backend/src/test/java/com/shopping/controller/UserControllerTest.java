@@ -174,4 +174,62 @@ class UserControllerTest {
 
         verify(userService).updateUserRole(1L, "SELLER");
     }
+
+    @Test
+    void updateUserRole_WhenAdminTargetsSelf_ShouldRejectDowngrade() throws Exception {
+        setAuthenticatedUser("admin");
+
+        User admin = new User();
+        admin.setId(7L);
+        admin.setUsername("admin");
+        admin.setRole("ADMIN");
+        when(userService.findByUsername("admin")).thenReturn(admin);
+
+        mockMvc.perform(put("/users/7/role")
+                        .contentType("application/json")
+                        .content("{\"role\":\"SELLER\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(422))
+                .andExpect(jsonPath("$.message").value("不能调整当前登录管理员自己的角色"));
+
+        verify(userService, never()).updateUserRole(eq(7L), eq("SELLER"));
+    }
+
+    @Test
+    void updateUserStatus_WhenAdminDisablesSelf_ShouldReject() throws Exception {
+        setAuthenticatedUser("admin");
+
+        User admin = new User();
+        admin.setId(7L);
+        admin.setUsername("admin");
+        admin.setRole("ADMIN");
+        when(userService.findByUsername("admin")).thenReturn(admin);
+
+        mockMvc.perform(put("/users/7/status")
+                        .contentType("application/json")
+                        .content("{\"status\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(422))
+                .andExpect(jsonPath("$.message").value("不能禁用当前登录的管理员账号"));
+
+        verify(userService, never()).updateUserStatus(eq(7L), eq(0));
+    }
+
+    @Test
+    void deleteUser_WhenAdminDeletesSelf_ShouldReject() throws Exception {
+        setAuthenticatedUser("admin");
+
+        User admin = new User();
+        admin.setId(7L);
+        admin.setUsername("admin");
+        admin.setRole("ADMIN");
+        when(userService.findByUsername("admin")).thenReturn(admin);
+
+        mockMvc.perform(delete("/users/7"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(422))
+                .andExpect(jsonPath("$.message").value("不能删除当前登录的管理员账号"));
+
+        verify(userService, never()).deleteUserById(eq(7L));
+    }
 }

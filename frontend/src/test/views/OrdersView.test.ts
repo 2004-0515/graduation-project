@@ -3,7 +3,7 @@ import { config, flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Order } from '@/types'
 
-const { mockPush, mockRoute, orderApi, reviewApi, messages, debugError } = vi.hoisted(() => ({
+const { mockPush, mockRoute, orderApi, reviewApi, fileApi, messages, debugError } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockRoute: {
     query: {
@@ -19,6 +19,10 @@ const { mockPush, mockRoute, orderApi, reviewApi, messages, debugError } = vi.ho
   },
   reviewApi: {
     createReview: vi.fn()
+  },
+  fileApi: {
+    getImageUrl: vi.fn(() => '/img.png'),
+    uploadReviewImage: vi.fn()
   },
   debugError: vi.fn(),
   messages: {
@@ -46,9 +50,7 @@ vi.mock('@/api/reviewApi', () => ({
 }))
 
 vi.mock('@/api/fileApi', () => ({
-  default: {
-    getImageUrl: vi.fn(() => '/img.png')
-  }
+  default: fileApi
 }))
 
 vi.mock('@/utils/debug', () => ({
@@ -238,6 +240,7 @@ describe('OrdersView', () => {
     await flushPromises()
 
     await wrapper.findAll('.star')[4].trigger('click')
+    ;(wrapper.vm as any).reviewForm.content = '商品体验很好'
     await wrapper.findAll('button').find((button) => button.text() === '提交评价')!.trigger('click')
     await flushPromises()
 
@@ -245,6 +248,158 @@ describe('OrdersView', () => {
     expect(orderApi.getUserOrders.mock.calls.length).toBeGreaterThanOrEqual(2)
     expect(messages.success).toHaveBeenCalledWith('评价提交成功')
     expect(wrapper.text()).toContain('已评价')
+  })
+
+  it('stages review images locally and does not submit review while selecting files', async () => {
+    mockRoute.query.status = '3'
+    orderApi.getUserOrders.mockResolvedValue({
+      code: 200,
+      data: [buildOrder({ id: 1, orderStatus: 3, orderStatusName: '已完成' })]
+    })
+    const originalCreateObjectURL = URL.createObjectURL
+    const originalRevokeObjectURL = URL.revokeObjectURL
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:review-image')
+    })
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn()
+    })
+
+    try {
+      const wrapper = mount(OrdersView, {
+        global: {
+          stubs: {
+            Navbar: true,
+            Footer: true,
+            RouterLink: true,
+            ElPagination: true,
+            ElDialog: {
+              template: '<div><slot /><slot name="footer" /></div>'
+            },
+            ElInput: true,
+            ElCheckbox: true,
+            ElButton: {
+              template: '<button @click="$emit(\'click\')"><slot /></button>'
+            }
+          }
+        }
+      })
+
+      await flushPromises()
+      const order = (wrapper.vm as any).orders[0]
+      ;(wrapper.vm as any).openReviewDialog(order, order.items[0])
+
+      const file = new File(['review-image'], 'review.png', { type: 'image/png' })
+      ;(wrapper.vm as any).handleReviewImageSelected({ raw: file })
+      await flushPromises()
+
+      expect((wrapper.vm as any).reviewImageDrafts).toHaveLength(1)
+      expect(fileApi.uploadReviewImage).not.toHaveBeenCalled()
+      expect(reviewApi.createReview).not.toHaveBeenCalled()
+      expect(messages.success).not.toHaveBeenCalledWith('评价提交成功')
+    } finally {
+      Object.defineProperty(URL, 'createObjectURL', {
+        configurable: true,
+        value: originalCreateObjectURL
+      })
+      Object.defineProperty(URL, 'revokeObjectURL', {
+        configurable: true,
+        value: originalRevokeObjectURL
+      })
+    }
+  })
+
+  it('uploads staged review images only when submitting the review', async () => {
+    mockRoute.query.status = '3'
+    const reviewedOrder = buildOrder({
+      id: 1,
+      orderStatus: 3,
+      orderStatusName: '已完成',
+      items: [
+        {
+          ...buildOrder().items[0],
+          reviewed: true
+        }
+      ]
+    })
+    orderApi.getUserOrders
+      .mockResolvedValueOnce({
+        code: 200,
+        data: [buildOrder({ id: 1, orderStatus: 3, orderStatusName: '已完成' })]
+      })
+      .mockResolvedValue({
+        code: 200,
+        data: [reviewedOrder]
+      })
+    fileApi.uploadReviewImage.mockResolvedValue({
+      code: 200,
+      data: '/uploads/reviews/2026/05/review.png'
+    })
+    reviewApi.createReview.mockResolvedValue({ code: 200 })
+    const originalCreateObjectURL = URL.createObjectURL
+    const originalRevokeObjectURL = URL.revokeObjectURL
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:review-image')
+    })
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn()
+    })
+
+    try {
+      const wrapper = mount(OrdersView, {
+        global: {
+          stubs: {
+            Navbar: true,
+            Footer: true,
+            RouterLink: true,
+            ElPagination: true,
+            ElDialog: {
+              template: '<div><slot /><slot name="footer" /></div>'
+            },
+            ElInput: true,
+            ElCheckbox: true,
+            ElButton: {
+              template: '<button @click="$emit(\'click\')"><slot /></button>'
+            }
+          }
+        }
+      })
+
+      await flushPromises()
+      const order = (wrapper.vm as any).orders[0]
+      ;(wrapper.vm as any).openReviewDialog(order, order.items[0])
+      ;(wrapper.vm as any).reviewForm.content = '  带图评价很好  '
+
+      const file = new File(['review-image'], 'review.png', { type: 'image/png' })
+      ;(wrapper.vm as any).handleReviewImageSelected({ raw: file })
+      await flushPromises()
+
+      await (wrapper.vm as any).submitReview()
+      await flushPromises()
+
+      expect(fileApi.uploadReviewImage).toHaveBeenCalledTimes(1)
+      expect(reviewApi.createReview).toHaveBeenCalledWith(expect.objectContaining({
+        content: '带图评价很好',
+        images: ['/uploads/reviews/2026/05/review.png']
+      }))
+      expect(fileApi.uploadReviewImage.mock.invocationCallOrder[0]).toBeLessThan(
+        reviewApi.createReview.mock.invocationCallOrder[0]
+      )
+      expect(messages.success).toHaveBeenCalledWith('评价提交成功')
+    } finally {
+      Object.defineProperty(URL, 'createObjectURL', {
+        configurable: true,
+        value: originalCreateObjectURL
+      })
+      Object.defineProperty(URL, 'revokeObjectURL', {
+        configurable: true,
+        value: originalRevokeObjectURL
+      })
+    }
   })
 
   it('shows backend message when loading orders returns non-200', async () => {
@@ -317,7 +472,7 @@ describe('OrdersView', () => {
       code: 200,
       data: [buildOrder({ id: 1, orderStatus: 3, orderStatusName: '已完成' })]
     })
-    reviewApi.createReview.mockResolvedValue({ code: 422, message: '评价内容不能为空' })
+    reviewApi.createReview.mockResolvedValue({ code: 422, message: '评价服务暂不可用' })
 
     const wrapper = mount(OrdersView, {
       global: {
@@ -342,11 +497,51 @@ describe('OrdersView', () => {
 
     await wrapper.findAll('button').find((button) => button.text() === '去评价')!.trigger('click')
     await flushPromises()
+    ;(wrapper.vm as any).reviewForm.content = '触发后端评价异常'
     await wrapper.findAll('button').find((button) => button.text() === '提交评价')!.trigger('click')
     await flushPromises()
 
-    expect(messages.error).toHaveBeenCalledWith('评价内容不能为空')
-    expect(debugError).toHaveBeenCalledWith('提交评价失败:', '评价内容不能为空')
+    expect(messages.error).toHaveBeenCalledWith('评价服务暂不可用')
+    expect(debugError).toHaveBeenCalledWith('提交评价失败:', '评价服务暂不可用')
+  })
+
+  it('blocks empty review content before uploading images or submitting review', async () => {
+    mockRoute.query.status = '3'
+    orderApi.getUserOrders.mockResolvedValue({
+      code: 200,
+      data: [buildOrder({ id: 1, orderStatus: 3, orderStatusName: '已完成' })]
+    })
+
+    const wrapper = mount(OrdersView, {
+      global: {
+        stubs: {
+          Navbar: true,
+          Footer: true,
+          RouterLink: true,
+          ElPagination: true,
+          ElDialog: {
+            template: '<div><slot /><slot name="footer" /></div>'
+          },
+          ElInput: true,
+          ElCheckbox: true,
+          ElButton: {
+            template: '<button @click="$emit(\'click\')"><slot /></button>'
+          }
+        }
+      }
+    })
+
+    await flushPromises()
+    const order = (wrapper.vm as any).orders[0]
+    ;(wrapper.vm as any).openReviewDialog(order, order.items[0])
+    ;(wrapper.vm as any).reviewForm.content = '   '
+
+    await (wrapper.vm as any).submitReview()
+    await flushPromises()
+
+    expect(messages.warning).toHaveBeenCalledWith('请填写评价内容')
+    expect(fileApi.uploadReviewImage).not.toHaveBeenCalled()
+    expect(reviewApi.createReview).not.toHaveBeenCalled()
   })
 
   it('logs backend message when cancel order returns non-200', async () => {
@@ -576,6 +771,7 @@ describe('OrdersView', () => {
     await flushPromises()
     await wrapper.findAll('button').find((button) => button.text() === '去评价')!.trigger('click')
     await flushPromises()
+    ;(wrapper.vm as any).reviewForm.content = '评价后刷新失败也保持成功'
     await wrapper.findAll('button').find((button) => button.text() === '提交评价')!.trigger('click')
     await flushPromises()
 
@@ -749,6 +945,7 @@ describe('OrdersView', () => {
     ;(wrapper.vm as any).orders = [buildOrder({ id: 1, orderStatus: 3, orderStatusName: '已完成' })]
     ;(wrapper.vm as any).currentReviewOrder = (wrapper.vm as any).orders[0]
     ;(wrapper.vm as any).currentReviewItem = (wrapper.vm as any).orders[0].items[0]
+    ;(wrapper.vm as any).reviewForm.content = '并发刷新时保持评价状态'
 
     const reviewPromise = (wrapper.vm as any).submitReview()
     await flushPromises()

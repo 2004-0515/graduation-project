@@ -1,5 +1,6 @@
 package com.shopping.service;
 
+import com.shopping.constants.AuditConstants;
 import com.shopping.constants.OrderConstants;
 import com.shopping.constants.ProductConstants;
 import com.shopping.dto.*;
@@ -129,6 +130,10 @@ public class OrderService {
     public OrderDto createOrder(String username, CreateOrderRequest request) {
         logger.info("Creating order for user: {}", username);
 
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new ValidationException("商品列表不能为空");
+        }
+
         User user = userService.getUserByUsername(username);
         Address address = addressService.getAddressById(request.getAddressId());
 
@@ -149,11 +154,12 @@ public class OrderService {
         // 计算总金额并创建订单项
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (CreateOrderRequest.OrderItemRequest itemRequest : request.getItems()) {
+            validateOrderItemRequest(itemRequest);
             Product product = productService.getProductById(itemRequest.getProductId());
-
-            // 验证商品状态和库存
-            if (!ProductConstants.Status.isAvailable(product.getStatus())) {
-                throw new ValidationException("商品[" + product.getName() + "]已下架，当前不可购买");
+            // 验证商品状态、审核状态和库存
+            requirePurchasableProduct(product, itemRequest.getProductId(), "当前不可购买");
+            if (product.getSellerId() != null && product.getSellerId().equals(user.getId())) {
+                throw new ValidationException("不能购买自己发布的商品");
             }
             if (itemRequest.getQuantity() > product.getStock()) {
                 throw new ValidationException("商品[" + product.getName() + "]库存不足");
@@ -183,6 +189,32 @@ public class OrderService {
 
         logger.info("Order created successfully: {}", savedOrder.getOrderNo());
         return convertToDto(savedOrder);
+    }
+
+    private void validateOrderItemRequest(CreateOrderRequest.OrderItemRequest itemRequest) {
+        if (itemRequest == null) {
+            throw new ValidationException("订单商品不能为空");
+        }
+        if (itemRequest.getProductId() == null) {
+            throw new ValidationException("商品ID不能为空");
+        }
+        if (itemRequest.getQuantity() == null || itemRequest.getQuantity() <= 0) {
+            throw new ValidationException("数量至少为1");
+        }
+    }
+
+    private void requirePurchasableProduct(Product product, Long productId, String actionText) {
+        if (product == null) {
+            throw new ResourceNotFoundException("商品", productId);
+        }
+
+        String productName = product.getName() != null ? product.getName() : String.valueOf(productId);
+        if (!Integer.valueOf(ProductConstants.Status.ON_SHELF).equals(product.getStatus())) {
+            throw new ValidationException("商品[" + productName + "]已下架，" + actionText);
+        }
+        if (!Integer.valueOf(AuditConstants.AuditStatus.APPROVED).equals(product.getAuditStatus())) {
+            throw new ValidationException("商品[" + productName + "]未通过审核，" + actionText);
+        }
     }
     
     /**
@@ -487,6 +519,11 @@ public class OrderService {
         
         // 扣减库存
         for (OrderItem item : order.getItems()) {
+            if (item.getQuantity() == null || item.getQuantity() <= 0) {
+                throw new ValidationException("订单商品数量无效");
+            }
+            Product latestProduct = productService.getProductById(item.getProduct().getId());
+            requirePurchasableProduct(latestProduct, item.getProduct().getId(), "无法支付");
             productService.reduceStock(item.getProduct().getId(), item.getQuantity());
         }
         

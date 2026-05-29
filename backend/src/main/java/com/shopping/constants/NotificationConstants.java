@@ -14,6 +14,7 @@ public final class NotificationConstants {
     public static final class NotificationType {
         public static final String SYSTEM = "system";           // 系统通知
         public static final String PROMOTION = "promotion";     // 促销通知
+        public static final String PRICE_ALERT = "price_alert"; // 价格提醒
         public static final String ORDER = "order";             // 订单通知
         public static final String FILE_REVIEW = "file_review"; // 文件审核通知
         public static final String PRODUCT = "product";         // 商品通知

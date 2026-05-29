@@ -20,7 +20,18 @@
           </button>
         </div>
         
-        <div class="product-layout">
+        <div v-if="loadingProduct" class="product-empty-state glass-card" data-testid="product-detail-loading">
+          <h1>商品加载中</h1>
+          <p>正在获取最新商品信息。</p>
+        </div>
+
+        <div v-else-if="productUnavailable" class="product-empty-state glass-card" data-testid="product-unavailable">
+          <h1>商品暂不可查看</h1>
+          <p>该商品可能已下架、待审核或不存在，请返回商品列表选择其他商品。</p>
+          <button class="btn btn-primary" @click="router.push('/category')">返回商品列表</button>
+        </div>
+
+        <div v-else class="product-layout">
           <!-- 图片区 -->
           <div class="gallery glass-card">
             <div class="main-img">
@@ -168,15 +179,15 @@
                   <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
                 </svg>
                 <span>{{ isInWishlist ? '已在想要清单' : '加入想要清单' }}</span>
-                <span class="wishlist-tip" v-if="!isInWishlist">设置冷静期，避免冲动消费</span>
+                <span class="wishlist-tip" v-if="!isInWishlist">设置冷静期，先记录再决定是否购买</span>
                 <span class="wishlist-tip" v-else>点击查看清单</span>
               </button>
             </div>
 
             <div class="service-row">
-              <span>正品保障</span>
-              <span>7天无理由</span>
-              <span>极速发货</span>
+              <span>价格走势</span>
+              <span>降价提醒</span>
+              <span>想要清单</span>
             </div>
             
             <!-- 重复购买提醒 -->
@@ -209,7 +220,7 @@
           <div class="tab-content">
             <div v-if="tab === 'detail'" class="detail-content">
               <h3>{{ product.name }}</h3>
-              <p>{{ product.description || '优质商品，品质保证' }}</p>
+              <p>{{ product.description || '可查看商品信息、价格记录与理性消费辅助信息。' }}</p>
             </div>
             <div v-else-if="tab === 'spec'" class="spec-content">
               <table>
@@ -365,7 +376,7 @@
                 {{ d }}天
               </button>
             </div>
-            <p class="cooling-tip">冷静期内无法购买，帮助您避免冲动消费</p>
+            <p class="cooling-tip">冷静期内先保留在清单中，结束后可继续前往购买</p>
           </div>
           <div class="reason-input">
             <span class="label">想要原因（选填）</span>
@@ -423,6 +434,8 @@ const cartStore = useCartStore()
 const userStore = useUserStore()
 
 const product = ref<any>({})
+const loadingProduct = ref(true)
+const productUnavailable = ref(false)
 const quantity = ref(1)
 const tab = ref('detail')
 const currentImage = ref('')
@@ -658,24 +671,36 @@ const buildReviewStatsFromList = (reviewList: any[]) => {
   }
 }
 
-const fetchProduct = async () => {
+const fetchProduct = async (): Promise<boolean> => {
   const requestId = ++latestProductRequestId
+  loadingProduct.value = true
+  productUnavailable.value = false
   try {
     const res: any = await productApi.getProductById(Number(route.params.id))
     if (requestId !== latestProductRequestId) {
-      return
+      return false
     }
     if (res?.code === 200) {
       product.value = res.data
       product.value.images = parseProductImages(product.value.images, product.value.mainImage)
       currentImage.value = product.value.images[0] || getImageUrl(product.value.mainImage)
+      return true
     }
+    productUnavailable.value = true
+    debugLog('商品暂不可查看', res?.message || '商品详情返回异常')
+    return false
   } catch (error) {
     if (requestId !== latestProductRequestId) {
-      return
+      return false
     }
+    productUnavailable.value = true
     debugError('获取商品信息失败', error)
     ElMessage.error(getErrorMessage(error, '获取商品信息失败'))
+    return false
+  } finally {
+    if (requestId === latestProductRequestId) {
+      loadingProduct.value = false
+    }
   }
 }
 
@@ -1237,6 +1262,8 @@ const handleResize = () => {
 
 const resetProductDetailPageState = () => {
   product.value = {}
+  loadingProduct.value = true
+  productUnavailable.value = false
   quantity.value = 1
   tab.value = 'detail'
   currentImage.value = ''
@@ -1262,9 +1289,12 @@ const resetProductDetailPageState = () => {
   }
 }
 
-const reloadProductDetailFromRoute = () => {
+const reloadProductDetailFromRoute = async () => {
   resetProductDetailPageState()
-  fetchProduct()
+  const productReady = await fetchProduct()
+  if (!productReady) {
+    return
+  }
   fetchReviews()
   fetchPriceHistory()
   fetchPriceAlert()
@@ -1343,16 +1373,35 @@ onUnmounted(() => {
 
 .main { position: relative; z-index: 1; padding: 100px 0 60px; }
 
+.product-empty-state {
+  width: min(720px, 100%);
+  margin: 40px auto 80px;
+  padding: 44px 36px;
+  text-align: center;
+}
+.product-empty-state h1 {
+  margin: 0 0 12px;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.product-empty-state p {
+  margin: 0 auto 24px;
+  max-width: 480px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
 .product-layout { display: grid; grid-template-columns: minmax(300px, 480px) 1fr; gap: 48px; margin-bottom: 48px; align-items: start; }
 
 /* Gallery */
 .gallery { padding: 24px; max-width: 480px; overflow: hidden; }
 .main-img { width: 100%; max-width: 432px; max-height: 432px; aspect-ratio: 1; border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; background: rgba(255,255,255,0.5); }
-.main-img img { width: 100%; height: 100%; object-fit: contain; }
+.main-img img { width: 100%; height: 100%; object-fit: contain; background: #f7f5f1; display: block; }
 .thumb-list { display: flex; gap: 12px; }
-.thumb { width: 72px; height: 72px; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: all 0.3s; }
+.thumb { width: 72px; height: 72px; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: all 0.3s; background: #f7f5f1; }
 .thumb:hover, .thumb.active { border-color: var(--primary); }
-.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* Info */
 .info-panel h1 { font-size: 2rem; font-weight: 500; margin: 0 0 12px; }

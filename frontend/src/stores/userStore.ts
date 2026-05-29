@@ -243,10 +243,13 @@ export const useUserStore = defineStore('user', {
         }
         const errorMessage = error instanceof Error ? error.message : '获取用户信息失败'
         this.error = errorMessage
+        if (typeof error === 'object' && error !== null && (error as { code?: number }).code === 401) {
+          clearSessionState(this)
+        }
         debugError('获取当前用户信息失败', error)
         throw error
       } finally {
-        if (requestId === latestFetchCurrentUserRequestId) {
+        if (requestId === latestFetchCurrentUserRequestId || !this.token) {
           this.loading = false
         }
       }

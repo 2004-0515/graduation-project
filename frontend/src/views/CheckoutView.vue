@@ -460,8 +460,28 @@ const loadOrderItems = async () => {
 }
 
 const submitOrder = async () => {
+  if (submitting.value) {
+    return
+  }
+
+  submitting.value = true
+
   if (!selectedAddress.value) {
     ElMessage.warning('请选择收货地址')
+    submitting.value = false
+    return
+  }
+
+  if (orderItems.value.length === 0) {
+    ElMessage.warning('当前没有可结算商品')
+    submitting.value = false
+    return
+  }
+
+  const invalidItem = orderItems.value.find((item) => Number(item.quantity || 0) <= 0)
+  if (invalidItem) {
+    ElMessage.error('商品数量必须大于0')
+    submitting.value = false
     return
   }
 
@@ -471,6 +491,7 @@ const submitOrder = async () => {
     if (ownProducts.length > 0) {
       ElMessage.error('不能购买自己发布的商品')
       setTimeout(() => router.push('/cart'), 1500)
+      submitting.value = false
       return
     }
   }
@@ -489,11 +510,11 @@ const submitOrder = async () => {
       )
     } catch {
       ElMessage.info('已取消提交订单')
+      submitting.value = false
       return
     }
   }
 
-  submitting.value = true
   try {
     const orderData: any = {
       addressId: selectedAddress.value,

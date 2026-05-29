@@ -103,11 +103,14 @@ public class UserController {
      * @return 操作结果
      */
     @PutMapping("/{id}/status")
-    public Response<String> updateUserStatus(@PathVariable Long id, @RequestBody java.util.Map<String, Integer> body) {
+    public Response<User> updateUserStatus(@PathVariable Long id, @RequestBody java.util.Map<String, Integer> body) {
         AdminUtils.requireAdmin();
         Integer status = body.get("status");
-        userService.updateUserStatus(id, status);
-        return Response.success("用户状态更新成功");
+        if (status != null && status == 0) {
+            ensureNotCurrentUser(id, "不能禁用当前登录的管理员账号");
+        }
+        User updatedUser = userService.updateUserStatus(id, status);
+        return Response.success("用户状态更新成功", updatedUser);
     }
 
     /**
@@ -116,7 +119,12 @@ public class UserController {
     @PutMapping("/{id}/role")
     public Response<User> updateUserRole(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
         AdminUtils.requireAdmin();
-        User updatedUser = userService.updateUserRole(id, body.get("role"));
+        String role = body.get("role");
+        String normalizedRole = com.shopping.constants.UserRole.normalize(role);
+        if (!com.shopping.constants.UserRole.ADMIN.equals(normalizedRole)) {
+            ensureNotCurrentUser(id, "不能调整当前登录管理员自己的角色");
+        }
+        User updatedUser = userService.updateUserRole(id, role);
         return Response.success("用户角色更新成功", updatedUser);
     }
     
@@ -128,6 +136,7 @@ public class UserController {
     @DeleteMapping("/{id}")
     public Response<String> deleteUser(@PathVariable Long id) {
         AdminUtils.requireAdmin();
+        ensureNotCurrentUser(id, "不能删除当前登录的管理员账号");
         userService.deleteUserById(id);
         return Response.success("用户删除成功");
     }
@@ -150,6 +159,14 @@ public class UserController {
             return Response.success("账号删除成功");
         } else {
             return Response.fail(404, "用户不存在");
+        }
+    }
+
+    private void ensureNotCurrentUser(Long targetUserId, String message) {
+        String username = SecurityUtils.getCurrentUsername();
+        User currentUser = username != null ? userService.findByUsername(username) : null;
+        if (currentUser != null && currentUser.getId() != null && currentUser.getId().equals(targetUserId)) {
+            throw new com.shopping.exception.ValidationException(message);
         }
     }
 }

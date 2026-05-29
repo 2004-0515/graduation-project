@@ -112,6 +112,23 @@ class OrderControllerFlowTest {
     }
 
     @Test
+    @DisplayName("创建订单商品数量为0时返回400且不进入服务层")
+    void createOrder_WhenItemQuantityIsZero_ShouldReturn400() throws Exception {
+        setAuthenticatedUser("buyer");
+        CreateOrderRequest request = buildCreateOrderRequest();
+        request.getItems().get(0).setQuantity(0);
+
+        mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.data['items[0].quantity']").isNotEmpty());
+
+        verify(orderService, never()).createOrder(eq("buyer"), org.mockito.ArgumentMatchers.any(CreateOrderRequest.class));
+    }
+
+    @Test
     @DisplayName("用户可获取订单详情")
     void getOrderById_ShouldReturnOrder() throws Exception {
         setAuthenticatedUser("buyer");

@@ -57,20 +57,20 @@ const categories = [
   { id: 'order', name: '订单相关' },
   { id: 'payment', name: '支付相关' },
   { id: 'shipping', name: '配送相关' },
-  { id: 'return', name: '退换货' }
+  { id: 'support', name: '订单协助' }
 ]
 
 const faqs = ref([
   { id: 1, category: 'account', question: '如何注册账号？', answer: '点击页面右上角的"登录"按钮，然后选择"注册"，填写用户名、邮箱和密码即可完成注册。', expanded: false },
-  { id: 2, category: 'account', question: '忘记密码怎么办？', answer: '在登录页面点击"忘记密码"，输入注册时使用的邮箱，我们会发送重置密码的链接到您的邮箱。', expanded: false },
+  { id: 2, category: 'account', question: '密码怎么修改？', answer: '登录后进入“设置”页面，填写当前密码和新密码即可完成修改。当前版本未提供邮箱找回密码流程。', expanded: false },
   { id: 3, category: 'order', question: '如何查看我的订单？', answer: '登录后，点击右上角头像进入个人中心，选择"我的订单"即可查看所有订单记录。', expanded: false },
-  { id: 4, category: 'order', question: '订单可以取消吗？', answer: '未发货的订单可以取消，在订单详情页点击"取消订单"按钮即可。已发货的订单需要等收到货后申请退货。', expanded: false },
+  { id: 4, category: 'order', question: '订单可以取消吗？', answer: '未支付订单可直接取消；已支付但仍处于待发货状态的订单，可以提交取消申请并等待管理员审核。', expanded: false },
   { id: 5, category: 'payment', question: '支持哪些支付方式？', answer: '目前支持微信支付和支付宝两种支付方式，后续会增加更多支付渠道。', expanded: false },
   { id: 6, category: 'payment', question: '支付失败怎么办？', answer: '请检查网络连接和支付账户余额，如果问题持续存在，请联系客服处理。', expanded: false },
   { id: 7, category: 'shipping', question: '配送需要多长时间？', answer: '一般情况下，订单会在1-3个工作日内发货，配送时间根据地区不同约2-7天。', expanded: false },
-  { id: 8, category: 'shipping', question: '可以修改收货地址吗？', answer: '未发货的订单可以修改收货地址，请在订单详情页操作或联系客服修改。', expanded: false },
-  { id: 9, category: 'return', question: '如何申请退货？', answer: '收到商品后7天内可申请退货，在订单详情页点击"申请退货"，填写退货原因后等待审核。', expanded: false },
-  { id: 10, category: 'return', question: '退款多久到账？', answer: '退货审核通过后，退款会在3-7个工作日内原路返回到您的支付账户。', expanded: false }
+  { id: 8, category: 'shipping', question: '可以修改收货地址吗？', answer: '下单前可在地址管理页维护收货地址；订单提交后若仍需协助，请通过联系页面留言，由平台人工跟进。', expanded: false },
+  { id: 9, category: 'support', question: '订单问题怎么联系平台处理？', answer: '可进入“联系我们”页面提交留言，说明订单号、问题描述和联系方式，管理员会在后台查看并人工跟进。', expanded: false },
+  { id: 10, category: 'support', question: '提交取消申请后怎么看进度？', answer: '取消申请提交成功后，订单状态会显示为“申请取消中”，审核结果会通过订单状态和站内通知同步。', expanded: false }
 ])
 
 const filteredFaqs = computed(() => {

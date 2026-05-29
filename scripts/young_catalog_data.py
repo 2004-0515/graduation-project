@@ -3,16 +3,18 @@ from __future__ import annotations
 from collections import deque
 from typing import Any
 
+from curated_catalog_overrides import PRODUCT_OVERRIDES
+
 
 CATEGORY_DEFINITIONS = [
-    ("动漫周边", "亚克力、徽章、挂件与桌面收藏的小型精选集"),
+    ("运动户外", "球类、拍类和户外小装备的清爽精选集"),
     ("桌搭数码", "键盘、耳机、灯光和桌面设备的轻升级选择"),
     ("潮流穿搭", "适合日常出门、通勤和拍照的轻松穿搭单品"),
-    ("香氛家居", "氛围灯、香薰和桌面小物带来的柔和生活感"),
+    ("家居日用", "家具、灯具、餐具和日用摆件带来的柔和生活感"),
     ("美妆个护", "日常妆容、香气护理和便携个护好物"),
-    ("零食饮品", "办公室、追剧和周末宅家都顺手的好吃好喝"),
-    ("文创书影音", "手账、文具、海报和阅读观影相关的小收藏"),
-    ("出行配件", "通勤、自驾和短途出门会想随手带上的装备"),
+    ("食品饮品", "办公室、厨房和周末宅家都顺手的食品饮料"),
+    ("餐厨好物", "餐具、厨具和厨房收纳用品的实用小集合"),
+    ("出行日用", "通勤、自驾和短途出门会想随手带上的装备"),
 ]
 
 TARGET_PRODUCT_COUNT = 72
@@ -34,11 +36,11 @@ CATEGORY_PAGE_SHOWCASE_SLUGS = [
 CATEGORY_LOCAL_SOURCE_DIRS = {
     "桌搭数码": ["数码电子"],
     "潮流穿搭": ["服装鞋包"],
-    "香氛家居": ["家居家纺"],
+    "家居日用": ["家居家纺"],
     "美妆个护": ["美妆护肤"],
-    "零食饮品": ["食品饮料"],
-    "文创书影音": ["图书文娱"],
-    "出行配件": ["汽车用品"],
+    "食品饮品": ["食品饮料"],
+    "餐厨好物": ["图书文娱"],
+    "出行日用": ["汽车用品"],
 }
 
 AD_VIDEO_SLUGS = {
@@ -53,11 +55,11 @@ AD_VIDEO_SLUGS = {
 COUPONS = [
     ("新客入坑券", "首单满99元可用，适合刚开始慢慢逛", 1, 20.0, None, 99.0, None, 3000, 1),
     ("桌搭补货券", "键盘耳机与桌搭小物通用", 1, 30.0, None, 199.0, None, 2200, 2),
-    ("宅家氛围券", "香薰家居与美妆个护同享", 1, 40.0, None, 259.0, None, 1800, 2),
+    ("宅家氛围券", "家居日用与美妆个护同享", 1, 40.0, None, 259.0, None, 1800, 2),
     ("精选大件券", "适合一次性把想要的东西买齐", 1, 80.0, None, 599.0, None, 1200, 1),
-    ("动漫周边 88 折", "周边与文创类可用，最高优惠120元", 2, None, 0.88, 129.0, 120.0, 900, 1),
+    ("运动户外 88 折", "球类与餐厨类可用，最高优惠120元", 2, None, 0.88, 129.0, 120.0, 900, 1),
     ("香气补货 85 折", "香水喷雾、香薰和身体护理适用", 2, None, 0.85, 159.0, 80.0, 900, 1),
-    ("零食续命券", "零食饮品专区满99减15", 1, 15.0, None, 99.0, None, 1600, 2),
+    ("食品饮品券", "食品饮品专区满99减15", 1, 15.0, None, 99.0, None, 1600, 2),
     ("会员签到礼", "会员日可领，无门槛立减", 3, 10.0, None, 0.0, None, 5000, 3),
 ]
 
@@ -83,6 +85,10 @@ SEARCH_KEYWORDS = [
     "亚克力立牌",
     "徽章收纳",
     "机械键盘",
+    "索尼",
+    "索尼 WH-1000XM5",
+    "降噪耳机",
+    "佳能 EOS",
     "桌面音箱",
     "香薰蜡烛",
     "帆布托特",
@@ -97,14 +103,14 @@ SEARCH_KEYWORDS = [
 CONTACT_MESSAGE_TYPES = ["物流配送", "账号问题", "售后服务", "活动合作", "商品建议"]
 
 CONTACT_MESSAGES = [
-    ("林夏", "想确认动漫周边专区后续会不会补更多收纳类小物。"),
+    ("林夏", "想确认运动户外专区后续会不会补更多收纳类小物。"),
     ("周可", "建议桌搭数码页增加按颜色筛选，会更方便搭桌面风格。"),
-    ("顾遥", "香氛家居里有几款很喜欢，想知道补货频率大概多久一次。"),
-    ("叶青", "零食饮品礼盒适合送朋友，希望后面增加节日包装说明。"),
+    ("顾遥", "家居日用里有几款很喜欢，想知道补货频率大概多久一次。"),
+    ("叶青", "食品饮品礼盒适合送朋友，希望后面增加节日包装说明。"),
     ("徐桃", "美妆个护目前的风格挺统一，想看更多身体喷雾和护手霜。"),
-    ("宋枝", "文创书影音专区可以考虑补一点贴纸和明信片收纳方案。"),
+    ("宋枝", "餐厨好物专区可以考虑补一点收纳方案。"),
     ("许诺", "分类比之前顺眼很多，希望后面增加更多适合通勤的小包。"),
-    ("何弥", "出行配件里保温杯和折叠伞很实用，想看更多轻量出门装备。"),
+    ("何弥", "出行日用里保温杯和折叠伞很实用，想看更多轻量出门装备。"),
     ("黎安", "建议在商品详情里补一下尺寸对比图，方便判断摆放效果。"),
     ("姜栀", "整体审美已经比之前统一很多，期待再上一些夏季限定配色。"),
 ]
@@ -138,7 +144,7 @@ def _product(
 CATEGORY_PRODUCTS = {
     "动漫周边": [
         _product("anime-acrylic-stand", "星愿 拼装积木套装", "动漫周边", "适合放在书桌或展示架上，黑白配色比传统拼装玩具更利落。", 89.0, 109.0, "xiaohong", download_queries=["acrylic stand display", "anime figurine", "collectible display stand"]),
-        _product("anime-badge-book", "软糖 徽章收纳册", "动漫周边", "适合把常用吧唧和小卡收在一起，翻看的时候很有收藏感。", 66.0, 82.0, "xiaohong", download_queries=["button badges", "badge collection", "pin badge display"]),
+        _product("anime-badge-book", "熊猫图案圆形徽章", "动漫周边", "圆形徽章适合别在帆布包和收纳页上，图案清楚，单独摆拍也能看出收藏感。", 66.0, 82.0, "xiaohong", download_queries=["button badges", "badge collection", "pin badge display"]),
         _product("anime-keychain-gift", "流星 挂件礼盒", "动漫周边", "小尺寸挂件适合挂在包上或钥匙上，细节看起来不会过分幼态。", 58.0, 76.0, "xiaohong", download_queries=["keychain charm", "cute keychain", "bag charm"]),
         _product("anime-sticker-pack", "糖纸 贴纸包", "动漫周边", "适合贴手账、平板壳和收纳盒，颜色热闹但不脏。", 39.0, 49.0, "xiaohong", download_queries=["sticker pack", "planner stickers", "cute stickers"]),
         _product("anime-plush-keyring", "云团 毛绒挂件", "动漫周边", "软乎乎的小挂件更适合通勤包和相机包，不会太占地方。", 72.0, 88.0, "xiaohong", download_queries=["plush toy", "cute plush", "plush keychain"]),
@@ -154,10 +160,12 @@ CATEGORY_PRODUCTS = {
     ],
     "桌搭数码": [
         _product("desk-keyboard-75", "海盐轴 75 键机械键盘", "桌搭数码", "键帽颜色干净，桌面上不会显乱，敲字声音也更适合宿舍和办公室。", 429.0, 499.0, "lisi", download_queries=["75 mechanical keyboard product", "minimal mechanical keyboard", "keyboard desk setup"]),
-        _product("desk-keycaps-soda", "气泡蓝 主题键帽盒", "桌搭数码", "适合给旧键盘换一个轻快外观，蓝白配色比纯彩色更耐看。", 159.0, 199.0, "lisi", download_queries=["keycaps set product", "blue keycaps", "custom keyboard keycaps"]),
+        _product("desk-keycaps-soda", "三屏桌面外设工作站", "桌搭数码", "显示器、键盘和桌面配件放在同一个场景里，更适合展示桌搭焕新的整体效果。", 899.0, 1099.0, "lisi", download_queries=["desktop workstation setup", "keyboard desk setup", "computer desk setup"]),
         _product("desk-headphones-shell", "贝壳白 头戴降噪耳机", "桌搭数码", "包耳轮廓很利落，适合长时间听歌和图书馆学习时戴着。", 299.0, 359.0, "lisi", download_queries=["white headphones product", "over ear headphones", "headphones desk"]),
+        _product("desk-headphones-sony-wh1000xm5", "索尼 WH-1000XM5 降噪耳机", "桌搭数码", "头戴式降噪耳机适合通勤、学习和长时间听歌，也是第 6 章搜索与购物车测试使用的商品。", 2399.0, 2799.0, "lisi", download_queries=["Sony WH-1000XM5 headphones", "Sony noise cancelling headphones", "sony headphones"]),
+        _product("desk-camera-canon-eos", "佳能 EOS R50 微单相机", "桌搭数码", "轻巧机身适合日常拍照和视频记录，入门练习构图也更容易带出门。", 4699.0, 5199.0, "lisi", download_queries=["Canon EOS R50 camera", "Canon EOS mirrorless camera", "Canon camera product"]),
         _product("desk-speaker-mini", "奶油桌面蓝牙音箱", "桌搭数码", "体积小但存在感刚好，放在显示器旁边会让桌面更完整。", 189.0, 239.0, "lisi", download_queries=["portable speaker product", "bluetooth speaker desk", "cream speaker"]),
-        _product("desk-watch-softlight", "柔光桌面计时器", "桌搭数码", "适合番茄钟学习和拍桌搭，屏幕亮度柔和，不抢主显示器。", 129.0, 159.0, "lisi", download_queries=["digital timer product", "desk clock product", "minimal timer"]),
+        _product("desk-watch-softlight", "雪景桌面装饰画", "桌搭数码", "冬日雪景适合放在桌面或书架旁边，作为拍照背景比普通摆件更有氛围。", 129.0, 159.0, "lisi", download_queries=["snow landscape print", "winter wall art", "landscape decor"]),
         _product("desk-tablet-sleeve", "软壳平板保护套", "桌搭数码", "半透明壳配贴纸会很有个人感，拿去上课和轻办公都不显笨重。", 89.0, 109.0, "lisi", download_queries=["tablet case product", "ipad case product", "clear tablet case"]),
         _product("desk-camera-pouch", "银灰相机收纳包", "桌搭数码", "内胆够厚，短途拍照带机身和一支镜头比较安心。", 148.0, 176.0, "lisi", download_queries=["camera pouch product", "camera bag product", "compact camera bag"]),
         _product("desk-cable-dock", "磁吸线缆收纳底座", "桌搭数码", "把充电线和耳机线固定住，桌面边缘会清爽很多。", 69.0, 89.0, "lisi", download_queries=["cable organizer product", "desk cable dock", "magnetic cable holder"]),
@@ -168,7 +176,7 @@ CATEGORY_PRODUCTS = {
     ],
     "潮流穿搭": [
         _product("wear-denim-soft", "浅蓝直筒牛仔裤", "潮流穿搭", "裤型宽松但不拖沓，搭球鞋和卫衣都很顺。", 239.0, 299.0, "xiaoming", download_queries=["straight jeans product", "blue jeans product", "denim pants fashion"]),
-        _product("wear-canvas-crossbody", "奶油帆布斜挎包", "潮流穿搭", "容量够装手机、纸巾和小相机，日常出门比大包轻很多。", 149.0, 188.0, "xiaoming", download_queries=["canvas crossbody bag product", "cream canvas bag", "small shoulder bag"]),
+        _product("wear-canvas-crossbody", "棕色帆布斜挎包", "潮流穿搭", "容量够装手机、纸巾和小相机，日常出门比大包轻很多，棕色布面也更耐看。", 149.0, 188.0, "xiaoming", download_queries=["canvas crossbody bag product", "brown canvas bag", "small shoulder bag"]),
         _product("wear-sneaker-retro", "灰白复古运动鞋", "潮流穿搭", "低饱和拼色更耐看，搭牛仔裤和休闲裤都很稳。", 329.0, 399.0, "xiaoming", download_queries=["retro sneakers product", "white sneakers product", "fashion sneakers"]),
         _product("wear-baseball-cap", "雾蓝棒球帽", "潮流穿搭", "帽檐弧度比较自然，素颜出门也能让整体更完整。", 89.0, 109.0, "xiaoming", download_queries=["baseball cap product", "blue cap fashion", "minimal cap"]),
         _product("wear-phone-strap", "彩珠手机挂绳", "潮流穿搭", "适合给手机壳加一点小细节，拍照时也更有层次。", 35.0, 45.0, "xiaoming", download_queries=["phone strap charm", "beaded phone strap", "phone lanyard product"]),
@@ -181,7 +189,7 @@ CATEGORY_PRODUCTS = {
     ],
     "香氛家居": [
         _product("home-throw-pillows", "奶油抱枕组合", "香氛家居", "软糯色块能把沙发角落变得更松弛，拍照也不会显乱。", 139.0, 169.0, "zhouba", download_queries=["throw pillows product", "cream pillow decor", "sofa cushion product"]),
-        _product("home-floor-lamp", "落日氛围落地灯", "香氛家居", "暖光铺在墙边会很柔和，适合夜晚看书和拍房间角落。", 339.0, 399.0, "zhouba", download_queries=["floor lamp product", "ambient floor lamp", "warm floor lamp"]),
+        _product("home-floor-lamp", "北欧客厅落地灯套装", "香氛家居", "落地灯和沙发软装搭在一起，适合把房间角落调整得更明亮、更舒服。", 339.0, 399.0, "zhouba", download_queries=["living room floor lamp", "modern floor lamp", "living room decor lamp"]),
         _product("home-side-table", "奶白床头小边几", "香氛家居", "能放台灯、香薰和水杯，边角圆润，卧室里不会显笨重。", 179.0, 219.0, "zhouba", download_queries=["side table product", "white bedside table", "small round table"]),
         _product("home-glass-vase", "清透玻璃花瓶", "香氛家居", "放一两枝花就足够好看，桌面和窗台都能轻松搭。", 118.0, 149.0, "zhouba", download_queries=["glass vase product", "clear vase flowers", "minimal vase"]),
         _product("home-curtain-soft", "雾纱遮光窗帘", "香氛家居", "透光不刺眼，白天房间会更干净柔和。", 269.0, 329.0, "zhouba", download_queries=["curtain product", "sheer curtain", "soft curtains bedroom"]),
@@ -195,7 +203,7 @@ CATEGORY_PRODUCTS = {
     ],
     "美妆个护": [
         _product("beauty-essence-classic", "清透修护精华", "美妆个护", "瓶身干净，适合放在夜间护肤步骤里，质感不会显廉价。", 259.0, 319.0, "xiaomei", download_queries=["serum bottle product", "skincare serum", "cosmetic bottle"]),
-        _product("beauty-lotion-soft", "蜜桃九色眼影盘", "美妆个护", "配色跨度刚好，日常通勤和周末拍照都能用。", 199.0, 249.0, "xiaomei", download_queries=["eyeshadow palette product", "makeup palette", "pink eyeshadow palette"]),
+        _product("beauty-lotion-soft", "彩妆刷具眼影盘套装", "美妆个护", "眼影盘和刷具成套摆放，日常通勤妆和周末拍照都能覆盖。", 199.0, 249.0, "xiaomei", download_queries=["makeup flat lay palette brushes", "eyeshadow palette brushes", "makeup brush palette"]),
         _product("beauty-cleanser", "云朵氨基酸洁面", "美妆个护", "包装很清爽，放在洗手台旁边也不突兀。", 88.0, 106.0, "xiaomei", download_queries=["cleanser product", "face wash product", "skincare cleanser"]),
         _product("beauty-foundation", "柔雾持妆粉底液", "美妆个护", "瓶身小巧，适合日常通勤妆和周末补妆。", 169.0, 209.0, "xiaomei", download_queries=["foundation bottle product", "makeup foundation", "cosmetic foundation"]),
         _product("beauty-sunscreen", "水感防晒乳", "美妆个护", "轻便管身适合放包里，夏天补涂不会有负担。", 96.0, 118.0, "xiaomei", download_queries=["sunscreen product", "sunscreen tube", "skincare sunscreen"]),
@@ -206,7 +214,7 @@ CATEGORY_PRODUCTS = {
     ],
     "零食饮品": [
         _product("snack-nut-gift", "奶油坚果分享礼盒", "零食饮品", "小份混合坚果更适合办公室和宿舍分着吃，摆出来也更整洁。", 89.0, 108.0, "xiaogang", download_queries=["nuts gift box", "mixed nuts gift box", "snack gift box"]),
-        _product("snack-sparkling", "青提气泡饮组合", "零食饮品", "清透颜色更适合夏天放进冰箱，拍照和聚会都更有氛围。", 36.0, 45.0, "xiaogang", download_queries=["sparkling drink can", "sparkling water bottle", "soda drink aesthetic"]),
+        _product("snack-sparkling", "琥珀气泡饮组合", "零食饮品", "琥珀色饮品适合下午茶和聚会场景，冰镇后摆在桌面上也很出片。", 36.0, 45.0, "xiaogang", download_queries=["amber sparkling drink", "sparkling drink glass", "soda drink aesthetic"]),
         _product("snack-drip-coffee", "山系挂耳咖啡组", "零食饮品", "适合放在工位抽屉里，早上和赶作业的时候都能顺手泡一杯。", 49.0, 62.0, "xiaogang", download_queries=["drip coffee bag", "pour over coffee bag", "coffee sachet flatlay"]),
         _product("snack-cookies", "黄油曲奇分享盒", "零食饮品", "金属盒和小份曲奇更适合送朋友，也适合周末慢慢吃。", 26.0, 32.0, "xiaogang", download_queries=["butter cookies tin", "cookies gift box", "biscuit tin"]),
         _product("snack-tea-pack", "白桃冷泡茶袋", "零食饮品", "更适合放在水杯里慢慢泡开，颜色和包装都会更轻一点。", 39.0, 49.0, "xiaogang", download_queries=["tea bag box", "fruit tea sachet", "cold brew tea bag"]),
@@ -223,7 +231,7 @@ CATEGORY_PRODUCTS = {
         _product("culture-print-poster", "电影感海报套组", "文创书影音", "适合贴在书桌上方或床边墙面，能快速搭出一点个人风格。", 88.0, 109.0, "sunqi", download_queries=["poster set product", "art print poster", "movie poster wall decor"]),
         _product("culture-illustration-book", "云色 插画手册", "文创书影音", "翻起来有点像随身小画册，适合桌面和床头来回放。", 92.0, 116.0, "sunqi", download_queries=["illustration notebook", "art notebook", "journal notebook"]),
         _product("culture-poster-set", "银幕 经典海报集", "文创书影音", "更适合租房墙面或书桌上方，能快速搭出一点个人风格。", 109.0, 136.0, "sunqi", download_queries=["art print poster", "poster print", "wall poster"]),
-        _product("culture-vinyl-decor", "黑胶 氛围摆件", "文创书影音", "不是很占地方，但放在音箱或书架边会有点复古氛围。", 138.0, 168.0, "sunqi", download_queries=["vinyl record", "record player", "vinyl decor"]),
+        _product("culture-vinyl-decor", "复古唱片封面摆件", "文创书影音", "复古唱片封面适合摆在音箱或书架边，能快速增加一点旧书影音氛围。", 138.0, 168.0, "sunqi", download_queries=["vinyl record sleeve", "record cover", "vinyl decor"]),
         _product("culture-washi-tape", "奶油色和纸胶带组", "文创书影音", "贴手账和礼物包装都合适，低饱和颜色不会把页面弄得太乱。", 36.0, 46.0, "sunqi", download_queries=["washi tape product", "masking tape stationery", "decorative tape"]),
         _product("culture-photo-frame", "银边拍立得相框", "文创书影音", "适合把旅行票根和照片一起摆出来，桌面会更有故事感。", 73.0, 92.0, "sunqi", download_queries=["photo frame product", "polaroid frame", "small picture frame"]),
     ],
@@ -233,7 +241,7 @@ CATEGORY_PRODUCTS = {
         _product("travel-inflator", "磁吸出行手机支架", "出行配件", "车内和桌面都能用，吸附角度更利落，日常导航更顺手。", 169.0, 208.0, "zhouba", download_queries=["magnetic phone mount", "phone holder car", "phone stand accessory"]),
         _product("travel-fragrance", "车载香氛夹", "出行配件", "体积不大，但装在出风口上会比传统挂件更清爽。", 55.0, 68.0, "zhouba", download_queries=["air freshener product", "car air freshener", "fragrance diffuser product"]),
         _product("travel-organizer", "轻量电脑内胆包", "出行配件", "软包外形更适合通勤和图书馆来回带电脑，不会显得太厚。", 129.0, 156.0, "zhouba", download_queries=["laptop sleeve bag", "laptop sleeve aesthetic", "minimal laptop case"]),
-        _product("travel-vacuum", "随身小风扇", "出行配件", "夏天通勤和排队时更实用，拍照观感也比传统应急设备轻得多。", 139.0, 169.0, "zhouba", download_queries=["portable hand fan", "mini fan product", "handheld fan aesthetic"]),
+        _product("travel-vacuum", "白色折叠头戴耳机", "出行配件", "白色头戴耳机适合通勤和短途出行收纳，挂在包里或行李旁也比较清爽。", 139.0, 169.0, "zhouba", download_queries=["white headphones", "folding headphones", "travel headphones"]),
         _product("travel-packing-cubes", "薄荷旅行分装袋", "出行配件", "把衣服和洗漱小物分开装，短途旅行箱会好找很多。", 69.0, 88.0, "zhouba", download_queries=["packing cubes product", "travel organizer bags", "packing pouch"]),
     ],
 }
@@ -309,12 +317,12 @@ def build_product_specs() -> list[dict[str, Any]]:
         merged_products.setdefault(category, []).extend(extras)
 
     queues = {category: deque(products) for category, products in merged_products.items()}
-    order = [name for name, _ in CATEGORY_DEFINITIONS]
+    order = list(merged_products.keys())
     specs: list[dict[str, Any]] = []
 
     while any(queues.values()):
         for category in order:
-            if not queues[category]:
+            if category not in queues or not queues[category]:
                 continue
             specs.append(queues[category].popleft())
 
@@ -325,5 +333,16 @@ def build_product_specs() -> list[dict[str, Any]]:
     return body + tail
 
 
-PRODUCT_SPECS = build_product_specs()
+def apply_product_overrides(specs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for spec in specs:
+        override = PRODUCT_OVERRIDES.get(spec["slug"])
+        if not override:
+            continue
+        for key in ("name", "category", "description", "price", "original_price", "seller_name", "download_queries", "image_path"):
+            if key in override:
+                spec[key] = override[key]
+    return specs
+
+
+PRODUCT_SPECS = apply_product_overrides(build_product_specs())
 TARGET_PRODUCT_COUNT = len(PRODUCT_SPECS)

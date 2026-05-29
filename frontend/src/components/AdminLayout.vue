@@ -8,7 +8,7 @@
       
       <nav class="sidebar-nav">
         <router-link to="/admin" class="nav-item" :class="{ active: $route.path === '/admin' }">
-          <span class="nav-icon">仪表盘</span>
+          <span class="nav-icon nav-icon-dashboard">仪表盘</span>
           <span class="nav-text">数据概览</span>
         </router-link>
         <router-link to="/admin/products" class="nav-item" :class="{ active: $route.path.startsWith('/admin/products') }">
@@ -35,7 +35,7 @@
           <span v-if="pendingCount > 0" class="pending-badge">{{ pendingCount }}</span>
         </router-link>
         <router-link to="/admin/showcase" class="nav-item" :class="{ active: $route.path.startsWith('/admin/showcase') }">
-          <span class="nav-icon">展</span>
+          <span class="nav-icon">展示</span>
           <span class="nav-text">展示内容</span>
         </router-link>
         <router-link to="/admin/notifications" class="nav-item" :class="{ active: $route.path.startsWith('/admin/notifications') }">
@@ -43,23 +43,23 @@
           <span class="nav-text">消息管理</span>
         </router-link>
         <router-link to="/admin/contact-messages" class="nav-item" :class="{ active: $route.path.startsWith('/admin/contact-messages') }">
-          <span class="nav-icon">联</span>
+          <span class="nav-icon">留言</span>
           <span class="nav-text">留言管理</span>
         </router-link>
         <router-link to="/admin/coupons" class="nav-item" :class="{ active: $route.path.startsWith('/admin/coupons') }">
-          <span class="nav-icon">券</span>
+          <span class="nav-icon">促销</span>
           <span class="nav-text">促销管理</span>
         </router-link>
         <router-link to="/admin/music" class="nav-item" :class="{ active: $route.path.startsWith('/admin/music') }">
-          <span class="nav-icon">乐</span>
+          <span class="nav-icon">音乐</span>
           <span class="nav-text">音乐管理</span>
         </router-link>
         <router-link to="/admin/price" class="nav-item" :class="{ active: $route.path.startsWith('/admin/price') }">
-          <span class="nav-icon">价</span>
+          <span class="nav-icon">价格</span>
           <span class="nav-text">价格管理</span>
         </router-link>
         <router-link to="/admin/rational" class="nav-item" :class="{ active: $route.path.startsWith('/admin/rational') }">
-          <span class="nav-icon">理</span>
+          <span class="nav-icon">理性</span>
           <span class="nav-text">理性消费</span>
         </router-link>
       </nav>
@@ -201,10 +201,23 @@ onMounted(() => {
 }
 
 .nav-icon {
+  width: 38px;
+  min-width: 38px;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 12px;
-  padding: 4px 8px;
+  padding: 4px 0;
   background: rgba(255,255,255,0.1);
   border-radius: 4px;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.nav-icon-dashboard {
+  width: 52px;
+  min-width: 52px;
 }
 
 .nav-item.active .nav-icon {
@@ -313,7 +326,116 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .admin-sidebar { width: 200px; }
-  .admin-main { margin-left: 200px; }
+  .admin-layout {
+    display: block;
+    min-width: 0;
+  }
+
+  .admin-sidebar {
+    position: sticky;
+    top: 0;
+    bottom: auto;
+    width: 100%;
+    max-width: 100%;
+    max-height: none;
+    z-index: 100;
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .sidebar-header h1 {
+    font-size: 16px;
+    line-height: 1.3;
+  }
+
+  .sidebar-nav {
+    flex: none;
+    display: flex;
+    gap: 8px;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-item {
+    flex: 0 0 auto;
+    gap: 6px;
+    min-height: 38px;
+    margin-bottom: 0;
+    padding: 8px 10px;
+    white-space: nowrap;
+  }
+
+  .nav-icon {
+    width: 34px;
+    min-width: 34px;
+    min-height: 26px;
+    padding: 3px 0;
+  }
+
+  .nav-icon-dashboard {
+    width: 48px;
+    min-width: 48px;
+  }
+
+  .nav-text {
+    font-size: 13px;
+  }
+
+  .pending-badge {
+    margin-left: 2px;
+  }
+
+  .sidebar-footer {
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px 10px;
+  }
+
+  .back-link,
+  .logout-btn {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 0;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .admin-main {
+    margin-left: 0;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .admin-header {
+    position: static;
+    min-height: 56px;
+    height: auto;
+    gap: 8px;
+    padding: 12px;
+    flex-wrap: wrap;
+  }
+
+  .admin-header h2 {
+    font-size: 16px;
+  }
+
+  .admin-name {
+    font-size: 13px;
+  }
+
+  .admin-content {
+    padding: 12px;
+    overflow-x: hidden;
+  }
 }
 </style>

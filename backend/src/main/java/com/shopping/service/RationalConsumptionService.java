@@ -26,6 +26,8 @@ import java.util.stream.Collectors;
 @Service
 public class RationalConsumptionService {
 
+    private static final Set<Integer> CONSUMPTION_ORDER_STATUSES = Set.of(1, 2, 3, 6);
+
     @Autowired
     private ConsumptionBudgetRepository budgetRepository;
     
@@ -67,7 +69,7 @@ public class RationalConsumptionService {
                     newBudget.setUserId(user.getId());
                     newBudget.setBudgetMonth(currentMonth);
                     newBudget.setMonthlyBudget(lastBudget.map(ConsumptionBudget::getMonthlyBudget)
-                            .orElse(new BigDecimal("2000")));
+                            .orElseGet(() -> calculateSuggestedMonthlyBudget(user.getId())));
                     newBudget.setAlertEnabled(true);
                     newBudget.setAlertThreshold(80);
                     return budgetRepository.save(newBudget);
@@ -104,10 +106,12 @@ public class RationalConsumptionService {
         LocalDateTime endOfMonth = startOfMonth.plusMonths(1).minusSeconds(1);
         
         List<Order> orders = orderRepository.findByUserIdAndPaymentStatusAndCreatedTimeBetween(
-                userId, 1, startOfMonth, endOfMonth);
+                userId, 1, startOfMonth, endOfMonth).stream()
+                .filter(this::isConsumptionOrder)
+                .collect(Collectors.toList());
         
         return orders.stream()
-                .map(o -> o.getPayAmount() != null ? o.getPayAmount() : o.getTotalAmount())
+                .map(this::getOrderPaidAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
@@ -159,11 +163,13 @@ public class RationalConsumptionService {
         
         // 获取已支付订单
         List<Order> orders = orderRepository.findByUserIdAndPaymentStatusAndCreatedTimeBetween(
-                user.getId(), 1, startTime, endTime);
+                user.getId(), 1, startTime, endTime).stream()
+                .filter(this::isConsumptionOrder)
+                .collect(Collectors.toList());
         
         // 基础统计
         BigDecimal totalAmount = orders.stream()
-                .map(o -> o.getPayAmount() != null ? o.getPayAmount() : o.getTotalAmount())
+                .map(this::getOrderPaidAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         report.setTotalAmount(totalAmount);
         report.setOrderCount(orders.size());
@@ -193,11 +199,13 @@ public class RationalConsumptionService {
         Map<Long, String> categoryNames = new HashMap<>();
         
         for (Order order : orders) {
+            BigDecimal orderGrossAmount = getOrderGrossAmount(order);
+            BigDecimal orderPaidAmount = getOrderPaidAmount(order);
             for (OrderItem item : order.getItems()) {
                 Product product = item.getProduct();
                 if (product != null && product.getCategoryId() != null) {
                     Long catId = product.getCategoryId();
-                    BigDecimal itemTotal = item.getPrice().multiply(new BigDecimal(item.getQuantity()));
+                    BigDecimal itemTotal = getItemPaidAmount(item, orderGrossAmount, orderPaidAmount);
                     categoryAmounts.merge(catId, itemTotal, BigDecimal::add);
                     categoryOrders.merge(catId, 1, Integer::sum);
                     if (!categoryNames.containsKey(catId)) {
@@ -233,10 +241,12 @@ public class RationalConsumptionService {
             LocalDateTime monthEnd = monthStart.plusMonths(1).minusSeconds(1);
             
             List<Order> monthOrders = orderRepository.findByUserIdAndPaymentStatusAndCreatedTimeBetween(
-                    user.getId(), 1, monthStart, monthEnd);
+                    user.getId(), 1, monthStart, monthEnd).stream()
+                    .filter(this::isConsumptionOrder)
+                    .collect(Collectors.toList());
             
             BigDecimal monthAmount = monthOrders.stream()
-                    .map(o -> o.getPayAmount() != null ? o.getPayAmount() : o.getTotalAmount())
+                    .map(this::getOrderPaidAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             
             trends.add(new MonthlyTrend(
@@ -284,8 +294,10 @@ public class RationalConsumptionService {
 
     private int calculateDuplicateAlertCount(Long userId, LocalDateTime startTime, LocalDateTime endTime) {
         LocalDateTime lookbackStart = startTime.minusMonths(3);
-        List<Order> recentOrders = new ArrayList<>(orderRepository.findByUserIdAndPaymentStatusAndCreatedTimeBetween(
-                userId, 1, lookbackStart, endTime));
+        List<Order> recentOrders = orderRepository.findByUserIdAndPaymentStatusAndCreatedTimeBetween(
+                userId, 1, lookbackStart, endTime).stream()
+                .filter(this::isConsumptionOrder)
+                .collect(Collectors.toCollection(ArrayList::new));
 
         recentOrders.sort(Comparator.comparing(Order::getCreatedTime, Comparator.nullsLast(Comparator.naturalOrder())));
 
@@ -321,8 +333,81 @@ public class RationalConsumptionService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    private BigDecimal getOrderPaidAmount(Order order) {
+        if (order.getPayAmount() != null) {
+            return order.getPayAmount();
+        }
+        return order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO;
+    }
+
+    private BigDecimal getOrderGrossAmount(Order order) {
+        if (order.getItems() == null || order.getItems().isEmpty()) {
+            return order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO;
+        }
+
+        return order.getItems().stream()
+                .map(this::getItemGrossAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal getItemGrossAmount(OrderItem item) {
+        if (item.getTotalPrice() != null) {
+            return item.getTotalPrice();
+        }
+        BigDecimal price = item.getPrice() != null ? item.getPrice() : BigDecimal.ZERO;
+        int quantity = item.getQuantity() != null ? item.getQuantity() : 0;
+        return price.multiply(BigDecimal.valueOf(quantity));
+    }
+
+    private BigDecimal getItemPaidAmount(OrderItem item, BigDecimal orderGrossAmount, BigDecimal orderPaidAmount) {
+        BigDecimal itemGrossAmount = getItemGrossAmount(item);
+        if (orderGrossAmount == null || orderGrossAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return itemGrossAmount;
+        }
+        return itemGrossAmount.multiply(orderPaidAmount)
+                .divide(orderGrossAmount, 2, RoundingMode.HALF_UP);
+    }
+
     private boolean isWithinRange(LocalDateTime time, LocalDateTime startTime, LocalDateTime endTime) {
         return time != null && !time.isBefore(startTime) && !time.isAfter(endTime);
+    }
+
+    private boolean isConsumptionOrder(Order order) {
+        if (order == null) {
+            return false;
+        }
+        Integer orderStatus = order.getOrderStatus();
+        return orderStatus == null || CONSUMPTION_ORDER_STATUSES.contains(orderStatus);
+    }
+
+    private BigDecimal calculateSuggestedMonthlyBudget(Long userId) {
+        LocalDateTime now = LocalDateTime.now();
+        BigDecimal total = BigDecimal.ZERO;
+        int monthsWithOrders = 0;
+
+        for (int i = 1; i <= 3; i++) {
+            LocalDateTime monthStart = now.minusMonths(i).withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
+            LocalDateTime monthEnd = monthStart.plusMonths(1).minusSeconds(1);
+            List<Order> monthOrders = orderRepository.findByUserIdAndPaymentStatusAndCreatedTimeBetween(
+                    userId, 1, monthStart, monthEnd).stream()
+                    .filter(this::isConsumptionOrder)
+                    .collect(Collectors.toList());
+            BigDecimal monthAmount = monthOrders.stream()
+                    .map(this::getOrderPaidAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (monthAmount.compareTo(BigDecimal.ZERO) > 0) {
+                total = total.add(monthAmount);
+                monthsWithOrders++;
+            }
+        }
+
+        if (monthsWithOrders == 0) {
+            return new BigDecimal("2000");
+        }
+
+        return total.divide(BigDecimal.valueOf(monthsWithOrders), 2, RoundingMode.HALF_UP)
+                .multiply(new BigDecimal("1.10"))
+                .setScale(2, RoundingMode.HALF_UP);
     }
 
     /**
@@ -430,7 +515,9 @@ public class RationalConsumptionService {
         // 查找最近3个月内购买过的相同分类商品
         LocalDateTime threeMonthsAgo = LocalDateTime.now().minusMonths(3);
         List<Order> recentOrders = orderRepository.findByUserIdAndPaymentStatusAndCreatedTimeAfter(
-                user.getId(), 1, threeMonthsAgo);
+                user.getId(), 1, threeMonthsAgo).stream()
+                .filter(this::isConsumptionOrder)
+                .collect(Collectors.toList());
         
         List<Map<String, Object>> duplicates = new ArrayList<>();
         for (Order order : recentOrders) {
@@ -717,10 +804,12 @@ public class RationalConsumptionService {
                 LocalDateTime monthEnd = monthStart.plusMonths(1).minusSeconds(1);
                 
                 List<Order> orders = orderRepository.findByUserIdAndPaymentStatusAndCreatedTimeBetween(
-                        user.getId(), 1, monthStart, monthEnd);
+                        user.getId(), 1, monthStart, monthEnd).stream()
+                        .filter(this::isConsumptionOrder)
+                        .collect(Collectors.toList());
                 
                 BigDecimal spent = orders.stream()
-                        .map(o -> o.getPayAmount() != null ? o.getPayAmount() : o.getTotalAmount())
+                        .map(this::getOrderPaidAmount)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
                 
                 if (spent.compareTo(budget.get().getMonthlyBudget()) <= 0) {
@@ -792,10 +881,12 @@ public class RationalConsumptionService {
             String monthStr = monthStart.format(DateTimeFormatter.ofPattern("yyyy-MM"));
             
             // 获取该月所有已支付订单
-            List<Order> orders = orderRepository.findByPaymentStatusAndCreatedTimeBetween(1, monthStart, monthEnd);
+            List<Order> orders = orderRepository.findByPaymentStatusAndCreatedTimeBetween(1, monthStart, monthEnd).stream()
+                    .filter(this::isConsumptionOrder)
+                    .collect(Collectors.toList());
             
             BigDecimal totalAmount = orders.stream()
-                    .map(o -> o.getPayAmount() != null ? o.getPayAmount() : o.getTotalAmount())
+                    .map(this::getOrderPaidAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             
             // 获取该月设置预算的用户数

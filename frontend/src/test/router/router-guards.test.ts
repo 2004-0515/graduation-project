@@ -4,8 +4,9 @@ import { defineComponent } from 'vue'
 const { mockUserStore } = vi.hoisted(() => ({
   mockUserStore: {
     token: null as string | null,
-    userInfo: null as { username?: string; role?: 'BUYER' | 'SELLER' | 'ADMIN' } | null,
-    fetchCurrentUser: vi.fn()
+    userInfo: null as { username?: string; role?: 'BUYER' | 'SELLER' | 'ADMIN'; status?: number } | null,
+    fetchCurrentUser: vi.fn(),
+    logout: vi.fn()
   }
 }))
 
@@ -35,6 +36,8 @@ describe('router guards', () => {
     mockUserStore.token = null
     mockUserStore.userInfo = null
     mockUserStore.fetchCurrentUser.mockReset()
+    mockUserStore.logout.mockReset()
+    mockUserStore.logout.mockResolvedValue(undefined)
 
     await router.push('/')
     await router.isReady()
@@ -72,6 +75,30 @@ describe('router guards', () => {
 
     expect(mockUserStore.fetchCurrentUser).toHaveBeenCalled()
     expect(router.currentRoute.value.name).toBe('profile')
+  })
+
+  it('refreshes current user from server even when cached user info exists', async () => {
+    mockUserStore.token = 'token'
+    mockUserStore.userInfo = { username: 'lisi', role: 'SELLER' }
+    mockUserStore.fetchCurrentUser.mockImplementation(async () => {
+      mockUserStore.userInfo = { username: 'lisi', role: 'BUYER' }
+    })
+
+    await router.push('/my-products')
+
+    expect(mockUserStore.fetchCurrentUser).toHaveBeenCalled()
+    expect(router.currentRoute.value.name).toBe('home')
+  })
+
+  it('logs out and redirects disabled user away from protected route', async () => {
+    mockUserStore.token = 'token'
+    mockUserStore.userInfo = { username: 'buyer', role: 'BUYER', status: 0 }
+
+    await router.push('/profile')
+
+    expect(mockUserStore.logout).toHaveBeenCalled()
+    expect(router.currentRoute.value.name).toBe('login')
+    expect(router.currentRoute.value.query.redirect).toBe('/profile')
   })
 
   it('redirects non-admin user away from admin route', async () => {

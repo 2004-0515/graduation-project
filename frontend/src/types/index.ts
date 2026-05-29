@@ -176,6 +176,7 @@ export type NotificationType =
   | 'system'
   | 'order'
   | 'promotion'
+  | 'price_alert'
   | 'file_review'
   | 'product_review'
   | 'review'

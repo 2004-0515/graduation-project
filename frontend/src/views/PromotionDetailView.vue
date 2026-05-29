@@ -44,10 +44,10 @@
               <button
                 class="primary-btn"
                 data-testid="promotion-featured-claim"
-                :disabled="!canClaim(featuredCoupon)"
+                :disabled="!canClaim(featuredCoupon) || isCouponClaiming(featuredCoupon.id)"
                 @click="claimCoupon(featuredCoupon)"
               >
-                {{ featuredCoupon.claimed ? '已达领取上限' : (featuredCoupon.remaining ?? 0) <= 0 ? '已领完' : '立即领取' }}
+                {{ featuredCoupon.claimed ? '已达领取上限' : (featuredCoupon.remaining ?? 0) <= 0 ? '已领完' : isCouponClaiming(featuredCoupon.id) ? '领取中' : '立即领取' }}
               </button>
               <button class="secondary-btn" @click="router.push(`/coupon/${featuredCoupon.id}`)">查看优惠券详情</button>
             </div>
@@ -137,7 +137,7 @@
               @click="router.push(`/product/${product.id}`)"
             >
               <div class="product-image">
-                <el-image :src="getImageUrl(product.mainImage)" fit="cover">
+                <el-image :src="getImageUrl(product.mainImage)" fit="contain">
                   <template #error>
                     <div class="image-placeholder">商品图片</div>
                   </template>
@@ -191,6 +191,7 @@ const products = ref<any[]>([])
 const featuredCoupon = ref<any | null>(null)
 const promotionBanners = ref<ShowcaseBanner[]>([])
 const heroBanner = ref<ShowcaseBanner | null>(null)
+const claimingCouponIds = ref<Set<number>>(new Set())
 const topicCards = computed(() =>
   promotionBanners.value.filter((banner) => banner.id !== heroBanner.value?.id).slice(0, 3)
 )
@@ -228,7 +229,18 @@ const couponConditionText = (coupon: any) =>
 const couponDateRange = (coupon: any) =>
   `${String(coupon.startTime || '').slice(0, 10)} - ${String(coupon.endTime || '').slice(0, 10)}`
 
-const canClaim = (coupon: any) => !coupon?.claimed && Number(coupon?.remaining ?? 0) > 0
+const canClaim = (coupon: any) => {
+  if (!coupon || coupon.claimed) return false
+  if (coupon.remaining === null || coupon.remaining === undefined) return true
+  return Number(coupon.remaining) > 0
+}
+const isCouponClaiming = (couponId: number) => claimingCouponIds.value.has(couponId)
+const setCouponClaiming = (couponId: number, claiming: boolean) => {
+  const next = new Set(claimingCouponIds.value)
+  if (claiming) next.add(couponId)
+  else next.delete(couponId)
+  claimingCouponIds.value = next
+}
 
 const resolveBannerLink = (banner: ShowcaseBanner) => {
   const target = banner.linkTarget?.trim()
@@ -337,6 +349,9 @@ const claimCoupon = async (coupon: any) => {
     return
   }
 
+  if (!canClaim(coupon) || isCouponClaiming(coupon.id)) return
+
+  setCouponClaiming(coupon.id, true)
   try {
     const res: any = await couponApi.claimCoupon(coupon.id)
     if (res?.code === 200) {
@@ -352,6 +367,8 @@ const claimCoupon = async (coupon: any) => {
   } catch (error) {
     debugError('优惠专题领取优惠券失败:', error)
     ElMessage.error(getErrorMessage(error, '领取失败'))
+  } finally {
+    setCouponClaiming(coupon.id, false)
   }
 }
 
@@ -701,7 +718,8 @@ watch(() => route.params.id, async () => {
 
 .product-image {
   height: 180px;
-  background: var(--gray-50);
+  background: #f7f5f1;
+  border-bottom: 1px solid rgba(213, 205, 190, 0.72);
 }
 
 .product-image :deep(.el-image) {

@@ -2,7 +2,7 @@
 
 Vue 3 + Spring Boot full-stack e-commerce project for portfolio and graduation showcase use.
 
-The default local setup is designed for a two-command demo: start the backend, start the frontend, then open the Vite URL. Business data and media assets are kept local to the repository so the main showcase does not depend on external placeholder image, audio, or font providers.
+The default local setup is designed for a stable local demo: start the backend on `8080`, start the frontend on `5173`, then open the Vite URL. Business data and media assets are kept local to the repository so the main showcase does not depend on external placeholder image, audio, or font providers.
 
 ## Two-Line Showcase Startup
 
@@ -33,6 +33,14 @@ Open:
 - Frontend: `http://127.0.0.1:5173`
 - Backend API: `http://127.0.0.1:8080/api`
 
+IDEA one-command startup:
+
+```powershell
+.\run-dev.cmd
+```
+
+`run-dev.cmd` is the one-click demo entry. It releases listeners on frontend `5173` and backend `8080`, then starts the backend first and the frontend after the API is ready. Use `scripts\start-dev-stack.ps1` directly when you want diagnostics without closing existing processes; use `-AllowPortFallback` only for temporary debugging.
+
 Showcase accounts:
 
 - `admin / 123456`: administrator and review operator
@@ -59,7 +67,8 @@ Portfolio review notes:
 - MySQL database: `shopping_mall`
 - Backend default port: `8080`
 - Frontend showcase port: `5173`
-- Backend demo profile port: `8085`
+- Browser/E2E frontend port: `5178`
+- Browser/E2E backend port: `8085`
 - Backend default local credentials come from [application.properties](/d:/graduation%20project/backend/src/main/resources/application.properties)
 - Upload/media root: [uploads](/d:/graduation%20project/uploads)
 - Frontend seed assets: [frontend/public/seed](/d:/graduation%20project/frontend/public/seed)

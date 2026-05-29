@@ -17,7 +17,7 @@ test('帮助中心与服务条款路由可达', async ({ page }) => {
   await page.goto('/terms')
   await neutralizeFloatingUi(page)
   await expect(page.getByRole('heading', { name: '服务条款' })).toBeVisible()
-  await expect(page.getByText('最后更新：2025年1月1日')).toBeVisible()
+  await expect(page.getByText('最后更新：2026年5月23日')).toBeVisible()
   await expect(page.getByRole('heading', { name: '1. 服务协议的确认' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '10. 条款修改' })).toBeVisible()
 

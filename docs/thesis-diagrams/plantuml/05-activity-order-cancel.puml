@@ -1,0 +1,32 @@
+@startuml
+!include common-activity-style.pumlinc
+title 订单取消活动图
+
+start
+:查看订单;
+:点击取消订单或申请取消;
+:检查订单状态;
+
+if (是否为待付款订单) then (是)
+  :直接取消订单;
+  :更新订单状态为已取消;
+  stop
+else (否)
+  if (是否为待发货且已支付) then (是)
+    :提交取消申请;
+    :更新状态为申请取消中;
+    :管理员审核取消申请;
+    if (审核是否通过) then (通过)
+      :恢复库存并回退销量;
+      :更新订单状态为已取消;
+      stop
+    else (拒绝)
+      :恢复订单状态为待发货;
+      stop
+    endif
+  else (否)
+    :提示当前状态不可取消;
+    stop
+  endif
+endif
+@enduml

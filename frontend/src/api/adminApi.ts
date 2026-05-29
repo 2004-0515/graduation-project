@@ -17,7 +17,7 @@ const adminApi = {
   /**
    * 更新用户状态
    */
-  updateUserStatus(userId: number, status: number): Promise<ApiResponse<void>> {
+  updateUserStatus(userId: number, status: number): Promise<ApiResponse<User>> {
     return axios.put(`/users/${userId}/status`, { status })
   },
 

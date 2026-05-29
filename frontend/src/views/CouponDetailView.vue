@@ -99,7 +99,8 @@
                 :disabled="!canClaim"
                 @click="handleClaim"
               >
-                <span v-if="coupon.claimed">已达领取上限</span>
+                <span v-if="claiming">领取中...</span>
+                <span v-else-if="coupon.claimed">已达领取上限</span>
                 <span v-else-if="coupon.statusText === '已领完'">已领完</span>
                 <span v-else-if="coupon.statusText === '已结束'">已结束</span>
                 <span v-else-if="coupon.statusText === '未开始'">未开始</span>
@@ -135,6 +136,7 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const loading = ref(false)
+const claiming = ref(false)
 const coupon = ref<any>({})
 let latestCouponRequestId = 0
 const invalidateCouponRequests = () => {
@@ -148,7 +150,7 @@ const statusClass = computed(() => {
 })
 
 const canClaim = computed(() => {
-  return coupon.value.statusText === '进行中' && !coupon.value.claimed
+  return coupon.value.statusText === '进行中' && !coupon.value.claimed && !claiming.value
 })
 
 const goBack = () => goBackOr(router, '/promotions')
@@ -220,12 +222,16 @@ const refreshCouponAfterClaimSuccess = async () => {
 }
 
 const handleClaim = async () => {
+  if (claiming.value) return
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
     router.push(buildLoginLocation(route.fullPath))
     return
   }
+
+  if (!canClaim.value) return
   
+  claiming.value = true
   try {
     const res: any = await couponApi.claimCoupon(coupon.value.id)
     if (res?.code === 200) {
@@ -246,6 +252,8 @@ const handleClaim = async () => {
   } catch (e: any) {
     debugError('领取优惠券失败', e)
     ElMessage.error(getErrorMessage(e, '领取失败'))
+  } finally {
+    claiming.value = false
   }
 }
 

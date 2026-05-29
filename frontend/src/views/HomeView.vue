@@ -138,11 +138,11 @@
               </div>
               <div class="expand-content">
                 <h3>{{ visibleNewGames[hoveredNewIndex]?.name }}</h3>
-                <p class="expand-desc">{{ visibleNewGames[hoveredNewIndex]?.description || '品质好物，品质保证。精选优质商品，为您的生活增添美好。' }}</p>
+                <p class="expand-desc">{{ visibleNewGames[hoveredNewIndex]?.description || '可在详情页查看价格、库存和理性消费辅助信息。' }}</p>
                 <div class="expand-tags">
-                  <span class="expand-tag">品质保证</span>
-                  <span class="expand-tag">正品保障</span>
-                  <span class="expand-tag">极速发货</span>
+                  <span class="expand-tag">已审核上架</span>
+                  <span class="expand-tag">价格可追踪</span>
+                  <span class="expand-tag">支持想要清单</span>
                 </div>
                 <div class="expand-footer">
                   <div class="expand-price">
@@ -207,9 +207,9 @@
                   class="quick-claim-btn"
                   :class="{ claimed: c.claimed }"
                   :data-testid="`home-quick-coupon-claim-${c.id}`"
-                  :disabled="c.claimed"
+                  :disabled="c.claimed || isCouponClaiming(c.id)"
                 >
-                  {{ c.claimed ? '已领' : '领取' }}
+                  {{ c.claimed ? '已领' : isCouponClaiming(c.id) ? '领取中' : '领取' }}
                 </button>
               </div>
               <div v-if="quickCoupons.length === 0" class="no-coupon">
@@ -249,6 +249,7 @@ const newGames = ref<any[]>([])
 const categories = ref<any[]>([])
 const categoriesExpanded = ref(false)
 const quickCoupons = ref<any[]>([])
+const claimingCouponIds = ref<Set<number>>(new Set())
 const availableCouponsCount = ref(0)
 const countdownText = ref('')
 const maxDiscount = ref('50%')
@@ -322,6 +323,14 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return fallback
 }
 
+const isCouponClaiming = (couponId: number) => claimingCouponIds.value.has(couponId)
+const setCouponClaiming = (couponId: number, claiming: boolean) => {
+  const next = new Set(claimingCouponIds.value)
+  if (claiming) next.add(couponId)
+  else next.delete(couponId)
+  claimingCouponIds.value = next
+}
+
 const fetchCoupons = async () => {
   const requestId = ++latestCouponsRequestId
   try {
@@ -364,16 +373,26 @@ const refreshCouponsAfterClaimSuccess = async () => {
 }
 
 const claimQuickCoupon = async (coupon: any) => {
-  if (coupon.claimed) return
+  if (coupon.claimed || isCouponClaiming(coupon.id)) return
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
     router.push(buildLoginLocation(route.fullPath))
     return
   }
 
+  setCouponClaiming(coupon.id, true)
   try {
     const res: any = await couponApi.claimCoupon(coupon.id)
     if (res?.code === 200) {
+      quickCoupons.value = quickCoupons.value.map((item) =>
+        item.id === coupon.id
+          ? {
+              ...item,
+              claimed: true,
+              remaining: Math.max(0, Number(item.remaining || 0) - 1)
+            }
+          : item
+      )
       ElMessage.success('领取成功')
       await refreshCouponsAfterClaimSuccess()
     } else {
@@ -384,6 +403,8 @@ const claimQuickCoupon = async (coupon: any) => {
   } catch (e: any) {
     debugError('首页快捷领取优惠券失败', e)
     ElMessage.error(getErrorMessage(e, '领取失败'))
+  } finally {
+    setCouponClaiming(coupon.id, false)
   }
 }
 
@@ -555,8 +576,8 @@ onUnmounted(() => {
 .new-products-list { flex: 1; display: flex; flex-direction: column; gap: 4px; }
 .new-product-item { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: var(--white); border-radius: var(--radius-md); cursor: pointer; transition: var(--transition); border: 1px solid var(--gray-200); }
 .new-product-item:hover, .new-product-item.active { background: rgba(155, 135, 245, 0.03); border-color: var(--primary); box-shadow: var(--shadow-sm); }
-.new-product-image { width: 120px; height: 68px; border-radius: 8px; overflow: hidden; flex-shrink: 0; }
-.new-product-image img { width: 100%; height: 100%; object-fit: cover; }
+.new-product-image { width: 120px; height: 68px; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: #f7f5f1; border: 1px solid rgba(213, 205, 190, 0.72); }
+.new-product-image img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .new-product-info { flex: 1; display: flex; align-items: center; gap: 16px; }
 .new-product-info h3 { font-size: 15px; font-weight: 500; color: var(--text-primary); margin: 0; flex: 1; }
 .new-tag { padding: 4px 10px; background: var(--primary); color: white; font-size: 11px; font-weight: 600; border-radius: 4px; flex-shrink: 0; }
@@ -570,8 +591,8 @@ onUnmounted(() => {
 
 /* 右侧展开面板 */
 .expand-panel { width: 360px; flex-shrink: 0; overflow: hidden; }
-.expand-image { width: 100%; height: 200px; overflow: hidden; }
-.expand-image img { width: 100%; height: 100%; object-fit: cover; transition: all 0.3s; }
+.expand-image { width: 100%; height: 200px; overflow: hidden; background: #f7f5f1; border-bottom: 1px solid rgba(213, 205, 190, 0.72); }
+.expand-image img { width: 100%; height: 100%; object-fit: contain; transition: all 0.3s; display: block; }
 .expand-content { padding: 20px; }
 .expand-content h3 { font-size: 18px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px; }
 .expand-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 16px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
@@ -614,9 +635,9 @@ onUnmounted(() => {
 
 .games-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
 .game-card { cursor: pointer; overflow: hidden; }
-.game-cover { position: relative; aspect-ratio: 3/4; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-.game-cover img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
-.game-card:hover .game-cover img { transform: scale(1.05); }
+.game-cover { position: relative; aspect-ratio: 4/3; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: #f7f5f1; border-bottom: 1px solid rgba(213, 205, 190, 0.72); }
+.game-cover img { width: 100%; height: 100%; object-fit: contain; transition: transform 0.5s; display: block; }
+.game-card:hover .game-cover img { transform: scale(1.03); }
 .cover-overlay { position: absolute; inset: 0; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; }
 .game-card:hover .cover-overlay { opacity: 1; }
 .game-body { padding: 20px; }
@@ -626,7 +647,7 @@ onUnmounted(() => {
 .sales { font-size: 13px; color: var(--text-secondary); }
 .games-list { display: flex; flex-direction: column; gap: 20px; }
 .game-row { display: flex; align-items: center; gap: 24px; padding: 20px; cursor: pointer; }
-.row-cover { width: 100px; height: 140px; object-fit: cover; border-radius: var(--radius-md); flex-shrink: 0; }
+.row-cover { width: 100px; height: 100px; object-fit: contain; border-radius: var(--radius-md); flex-shrink: 0; background: #f7f5f1; border: 1px solid rgba(213, 205, 190, 0.72); }
 .row-info { flex: 1; min-width: 0; }
 .row-info .tag { margin-bottom: 8px; }
 .row-info h3 { font-size: 17px; font-weight: 600; color: var(--text-primary); margin: 0 0 8px; }

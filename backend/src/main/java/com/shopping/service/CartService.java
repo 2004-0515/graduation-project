@@ -64,9 +64,16 @@ public class CartService {
         User user = userService.getUserByUsername(username);
         Product product = productService.getProductById(productId);
 
-        // 检查商品状态
-        if (product.getStatus() != AuditConstants.ProductStatus.ON_SHELF) {
+        if (product == null) {
+            throw new ResourceNotFoundException("商品", productId);
+        }
+
+        // 检查商品状态和审核状态
+        if (!Integer.valueOf(AuditConstants.ProductStatus.ON_SHELF).equals(product.getStatus())) {
             throw new ValidationException("商品已下架");
+        }
+        if (!Integer.valueOf(AuditConstants.AuditStatus.APPROVED).equals(product.getAuditStatus())) {
+            throw new ValidationException("商品未通过审核，暂不可加入购物车");
         }
 
         // 检查是否是商家购买自己的商品

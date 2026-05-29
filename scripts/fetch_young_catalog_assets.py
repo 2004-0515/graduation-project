@@ -292,7 +292,10 @@ def main() -> int:
                 "foreign_landing_url": "",
                 "local_path": "/" + cached_path.relative_to(PROJECT_ROOT).as_posix(),
                 "content_hash": content_hash,
+                "dimensions": image_size(payload),
                 "size": len(payload),
+                "asset_kind": "unverified-local-cache",
+                "review_status": "needs-source",
             }
             used_hashes.add(content_hash)
             write_manifest(manifest)
@@ -351,7 +354,10 @@ def main() -> int:
             "foreign_landing_url": chosen_meta["foreign_landing_url"],
             "local_path": local_path,
             "content_hash": chosen_meta["content_hash"],
+            "dimensions": image_size(chosen_payload),
             "size": chosen_meta["size"],
+            "asset_kind": "real-photo",
+            "review_status": "rule-approved-photo",
         }
         used_hashes.add(chosen_meta["content_hash"])
         used_urls.add(chosen_meta["source_url"])

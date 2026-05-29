@@ -483,6 +483,11 @@ public class FileController {
         if (filePath == null || !filePath.startsWith("/uploads/")) {
             return;
         }
+        if (isApprovedMediaInUse(file)) {
+            log.info("跳过删除正在使用的媒体文件: fileId={}, fileType={}, filePath={}",
+                    file.getId(), file.getFileType(), filePath);
+            return;
+        }
 
         try {
             Path path = mediaGovernanceService.resolveAbsoluteUploadPath(filePath);
@@ -491,6 +496,20 @@ public class FileController {
             log.error("删除物理文件失败: id={}, filePath={}", file.getId(), filePath, e);
             throw new BusinessException(500, "删除文件失败");
         }
+    }
+
+    private boolean isApprovedMediaInUse(UploadFile file) {
+        if (file.getStatus() == null || file.getStatus() != UploadFile.STATUS_APPROVED) {
+            return false;
+        }
+        String filePath = file.getFilePath();
+        if ("AVATAR".equals(file.getFileType())) {
+            return userService.isAvatarPathInUse(filePath);
+        }
+        if ("PRODUCT".equals(file.getFileType())) {
+            return productService.isImagePathInUse(filePath);
+        }
+        return false;
     }
 
     private java.util.Optional<String> getCurrentUsernameIfAuthenticated() {

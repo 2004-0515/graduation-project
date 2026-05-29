@@ -152,7 +152,7 @@ class UserServiceTest {
     void deleteUserById_WhenLastAdmin_ShouldKeepAdministrator() {
         buyer.setRole(UserRole.ADMIN);
         when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
-        when(userRepository.countByRole(UserRole.ADMIN)).thenReturn(1L);
+        when(userRepository.countByRoleAndStatus(UserRole.ADMIN, 1)).thenReturn(1L);
 
         ValidationException exception = assertThrows(
                 ValidationException.class,
@@ -179,7 +179,7 @@ class UserServiceTest {
     void updateUserRole_WhenLastAdminDowngraded_ShouldReject() {
         buyer.setRole(UserRole.ADMIN);
         when(userRepository.findById(1L)).thenReturn(Optional.of(buyer));
-        when(userRepository.countByRole(UserRole.ADMIN)).thenReturn(1L);
+        when(userRepository.countByRoleAndStatus(UserRole.ADMIN, 1)).thenReturn(1L);
 
         ValidationException exception = assertThrows(
                 ValidationException.class,
@@ -204,6 +204,7 @@ class UserServiceTest {
 
     private void stubNoBlockingData(User user) {
         lenient().when(userRepository.countByRole(UserRole.ADMIN)).thenReturn(2L);
+        lenient().when(userRepository.countByRoleAndStatus(UserRole.ADMIN, 1)).thenReturn(2L);
         lenient().when(addressRepository.findByUser(user)).thenReturn(List.of());
         lenient().when(orderRepository.findByUserId(user.getId())).thenReturn(List.of());
         lenient().when(productRepository.findBySellerIdOrSellerName(user.getId(), user.getUsername())).thenReturn(List.of());

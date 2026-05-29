@@ -175,7 +175,7 @@
           />
         </div>
 
-        <el-dialog v-model="reviewDialogVisible" title="发表评价" width="500px" class="review-dialog">
+        <el-dialog v-model="reviewDialogVisible" title="发表评价" width="500px" class="review-dialog" data-testid="review-dialog">
           <div v-if="currentReviewItem" class="review-form">
             <div class="review-product">
               <img :src="getImageUrl(currentReviewItem.productImage)" :alt="currentReviewItem.productName || '商品图片'" class="product-thumb" />
@@ -212,22 +212,24 @@
                 <el-upload
                   class="review-upload"
                   :show-file-list="false"
+                  :auto-upload="false"
                   :before-upload="beforeReviewImageUpload"
-                  :http-request="handleReviewImageUpload"
+                  :on-change="handleReviewImageSelected"
                   accept="image/*"
+                  data-testid="review-image-upload"
                 >
-                  <div class="review-upload-trigger">
+                  <div class="review-upload-trigger" data-testid="review-image-upload-trigger">
                     <el-icon><Plus /></el-icon>
                     <span>上传图片</span>
                   </div>
                 </el-upload>
-                <div v-if="reviewForm.images.length > 0" class="review-image-grid">
-                  <div v-for="image in reviewForm.images" :key="image" class="review-image-card">
-                    <img :src="getImageUrl(image)" alt="评价图片" />
-                    <button type="button" class="remove-review-image" @click.stop="removeReviewImage(image)">删除</button>
+                <div v-if="reviewImageDrafts.length > 0" class="review-image-grid">
+                  <div v-for="image in reviewImageDrafts" :key="image.id" class="review-image-card">
+                    <img :src="image.previewUrl" :alt="image.file.name" />
+                    <button type="button" class="remove-review-image" @click.stop="removeReviewImage(image.id)">删除</button>
                   </div>
                 </div>
-                <div class="review-image-tip">最多 3 张，审核通过后会展示在商品详情页</div>
+                <div class="review-image-tip">最多 3 张，点击提交评价后上传，审核通过后会展示在商品详情页</div>
               </div>
             </div>
             <div class="form-item">
@@ -236,7 +238,7 @@
           </div>
           <template #footer>
             <el-button @click="closeReviewDialog">取消</el-button>
-            <el-button type="primary" :loading="submittingReview" @click="submitReview">
+            <el-button type="primary" :loading="submittingReview" data-testid="review-submit" @click="submitReview">
               提交评价
             </el-button>
           </template>
@@ -287,6 +289,12 @@ const reviewForm = reactive({
   anonymous: false,
   images: [] as string[]
 })
+type ReviewImageDraft = {
+  id: string
+  file: File
+  previewUrl: string
+}
+const reviewImageDrafts = ref<ReviewImageDraft[]>([])
 
 const tabs = [
   { label: '全部', value: -1 },
@@ -499,6 +507,7 @@ const closeReviewDialog = () => {
   reviewForm.content = ''
   reviewForm.anonymous = false
   reviewForm.images = []
+  clearReviewImageDrafts()
 }
 
 const reconcileReviewContext = () => {
@@ -599,6 +608,7 @@ const openReviewDialog = (order: Order, item: OrderItem) => {
   reviewForm.content = ''
   reviewForm.anonymous = false
   reviewForm.images = []
+  clearReviewImageDrafts()
   reviewDialogVisible.value = true
 }
 
@@ -616,37 +626,85 @@ const beforeReviewImageUpload = (file: File) => {
   return true
 }
 
-const handleReviewImageUpload = async (options: any) => {
-  if (reviewForm.images.length >= 3) {
+const createPreviewUrl = (file: File) => {
+  if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+    return URL.createObjectURL(file)
+  }
+  return ''
+}
+
+const revokePreviewUrl = (previewUrl: string) => {
+  if (previewUrl && previewUrl.startsWith('blob:') && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+    URL.revokeObjectURL(previewUrl)
+  }
+}
+
+const clearReviewImageDrafts = () => {
+  reviewImageDrafts.value.forEach((item) => revokePreviewUrl(item.previewUrl))
+  reviewImageDrafts.value = []
+}
+
+const handleReviewImageSelected = (uploadFile: { raw?: File; name?: string }) => {
+  const file = uploadFile.raw
+  if (!file) return
+  if (reviewImageDrafts.value.length >= 3) {
     ElMessage.warning('最多上传 3 张评价图片')
     return
   }
-  try {
-    const res: any = await fileApi.uploadReviewImage(options.file)
+  if (!beforeReviewImageUpload(file)) {
+    return
+  }
+
+  const duplicate = reviewImageDrafts.value.some((item) =>
+    item.file.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified
+  )
+  if (duplicate) {
+    ElMessage.warning('这张图片已经添加过')
+    return
+  }
+
+  reviewImageDrafts.value = [
+    ...reviewImageDrafts.value,
+    {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      file,
+      previewUrl: createPreviewUrl(file)
+    }
+  ]
+}
+
+const uploadReviewImagesForSubmit = async () => {
+  const uploadedImages: string[] = []
+  for (const draft of reviewImageDrafts.value) {
+    const res: any = await fileApi.uploadReviewImage(draft.file)
     if (res?.code === 200 && res.data) {
-      if (!reviewForm.images.includes(res.data)) {
-        reviewForm.images = [...reviewForm.images, res.data]
-      }
-      ElMessage.success(res?.message || '图片上传成功')
-      return
+      uploadedImages.push(res.data)
+      continue
     }
     const message = res?.message || '图片上传失败'
     debugError('上传评价图片失败:', message)
-    ElMessage.error(message)
-  } catch (error) {
-    debugError('上传评价图片失败:', error)
-    ElMessage.error(getErrorMessage(error, '图片上传失败'))
+    throw new Error(message)
   }
+  return uploadedImages
 }
 
-const removeReviewImage = (image: string) => {
-  reviewForm.images = reviewForm.images.filter((item) => item !== image)
+const removeReviewImage = (id: string) => {
+  const target = reviewImageDrafts.value.find((item) => item.id === id)
+  if (target) {
+    revokePreviewUrl(target.previewUrl)
+  }
+  reviewImageDrafts.value = reviewImageDrafts.value.filter((item) => item.id !== id)
 }
 
 const submitReview = async () => {
+  if (submittingReview.value) return
   if (!currentReviewItem.value || !currentReviewOrder.value) return
   if (reviewForm.rating < 1) {
     ElMessage.warning('请选择评分')
+    return
+  }
+  if (!reviewForm.content.trim()) {
+    ElMessage.warning('请填写评价内容')
     return
   }
 
@@ -655,13 +713,15 @@ const submitReview = async () => {
   const reviewProductId = currentReviewItem.value.productId
   submittingReview.value = true
   try {
+    const uploadedImages = await uploadReviewImagesForSubmit()
+    reviewForm.images = uploadedImages
     const res: any = await reviewApi.createReview({
       productId: reviewProductId,
       orderId: reviewOrderId,
       orderItemId: reviewItemId,
       rating: reviewForm.rating,
-      content: reviewForm.content,
-      images: [...reviewForm.images],
+      content: reviewForm.content.trim(),
+      images: uploadedImages,
       anonymous: reviewForm.anonymous
     })
 
@@ -845,16 +905,141 @@ onMounted(async () => {
 }
 .review-image-tip { color: #666; font-size: 12px; }
 @media (max-width: 768px) {
+  .main-content {
+    padding: 84px 0 56px;
+  }
+  .container {
+    max-width: 100%;
+    padding: 0 12px;
+    overflow-x: hidden;
+  }
   .page-header,
   .order-footer {
     flex-direction: column;
     gap: 16px;
     align-items: flex-start;
   }
+  .page-header {
+    padding: 20px;
+    margin-bottom: 18px;
+  }
+  .header-content,
+  .header-left,
+  .header-right,
+  .order-total,
+  .order-actions {
+    max-width: 100%;
+    min-width: 0;
+  }
+  .header-content h1 {
+    font-size: 1.45rem;
+  }
+  .header-stats {
+    width: 100%;
+    gap: 12px;
+    justify-content: space-between;
+  }
+  .stat-item {
+    flex: 1;
+    min-width: 0;
+  }
+  .stat-num {
+    font-size: 24px;
+  }
+  .filter-section {
+    display: block;
+  }
+  .filter-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab-btn {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    white-space: nowrap;
+  }
+  .filter-actions,
+  .search-box,
+  .search-box input {
+    width: 100%;
+  }
+  .order-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px;
+  }
+  .header-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .order-no,
+  .order-time,
+  .order-status {
+    max-width: 100%;
+  }
+  .order-no {
+    overflow-wrap: anywhere;
+  }
+  .order-items {
+    padding: 12px 14px;
+  }
+  .order-item {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px 12px;
+  }
+  .item-image {
+    width: 64px;
+    height: 64px;
+  }
+  .item-info {
+    min-width: 0;
+  }
+  .item-info h4,
+  .item-price {
+    overflow-wrap: anywhere;
+  }
+  .item-subtotal,
+  .btn-review {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .item-subtotal {
+    font-size: 14px;
+  }
   .footer-right {
     width: 100%;
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
+  }
+  .order-total {
+    overflow-wrap: anywhere;
+  }
+  .order-actions {
+    flex-wrap: wrap;
+  }
+  .order-actions button {
+    padding: 7px 14px;
+  }
+  .remark-content {
+    max-width: 220px;
+  }
+  .pagination-wrapper {
+    justify-content: flex-start;
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+  :deep(.el-pagination) {
+    min-width: max-content;
   }
 }
 </style>

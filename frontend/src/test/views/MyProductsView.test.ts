@@ -176,6 +176,55 @@ describe('MyProductsView', () => {
     expect((wrapper.vm as any).saving).toBe(false)
   })
 
+  it('blocks duplicate product submits while the first save is still in flight', async () => {
+    const submit = deferred<any>()
+    mockedProductApi.submitProduct.mockReturnValue(submit.promise)
+    const wrapper = mountView()
+
+    await flushPromises()
+    ;(wrapper.vm as any).form.name = '商品A'
+    ;(wrapper.vm as any).form.categoryId = 1
+    ;(wrapper.vm as any).form.price = 99
+    ;(wrapper.vm as any).form.stock = 5
+    ;(wrapper.vm as any).form.images = ['/a.png']
+    ;(wrapper.vm as any).form.mainImage = '/a.png'
+    ;(wrapper.vm as any).form.adVideo = ''
+
+    const firstSubmit = (wrapper.vm as any).submitProduct()
+    await flushPromises()
+    await (wrapper.vm as any).submitProduct()
+
+    expect(mockedProductApi.submitProduct).toHaveBeenCalledTimes(1)
+
+    submit.resolve({
+      code: 200,
+      message: '商品提交成功，等待管理员审核',
+      data: { id: 8, auditStatus: 0, sales: 0 }
+    })
+    await firstSubmit
+    await flushPromises()
+  })
+
+  it('ignores image upload results after the product dialog is cancelled', async () => {
+    const upload = deferred<any>()
+    mockedFileApi.uploadProductImage.mockReturnValue(upload.promise)
+    const wrapper = mountView()
+
+    await flushPromises()
+    ;(wrapper.vm as any).openDialog()
+    const uploadPromise = (wrapper.vm as any).handleImageUpload({ file: new File(['x'], 'demo.png', { type: 'image/png' }) })
+    await flushPromises()
+    ;(wrapper.vm as any).closeDialog()
+
+    upload.resolve({ code: 200, data: '/uploads/products/demo.png' })
+    await uploadPromise
+    await flushPromises()
+
+    expect((wrapper.vm as any).form.images).toEqual([])
+    expect((wrapper.vm as any).form.mainImage).toBe('')
+    expect(messages.success).not.toHaveBeenCalledWith('图片上传成功')
+  })
+
   it('does not treat success flag without 200 code as a real submit success', async () => {
     mockedProductApi.submitProduct.mockResolvedValue({ code: 500, success: true, message: '商品提交失败' })
     const wrapper = mountView()

@@ -209,9 +209,9 @@ onMounted(async () => {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
 }
-.top-img { width: 140px; height: 140px; margin: 0 auto 16px; border-radius: var(--radius-lg); overflow: hidden; background: rgba(255,255,255,0.5); }
+.top-img { width: 140px; height: 140px; margin: 0 auto 16px; border-radius: var(--radius-lg); overflow: hidden; background: #f7f5f1; border: 1px solid rgba(213, 205, 190, 0.72); }
 .top-card.first .top-img { width: 180px; height: 180px; }
-.top-img img { width: 100%; height: 100%; object-fit: cover; }
+.top-img img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .top-card h4 { font-size: 15px; font-weight: 600; color: var(--text-title); margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .top-sales { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
 .top-price { font-size: 22px; font-weight: 600; color: var(--primary); }
@@ -245,7 +245,7 @@ onMounted(async () => {
 .rank-num-2 { background: linear-gradient(135deg, #c7d2e3 0%, #8f9bb3 100%); }
 .rank-num-3 { background: linear-gradient(135deg, #d99058 0%, #b96a33 100%); }
 
-.rank-img { width: 64px; height: 64px; border-radius: var(--radius-md); object-fit: cover; }
+.rank-img { width: 64px; height: 64px; border-radius: var(--radius-md); object-fit: contain; background: #f7f5f1; border: 1px solid rgba(213, 205, 190, 0.72); }
 .rank-info { flex: 1; min-width: 0; }
 .rank-info h4 { font-size: 15px; font-weight: 600; color: var(--text-title); margin: 0 0 4px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rank-info p { font-size: 13px; color: var(--text-body); margin: 0; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
