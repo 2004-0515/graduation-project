@@ -337,10 +337,28 @@ CREATE TABLE music (
     INDEX idx_music_sort (sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='音乐表';
 
--- 插入示例音乐数据
-INSERT INTO music (title, artist, url, cover, sort_order, status) VALUES
-('轻音乐1', '纯音乐', 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=', NULL, 1, 1),
-('轻音乐2', '纯音乐', 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=', NULL, 2, 1);
+-- 插入项目内置轻音乐数据
+INSERT INTO music (title, artist, url, cover, asset_source, license_code, license_version, duration, sort_order, status) VALUES
+('晨光轻行', '山川音室', '/uploads/music/library/shion-light-01.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 1, 1),
+('午后微风', '山川音室', '/uploads/music/library/shion-light-02.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 2, 1),
+('夜色书桌', '山川音室', '/uploads/music/library/shion-light-03.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 3, 1),
+('星河漫步', '山川音室', '/uploads/music/library/shion-light-04.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 4, 1),
+('温柔雨声', '山川音室', '/uploads/music/library/shion-light-05.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 5, 1),
+('云端小径', '山川音室', '/uploads/music/library/shion-light-06.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 6, 1),
+('月下回响', '山川音室', '/uploads/music/library/shion-light-07.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 7, 1),
+('海盐汽水', '山川音室', '/uploads/music/library/shion-light-08.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 8, 1),
+('木质时光', '山川音室', '/uploads/music/library/shion-light-09.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 9, 1),
+('静谧花园', '山川音室', '/uploads/music/library/shion-light-10.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 10, 1),
+('远山日落', '山川音室', '/uploads/music/library/shion-light-11.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 11, 1),
+('暖灯晚餐', '山川音室', '/uploads/music/library/shion-light-12.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 12, 1),
+('玻璃湖面', '山川音室', '/uploads/music/library/shion-light-13.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 13, 1),
+('轻快周末', '山川音室', '/uploads/music/library/shion-light-14.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 14, 1),
+('青柠节拍', '山川音室', '/uploads/music/library/shion-light-15.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 15, 1),
+('浅梦入眠', '山川音室', '/uploads/music/library/shion-light-16.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 16, 1),
+('城市慢拍', '山川音室', '/uploads/music/library/shion-light-17.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 17, 1),
+('白茶午后', '山川音室', '/uploads/music/library/shion-light-18.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 18, 1),
+('银杏小路', '山川音室', '/uploads/music/library/shion-light-19.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 19, 1),
+('晴空回廊', '山川音室', '/uploads/music/library/shion-light-20.wav', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, 20, 1);
 
 -- =====================================================
 -- 14.1 演示数据导入批次表 (demo_import_batch)

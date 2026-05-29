@@ -177,26 +177,26 @@ ACHIEVEMENTS = [
 ]
 SEARCH_KEYWORDS = ["蓝牙耳机", "防晒霜", "挂耳咖啡", "羽绒服", "投影仪", "瑜伽垫", "行车记录仪", "收纳箱", "益生菌", "珍珠耳钉", "四件套", "绘本"]
 MUSIC_FILE_METADATA = {
-    "010.买辣椒也用券 - 起风了.mp3": ("起风了", "买辣椒也用券"),
-    "0107-长安姑娘 - 李常超（Lao乾妈）.mp3": ("长安姑娘", "李常超（Lao乾妈）"),
-    "022.阿桑-一直很安静【八倍音质】.mp3": ("一直很安静", "阿桑"),
-    "0230.奇然_沈谧仁-琵琶行.mp3": ("琵琶行", "奇然 / 沈谧仁"),
-    "026.后弦-下完这场雨【八倍音质】.mp3": ("下完这场雨", "后弦"),
-    "0627.袁凤瑛 - 天若有情.mp3": ("天若有情", "袁凤瑛"),
-    "126.何野《天亮以前说再见》 - 何野.mp3": ("天亮以前说再见", "何野"),
-    "251.任然-疑心病【八倍音质】.mp3": ("疑心病", "任然"),
-    "29.剑心.mp3": ("剑心", "未知歌手"),
-    "Dizzy Dizzo (蔡诗芸)-雨过后的风景.flac": ("雨过后的风景", "Dizzy Dizzo（蔡诗芸）"),
-    "M800000r7I6R3VjL8c.mp3": ("把回忆拼好给你", "苏星婕"),
-    "M800002AYkzb16Wkjz.mp3": ("离开我的依赖", "王艳薇"),
-    "一个人想着一个人 - 曾沛慈.mp3": ("一个人想着一个人", "曾沛慈"),
-    "徐良&小凌-无颜女.mp3": ("无颜女", "徐良 / 小凌"),
-    "我欲成冰再也无退路(DJ完整原版)-虞姬.mp3": ("我欲成冰再也无退路", "虞姬"),
-    "李秉成-只为你着迷.mp3": ("只为你着迷", "李秉成"),
-    "李荣浩,梁咏琪 - 紫荆花盛开.mp3": ("紫荆花盛开", "李荣浩 / 梁咏琪"),
-    "杨丞琳-带我走 (Live丨典藏).mp3": ("带我走", "杨丞琳"),
-    "爱错 - 王力宏.mp3": ("爱错", "王力宏"),
-    "颜人中 - 我只能离开.mp3": ("我只能离开", "颜人中"),
+    "shion-light-01.wav": ("晨光轻行", "山川音室"),
+    "shion-light-02.wav": ("午后微风", "山川音室"),
+    "shion-light-03.wav": ("夜色书桌", "山川音室"),
+    "shion-light-04.wav": ("星河漫步", "山川音室"),
+    "shion-light-05.wav": ("温柔雨声", "山川音室"),
+    "shion-light-06.wav": ("云端小径", "山川音室"),
+    "shion-light-07.wav": ("月下回响", "山川音室"),
+    "shion-light-08.wav": ("海盐汽水", "山川音室"),
+    "shion-light-09.wav": ("木质时光", "山川音室"),
+    "shion-light-10.wav": ("静谧花园", "山川音室"),
+    "shion-light-11.wav": ("远山日落", "山川音室"),
+    "shion-light-12.wav": ("暖灯晚餐", "山川音室"),
+    "shion-light-13.wav": ("玻璃湖面", "山川音室"),
+    "shion-light-14.wav": ("轻快周末", "山川音室"),
+    "shion-light-15.wav": ("青柠节拍", "山川音室"),
+    "shion-light-16.wav": ("浅梦入眠", "山川音室"),
+    "shion-light-17.wav": ("城市慢拍", "山川音室"),
+    "shion-light-18.wav": ("白茶午后", "山川音室"),
+    "shion-light-19.wav": ("银杏小路", "山川音室"),
+    "shion-light-20.wav": ("晴空回廊", "山川音室"),
 }
 
 CATEGORY_DEFINITIONS = YOUNG_CATEGORY_DEFINITIONS
@@ -455,7 +455,7 @@ class Seeder:
         self.category_icon_paths: dict[int, str] = {}
         self.promotion_banner_paths: list[str] = []
         self._ensure_ci_music_placeholders()
-        self.music_files = self._scan_uploads("music", {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".opus"})
+        self.music_files = self._scan_music_uploads()
         self.avatar_files = self._scan_uploads("avatars", {".jpg", ".jpeg", ".png", ".webp"})
         self.video_files = self._scan_uploads("videos", {".mp4", ".webm", ".mov"})
         self.asset_manifest = self._load_asset_manifest()
@@ -469,12 +469,19 @@ class Seeder:
         if self._scan_uploads("music", {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".opus"}):
             return
 
-        target_dir = music_root / "2026" / "05"
+        target_dir = music_root / "library"
         target_dir.mkdir(parents=True, exist_ok=True)
         for filename in MUSIC_FILE_METADATA.keys():
             target = target_dir / filename
             if not target.exists():
                 target.write_bytes(b"")
+
+    def _scan_music_uploads(self) -> list[str]:
+        suffixes = {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".opus"}
+        library_files = self._scan_uploads(Path("music") / "library", suffixes)
+        if library_files:
+            return library_files
+        return self._scan_uploads("music", suffixes)
 
     def _scan_uploads(self, sub_path: str | Path, suffixes: set[str]) -> list[str]:
         base = PROJECT_ROOT / "uploads" / Path(sub_path)
@@ -927,7 +934,7 @@ class Seeder:
             if use_asset_columns:
                 values.append(
                     "("
-                    f"'{sql_escape(title)}', '{sql_escape(artist)}', '{sql_escape(path)}', NULL, 'LOCAL_UPLOAD', 'LOCAL_FILE', 'filename-metadata', "
+                    f"'{sql_escape(title)}', '{sql_escape(artist)}', '{sql_escape(path)}', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', "
                     f"{duration}, {index}, 1, '{created_time.strftime('%Y-%m-%d %H:%M:%S')}', '{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}'"
                     ")"
                 )

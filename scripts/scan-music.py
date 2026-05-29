@@ -10,26 +10,26 @@ except ModuleNotFoundError:
     FLAC = None
 
 MUSIC_FILE_METADATA = {
-    "010.买辣椒也用券 - 起风了.mp3": ("起风了", "买辣椒也用券"),
-    "0107-长安姑娘 - 李常超（Lao乾妈）.mp3": ("长安姑娘", "李常超（Lao乾妈）"),
-    "022.阿桑-一直很安静【八倍音质】.mp3": ("一直很安静", "阿桑"),
-    "0230.奇然_沈谧仁-琵琶行.mp3": ("琵琶行", "奇然 / 沈谧仁"),
-    "026.后弦-下完这场雨【八倍音质】.mp3": ("下完这场雨", "后弦"),
-    "0627.袁凤瑛 - 天若有情.mp3": ("天若有情", "袁凤瑛"),
-    "126.何野《天亮以前说再见》 - 何野.mp3": ("天亮以前说再见", "何野"),
-    "251.任然-疑心病【八倍音质】.mp3": ("疑心病", "任然"),
-    "29.剑心.mp3": ("剑心", "未知歌手"),
-    "Dizzy Dizzo (蔡诗芸)-雨过后的风景.flac": ("雨过后的风景", "Dizzy Dizzo（蔡诗芸）"),
-    "M800000r7I6R3VjL8c.mp3": ("把回忆拼好给你", "苏星婕"),
-    "M800002AYkzb16Wkjz.mp3": ("离开我的依赖", "王艳薇"),
-    "一个人想着一个人 - 曾沛慈.mp3": ("一个人想着一个人", "曾沛慈"),
-    "徐良&小凌-无颜女.mp3": ("无颜女", "徐良 / 小凌"),
-    "我欲成冰再也无退路(DJ完整原版)-虞姬.mp3": ("我欲成冰再也无退路", "虞姬"),
-    "李秉成-只为你着迷.mp3": ("只为你着迷", "李秉成"),
-    "李荣浩,梁咏琪 - 紫荆花盛开.mp3": ("紫荆花盛开", "李荣浩 / 梁咏琪"),
-    "杨丞琳-带我走 (Live丨典藏).mp3": ("带我走", "杨丞琳"),
-    "爱错 - 王力宏.mp3": ("爱错", "王力宏"),
-    "颜人中 - 我只能离开.mp3": ("我只能离开", "颜人中"),
+    "shion-light-01.wav": ("晨光轻行", "山川音室"),
+    "shion-light-02.wav": ("午后微风", "山川音室"),
+    "shion-light-03.wav": ("夜色书桌", "山川音室"),
+    "shion-light-04.wav": ("星河漫步", "山川音室"),
+    "shion-light-05.wav": ("温柔雨声", "山川音室"),
+    "shion-light-06.wav": ("云端小径", "山川音室"),
+    "shion-light-07.wav": ("月下回响", "山川音室"),
+    "shion-light-08.wav": ("海盐汽水", "山川音室"),
+    "shion-light-09.wav": ("木质时光", "山川音室"),
+    "shion-light-10.wav": ("静谧花园", "山川音室"),
+    "shion-light-11.wav": ("远山日落", "山川音室"),
+    "shion-light-12.wav": ("暖灯晚餐", "山川音室"),
+    "shion-light-13.wav": ("玻璃湖面", "山川音室"),
+    "shion-light-14.wav": ("轻快周末", "山川音室"),
+    "shion-light-15.wav": ("青柠节拍", "山川音室"),
+    "shion-light-16.wav": ("浅梦入眠", "山川音室"),
+    "shion-light-17.wav": ("城市慢拍", "山川音室"),
+    "shion-light-18.wav": ("白茶午后", "山川音室"),
+    "shion-light-19.wav": ("银杏小路", "山川音室"),
+    "shion-light-20.wav": ("晴空回廊", "山川音室"),
 }
 
 def try_decode(s):
@@ -113,7 +113,7 @@ def get_info(path, filename):
         return title, artist or 'Unknown'
     return parse_filename(filename)
 
-base = 'uploads/music'
+base = 'uploads/music/library' if os.path.isdir('uploads/music/library') else 'uploads/music'
 files = []
 for root, dirs, filenames in os.walk(base):
     for f in sorted(filenames, key=lambda x: x.lower()):
@@ -132,8 +132,8 @@ for i, fpath in enumerate(files, 1):
     safe_title = title.replace("'", "\\'")
     safe_artist = artist.replace("'", "\\'")
     sql_lines.append(
-        f"INSERT INTO shopping_mall.music (title, artist, url, cover, duration, sort_order, status, created_time, updated_time) "
-        f"VALUES ('{safe_title}', '{safe_artist}', '/{rel}', NULL, 180, {i}, 1, NOW(), NOW());"
+        f"INSERT INTO shopping_mall.music (title, artist, url, cover, asset_source, license_code, license_version, duration, sort_order, status, created_time, updated_time) "
+        f"VALUES ('{safe_title}', '{safe_artist}', '/{rel}', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', 10, {i}, 1, NOW(), NOW());"
     )
 
 with open('scripts/fix_music.sql', 'w', encoding='utf-8') as f:
