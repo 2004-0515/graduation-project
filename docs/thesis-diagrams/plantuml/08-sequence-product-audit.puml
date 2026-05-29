@@ -1,0 +1,78 @@
+@startuml
+!include common-sequence-style.pumlinc
+
+title 图4.9 商品审核时序图
+
+actor "卖家" as Seller
+actor "管理员" as Admin
+participant "<u>:MyProductsView</u>" as MyProductsView
+participant "<u>:AdminProductsView</u>" as AdminProductsView
+participant "<u>:ProductController</u>" as ProductController
+participant "<u>:ProductService</u>" as ProductService
+participant "<u>:ProductRepository</u>" as ProductRepository
+participant "<u>:NotificationService</u>" as NotificationService
+
+autonumber 1
+
+Seller -> MyProductsView : 填写商品信息并提交
+activate MyProductsView
+MyProductsView -> ProductController : 提交商品审核请求
+activate ProductController
+ProductController -> ProductController : 校验登录、卖家权限和必填字段
+ProductController -> NotificationService : 通知管理员有新商品待审核
+activate NotificationService
+deactivate NotificationService
+ProductController -> ProductService : 保存待审核商品
+activate ProductService
+ProductService -> ProductRepository : 保存待审核状态
+activate ProductRepository
+deactivate ProductRepository
+deactivate ProductService
+ProductController --> MyProductsView : 商品提交成功，等待管理员审核
+deactivate ProductController
+MyProductsView --> Seller : 显示待审核状态
+deactivate MyProductsView
+
+Admin -> AdminProductsView : 打开待审核商品列表
+activate AdminProductsView
+AdminProductsView -> ProductController : 请求待审核商品列表
+activate ProductController
+ProductController -> ProductService : 查询待审核商品
+activate ProductService
+ProductService -> ProductRepository : 查询待审核状态商品
+activate ProductRepository
+deactivate ProductRepository
+deactivate ProductService
+ProductController --> AdminProductsView : 待审核列表
+deactivate ProductController
+AdminProductsView --> Admin : 展示商品图文、价格和库存
+
+Admin -> AdminProductsView : 提交审核结果
+AdminProductsView -> ProductController : 提交商品审核结果
+activate ProductController
+ProductController -> ProductService : 执行商品审核
+activate ProductService
+ProductService -> ProductRepository : 查询商品并更新审核字段
+activate ProductRepository
+deactivate ProductRepository
+alt 审核通过
+  ProductService -> ProductRepository : 保存审核通过状态
+  activate ProductRepository
+  deactivate ProductRepository
+  ProductService -> NotificationService : 通知卖家审核通过
+  activate NotificationService
+  deactivate NotificationService
+else 审核拒绝
+  ProductService -> ProductRepository : 保存审核拒绝状态
+  activate ProductRepository
+  deactivate ProductRepository
+  ProductService -> NotificationService : 通知卖家拒绝原因
+  activate NotificationService
+  deactivate NotificationService
+end
+deactivate ProductService
+ProductController --> AdminProductsView : 返回审核结果
+deactivate ProductController
+AdminProductsView --> Admin : 刷新待审核列表
+deactivate AdminProductsView
+@enduml

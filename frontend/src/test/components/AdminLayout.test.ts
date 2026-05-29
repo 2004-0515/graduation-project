@@ -81,6 +81,17 @@ describe('AdminLayout', () => {
     expect(adminStore.refreshAllCounts).toHaveBeenCalled()
   })
 
+  it('uses consistent two-character sidebar badges except dashboard', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const iconTexts = wrapper.findAll('.nav-icon').map((item) => item.text())
+
+    expect(iconTexts).toContain('仪表盘')
+    expect(iconTexts).toEqual(expect.arrayContaining(['展示', '留言', '促销', '音乐', '价格', '理性']))
+    expect(iconTexts).not.toEqual(expect.arrayContaining(['展', '联', '券', '乐', '价', '理']))
+  })
+
   it('logs out and routes to login on success', async () => {
     const wrapper = mountView()
     await flushPromises()

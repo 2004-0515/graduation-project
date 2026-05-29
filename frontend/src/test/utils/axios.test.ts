@@ -63,4 +63,24 @@ describe('axios storage guards', () => {
     expect(debugError).toHaveBeenCalledWith(`删除本地存储失败(${STORAGE_KEYS.TOKEN})`, expect.any(Error))
     expect(debugError).toHaveBeenCalledWith(`删除本地存储失败(${STORAGE_KEYS.USER_INFO})`, expect.any(Error))
   })
+
+  it('response interceptor clears session for json unauthorized payloads too', async () => {
+    window.history.replaceState({}, '', '/login')
+
+    await import('@/utils/axios')
+    const responseErrorHandler = useResponse.mock.calls[0][1]
+    const error = {
+      response: {
+        status: HTTP_STATUS.UNAUTHORIZED,
+        data: { code: 401, message: '账号已被禁用，请联系管理员' }
+      }
+    }
+
+    await expect(responseErrorHandler(error)).rejects.toMatchObject({
+      message: '账号已被禁用，请联系管理员',
+      code: 401
+    })
+    expect(window.localStorage.removeItem).toHaveBeenCalledWith(STORAGE_KEYS.TOKEN)
+    expect(window.localStorage.removeItem).toHaveBeenCalledWith(STORAGE_KEYS.USER_INFO)
+  })
 })

@@ -40,14 +40,21 @@ function Resolve-PythonCommand {
 
 $python = Resolve-PythonCommand
 
-git -c core.safecrlf=false diff --check
-if ($LASTEXITCODE -ne 0) {
-    exit $LASTEXITCODE
+$gitMetadataPath = Join-Path (Get-ProjectRoot) ".git"
+if (Test-Path -LiteralPath $gitMetadataPath) {
+    git -c core.safecrlf=false diff --check
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+} else {
+    Write-Host "Skipping git diff --check because .git metadata is not present in this project copy."
 }
 
 & $python -m py_compile `
     (Join-Path $PSScriptRoot "rebuild_graduation_dataset.py") `
-    (Join-Path $PSScriptRoot "fetch_young_catalog_assets.py")
+    (Join-Path $PSScriptRoot "fetch_young_catalog_assets.py") `
+    (Join-Path $PSScriptRoot "enhance_high_quality_demo_data.py") `
+    (Join-Path $PSScriptRoot "sync_rational_consumption_data.py")
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

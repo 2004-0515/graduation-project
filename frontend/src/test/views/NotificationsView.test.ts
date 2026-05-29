@@ -243,8 +243,8 @@ describe('NotificationsView', () => {
       data: [
         {
           id: 1,
-          type: 'promotion',
-          title: '降价提醒',
+          type: 'price_alert',
+          title: '价格提醒',
           message: '您关注的商品已降价至 99 元',
           read: false,
           createdTime: '2026-05-07T10:00:00',
@@ -292,6 +292,38 @@ describe('NotificationsView', () => {
     await wrapper.findAll('button').find((button) => button.text() === '查看商品')!.trigger('click')
 
     expect(mockPush).toHaveBeenCalledWith('/product/66')
+  })
+
+  it('routes legacy price-change notifications to product detail instead of coupon detail', async () => {
+    mockedNotificationApi.getNotifications.mockResolvedValue({
+      code: 200,
+      data: [
+        {
+          id: 22,
+          type: 'promotion',
+          title: '关注商品价格提醒',
+          message: '数据增强:您关注的「绿色街车摩托」近期价格有变化，可进入商品详情查看走势。',
+          relatedId: 77,
+          read: false,
+          createdTime: '2026-05-07T10:00:00',
+          timeAgo: '刚刚'
+        }
+      ]
+    })
+    mockedNotificationApi.markAsRead.mockResolvedValue({ code: 200 })
+
+    const wrapper = mountView()
+
+    await flushPromises()
+    await wrapper.find('.notification-item').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('价格提醒')
+    expect(wrapper.findAll('button').some((button) => button.text() === '查看优惠券')).toBe(false)
+
+    await wrapper.findAll('button').find((button) => button.text() === '查看商品')!.trigger('click')
+
+    expect(mockPush).toHaveBeenCalledWith('/product/77')
   })
 
   it('does not show an error when user cancels clearing notifications', async () => {

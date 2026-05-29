@@ -45,7 +45,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if (-not $BuildOnly) {
-    $testInvocation = Resolve-ProjectNodeInvocation -CommandName "npx" -Arguments @("vitest", "run", "src/test", "--maxWorkers=1", "--minWorkers=1") -Tooling $nodeTooling
+    $testInvocation = Resolve-ProjectNodeInvocation -CommandName "npx" -Arguments @("vitest", "run", "src/test", "--maxWorkers=1", "--minWorkers=1", "--cache=false") -Tooling $nodeTooling
     Write-Host "Frontend test launcher: $(Format-NodeInvocation -Invocation $testInvocation)"
 
     Invoke-ProjectNodeInvocation -Invocation $testInvocation -WorkingDirectory $frontendRoot

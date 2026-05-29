@@ -191,6 +191,25 @@ describe('ProductDetailView', () => {
     expect(wrapper.get('input[type="number"]').attributes('disabled')).toBeDefined()
   })
 
+  it('keeps product detail assistance copy within implemented scope', async () => {
+    mockedProductApi.getProductById.mockResolvedValue({
+      code: 200,
+      data: buildProduct({ description: '' })
+    })
+
+    const wrapper = mountView()
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('价格走势')
+    expect(wrapper.text()).toContain('降价提醒')
+    expect(wrapper.text()).toContain('想要清单')
+    expect(wrapper.text()).toContain('先记录再决定是否购买')
+    expect(wrapper.text()).not.toContain('7天无理由')
+    expect(wrapper.text()).not.toContain('正品保障')
+    expect(wrapper.text()).not.toContain('极速发货')
+  })
+
   it('normalizes decimal quantity and caps it at stock on blur', async () => {
     mockedProductApi.getProductById.mockResolvedValue({ code: 200, data: buildProduct({ stock: 3 }) })
 

@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -296,6 +297,79 @@ class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("Rejects unapproved product during order creation")
+    void createOrder_ProductPendingAudit_ShouldThrowException() {
+        testProduct.setAuditStatus(0);
+
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setAddressId(1L);
+        request.setPaymentMethod(1);
+
+        CreateOrderRequest.OrderItemRequest itemRequest = new CreateOrderRequest.OrderItemRequest();
+        itemRequest.setProductId(1L);
+        itemRequest.setQuantity(2);
+        request.setItems(List.of(itemRequest));
+
+        when(userService.getUserByUsername("testuser")).thenReturn(testUser);
+        when(addressService.getAddressById(1L)).thenReturn(testAddress);
+        when(productService.getProductById(1L)).thenReturn(testProduct);
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> orderService.createOrder("testuser", request)
+        );
+        assertTrue(exception.getMessage().contains("未通过审核"));
+        assertTrue(exception.getMessage().contains("不可购买"));
+    }
+
+    @Test
+    @DisplayName("Rejects own product during order creation")
+    void createOrder_OwnProduct_ShouldThrowException() {
+        testProduct.setSellerId(testUser.getId());
+
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setAddressId(1L);
+        request.setPaymentMethod(1);
+
+        CreateOrderRequest.OrderItemRequest itemRequest = new CreateOrderRequest.OrderItemRequest();
+        itemRequest.setProductId(1L);
+        itemRequest.setQuantity(1);
+        request.setItems(List.of(itemRequest));
+
+        when(userService.getUserByUsername("testuser")).thenReturn(testUser);
+        when(addressService.getAddressById(1L)).thenReturn(testAddress);
+        when(productService.getProductById(1L)).thenReturn(testProduct);
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> orderService.createOrder("testuser", request)
+        );
+        assertEquals("不能购买自己发布的商品", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Rejects zero or negative quantity during order creation")
+    void createOrder_InvalidQuantity_ShouldThrowException() {
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setAddressId(1L);
+        request.setPaymentMethod(1);
+
+        CreateOrderRequest.OrderItemRequest itemRequest = new CreateOrderRequest.OrderItemRequest();
+        itemRequest.setProductId(1L);
+        itemRequest.setQuantity(0);
+        request.setItems(List.of(itemRequest));
+
+        when(userService.getUserByUsername("testuser")).thenReturn(testUser);
+        when(addressService.getAddressById(1L)).thenReturn(testAddress);
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> orderService.createOrder("testuser", request)
+        );
+        assertEquals("数量至少为1", exception.getMessage());
+    }
+
+    @Test
     @DisplayName("Cancels pending payment order")
     void cancelOrder_PendingPayment_ShouldSucceed() {
         testOrder.setOrderStatus(OrderConstants.OrderStatus.PENDING_PAYMENT);
@@ -438,6 +512,75 @@ class OrderServiceTest {
                 () -> orderService.requestCancelOrder(1L, "testuser")
         );
         assertEquals("仅已支付订单可申请取消", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Rejects payment when product went off shelf after order creation")
+    void payOrder_ProductOffShelf_ShouldThrowException() {
+        testOrder.setOrderStatus(OrderConstants.OrderStatus.PENDING_PAYMENT);
+        testOrder.setPaymentStatus(OrderConstants.PaymentStatus.UNPAID);
+
+        OrderItem item = new OrderItem();
+        item.setId(11L);
+        item.setOrder(testOrder);
+        item.setProduct(testProduct);
+        item.setProductName(testProduct.getName());
+        item.setProductImage(testProduct.getMainImage());
+        item.setPrice(testProduct.getPrice());
+        item.setQuantity(1);
+        testOrder.setItems(new ArrayList<>(List.of(item)));
+
+        Product offShelfProduct = new Product();
+        offShelfProduct.setId(testProduct.getId());
+        offShelfProduct.setName(testProduct.getName());
+        offShelfProduct.setStatus(0);
+        offShelfProduct.setStock(100);
+
+        when(userService.getUserByUsername("testuser")).thenReturn(testUser);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+        when(productService.getProductById(1L)).thenReturn(offShelfProduct);
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> orderService.payOrder(1L, "testuser", 1)
+        );
+        assertTrue(exception.getMessage().contains("已下架"));
+        verify(productService, never()).reduceStock(1L, 1);
+    }
+
+    @Test
+    @DisplayName("Rejects payment when product becomes unapproved after order creation")
+    void payOrder_ProductPendingAudit_ShouldThrowException() {
+        testOrder.setOrderStatus(OrderConstants.OrderStatus.PENDING_PAYMENT);
+        testOrder.setPaymentStatus(OrderConstants.PaymentStatus.UNPAID);
+
+        OrderItem item = new OrderItem();
+        item.setId(11L);
+        item.setOrder(testOrder);
+        item.setProduct(testProduct);
+        item.setProductName(testProduct.getName());
+        item.setProductImage(testProduct.getMainImage());
+        item.setPrice(testProduct.getPrice());
+        item.setQuantity(1);
+        testOrder.setItems(new ArrayList<>(List.of(item)));
+
+        Product pendingProduct = new Product();
+        pendingProduct.setId(testProduct.getId());
+        pendingProduct.setName(testProduct.getName());
+        pendingProduct.setStatus(1);
+        pendingProduct.setAuditStatus(0);
+        pendingProduct.setStock(100);
+
+        when(userService.getUserByUsername("testuser")).thenReturn(testUser);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
+        when(productService.getProductById(1L)).thenReturn(pendingProduct);
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> orderService.payOrder(1L, "testuser", 1)
+        );
+        assertTrue(exception.getMessage().contains("未通过审核"));
+        verify(productService, never()).reduceStock(1L, 1);
     }
 
     @Test

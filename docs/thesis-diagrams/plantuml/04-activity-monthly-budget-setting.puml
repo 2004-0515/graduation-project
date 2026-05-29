@@ -1,0 +1,21 @@
+@startuml
+!include common-activity-style.pumlinc
+title 月度预算设置活动图
+
+start
+:进入理性消费页面;
+:查看本月预算状态;
+:点击设置预算;
+:输入预算金额;
+:设置预警阈值;
+
+if (预算金额是否有效) then (否)
+  :提示预算金额不合法;
+  stop
+else (是)
+  :保存当月预算;
+  :刷新预算状态;
+  :显示已用比例和剩余额度;
+  stop
+endif
+@enduml

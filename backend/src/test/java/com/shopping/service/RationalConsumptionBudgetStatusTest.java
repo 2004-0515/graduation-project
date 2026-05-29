@@ -83,6 +83,45 @@ class RationalConsumptionBudgetStatusTest {
     }
 
     @Test
+    void getBudgetStatus_ShouldIgnoreCancelledAndRefundingOrders() {
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("buyer");
+
+        ConsumptionBudget budget = new ConsumptionBudget();
+        budget.setUserId(1L);
+        budget.setBudgetMonth(LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMM")));
+        budget.setMonthlyBudget(BigDecimal.valueOf(200));
+        budget.setAlertThreshold(80);
+
+        Order completedOrder = new Order();
+        completedOrder.setPayAmount(BigDecimal.valueOf(90));
+        completedOrder.setTotalAmount(BigDecimal.valueOf(90));
+        completedOrder.setOrderStatus(3);
+
+        Order cancelledOrder = new Order();
+        cancelledOrder.setPayAmount(BigDecimal.valueOf(500));
+        cancelledOrder.setTotalAmount(BigDecimal.valueOf(500));
+        cancelledOrder.setOrderStatus(4);
+
+        Order refundingOrder = new Order();
+        refundingOrder.setPayAmount(BigDecimal.valueOf(300));
+        refundingOrder.setTotalAmount(BigDecimal.valueOf(300));
+        refundingOrder.setOrderStatus(5);
+
+        when(userService.getUserByUsername("buyer")).thenReturn(user);
+        when(budgetRepository.findByUserIdAndBudgetMonth(eq(1L), any(String.class))).thenReturn(Optional.of(budget));
+        when(orderRepository.findByUserIdAndPaymentStatusAndCreatedTimeBetween(eq(1L), eq(1), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of(completedOrder, cancelledOrder, refundingOrder));
+
+        Map<String, Object> result = rationalConsumptionService.getBudgetStatus("buyer");
+
+        assertEquals(BigDecimal.valueOf(90), result.get("spent"));
+        assertEquals(BigDecimal.valueOf(110), result.get("remaining"));
+        assertEquals(45, result.get("usedPercent"));
+    }
+
+    @Test
     void getBudgetStatus_ShouldMarkNearLimitAndOverBudgetBasedOnRealSpending() {
         User user = new User();
         user.setId(1L);

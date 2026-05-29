@@ -59,6 +59,10 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     // 根据卖家ID和审核状态查询商品
     @EntityGraph(attributePaths = {"category"})
     List<Product> findBySellerIdAndAuditStatus(Long sellerId, Integer auditStatus);
+
+    boolean existsByMainImage(String mainImage);
+
+    boolean existsByImagesContaining(String imagePath);
     
     // 查询已审核通过且上架的商品（前台展示用）
     @EntityGraph(attributePaths = {"category"})
@@ -73,6 +77,6 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     
     // 原子性扣减库存（用于防止并发超卖）
     @Modifying(clearAutomatically = true)
-    @Query(value = "UPDATE tb_product SET stock = stock - :quantity WHERE id = :id AND stock >= :quantity", nativeQuery = true)
+    @Query(value = "UPDATE tb_product SET stock = stock - :quantity WHERE id = :id AND status = 1 AND audit_status = 1 AND stock >= :quantity", nativeQuery = true)
     int reduceStockAtomic(@Param("id") Long id, @Param("quantity") Integer quantity);
 }

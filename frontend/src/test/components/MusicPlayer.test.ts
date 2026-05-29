@@ -409,10 +409,87 @@ describe('MusicPlayer', () => {
     const vm = wrapper.vm as any
     expect(vm.isMinimized).toBe(true)
     expect(vm.isExpanded).toBe(false)
-    expect(vm.position.x).toBeGreaterThanOrEqual(250)
+    expect(vm.position.x).toBeGreaterThanOrEqual(160)
+    expect(vm.position.x).toBeLessThanOrEqual(180)
     expect(vm.position.y).toBeGreaterThanOrEqual(900)
+    expect(vm.position.y).toBeLessThanOrEqual(940)
 
     vm.handleMiniClick()
     expect(vm.isMinimized).toBe(true)
+  })
+
+  it('keeps the player inside the viewport when expanding from the right edge', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      value: 1000,
+      configurable: true
+    })
+    Object.defineProperty(window, 'innerHeight', {
+      value: 800,
+      configurable: true
+    })
+    window.localStorage.getItem = vi.fn((key: string) => {
+      if (key === 'musicPlayerState') {
+        return JSON.stringify({ isMinimized: true, isExpanded: false })
+      }
+      if (key === 'musicPlayerPosition') {
+        return JSON.stringify({ xEdge: 'right', yEdge: 'bottom', offsetX: 28, offsetY: 28 })
+      }
+      return null
+    })
+    musicApi.getEnabledMusic.mockResolvedValue({ code: 200, data: [] })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    expect(vm.position.x).toBe(712)
+
+    vm.isMinimized = false
+    await flushPromises()
+
+    expect(vm.position.x).toBe(652)
+    expect(vm.position.x + 320 + 28).toBe(1000)
+  })
+
+  it('keeps the anchored edge distance stable after viewport size changes', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      value: 1000,
+      configurable: true
+    })
+    Object.defineProperty(window, 'innerHeight', {
+      value: 800,
+      configurable: true
+    })
+    window.localStorage.getItem = vi.fn((key: string) => {
+      if (key === 'musicPlayerState') {
+        return JSON.stringify({ isMinimized: true, isExpanded: false })
+      }
+      if (key === 'musicPlayerPosition') {
+        return JSON.stringify({ xEdge: 'right', yEdge: 'bottom', offsetX: 28, offsetY: 28 })
+      }
+      return null
+    })
+    musicApi.getEnabledMusic.mockResolvedValue({ code: 200, data: [] })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const vm = wrapper.vm as any
+    expect(vm.position.x).toBe(712)
+    expect(vm.position.y).toBe(708)
+
+    Object.defineProperty(window, 'innerWidth', {
+      value: 900,
+      configurable: true
+    })
+    Object.defineProperty(window, 'innerHeight', {
+      value: 700,
+      configurable: true
+    })
+
+    vm.onResize()
+
+    expect(vm.position.x).toBe(612)
+    expect(vm.position.y).toBe(608)
   })
 })

@@ -16,20 +16,20 @@
       </div>
 
       <div class="table-panel">
-        <el-table :data="banners" v-loading="loading" row-key="id">
-          <el-table-column label="图片" width="140">
+        <el-table :data="banners" v-loading="loading" row-key="id" style="width: 100%">
+          <el-table-column label="图片" width="128">
             <template #default="{ row }">
               <div class="image-cell">
                 <img :src="getImageUrl(row.imagePath)" :alt="row.title" class="banner-thumb" />
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="位置" width="160">
+          <el-table-column label="位置" width="142">
             <template #default="{ row }">
               <el-tag size="small">{{ placementLabelMap[row.placement] || row.placement }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="内容">
+          <el-table-column label="内容" min-width="300">
             <template #default="{ row }">
               <div class="content-cell">
                 <strong>{{ row.title }}</strong>
@@ -38,23 +38,23 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="链接" min-width="200">
+          <el-table-column label="跳转目标" min-width="210">
             <template #default="{ row }">
-              <div class="link-cell">
-                <span>{{ row.linkType || 'NONE' }}</span>
-                <code v-if="row.linkTarget">{{ row.linkTarget }}</code>
+              <div class="target-cell">
+                <span class="target-title">{{ formatLinkDisplay(row).title }}</span>
+                <span class="target-desc">{{ formatLinkDisplay(row).description }}</span>
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="排序" width="90" prop="sortOrder" />
-          <el-table-column label="状态" width="100">
+          <el-table-column label="排序" width="72" prop="sortOrder" />
+          <el-table-column label="状态" width="88">
             <template #default="{ row }">
               <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
                 {{ row.status === 1 ? '启用' : '停用' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="时间窗口" width="220">
+          <el-table-column label="时间窗口" width="190">
             <template #default="{ row }">
               <div class="window-cell">
                 <span>{{ formatDateTime(row.startTime) || '立即生效' }}</span>
@@ -62,10 +62,12 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="140" fixed="right">
+          <el-table-column label="操作" width="130" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link size="small" @click="openDialog(row)">编辑</el-button>
-              <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+              <div class="row-actions">
+                <el-button type="primary" link size="small" @click="openDialog(row)">编辑</el-button>
+                <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -119,13 +121,13 @@
           <el-form-item label="按钮文案">
             <el-input v-model="form.buttonText" maxlength="40" />
           </el-form-item>
-          <el-form-item label="链接类型">
+          <el-form-item label="跳转类型">
             <el-select v-model="form.linkType" style="width: 100%">
               <el-option v-for="option in linkTypeOptions" :key="option.value" :label="option.label" :value="option.value" />
             </el-select>
           </el-form-item>
-          <el-form-item label="链接目标" :required="form.linkType !== 'NONE'">
-            <el-input v-model="form.linkTarget" placeholder="/promotions、/category?id=1、https://..." />
+          <el-form-item label="跳转目标" :required="form.linkType !== 'NONE'">
+            <el-input v-model="form.linkTarget" placeholder="分类/商品/活动填 ID，站内页面填 /promotions，外链填 https://..." />
           </el-form-item>
           <div class="meta-grid">
             <el-form-item label="排序">
@@ -159,6 +161,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import AdminLayout from '@/components/AdminLayout.vue'
 import showcaseApi, { type ShowcaseBanner } from '@/api/showcaseApi'
+import categoryApi, { type Category } from '@/api/categoryApi'
 import fileApi from '@/api/fileApi'
 import { debugError } from '@/utils/debug'
 
@@ -183,7 +186,17 @@ const linkTypeOptions = [
   { label: '外部链接', value: 'URL' }
 ]
 
+const linkTypeLabelMap: Record<string, string> = {
+  NONE: '无跳转',
+  ROUTE: '站内页面',
+  PROMOTION: '活动专题',
+  PRODUCT: '商品详情',
+  CATEGORY: '分类页',
+  URL: '外部链接'
+}
+
 const banners = ref<ShowcaseBanner[]>([])
+const categoryNameMap = ref<Map<number, string>>(new Map())
 const loading = ref(false)
 const saving = ref(false)
 const dialogVisible = ref(false)
@@ -210,6 +223,58 @@ const form = reactive<ShowcaseBanner>({
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 const isPromotionPlacement = computed(() => form.placement === 'PROMOTION_HERO')
+
+const fetchCategories = async () => {
+  try {
+    const res = await categoryApi.getCategories()
+    if (res?.code === 200 && Array.isArray(res.data)) {
+      categoryNameMap.value = new Map(res.data.map((item: Category) => [Number(item.id), item.name]))
+      return
+    }
+    debugError('获取展示内容分类名称失败', res?.message || '分类列表返回异常')
+  } catch (error) {
+    debugError('获取展示内容分类名称失败', error)
+  }
+}
+
+const formatLinkDisplay = (row: ShowcaseBanner) => {
+  const linkType = row.linkType || 'NONE'
+  const target = String(row.linkTarget || '').trim()
+  if (linkType === 'NONE' || !target) {
+    return {
+      title: '无跳转',
+      description: '仅作为展示内容'
+    }
+  }
+
+  if (linkType === 'CATEGORY') {
+    const categoryId = Number(target)
+    const categoryName = Number.isFinite(categoryId) ? categoryNameMap.value.get(categoryId) : ''
+    return {
+      title: categoryName ? `分类页：${categoryName}` : `分类页：ID ${target}`,
+      description: '点击后进入对应分类商品页'
+    }
+  }
+
+  if (linkType === 'PRODUCT') {
+    return {
+      title: `商品详情：ID ${target}`,
+      description: '点击后进入商品详情页'
+    }
+  }
+
+  if (linkType === 'PROMOTION') {
+    return {
+      title: `活动专题：ID ${target}`,
+      description: '点击后进入活动详情页'
+    }
+  }
+
+  return {
+    title: linkTypeLabelMap[linkType] || linkType,
+    description: target
+  }
+}
 
 const isPlacementImageCompatible = (path: string, placement: ShowcaseBanner['placement']) => {
   if (!path) return true
@@ -419,6 +484,7 @@ watch(
 )
 
 onMounted(() => {
+  fetchCategories()
   fetchBanners()
 })
 </script>
@@ -455,6 +521,10 @@ onMounted(() => {
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
 }
 
+.table-panel :deep(.el-table__cell) {
+  vertical-align: top;
+}
+
 .image-cell {
   display: flex;
   align-items: center;
@@ -480,7 +550,7 @@ onMounted(() => {
 
 .content-cell .subtitle,
 .content-cell p,
-.link-cell,
+.target-cell,
 .window-cell {
   color: #667085;
   font-size: 13px;
@@ -489,18 +559,37 @@ onMounted(() => {
 .content-cell p {
   margin: 0;
   line-height: 1.5;
+  max-width: 360px;
 }
 
-.link-cell,
+.target-cell,
 .window-cell {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.link-cell code {
-  white-space: normal;
-  word-break: break-all;
+.target-title {
+  color: #1f2937;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.target-desc {
+  color: #667085;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.row-actions :deep(.el-button) {
+  margin-left: 0 !important;
+  padding: 0;
 }
 
 .showcase-form {

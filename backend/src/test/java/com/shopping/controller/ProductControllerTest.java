@@ -185,6 +185,76 @@ class ProductControllerTest {
     }
 
     @Test
+    void getProductById_WhenApprovedAndOnShelf_ShouldReturnProduct() throws Exception {
+        Product product = new Product();
+        product.setId(1L);
+        product.setName("公开商品");
+        product.setStatus(1);
+        product.setAuditStatus(1);
+        when(productService.getProductById(1L)).thenReturn(product);
+
+        mockMvc.perform(get("/products/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.name").value("公开商品"));
+    }
+
+    @Test
+    void getProductById_WhenPendingAndBuyerAuthenticated_ShouldHideProduct() throws Exception {
+        setAuthenticatedUser("zhangsan");
+        Product product = new Product();
+        product.setId(1L);
+        product.setName("待审核商品");
+        product.setStatus(1);
+        product.setAuditStatus(0);
+        product.setSellerId(9L);
+        when(productService.getProductById(1L)).thenReturn(product);
+
+        mockMvc.perform(get("/products/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(404))
+                .andExpect(jsonPath("$.message").value("商品不存在或已下架"));
+    }
+
+    @Test
+    void getProductById_WhenPendingAndOwnerSeller_ShouldReturnProduct() throws Exception {
+        setAuthenticatedUser("lisi");
+        Product product = new Product();
+        product.setId(1L);
+        product.setName("我的待审核商品");
+        product.setStatus(1);
+        product.setAuditStatus(0);
+        product.setSellerId(8L);
+        when(productService.getProductById(1L)).thenReturn(product);
+
+        User seller = new User();
+        seller.setId(8L);
+        seller.setUsername("lisi");
+        when(userService.findByUsername("lisi")).thenReturn(seller);
+
+        mockMvc.perform(get("/products/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.name").value("我的待审核商品"));
+    }
+
+    @Test
+    void getProductById_WhenPendingAndAdmin_ShouldReturnProduct() throws Exception {
+        setAuthenticatedUser("admin");
+        Product product = new Product();
+        product.setId(1L);
+        product.setName("后台可见商品");
+        product.setStatus(1);
+        product.setAuditStatus(0);
+        when(productService.getProductById(1L)).thenReturn(product);
+
+        mockMvc.perform(get("/products/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.name").value("后台可见商品"));
+    }
+
+    @Test
     void submitProduct_WhenAnonymous_ShouldReturn401() throws Exception {
         mockMvc.perform(post("/products/submit")
                         .contentType(APPLICATION_JSON)

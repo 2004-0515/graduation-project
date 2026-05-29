@@ -1,5 +1,6 @@
 package com.shopping.service;
 
+import com.shopping.constants.AuditConstants;
 import com.shopping.entity.User;
 import com.shopping.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,9 +27,14 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         }
         // 使用数据库中存储的真实用户名，确保认证和生成JWT时使用的是同一值
         String role = user.getRole() == null ? "BUYER" : user.getRole();
+        boolean enabled = user.getStatus() == null || Integer.valueOf(AuditConstants.UserStatus.ENABLED).equals(user.getStatus());
         return new org.springframework.security.core.userdetails.User(
             user.getUsername(),
             user.getPassword(),
+            enabled,
+            true,
+            true,
+            true,
             List.of(new SimpleGrantedAuthority("ROLE_" + role))
         );
     }

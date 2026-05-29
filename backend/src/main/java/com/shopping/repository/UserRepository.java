@@ -34,6 +34,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByRole(String role);
 
     long countByRole(String role);
+
+    long countByRoleAndStatus(String role, Integer status);
+
+    boolean existsByAvatar(String avatar);
     
     // 直接更新用户密码
     @Modifying(clearAutomatically = true, flushAutomatically = true)

@@ -15,7 +15,7 @@
           </div>
           <div class="header-text">
             <h1>AI 智能助手</h1>
-            <p>基于当前商品数据提供问答和选购参考</p>
+            <p>基于当前商品、分类和优惠券数据提供问答与选购参考</p>
           </div>
         </div>
 
@@ -108,7 +108,7 @@
               <div class="input-hint">按 Enter 发送消息</div>
             </div>
             <div class="chat-note">
-              聊天能力需要自行配置 AI 密钥，回答基于当前商品、分类和优惠券数据生成。
+              聊天能力需要自行配置外部 API 密钥，回答仅基于当前商品、分类、优惠券和页面规则生成。
             </div>
           </div>
 
@@ -180,26 +180,26 @@
             <h3>配置AI服务</h3>
           </div>
           <p class="modal-desc">
-            使用硅基流动(SiliconFlow)提供的 AI 服务，新用户注册可获得免费额度。
+            当前页面按 DeepSeek Chat Completions 接口发起请求，请填写可访问 `api.deepseek.com` 的有效 API 密钥。
           </p>
           <div class="modal-steps">
             <div class="step">
               <span class="step-num">1</span>
-              <span>访问 <a href="https://cloud.siliconflow.cn" target="_blank">cloud.siliconflow.cn</a></span>
+              <span>准备可用的 DeepSeek API 密钥</span>
             </div>
             <div class="step">
               <span class="step-num">2</span>
-              <span>创建API密钥</span>
+              <span>在本页打开配置弹窗</span>
             </div>
             <div class="step">
               <span class="step-num">3</span>
-              <span>粘贴到下方</span>
+              <span>粘贴密钥后保存</span>
             </div>
           </div>
           <input 
             v-model="apiKeyInput" 
             type="password" 
-            placeholder="请输入API密钥 (sk-...)"
+            placeholder="请输入可用 API 密钥"
             class="api-key-input"
           />
           <div class="modal-actions">
@@ -366,7 +366,7 @@ const saveApiKey = () => {
   showApiKeyModal.value = false
   messages.value.push({
     role: 'ai',
-    content: 'API 密钥已保存，现在可以开始对话了。',
+    content: 'API 密钥已保存。后续对话会按当前商品数据调用外部模型服务生成回复。',
     time: getCurrentTime()
   })
 }
@@ -378,8 +378,8 @@ const sendQuickQuestion = (question: string) => {
 
 onMounted(async () => {
   const greeting = userStore.isLoggedIn 
-    ? `您好，${userStore.userInfo?.nickname || userStore.userInfo?.username}！我是紫苑风鸢的 AI 购物助手，有什么可以帮您的吗？\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 订单查询\n• 售后问题`
-    : '您好！我是紫苑风鸢的 AI 购物助手，很高兴为您服务！\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 购物流程\n• 常见问题'
+    ? `您好，${userStore.userInfo?.nickname || userStore.userInfo?.username}！我是紫苑风鸢的 AI 购物助手，可以根据当前商品、分类和优惠券信息提供选购参考。\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 订单查询\n• 页面使用说明`
+    : '您好！我是紫苑风鸢的 AI 购物助手，可以根据当前商品、分类和优惠券信息提供选购参考。\n\n您可以问我：\n• 商品推荐\n• 优惠活动\n• 购物流程\n• 常见问题'
   
   messages.value.push({
     role: 'ai',
@@ -935,19 +935,21 @@ onMounted(async () => {
 .product-card .product-image {
   position: relative;
   height: 100px;
-  background: #f8f9fa;
+  background: #f7f5f1;
   overflow: hidden;
+  border-bottom: 1px solid rgba(213, 205, 190, 0.72);
 }
 
 .product-card .product-image img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transition: transform 0.3s;
+  display: block;
 }
 
 .product-card:hover .product-image img {
-  transform: scale(1.08);
+  transform: scale(1.03);
 }
 
 .product-badge {

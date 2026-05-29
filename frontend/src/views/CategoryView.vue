@@ -463,9 +463,9 @@ onMounted(() => {
 .product-card { cursor: pointer; overflow: hidden; transition: transform 0.3s, box-shadow 0.3s; }
 .product-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(155, 135, 245, 0.15); }
 
-.product-img { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-.product-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
-.product-card:hover .product-img img { transform: scale(1.05); }
+.product-img { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: #f7f5f1; border-bottom: 1px solid rgba(213, 205, 190, 0.72); }
+.product-img img { width: 100%; height: 100%; object-fit: contain; transition: transform 0.4s; display: block; }
+.product-card:hover .product-img img { transform: scale(1.03); }
 
 .img-overlay { 
   position: absolute; 

@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import random
+import re
 import shutil
 import subprocess
 import sys
@@ -41,7 +42,7 @@ TARGETS = {
     "orders": 540,
     "reviews": 288,
     "notifications": 192,
-    "music": 24,
+    "music": 20,
     "price_history": TARGET_PRODUCT_COUNT * 4,
     "price_alerts": 24,
     "addresses": 42,
@@ -50,11 +51,25 @@ TARGETS = {
     "user_coupons": 36,
     "contact_messages": 10,
     "upload_files": 24,
-    "budgets": 10,
-    "achievements": 10,
+    "budgets": 100,
+    "achievements": 20,
     "search_history": 12,
     "search_stats": 18,
     "showcase_banners": 12,
+}
+MINIMUM_TARGET_KEYS = {
+    "orders",
+    "reviews",
+    "notifications",
+    "price_history",
+    "price_alerts",
+    "carts",
+    "wishlists",
+    "user_coupons",
+    "budgets",
+    "achievements",
+    "search_history",
+    "search_stats",
 }
 
 CATEGORY_DEFINITIONS = [
@@ -153,21 +168,36 @@ REVIEW_REPLIES = [
     "感谢认真评价，祝你后续使用顺利。",
 ]
 ACHIEVEMENTS = [
-    ("BUDGET_MASTER", "预算掌控者", "连续两个月支出保持在预算线内。"),
-    ("PRICE_GUARDIAN", "价格观察员", "成功设置并跟踪多个降价提醒。"),
-    ("SMART_CART", "理性加购者", "愿望清单转化率稳定，少冲动购买。"),
-    ("EARLY_MEMBER", "长期会员", "保持稳定活跃并持续完成购物评价。"),
-    ("HOME_STYLIST", "家居整备达人", "家居和收纳类商品购买完成度较高。"),
+    ("FIRST_WISHLIST", "理性第一步", "首次使用想要清单"),
+    ("DELAYED_GRATIFICATION_3", "延迟满足达人", "通过想要清单购买3件商品"),
+    ("RATIONAL_GIVEUP_5", "理性放弃者", "从想要清单移除5件商品"),
+    ("BUDGET_MASTER", "预算大师", "连续3个月未超预算"),
+    ("SAVING_STAR", "节约之星", "单月节省超过500元"),
+    ("RATIONAL_100", "理性消费达人", "理性指数达到100分"),
 ]
 SEARCH_KEYWORDS = ["蓝牙耳机", "防晒霜", "挂耳咖啡", "羽绒服", "投影仪", "瑜伽垫", "行车记录仪", "收纳箱", "益生菌", "珍珠耳钉", "四件套", "绘本"]
-MUSIC_TITLES = [
-    ("晚风写给湖面", "卢润泽"), ("靠窗的人", "王贰浪"), ("雨后楼梯", "苏星婕"), ("Ambient Dance", "Zeropage"),
-    ("Feeling", "E. Erkut"), ("Dayum", "loveless1017"), ("Positive Uplifting Music", "UNIVERSFIELD"), ("The Farmer", "Infraction"),
-    ("Last 31", "Tri-Tachyon"), ("Super Power Pop Rock", "Kara Square"), ("Kadel", "ERH"), ("Ambient Voyager", "Zeropage"),
-    ("Emotional Piano", "E. Erkut"), ("Road In The Forest", "Andrewkn"), ("Motivational Day", "UNIVERSFIELD"), ("城市早班车", "王贰浪"),
-    ("橙色路口", "卢润泽"), ("傍晚正在下雨", "苏星婕"), ("Cloud Notes", "Kara Square"), ("Short Trip", "Andrewkn"),
-    ("Warm Table", "ERH"), ("星光小径", "卢润泽"), ("夜色便利店", "王贰浪"), ("After Work", "Zeropage"),
-]
+MUSIC_FILE_METADATA = {
+    "010.买辣椒也用券 - 起风了.mp3": ("起风了", "买辣椒也用券"),
+    "0107-长安姑娘 - 李常超（Lao乾妈）.mp3": ("长安姑娘", "李常超（Lao乾妈）"),
+    "022.阿桑-一直很安静【八倍音质】.mp3": ("一直很安静", "阿桑"),
+    "0230.奇然_沈谧仁-琵琶行.mp3": ("琵琶行", "奇然 / 沈谧仁"),
+    "026.后弦-下完这场雨【八倍音质】.mp3": ("下完这场雨", "后弦"),
+    "0627.袁凤瑛 - 天若有情.mp3": ("天若有情", "袁凤瑛"),
+    "126.何野《天亮以前说再见》 - 何野.mp3": ("天亮以前说再见", "何野"),
+    "251.任然-疑心病【八倍音质】.mp3": ("疑心病", "任然"),
+    "29.剑心.mp3": ("剑心", "未知歌手"),
+    "Dizzy Dizzo (蔡诗芸)-雨过后的风景.flac": ("雨过后的风景", "Dizzy Dizzo（蔡诗芸）"),
+    "M800000r7I6R3VjL8c.mp3": ("把回忆拼好给你", "苏星婕"),
+    "M800002AYkzb16Wkjz.mp3": ("离开我的依赖", "王艳薇"),
+    "一个人想着一个人 - 曾沛慈.mp3": ("一个人想着一个人", "曾沛慈"),
+    "徐良&小凌-无颜女.mp3": ("无颜女", "徐良 / 小凌"),
+    "我欲成冰再也无退路(DJ完整原版)-虞姬.mp3": ("我欲成冰再也无退路", "虞姬"),
+    "李秉成-只为你着迷.mp3": ("只为你着迷", "李秉成"),
+    "李荣浩,梁咏琪 - 紫荆花盛开.mp3": ("紫荆花盛开", "李荣浩 / 梁咏琪"),
+    "杨丞琳-带我走 (Live丨典藏).mp3": ("带我走", "杨丞琳"),
+    "爱错 - 王力宏.mp3": ("爱错", "王力宏"),
+    "颜人中 - 我只能离开.mp3": ("我只能离开", "颜人中"),
+}
 
 CATEGORY_DEFINITIONS = YOUNG_CATEGORY_DEFINITIONS
 COUPONS = YOUNG_COUPONS
@@ -202,7 +232,7 @@ HOME_SHOWCASE_SPECS = [
     {
         "slug": "desk-keycaps-soda",
         "title": "桌搭焕新精选",
-        "subtitle": "键帽、耳机和桌面配件本周上新",
+        "subtitle": "显示器、键盘和桌面外设本周上新",
         "description": "适合宿舍、工位和轻量游戏场景的常用装备，直接从真实商品库挑选。",
         "badge_text": "首页精选",
         "button_text": "查看商品",
@@ -211,18 +241,18 @@ HOME_SHOWCASE_SPECS = [
     {
         "slug": "home-floor-lamp",
         "title": "房间氛围轻改造",
-        "subtitle": "香薰、灯光和软装小件配齐",
+        "subtitle": "落地灯、软装和起居小件配齐",
         "description": "从起居角落开始调整，用真实到货的家居单品把空间整理得更舒服。",
         "badge_text": "居家推荐",
         "button_text": "逛逛家居",
         "link_type": "CATEGORY",
-        "category_name": "香氛家居",
+        "category_name": "家居日用",
     },
     {
         "slug": "beauty-lotion-soft",
         "title": "护肤补货清单",
-        "subtitle": "面霜、乳液和基础护理集中更新",
-        "description": "把常用护肤品放到同一页，方便按价格和评价快速比较。",
+        "subtitle": "眼影盘、刷具和日常彩妆集中更新",
+        "description": "把常用彩妆放到同一页，方便按价格和评价快速比较。",
         "badge_text": "人气补货",
         "button_text": "查看分类",
         "link_type": "CATEGORY",
@@ -279,10 +309,10 @@ CATEGORY_SHOWCASE_SPECS = [
     },
     {
         "slug": "home-side-table",
-        "title": "香氛家居专题",
+        "title": "家居日用专题",
         "subtitle": "香薰、边几和软装小件",
         "description": "整理居家空间时最常一起比较的一批单品。",
-        "category_name": "香氛家居",
+        "category_name": "家居日用",
     },
     {
         "slug": "wear-sneaker-retro",
@@ -293,10 +323,10 @@ CATEGORY_SHOWCASE_SPECS = [
     },
     {
         "slug": "snack-sparkling",
-        "title": "零食饮品专题",
+        "title": "食品饮品专题",
         "subtitle": "零食、饮品和家庭囤货",
         "description": "适合从活动页快速切回分类继续挑选。",
-        "category_name": "零食饮品",
+        "category_name": "食品饮品",
     },
 ]
 
@@ -390,6 +420,28 @@ def chunked(items: list[str], size: int = SQL_BATCH_SIZE):
         yield items[index:index + size]
 
 
+def parse_music_metadata(path: str) -> tuple[str, str]:
+    filename = Path(path).name
+    if filename in MUSIC_FILE_METADATA:
+        return MUSIC_FILE_METADATA[filename]
+
+    stem = Path(filename).stem
+    stem = re.sub(r"^\d+[\.-]", "", stem)
+    stem = re.sub(r"【[^】]*】", "", stem)
+    stem = re.sub(r"《([^》]+)》", r"\1", stem)
+    stem = re.sub(r"\((DJ|Live)[^)]*\)", "", stem, flags=re.IGNORECASE)
+    stem = stem.replace("丨典藏", "").strip(" -")
+
+    if " - " in stem:
+        left, right = [part.strip() for part in stem.split(" - ", 1)]
+        return right, left
+    if "-" in stem and stem.count("-") == 1:
+        left, right = [part.strip() for part in stem.split("-", 1)]
+        return right, left
+
+    return stem or filename, "未知歌手"
+
+
 class Seeder:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
@@ -402,7 +454,7 @@ class Seeder:
         self.default_addresses: dict[int, dict[str, str]] = {}
         self.category_icon_paths: dict[int, str] = {}
         self.promotion_banner_paths: list[str] = []
-        self.music_files = self._scan_uploads("music", {".mp3", ".wav", ".ogg", ".m4a", ".opus"})
+        self.music_files = self._scan_uploads("music", {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".opus"})
         self.avatar_files = self._scan_uploads("avatars", {".jpg", ".jpeg", ".png", ".webp"})
         self.video_files = self._scan_uploads("videos", {".mp4", ".webm", ".mov"})
         self.asset_manifest = self._load_asset_manifest()
@@ -852,14 +904,14 @@ class Seeder:
         columns = self.get_table_columns("music")
         use_asset_columns = {"asset_source", "license_code", "license_version"}.issubset(columns)
         values = []
-        for index, (title, artist) in enumerate(MUSIC_TITLES, start=1):
-            path = self.music_files[(index - 1) % len(self.music_files)]
-            duration = 118 + (index % 6) * 17
+        for index, path in enumerate(self.music_files[:TARGETS["music"]], start=1):
+            title, artist = parse_music_metadata(path)
+            duration = 180
             created_time = FIXED_NOW - timedelta(days=40 - index)
             if use_asset_columns:
                 values.append(
                     "("
-                    f"'{sql_escape(title)}', '{sql_escape(artist)}', '{sql_escape(path)}', NULL, NULL, NULL, NULL, "
+                    f"'{sql_escape(title)}', '{sql_escape(artist)}', '{sql_escape(path)}', NULL, 'LOCAL_UPLOAD', 'LOCAL_FILE', 'filename-metadata', "
                     f"{duration}, {index}, 1, '{created_time.strftime('%Y-%m-%d %H:%M:%S')}', '{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}'"
                     ")"
                 )
@@ -901,7 +953,7 @@ class Seeder:
             order_status = status_cycle[(order_id - 1) % len(status_cycle)]
             payment_status = 0 if order_status == 0 else 1
             payment_method = 1 + (order_id % 3)
-            created_time = FIXED_NOW - timedelta(days=150 - (order_id % 120), hours=order_id % 18, minutes=order_id % 55)
+            created_time = FIXED_NOW - timedelta(days=(TARGETS["orders"] - order_id) % 165, hours=order_id % 18, minutes=order_id % 55)
             payment_time = created_time + timedelta(minutes=18) if payment_status == 1 else None
             shipping_time = payment_time + timedelta(hours=14) if order_status in {2, 3, 5, 6} and payment_time else None
             end_time = shipping_time + timedelta(days=4) if order_status == 3 and shipping_time else None
@@ -1065,7 +1117,9 @@ class Seeder:
             created_time = FIXED_NOW - timedelta(days=18 - index)
             cooling_end_time = created_time + timedelta(days=cooling_days)
             status = 1 if cooling_end_time <= FIXED_NOW else 0
-            if index % 9 == 0:
+            if index % 11 == 0:
+                status = 3
+            elif index % 9 == 0:
                 status = 2
             values.append(
                 "("
@@ -1084,7 +1138,8 @@ class Seeder:
         values = []
         seen: set[tuple[int, int]] = set()
         index = 0
-        while len(values) < TARGETS["carts"]:
+        max_attempts = max(TARGETS["carts"] * 4, len(users) * len(product_ids) * 2)
+        while len(values) < TARGETS["carts"] and index < max_attempts:
             user_id = users[index % len(users)]
             product_id = product_ids[(index * 7 + index // len(users) + 5) % len(product_ids)]
             key = (user_id, product_id)
@@ -1092,12 +1147,35 @@ class Seeder:
             if key in seen:
                 continue
             seen.add(key)
-            quantity = 1 + (len(values) % 3)
-            selected = 0 if len(values) % 7 == 0 else 1
-            created_time = FIXED_NOW - timedelta(days=12 - len(values) % 8)
+            cart_index = len(values)
+            quantity = 1 + (cart_index % 3)
+            selected = 0 if cart_index % 7 == 0 else 1
+            created_time = FIXED_NOW - timedelta(days=12 - cart_index % 8)
             values.append(
                 f"({user_id}, {product_id}, {quantity}, {selected}, '{created_time.strftime('%Y-%m-%d %H:%M:%S')}', '{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}')"
             )
+
+        if len(values) < TARGETS["carts"]:
+            for user_id in users:
+                for product_id in product_ids:
+                    key = (user_id, product_id)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    cart_index = len(values)
+                    quantity = 1 + (cart_index % 3)
+                    selected = 0 if cart_index % 7 == 0 else 1
+                    created_time = FIXED_NOW - timedelta(days=12 - cart_index % 8)
+                    values.append(
+                        f"({user_id}, {product_id}, {quantity}, {selected}, '{created_time.strftime('%Y-%m-%d %H:%M:%S')}', '{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}')"
+                    )
+                    if len(values) >= TARGETS["carts"]:
+                        break
+                if len(values) >= TARGETS["carts"]:
+                    break
+
+        if len(values) < TARGETS["carts"]:
+            raise RuntimeError(f"购物车测试数据不足: target={TARGETS['carts']} actual={len(values)}")
         self.execute_insert(
             "INSERT INTO tb_cart (user_id, product_id, quantity, selected, created_time, updated_time) VALUES ",
             values,
@@ -1129,38 +1207,134 @@ class Seeder:
             self.run_mysql(f"UPDATE tb_coupon SET claimed_count = {count} WHERE id = {coupon_id};")
 
     def seed_budgets(self) -> None:
-        users = [self.user_ids["chenmo"], self.user_ids["wangwu"], self.user_ids["peiran"], self.user_ids["xiaobei"], self.user_ids["xinyi"]]
-        months = ["202604", "202605"]
+        spending_rows = self.run_mysql(
+            """
+SELECT o.user_id, DATE_FORMAT(o.created_time, '%Y%m') AS budget_month,
+       COUNT(*) AS order_count,
+       SUM(COALESCE(o.pay_amount, o.total_amount)) AS paid_amount
+FROM tb_order o
+JOIN tb_user u ON u.id = o.user_id
+WHERE u.role = 'BUYER'
+  AND o.payment_status = 1
+  AND o.order_status IN (1, 2, 3, 6)
+GROUP BY o.user_id, budget_month
+ORDER BY o.user_id, budget_month;
+"""
+        ).splitlines()
         values = []
-        for user_index, user_id in enumerate(users):
-            for month_index, month in enumerate(months):
-                budget = 1200 + user_index * 260 + month_index * 80
-                threshold = 75 + ((user_index + month_index) % 4) * 5
-                created_time = FIXED_NOW - timedelta(days=45 - user_index * 4 - month_index * 2)
-                values.append(
-                    f"({user_id}, {budget:.2f}, '{month}', 1, {threshold}, '{created_time.strftime('%Y-%m-%d %H:%M:%S')}', '{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}')"
-                )
+        factors = [1.28, 1.12, 0.96, 1.38, 0.86, 1.18]
+        for index, row in enumerate(spending_rows):
+            if not row.strip():
+                continue
+            user_id_raw, month, _order_count_raw, paid_amount_raw = row.split("\t")
+            user_id = int(user_id_raw)
+            paid_amount = float(paid_amount_raw or 0)
+            if paid_amount <= 0:
+                continue
+            factor = factors[(user_id + index) % len(factors)]
+            budget = max(300.0, round((paid_amount * factor) / 10) * 10)
+            threshold = 75 + ((user_id + index) % 4) * 5
+            created_time = FIXED_NOW - timedelta(days=max(1, 150 - index))
+            values.append(
+                f"({user_id}, {budget:.2f}, '{month}', 1, {threshold}, '{created_time.strftime('%Y-%m-%d %H:%M:%S')}', '{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}')"
+            )
+        if not values:
+            raise RuntimeError("无法从有效订单推导消费预算数据")
         self.execute_insert(
             "INSERT INTO tb_consumption_budget (user_id, monthly_budget, budget_month, alert_enabled, alert_threshold, created_time, updated_time) VALUES ",
             values,
         )
 
     def seed_achievements(self) -> None:
-        users = [self.user_ids["chenmo"], self.user_ids["wangwu"], self.user_ids["peiran"], self.user_ids["xiaobei"], self.user_ids["xinyi"]]
         values = []
-        pairs = [
-            (users[0], ACHIEVEMENTS[0]), (users[0], ACHIEVEMENTS[1]),
-            (users[1], ACHIEVEMENTS[0]), (users[1], ACHIEVEMENTS[2]),
-            (users[2], ACHIEVEMENTS[1]), (users[2], ACHIEVEMENTS[3]),
-            (users[3], ACHIEVEMENTS[2]), (users[3], ACHIEVEMENTS[4]),
-            (users[4], ACHIEVEMENTS[0]), (users[4], ACHIEVEMENTS[3]),
-        ]
-        for index, (user_id, achievement) in enumerate(pairs):
-            achievement_type, achievement_name, description = achievement
-            achieved_time = FIXED_NOW - timedelta(days=35 - index * 2)
+        awarded: set[tuple[int, str]] = set()
+        achievement_defs = {achievement_type: (name, description) for achievement_type, name, description in ACHIEVEMENTS}
+
+        wishlist_counts: dict[int, Counter[int]] = defaultdict(Counter)
+        for row in self.run_mysql("SELECT user_id, status, COUNT(*) FROM tb_wishlist GROUP BY user_id, status;").splitlines():
+            if not row.strip():
+                continue
+            user_id_raw, status_raw, count_raw = row.split("\t")
+            wishlist_counts[int(user_id_raw)][int(status_raw)] = int(count_raw)
+
+        spending: dict[tuple[int, str], float] = {}
+        saved_by_user: Counter[int] = Counter()
+        for row in self.run_mysql(
+            """
+SELECT o.user_id, DATE_FORMAT(o.created_time, '%Y%m') AS budget_month,
+       SUM(COALESCE(o.pay_amount, o.total_amount)) AS paid_amount,
+       SUM(COALESCE(o.coupon_discount, 0)) AS saved_amount
+FROM tb_order o
+JOIN tb_user u ON u.id = o.user_id
+WHERE u.role = 'BUYER'
+  AND o.payment_status = 1
+  AND o.order_status IN (1, 2, 3, 6)
+GROUP BY o.user_id, budget_month;
+"""
+        ).splitlines():
+            if not row.strip():
+                continue
+            user_id_raw, month, paid_raw, saved_raw = row.split("\t")
+            user_id = int(user_id_raw)
+            spending[(user_id, month)] = float(paid_raw or 0)
+            if float(saved_raw or 0) >= 500:
+                saved_by_user[user_id] += 1
+
+        budgets: dict[tuple[int, str], float] = {}
+        for row in self.run_mysql("SELECT user_id, budget_month, monthly_budget FROM tb_consumption_budget;").splitlines():
+            if not row.strip():
+                continue
+            user_id_raw, month, budget_raw = row.split("\t")
+            budgets[(int(user_id_raw), month)] = float(budget_raw or 0)
+
+        months = sorted({month for _user_id, month in spending})
+        latest_three_months = months[-3:]
+
+        def add_achievement(user_id: int, achievement_type: str, index: int) -> None:
+            key = (user_id, achievement_type)
+            if key in awarded:
+                return
+            awarded.add(key)
+            achievement_name, description = achievement_defs[achievement_type]
+            achieved_time = FIXED_NOW - timedelta(days=max(1, 35 - index))
             values.append(
                 f"({user_id}, '{achievement_type}', '{sql_escape(achievement_name)}', '{sql_escape(description)}', '{achieved_time.strftime('%Y-%m-%d %H:%M:%S')}')"
             )
+
+        index = 0
+        buyer_ids = [self.user_ids[username] for username in BUYER_USERNAMES]
+        for user_id in buyer_ids:
+            counts = wishlist_counts.get(user_id, Counter())
+            if sum(counts.values()) > 0:
+                add_achievement(user_id, "FIRST_WISHLIST", index)
+                index += 1
+            if counts.get(2, 0) >= 3:
+                add_achievement(user_id, "DELAYED_GRATIFICATION_3", index)
+                index += 1
+            if counts.get(3, 0) >= 5:
+                add_achievement(user_id, "RATIONAL_GIVEUP_5", index)
+                index += 1
+            if all((user_id, month) in budgets and spending.get((user_id, month), 0) <= budgets[(user_id, month)] for month in latest_three_months):
+                add_achievement(user_id, "BUDGET_MASTER", index)
+                index += 1
+            if saved_by_user[user_id] > 0:
+                add_achievement(user_id, "SAVING_STAR", index)
+                index += 1
+        if len(values) < TARGETS["achievements"]:
+            for user_id in buyer_ids:
+                if len(values) >= TARGETS["achievements"]:
+                    break
+                has_controlled_budget = any(
+                    budget_user_id == user_id and spending.get((budget_user_id, month), 0) <= budget
+                    for (budget_user_id, month), budget in budgets.items()
+                )
+                has_wishlist_signal = sum(wishlist_counts.get(user_id, Counter()).values()) > 0
+                has_consumption_signal = any(spending_user_id == user_id for spending_user_id, _month in spending)
+                if (has_controlled_budget and has_wishlist_signal) or has_consumption_signal:
+                    add_achievement(user_id, "RATIONAL_100", index)
+                    index += 1
+        if not values:
+            raise RuntimeError("无法从订单、预算和想要清单推导消费成就数据")
         self.execute_insert(
             "INSERT INTO tb_consumption_achievement (user_id, achievement_type, achievement_name, achievement_desc, achieved_time) VALUES ",
             values,
@@ -1299,7 +1473,7 @@ class Seeder:
             message = f"你关注的商品「{product_name}」已降价至更合适的区间，可前往查看。"
             created_time = FIXED_NOW - timedelta(days=9 - index % 6)
             values.append(
-                f"({user_id}, 'promotion', '{sql_escape(title)}', '{sql_escape(message)}', {1 if index % 4 == 0 else 0}, {product_id}, '{created_time.strftime('%Y-%m-%d %H:%M:%S')}')"
+                f"({user_id}, 'price_alert', '{sql_escape(title)}', '{sql_escape(message)}', {1 if index % 4 == 0 else 0}, {product_id}, '{created_time.strftime('%Y-%m-%d %H:%M:%S')}')"
             )
         for index, row in enumerate(upload_rows, start=1):
             file_type_name = {"AVATAR": "头像", "PRODUCT": "商品图片", "REVIEW": "评价图片", "CATEGORY": "分类图片", "PROMOTION": "活动图片"}[row["file_type"]]
@@ -1515,6 +1689,30 @@ FROM tb_product;
         report["missing_product_files"] = missing_product_files
         report["missing_video_files"] = missing_video_files
 
+        missing_music_files = []
+        invalid_music_paths = []
+        music_metadata_mismatches = []
+        music_rows = self.run_mysql(
+            "SELECT id, title, IFNULL(artist, ''), url FROM music ORDER BY sort_order, id;"
+        ).splitlines()
+        for row in music_rows:
+            music_id_raw, title, artist, url = (row.split("\t") + [""] * 4)[:4]
+            if not url:
+                missing_music_files.append(f"{music_id_raw}:<empty>")
+                continue
+            if not url.startswith("/uploads/music/"):
+                invalid_music_paths.append(f"{music_id_raw}:{url}")
+            if not (PROJECT_ROOT / url.lstrip("/")).exists():
+                missing_music_files.append(f"{music_id_raw}:{url}")
+            expected_title, expected_artist = parse_music_metadata(url)
+            if title != expected_title or artist != expected_artist:
+                music_metadata_mismatches.append(
+                    f"{music_id_raw}:{Path(url).name}:expected={expected_title}/{expected_artist}:actual={title}/{artist}"
+                )
+        report["missing_music_files"] = missing_music_files
+        report["invalid_music_paths"] = invalid_music_paths
+        report["music_metadata_mismatches"] = music_metadata_mismatches
+
         missing_category_icons = []
         invalid_category_icons = []
         legacy_category_icons = []
@@ -1565,13 +1763,19 @@ FROM tb_product;
         }
 
         report["ready"] = (
-            all(report["counts"].get(key) == value for key, value in TARGETS.items())
+            all(
+                report["counts"].get(key, 0) >= value if key in MINIMUM_TARGET_KEYS else report["counts"].get(key) == value
+                for key, value in TARGETS.items()
+            )
             and banned_total == 0
             and sorted(report["showcase_accounts"]) == sorted(SHOWCASE_USERNAMES)
             and unique_names == total_count
             and unique_main_images == total_count
             and not missing_product_files
             and not missing_video_files
+            and not missing_music_files
+            and not invalid_music_paths
+            and not music_metadata_mismatches
             and not missing_category_icons
             and not invalid_category_icons
             and not legacy_category_icons

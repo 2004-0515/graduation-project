@@ -30,6 +30,14 @@ const removeStorage = (key: string): void => {
   }
 }
 
+const clearUnauthorizedSession = (): void => {
+  removeStorage(STORAGE_KEYS.TOKEN)
+  removeStorage(STORAGE_KEYS.USER_INFO)
+  if (!window.location.pathname.includes('/login')) {
+    window.location.href = '/login'
+  }
+}
+
 instance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = readStorage(STORAGE_KEYS.TOKEN)
@@ -53,6 +61,10 @@ instance.interceptors.response.use(
     const { response } = error
 
     if (response) {
+      if (response.status === HTTP_STATUS.UNAUTHORIZED) {
+        clearUnauthorizedSession()
+      }
+
       if (response.data && typeof response.data === 'object') {
         const errorData = {
           ...response.data,
@@ -67,14 +79,6 @@ instance.interceptors.response.use(
       }
 
       const errorResponse = getDefaultHttpError(response.status)
-
-      if (response.status === HTTP_STATUS.UNAUTHORIZED) {
-        removeStorage(STORAGE_KEYS.TOKEN)
-        removeStorage(STORAGE_KEYS.USER_INFO)
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login'
-        }
-      }
 
       const err = new Error(errorResponse.message) as Error & { response?: unknown; code?: number }
       err.response = { data: errorResponse }

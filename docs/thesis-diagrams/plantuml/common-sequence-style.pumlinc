@@ -1,0 +1,20 @@
+skinparam monochrome true
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Microsoft YaHei
+skinparam SequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam ArrowThickness 1.2
+skinparam ParticipantBorderColor black
+skinparam ParticipantBackgroundColor white
+skinparam ActorBorderColor black
+skinparam ActorBackgroundColor white
+skinparam LifeLineBorderColor black
+skinparam LifeLineBackgroundColor white
+skinparam SequenceGroupBorderColor black
+skinparam SequenceGroupBackgroundColor white
+skinparam NoteBorderColor black
+skinparam NoteBackgroundColor white
+skinparam NoteFontColor black
+hide footbox

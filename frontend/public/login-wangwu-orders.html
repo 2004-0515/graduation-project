@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Auto Login</title></head>
+<body>
+  <p>Logging in...</p>
+  <script>
+    localStorage.setItem('token', 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ3YW5nd3UiLCJpYXQiOjE3NzkzODU2MTksImV4cCI6MTc3OTQ3MjAxOX0.FhtIwj2vy4hQ6Px_V-i8m7HdkQwaCuQpCJVygDLufKE');
+    localStorage.setItem('userInfo', JSON.stringify({"id":4,"username":"wangwu","email":"wangwu@shionmall.com","phone":"13800138003","nickname":"王五","bio":"会使用收藏、购物车和降价提醒。","avatar":"/uploads/avatars/2026/03/e13aab6f-3360-47df-9ca9-cffec7c4e233.jpg","role":"BUYER","points":488,"growthValue":252,"memberDays":71,"createdTime":"2026-03-05T06:00:00","updatedTime":"2026-05-22T01:46:59","lastLoginTime":"2026-05-22T01:46:59"}));
+    window.location.href = 'http://127.0.0.1:5179/orders';
+  </script>
+</body>
+</html>

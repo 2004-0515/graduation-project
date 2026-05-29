@@ -84,9 +84,9 @@
                     class="btn btn-primary btn-sm"
                     :data-testid="`promotions-claim-${c.id}`"
                     @click.stop="claimCoupon(c)"
-                    :disabled="c.claimed || c.remaining <= 0"
+                    :disabled="c.claimed || c.remaining <= 0 || isCouponClaiming(c.id)"
                   >
-                    {{ c.claimed ? '已领完' : c.remaining <= 0 ? '已领完' : '立即领取' }}
+                    {{ c.claimed ? '已领完' : c.remaining <= 0 ? '已领完' : isCouponClaiming(c.id) ? '领取中' : '立即领取' }}
                   </button>
                 </div>
               </div>
@@ -180,6 +180,7 @@ const coupons = ref<any[]>([])
 const myCoupons = ref<any[]>([])
 const hotProducts = ref<any[]>([])
 const promotionBanners = ref<ShowcaseBanner[]>([])
+const claimingCouponIds = ref<Set<number>>(new Set())
 let latestCouponsRequestId = 0
 let latestMyCouponsRequestId = 0
 const invalidateCouponRequests = () => {
@@ -229,6 +230,14 @@ const getErrorMessage = (error: unknown, fallback: string) => {
     return response?.data?.message || message || fallback
   }
   return fallback
+}
+
+const isCouponClaiming = (couponId: number) => claimingCouponIds.value.has(couponId)
+const setCouponClaiming = (couponId: number, claiming: boolean) => {
+  const next = new Set(claimingCouponIds.value)
+  if (claiming) next.add(couponId)
+  else next.delete(couponId)
+  claimingCouponIds.value = next
 }
 
 const resolveBannerLink = (banner: ShowcaseBanner) => {
@@ -339,8 +348,9 @@ const claimCoupon = async (coupon: any) => {
     return
   }
   
-  if (coupon.claimed || coupon.remaining <= 0) return
+  if (coupon.claimed || coupon.remaining <= 0 || isCouponClaiming(coupon.id)) return
   
+  setCouponClaiming(coupon.id, true)
   try {
     const res: any = await couponApi.claimCoupon(coupon.id)
     if (res?.code === 200) {
@@ -375,6 +385,8 @@ const claimCoupon = async (coupon: any) => {
   } catch (e: any) {
     debugError('领取优惠券失败', e)
     ElMessage.error(getErrorMessage(e, '领取失败'))
+  } finally {
+    setCouponClaiming(coupon.id, false)
   }
 }
 

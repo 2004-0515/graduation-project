@@ -1,0 +1,4 @@
+<map id="08-sequence-product-audit_map" name="08-sequence-product-audit_map">
+<area shape="rect" id="id1" href="审核通过" title="审核通过" alt="" coords="585,509,629,523"/>
+<area shape="rect" id="id2" href="审核拒绝" title="审核拒绝" alt="" coords="513,633,557,648"/>
+</map>

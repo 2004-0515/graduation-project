@@ -19,6 +19,8 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $scriptPath = Join-Path $PSScriptRoot "rebuild_graduation_dataset.py"
+$qualityEnhancePath = Join-Path $PSScriptRoot "enhance_high_quality_demo_data.py"
+$rationalSyncPath = Join-Path $PSScriptRoot "sync_rational_consumption_data.py"
 $schemaFixPath = Join-Path $PSScriptRoot "ensure-portfolio-schema.ps1"
 
 function Resolve-PythonCommand {
@@ -90,7 +92,57 @@ try {
         }
     }
     & $python @args
-    exit $LASTEXITCODE
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+
+    if (Test-Path $qualityEnhancePath) {
+        $qualityMode = if ($Mode -eq "execute") { "execute" } else { "audit" }
+        $qualityArgs = @(
+            $qualityEnhancePath,
+            "--mode", $qualityMode,
+            "--db-name", $DatabaseName,
+            "--db-user", $DatabaseUser,
+            "--db-password", $DatabasePassword
+        )
+        if ($DatabaseHost) {
+            $qualityArgs += @("--db-host", $DatabaseHost)
+        }
+        if ($DatabasePort) {
+            $qualityArgs += @("--db-port", $DatabasePort)
+        }
+
+        Write-Host "Running high-quality demo data enhancer with mode: $qualityMode"
+        & $python @qualityArgs
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
+    }
+
+    if (Test-Path $rationalSyncPath) {
+        $rationalMode = if ($Mode -eq "execute") { "execute" } else { "audit" }
+        $rationalArgs = @(
+            $rationalSyncPath,
+            "--mode", $rationalMode,
+            "--db-name", $DatabaseName,
+            "--db-user", $DatabaseUser,
+            "--db-password", $DatabasePassword
+        )
+        if ($DatabaseHost) {
+            $rationalArgs += @("--db-host", $DatabaseHost)
+        }
+        if ($DatabasePort) {
+            $rationalArgs += @("--db-port", $DatabasePort)
+        }
+
+        Write-Host "Running rational consumption data sync with mode: $rationalMode"
+        & $python @rationalArgs
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
+    }
+
+    exit 0
 }
 finally {
     Pop-Location

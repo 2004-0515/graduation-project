@@ -1,0 +1,59 @@
+@startuml
+!include common-sequence-style.pumlinc
+
+title 图4.10 月度预算设置时序图
+
+actor "用户" as User
+participant "<u>:RationalConsumptionView</u>" as RationalView
+participant "<u>:RationalConsumptionController</u>" as RationalController
+participant "<u>:RationalConsumptionService</u>" as RationalService
+participant "<u>:BudgetRepository</u>" as BudgetRepository
+participant "<u>:OrderRepository</u>" as OrderRepository
+
+autonumber 1
+
+User -> RationalView : 进入理性消费页面
+activate RationalView
+RationalView -> RationalController : 请求预算状态
+activate RationalController
+RationalController -> RationalService : 获取预算状态
+activate RationalService
+RationalService -> BudgetRepository : 获取或创建当月预算
+activate BudgetRepository
+BudgetRepository --> RationalService : 当月预算
+deactivate BudgetRepository
+RationalService -> OrderRepository : 查询当月已支付订单
+activate OrderRepository
+deactivate OrderRepository
+deactivate RationalService
+RationalController --> RationalView : 返回预算状态
+deactivate RationalController
+RationalView --> User : 展示预算进度和预警提示
+
+User -> RationalView : 输入预算金额和预警阈值
+RationalView -> RationalView : 校验预算金额不能低于100
+alt 金额不合法
+  RationalView --> User : 显示校验提示
+else 金额合法
+  RationalView -> RationalController : 提交预算设置
+activate RationalController
+  RationalController -> RationalService : 保存预算设置
+activate RationalService
+  RationalService -> BudgetRepository : 保存月预算和预警阈值
+  activate BudgetRepository
+  deactivate BudgetRepository
+deactivate RationalService
+  RationalController --> RationalView : 返回成功
+deactivate RationalController
+
+RationalView -> RationalController : 重新请求预算状态
+activate RationalController
+  RationalController -> RationalService : 获取预算状态
+activate RationalService
+deactivate RationalService
+  RationalController --> RationalView : 返回刷新结果
+deactivate RationalController
+  RationalView --> User : 刷新进度条和剩余额度
+end
+deactivate RationalView
+@enduml

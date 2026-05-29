@@ -1,0 +1,67 @@
+@startuml
+!include common-sequence-style.pumlinc
+
+title 图4.11 订单取消时序图
+
+actor "用户" as User
+actor "管理员" as Admin
+participant "<u>:OrdersView</u>" as OrdersView
+participant "<u>:AdminOrdersManageView</u>" as AdminOrdersView
+participant "<u>:OrderController</u>" as OrderController
+participant "<u>:OrderService</u>" as OrderService
+participant "<u>:OrderRepository</u>" as OrderRepository
+participant "<u>:ProductService</u>" as ProductService
+
+autonumber 1
+
+User -> OrdersView : 选择取消订单
+activate OrdersView
+OrdersView -> OrderController : 提交取消或取消申请
+activate OrderController
+OrderController -> OrderService : 校验订单状态
+activate OrderService
+OrderService -> OrderRepository : 查询订单
+activate OrderRepository
+OrderRepository --> OrderService : 订单信息
+deactivate OrderRepository
+
+alt 待支付订单
+  OrderService -> OrderRepository : 保存已取消状态
+  activate OrderRepository
+  deactivate OrderRepository
+  OrderController --> OrdersView : 返回取消成功
+else 已支付待发货订单
+  OrderService -> OrderRepository : 保存取消申请状态
+  activate OrderRepository
+  deactivate OrderRepository
+  OrderController --> OrdersView : 返回等待审核
+
+  Admin -> AdminOrdersView : 审核取消申请
+  activate AdminOrdersView
+  AdminOrdersView -> OrderController : 提交审核结果
+  OrderController -> OrderService : 审核取消申请
+  OrderService -> OrderRepository : 查询申请中订单
+  activate OrderRepository
+  OrderRepository --> OrderService : 订单详情
+  deactivate OrderRepository
+
+  alt 同意取消
+    OrderService -> ProductService : 恢复库存并回退销量
+    activate ProductService
+    deactivate ProductService
+    OrderService -> OrderRepository : 保存已取消状态
+  else 拒绝取消
+    OrderService -> OrderRepository : 恢复待发货状态
+  end
+  OrderController --> AdminOrdersView : 返回审核结果
+  AdminOrdersView --> Admin : 刷新订单状态
+  deactivate AdminOrdersView
+else 其他订单状态
+  OrderController --> OrdersView : 返回不可取消
+end
+
+deactivate OrderService
+deactivate OrderController
+OrdersView --> User : 显示处理结果
+deactivate OrdersView
+@enduml

@@ -6,26 +6,40 @@
     :style="{ left: position.x + 'px', top: position.y + 'px' }"
     ref="playerRef"
   >
-    <!-- 迷你模式 -->
     <div v-if="isMinimized" class="mini-player" @mousedown="startDrag" @click="handleMiniClick">
-      <div class="mini-cover" :class="{ rotating: isPlaying }">
+      <div class="mini-cover" :class="{ rotating: isPlaying }" aria-hidden="true">
         <img :src="currentMusic?.cover || defaultCover" alt="cover" />
       </div>
-      <div class="mini-btn" @click.stop="togglePlay" @mousedown.stop>
-        <span v-if="isPlaying">| |</span>
-        <span v-else class="play-icon"></span>
+      <div class="mini-meta">
+        <div class="mini-title">{{ currentMusic?.title || '暂无音乐' }}</div>
+        <div class="mini-artist">{{ currentMusic?.artist || '点击展开播放器' }}</div>
       </div>
+      <button class="mini-control" @click.stop="togglePlay" @mousedown.stop :aria-label="isPlaying ? '暂停' : '播放'">
+        <span v-if="isPlaying" class="btn-icon pause dark"></span>
+        <span v-else class="btn-icon play dark"></span>
+      </button>
+      <button
+        v-if="!isPlayerLockedToMinimized"
+        class="mini-expand"
+        @click.stop="isMinimized = false"
+        @mousedown.stop
+        aria-label="展开播放器"
+      >
+        <span class="chevron up"></span>
+      </button>
     </div>
     
-    <!-- 正常模式 -->
     <div v-else class="player-content">
       <div class="player-header" @mousedown="startDrag">
+        <div class="drag-grip" aria-hidden="true"></div>
         <span class="player-title">音乐播放器</span>
         <div class="header-btns" @mousedown.stop>
-          <button class="icon-btn" @click="isExpanded = !isExpanded" :title="isExpanded ? '收起列表' : '展开列表'">
-            {{ isExpanded ? '收' : '列' }}
+          <button class="icon-btn" @click="isExpanded = !isExpanded" :title="isExpanded ? '收起列表' : '展开列表'" :aria-label="isExpanded ? '收起列表' : '展开列表'">
+            <span class="chevron" :class="isExpanded ? 'down' : 'up'"></span>
           </button>
-          <button class="icon-btn" @click="isMinimized = true" title="最小化">-</button>
+          <button class="icon-btn" @click="isMinimized = true" title="收起播放器" aria-label="收起播放器">
+            <span class="minimize-icon"></span>
+          </button>
         </div>
       </div>
       
@@ -82,38 +96,40 @@
       </div>
       
       <!-- 播放列表 -->
-      <div v-if="isExpanded" class="playlist">
-        <div class="playlist-header">播放列表 ({{ musicList.length }})</div>
-        <div class="playlist-items">
-          <div v-if="isLoading" class="loading-list">
-            <div class="loading-spinner"></div>
-            <span>加载中{{ retryCount > 0 ? ` (重试 ${retryCount}/${MAX_RETRY})` : '' }}...</span>
-          </div>
-          <div v-else-if="loadError" class="error-list">
-            <div class="error-icon">⚠️</div>
-            <span class="error-text">加载失败</span>
-            <button class="retry-btn" @click="retryLoad">重试</button>
-          </div>
-          <template v-else>
-            <div 
-              v-for="(music, index) in musicList" 
-              :key="music.id" 
-              class="playlist-item"
-              :class="{ active: currentIndex === index }"
-              @click="playAt(index)"
-            >
-              <span class="item-index">{{ index + 1 }}</span>
-              <span class="item-title">{{ music.title }}</span>
-              <span class="item-artist">{{ music.artist }}</span>
+      <Transition name="playlist-slide">
+        <div v-if="isExpanded" class="playlist">
+          <div class="playlist-header">播放列表 ({{ musicList.length }})</div>
+          <div class="playlist-items">
+            <div v-if="isLoading" class="loading-list">
+              <div class="loading-spinner"></div>
+              <span>加载中{{ retryCount > 0 ? ` (重试 ${retryCount}/${MAX_RETRY})` : '' }}...</span>
             </div>
-            <div v-if="musicList.length === 0" class="empty-list">
-              <div class="empty-icon">🎵</div>
-              <span>暂无音乐</span>
-              <button class="retry-btn" @click="retryLoad">刷新</button>
+            <div v-else-if="loadError" class="error-list">
+              <div class="error-icon">!</div>
+              <span class="error-text">加载失败</span>
+              <button class="retry-btn" @click="retryLoad">重试</button>
             </div>
-          </template>
+            <template v-else>
+              <div
+                v-for="(music, index) in musicList"
+                :key="music.id"
+                class="playlist-item"
+                :class="{ active: currentIndex === index }"
+                @click="playAt(index)"
+              >
+                <span class="item-index">{{ index + 1 }}</span>
+                <span class="item-title">{{ music.title }}</span>
+                <span class="item-artist">{{ music.artist }}</span>
+              </div>
+              <div v-if="musicList.length === 0" class="empty-list">
+                <div class="empty-icon">♪</div>
+                <span>暂无音乐</span>
+                <button class="retry-btn" @click="retryLoad">刷新</button>
+              </div>
+            </template>
+          </div>
         </div>
-      </div>
+      </Transition>
     </div>
     
     <audio ref="audioRef" @timeupdate="onTimeUpdate" @ended="onEnded" @loadedmetadata="onLoaded"></audio>
@@ -166,6 +182,18 @@ type PlayerState = {
   isPlaying?: boolean
   isMinimized?: boolean
   isExpanded?: boolean
+}
+
+type PositionEdgeX = 'left' | 'right'
+type PositionEdgeY = 'top' | 'bottom'
+
+type PlayerPositionState = {
+  x?: number
+  y?: number
+  xEdge?: PositionEdgeX
+  yEdge?: PositionEdgeY
+  offsetX?: number
+  offsetY?: number
 }
 
 // 播放状态持久化的key
@@ -247,6 +275,17 @@ const isProgressDragging = ref(false)
 const dragProgress = ref(0)
 const position = reactive({ x: 0, y: 0 })
 const dragOffset = reactive({ x: 0, y: 0 })
+const positionAnchor = reactive<{
+  xEdge: PositionEdgeX
+  yEdge: PositionEdgeY
+  offsetX: number
+  offsetY: number
+}>({
+  xEdge: 'right',
+  yEdge: 'bottom',
+  offsetX: 28,
+  offsetY: 28
+})
 const MOBILE_BREAKPOINT = 768
 
 const currentMusic = computed(() => musicList.value[currentIndex.value])
@@ -276,27 +315,81 @@ const shouldForceMinimizeForRoute = (path: string) =>
 
 const isMobileViewport = () => window.innerWidth <= MOBILE_BREAKPOINT
 
+const getViewportMargin = () => isMobileViewport() ? 14 : 28
+
 const getPlayerFootprint = () => {
   if (isMinimized.value) {
     return {
-      width: isMobileViewport() ? 86 : 120,
-      height: isMobileViewport() ? 56 : 70
+      width: isMobileViewport() ? 210 : 260,
+      height: 64
     }
   }
 
   return {
-    width: isMobileViewport() ? 280 : 340,
+    width: isMobileViewport() ? 292 : 320,
     height: isExpanded.value ? 480 : 240
   }
 }
 
-const getDefaultPosition = () => {
-  const footprint = getPlayerFootprint()
-  const margin = isMobileViewport() ? 14 : 28
+const setDefaultPositionAnchor = () => {
+  const margin = getViewportMargin()
+  positionAnchor.xEdge = 'right'
+  positionAnchor.yEdge = 'bottom'
+  positionAnchor.offsetX = margin
+  positionAnchor.offsetY = margin
+}
 
+const getAnchoredPosition = () => {
+  const footprint = getPlayerFootprint()
   return {
-    x: Math.max(margin, window.innerWidth - footprint.width - margin),
-    y: Math.max(margin, window.innerHeight - footprint.height - margin)
+    x: positionAnchor.xEdge === 'right'
+      ? window.innerWidth - footprint.width - positionAnchor.offsetX
+      : positionAnchor.offsetX,
+    y: positionAnchor.yEdge === 'bottom'
+      ? window.innerHeight - footprint.height - positionAnchor.offsetY
+      : positionAnchor.offsetY
+  }
+}
+
+const applyPositionAnchor = () => {
+  const anchored = getAnchoredPosition()
+  position.x = anchored.x
+  position.y = anchored.y
+  constrainPosition()
+}
+
+const syncPositionAnchorFromCurrent = () => {
+  const footprint = getPlayerFootprint()
+  const centerX = position.x + footprint.width / 2
+  const centerY = position.y + footprint.height / 2
+
+  if (centerX > window.innerWidth / 2) {
+    positionAnchor.xEdge = 'right'
+    positionAnchor.offsetX = Math.max(getViewportMargin(), window.innerWidth - position.x - footprint.width)
+  } else {
+    positionAnchor.xEdge = 'left'
+    positionAnchor.offsetX = Math.max(getViewportMargin(), position.x)
+  }
+
+  if (centerY > window.innerHeight / 2) {
+    positionAnchor.yEdge = 'bottom'
+    positionAnchor.offsetY = Math.max(getViewportMargin(), window.innerHeight - position.y - footprint.height)
+  } else {
+    positionAnchor.yEdge = 'top'
+    positionAnchor.offsetY = Math.max(getViewportMargin(), position.y)
+  }
+}
+
+const savePlayerPosition = () => {
+  try {
+    localStorage.setItem(MUSIC_PLAYER_POSITION_KEY, JSON.stringify({
+      xEdge: positionAnchor.xEdge,
+      yEdge: positionAnchor.yEdge,
+      offsetX: positionAnchor.offsetX,
+      offsetY: positionAnchor.offsetY
+    }))
+  } catch (error) {
+    debugError('保存播放器位置失败', error)
   }
 }
 
@@ -312,9 +405,8 @@ const syncPlayerLayoutForRoute = (path: string) => {
     showVolumePanel.value = false
   }
   if (!wasMinimized) {
-    const fallback = getDefaultPosition()
-    position.x = fallback.x
-    position.y = fallback.y
+    setDefaultPositionAnchor()
+    applyPositionAnchor()
   }
 }
 
@@ -323,34 +415,45 @@ const initPosition = () => {
   const saved = readStorageValue(MUSIC_PLAYER_POSITION_KEY)
   if (saved) {
     try {
-      const pos = JSON.parse(saved) as { x?: number; y?: number }
-      if (typeof pos.x === 'number' && typeof pos.y === 'number') {
+      const pos = JSON.parse(saved) as PlayerPositionState
+      if (
+        (pos.xEdge === 'left' || pos.xEdge === 'right') &&
+        (pos.yEdge === 'top' || pos.yEdge === 'bottom') &&
+        typeof pos.offsetX === 'number' &&
+        typeof pos.offsetY === 'number'
+      ) {
+        positionAnchor.xEdge = pos.xEdge
+        positionAnchor.yEdge = pos.yEdge
+        positionAnchor.offsetX = pos.offsetX
+        positionAnchor.offsetY = pos.offsetY
+        applyPositionAnchor()
+      } else if (typeof pos.x === 'number' && typeof pos.y === 'number') {
         position.x = pos.x
         position.y = pos.y
+        constrainPosition()
+        syncPositionAnchorFromCurrent()
       } else {
         throw new Error('播放器位置缓存格式无效')
       }
     } catch (error) {
       debugError('恢复播放器位置失败', error)
       clearPlayerPosition()
-      const fallback = getDefaultPosition()
-      position.x = fallback.x
-      position.y = fallback.y
+      setDefaultPositionAnchor()
+      applyPositionAnchor()
     }
   } else {
-    const fallback = getDefaultPosition()
-    position.x = fallback.x
-    position.y = fallback.y
+    setDefaultPositionAnchor()
+    applyPositionAnchor()
   }
-  constrainPosition()
 }
 
 const constrainPosition = () => {
   const footprint = getPlayerFootprint()
-  const maxX = window.innerWidth - footprint.width
-  const maxY = window.innerHeight - footprint.height
-  position.x = Math.max(0, Math.min(position.x, maxX))
-  position.y = Math.max(0, Math.min(position.y, maxY))
+  const margin = getViewportMargin()
+  const maxX = Math.max(margin, window.innerWidth - footprint.width - margin)
+  const maxY = Math.max(margin, window.innerHeight - footprint.height - margin)
+  position.x = Math.max(margin, Math.min(position.x, maxX))
+  position.y = Math.max(margin, Math.min(position.y, maxY))
 }
 
 const startDrag = (e: MouseEvent) => {
@@ -374,11 +477,9 @@ const stopDrag = () => {
   isDragging.value = false
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
-  try {
-    localStorage.setItem(MUSIC_PLAYER_POSITION_KEY, JSON.stringify({ x: position.x, y: position.y }))
-  } catch (error) {
-    debugError('保存播放器位置失败', error)
-  }
+  constrainPosition()
+  syncPositionAnchorFromCurrent()
+  savePlayerPosition()
 }
 
 const handleMiniClick = () => {
@@ -476,7 +577,8 @@ const toggleVolumePanel = () => {
 
 const onResize = () => {
   syncPlayerLayoutForRoute(currentRoutePath.value)
-  constrainPosition()
+  applyPositionAnchor()
+  savePlayerPosition()
 }
 
 const loadMusic = async (isRetry = false) => {
@@ -763,7 +865,13 @@ watch(isMinimized, (minimized) => {
     isMinimized.value = true
     isExpanded.value = false
     showVolumePanel.value = false
+    applyPositionAnchor()
+    savePlayerPosition()
+    return
   }
+
+  applyPositionAnchor()
+  savePlayerPosition()
 })
 watch(isExpanded, () => savePlayerState())
 watch(isExpanded, (expanded) => {
@@ -771,8 +879,13 @@ watch(isExpanded, (expanded) => {
     isExpanded.value = false
     isMinimized.value = true
     showVolumePanel.value = false
+    applyPositionAnchor()
+    savePlayerPosition()
     return
   }
+
+  applyPositionAnchor()
+  savePlayerPosition()
 
   if (expanded && !hasLoadedMusic.value) {
     void ensureMusicLoaded()
@@ -815,6 +928,7 @@ onUnmounted(() => {
   user-select: none;
   transform: scale(1);
   transform-origin: top left;
+  transition: filter 0.18s ease;
 }
 
 .music-player.e2e-passive,
@@ -826,18 +940,26 @@ onUnmounted(() => {
   cursor: grabbing;
 }
 
-/* 迷你模式 */
 .mini-player {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 40px;
-  box-shadow: 0 6px 24px rgba(155, 135, 245, 0.3);
+  width: 260px;
+  min-height: 64px;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(24px);
+  border-radius: 18px;
+  box-shadow: 0 16px 40px rgba(42, 39, 74, 0.14);
   cursor: grab;
-  border: 2px solid rgba(155, 135, 245, 0.3);
+  border: 1px solid rgba(155, 135, 245, 0.22);
+  transition: width 0.22s ease, transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.mini-player:hover {
+  transform: translateY(-2px);
+  border-color: rgba(155, 135, 245, 0.36);
+  box-shadow: 0 20px 48px rgba(42, 39, 74, 0.18);
 }
 
 .music-player.dragging .mini-player {
@@ -845,11 +967,12 @@ onUnmounted(() => {
 }
 
 .mini-cover {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: 0 3px 10px rgba(155, 135, 245, 0.3);
+  flex: 0 0 auto;
+  box-shadow: 0 5px 14px rgba(155, 135, 245, 0.28);
 }
 
 .mini-cover img {
@@ -858,54 +981,81 @@ onUnmounted(() => {
   object-fit: cover;
 }
 
-.mini-btn {
-  width: 34px;
-  height: 34px;
+.mini-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.mini-title {
+  color: #2D2D3F;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-artist {
+  margin-top: 3px;
+  color: #7A7A8C;
+  font-size: 12px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-control,
+.mini-expand {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.mini-control {
+  width: 38px;
+  height: 38px;
   background: var(--primary);
   color: white;
-  border-radius: 50%;
-  font-size: 11px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 16px rgba(155, 135, 245, 0.4);
+  box-shadow: 0 8px 20px rgba(155, 135, 245, 0.32);
 }
 
-.mini-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(155, 135, 245, 0.5);
+.mini-expand {
+  width: 30px;
+  height: 30px;
+  background: rgba(155, 135, 245, 0.1);
+  color: var(--primary);
 }
 
-.mini-btn .play-icon {
-  width: 0;
-  height: 0;
-  border-left: 10px solid white;
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
-  margin-left: 3px;
+.mini-control:hover,
+.mini-expand:hover {
+  transform: scale(1.06);
 }
 
-/* 播放器主体 */
 .player-content {
-  width: 280px;
-  background: var(--white);
-  backdrop-filter: blur(32px);
-  border-radius: 20px;
-  box-shadow: 0 12px 48px rgba(155, 135, 245, 0.25);
-  border: 2px solid rgba(155, 135, 245, 0.2);
+  width: 320px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(30px);
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(42, 39, 74, 0.16);
+  border: 1px solid rgba(155, 135, 245, 0.2);
   overflow: hidden;
+  transition: width 0.22s ease, box-shadow 0.18s ease;
 }
 
 .player-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 14px 18px;
-  background: var(--primary);
-  color: white;
+  gap: 10px;
+  padding: 12px 14px 8px;
+  background: linear-gradient(180deg, rgba(155, 135, 245, 0.14), rgba(155, 135, 245, 0));
+  color: #2D2D3F;
   cursor: grab;
 }
 
@@ -915,8 +1065,37 @@ onUnmounted(() => {
 
 .player-title {
   font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
+  font-weight: 650;
+  flex: 1;
+  min-width: 0;
+  letter-spacing: 0;
+}
+
+.drag-grip {
+  width: 24px;
+  height: 14px;
+  position: relative;
+  flex: 0 0 auto;
+  opacity: 0.45;
+}
+
+.drag-grip::before,
+.drag-grip::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  height: 2px;
+  border-radius: 2px;
+  background: #7A7A8C;
+}
+
+.drag-grip::before {
+  top: 3px;
+}
+
+.drag-grip::after {
+  bottom: 3px;
 }
 
 .header-btns {
@@ -925,31 +1104,53 @@ onUnmounted(() => {
 }
 
 .icon-btn {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border: none;
-  background: rgba(255, 255, 255, 0.25);
-  color: white;
-  border-radius: 8px;
+  background: rgba(155, 135, 245, 0.12);
+  color: var(--primary);
+  border-radius: 50%;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  transition: background 0.18s ease, transform 0.18s ease;
 }
 
 .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(155, 135, 245, 0.2);
+  transform: translateY(-1px);
 }
 
-/* 当前播放 */
+.chevron {
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  display: block;
+}
+
+.chevron.up {
+  transform: rotate(225deg) translate(-1px, -1px);
+}
+
+.chevron.down {
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.minimize-icon {
+  width: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  display: block;
+}
+
 .now-playing {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 18px;
+  padding: 12px 18px 16px;
 }
 
 .cover-wrap {
@@ -1148,12 +1349,21 @@ onUnmounted(() => {
   margin-left: 3px;
 }
 
+.btn-icon.play.dark {
+  border-left-color: white;
+}
+
 .btn-icon.pause {
   width: 14px;
   height: 16px;
   border-left: 4px solid white;
   border-right: 4px solid white;
   box-sizing: border-box;
+}
+
+.btn-icon.pause.dark {
+  border-left-color: white;
+  border-right-color: white;
 }
 
 .btn-icon.mute, .btn-icon.vol-low, .btn-icon.vol-high {
@@ -1250,7 +1460,8 @@ onUnmounted(() => {
 
 /* 播放列表 */
 .playlist {
-  border-top: 2px solid rgba(155, 135, 245, 0.15);
+  border-top: 1px solid rgba(155, 135, 245, 0.14);
+  overflow: hidden;
 }
 
 .playlist-header {
@@ -1264,6 +1475,25 @@ onUnmounted(() => {
 .playlist-items {
   max-height: 200px;
   overflow-y: auto;
+}
+
+.playlist-slide-enter-active,
+.playlist-slide-leave-active {
+  transition: max-height 0.24s ease, opacity 0.2s ease, transform 0.24s ease;
+}
+
+.playlist-slide-enter-from,
+.playlist-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.playlist-slide-enter-to,
+.playlist-slide-leave-from {
+  max-height: 256px;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .playlist-item {
@@ -1398,10 +1628,31 @@ onUnmounted(() => {
   color: #E8E8F0;
 }
 
+:global(html.dark-theme) .mini-title,
+:global(html.dark-theme) .player-title {
+  color: #E8E8F0;
+}
+
 :global(html.dark-theme) .music-artist,
+:global(html.dark-theme) .mini-artist,
 :global(html.dark-theme) .item-artist,
 :global(html.dark-theme) .item-index {
   color: #9090A0;
+}
+
+:global(html.dark-theme) .player-header {
+  background: linear-gradient(180deg, rgba(80, 100, 140, 0.24), rgba(80, 100, 140, 0));
+}
+
+:global(html.dark-theme) .drag-grip::before,
+:global(html.dark-theme) .drag-grip::after {
+  background: #9090A0;
+}
+
+:global(html.dark-theme) .icon-btn,
+:global(html.dark-theme) .mini-expand {
+  background: rgba(80, 100, 140, 0.34);
+  color: rgba(185, 175, 255, 0.9);
 }
 
 :global(html.dark-theme) .ctrl-btn {
@@ -1441,5 +1692,48 @@ onUnmounted(() => {
 :global(html.dark-theme) .mute-btn {
   background: rgba(60, 50, 80, 0.5);
   color: rgba(155, 135, 245, 0.8);
+}
+
+@media (max-width: 768px) {
+  .mini-player {
+    width: 210px;
+    min-height: 60px;
+    padding: 9px 10px;
+    gap: 10px;
+  }
+
+  .mini-cover {
+    width: 40px;
+    height: 40px;
+  }
+
+  .mini-control {
+    width: 36px;
+    height: 36px;
+  }
+
+  .mini-expand {
+    display: none;
+  }
+
+  .player-content {
+    width: 292px;
+  }
+
+  .player-header {
+    padding: 11px 12px 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-player,
+  .mini-control,
+  .mini-expand,
+  .player-content,
+  .icon-btn,
+  .playlist-slide-enter-active,
+  .playlist-slide-leave-active {
+    transition: none;
+  }
 }
 </style>

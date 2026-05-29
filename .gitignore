@@ -50,6 +50,8 @@ BUG_REPORT.md
 settings.xml
 scripts/__pycache__/
 scripts/openverse-asset-manifest.json
+__pycache__/
+*.pyc
 
 # Gradle缓存（不应该提交）
 .gradle/
@@ -83,6 +85,8 @@ backend/backend.log
 # 测试报告
 surefire-reports/
 test-results/
+playwright-report/
+frontend/playwright-report/
 
 # 编译输出
 target/
@@ -113,3 +117,12 @@ dist/
 tmp-browser-pids.json
 backend/.jqwik-database
 backend/.m2repo/
+
+# Agent/demo scratch artifacts
+scratch/
+outputs/
+.tools/
+shopping_mall_backup_before_rebuild_*.sql
+
+# Large local media files are not required for source review and are unsuitable for GitHub.
+uploads/music/

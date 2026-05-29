@@ -16,7 +16,7 @@
         <div v-else class="product-cards" data-testid="my-products-list">
           <div v-for="product in products" :key="product.id" class="product-card" :data-testid="`my-product-card-${product.id}`">
             <div class="product-image">
-              <el-image :src="getImageUrl(product.mainImage)" fit="cover">
+              <el-image :src="getImageUrl(product.mainImage)" fit="contain">
                 <template #error><div class="img-placeholder">暂无图片</div></template>
               </el-image>
               <div class="audit-badge" :class="getAuditClass(product.auditStatus)">
@@ -69,6 +69,7 @@
                 :show-file-list="false"
                 :http-request="handleImageUpload"
                 :before-upload="beforeUpload"
+                :disabled="saving || uploadingImage || uploadingVideo"
                 accept="image/*"
               >
                 <div class="upload-placeholder upload-trigger">
@@ -78,7 +79,7 @@
               </el-upload>
               <div v-if="form.images.length > 0" class="image-grid">
                 <div v-for="image in form.images" :key="image" class="image-card" :class="{ active: form.mainImage === image }">
-                  <el-image :src="getImageUrl(image)" class="preview-image" fit="cover" />
+                  <el-image :src="getImageUrl(image)" class="preview-image" fit="contain" />
                   <div class="image-card-actions">
                     <button type="button" class="mini-action" @click.stop="setMainImage(image)">
                       {{ form.mainImage === image ? '主图' : '设为主图' }}
@@ -100,6 +101,7 @@
                 :show-file-list="false"
                 :before-upload="beforeVideoUpload"
                 :http-request="handleVideoUpload"
+                :disabled="saving || uploadingImage || uploadingVideo"
                 accept="video/*"
               >
                 <div v-if="form.adVideo" class="video-preview">
@@ -118,8 +120,8 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button data-testid="my-product-cancel" @click="closeDialog">取消</el-button>
-          <el-button data-testid="my-product-submit" type="primary" @click="submitProduct" :loading="saving">
+          <el-button data-testid="my-product-cancel" @click="closeDialog" :disabled="saving">取消</el-button>
+          <el-button data-testid="my-product-submit" type="primary" @click="submitProduct" :loading="saving" :disabled="saving || uploadingImage || uploadingVideo">
             {{ isEdit ? '保存' : '提交审核' }}
           </el-button>
         </template>
@@ -130,7 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import Navbar from '@/components/Navbar.vue'
@@ -144,13 +146,25 @@ const products = ref<any[]>([])
 const categories = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
+const uploadingImage = ref(false)
+const uploadingVideo = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref<number | null>(null)
 let latestProductsRequestId = 0
+let dialogSessionId = 0
 const invalidateProductRequests = () => {
   latestProductsRequestId += 1
 }
+const nextDialogSession = () => {
+  dialogSessionId += 1
+  return dialogSessionId
+}
+const resetUploadState = () => {
+  uploadingImage.value = false
+  uploadingVideo.value = false
+}
+const isUploadingMedia = computed(() => uploadingImage.value || uploadingVideo.value)
 
 const getImageUrl = (path: string) => fileApi.getImageUrl(path)
 
@@ -207,6 +221,8 @@ const resetForm = () => {
 }
 
 const closeDialog = () => {
+  nextDialogSession()
+  resetUploadState()
   dialogVisible.value = false
   isEdit.value = false
   editId.value = null
@@ -224,6 +240,8 @@ const getAuditText = (status: number) => {
 }
 
 const openDialog = (product?: any) => {
+  nextDialogSession()
+  resetUploadState()
   if (product) {
     isEdit.value = true
     editId.value = product.id
@@ -316,10 +334,16 @@ const beforeUpload = (file: File) => {
 }
 
 const handleImageUpload = async (options: any) => {
+  if (saving.value || uploadingImage.value) {
+    ElMessage.warning('图片正在上传，请稍候')
+    return
+  }
   if (form.images.length >= 6) {
     ElMessage.warning('最多上传 6 张商品图片')
     return
   }
+  const sessionId = dialogSessionId
+  uploadingImage.value = true
   try {
     // 获取当前选择的分类名称，用于按分类存储图片
     const categoryName = form.categoryId 
@@ -328,6 +352,9 @@ const handleImageUpload = async (options: any) => {
     // 编辑时传入商品ID，审核通过后自动更新商品图片
     const productId = isEdit.value && editId.value ? editId.value : undefined
     const res: any = await fileApi.uploadProductImage(options.file, categoryName, productId)
+    if (sessionId !== dialogSessionId || !dialogVisible.value) {
+      return
+    }
     if (res?.code === 200 && res.data) {
       if (!form.images.includes(res.data)) {
         form.images = [...form.images, res.data]
@@ -342,8 +369,15 @@ const handleImageUpload = async (options: any) => {
       ElMessage.error(message)
     }
   } catch (e) {
+    if (sessionId !== dialogSessionId || !dialogVisible.value) {
+      return
+    }
     debugError('上传商品图片失败', e)
     ElMessage.error(getErrorMessage(e, '图片上传失败'))
+  } finally {
+    if (sessionId === dialogSessionId) {
+      uploadingImage.value = false
+    }
   }
 }
 
@@ -374,8 +408,17 @@ const beforeVideoUpload = (file: File) => {
 }
 
 const handleVideoUpload = async (options: any) => {
+  if (saving.value || uploadingVideo.value) {
+    ElMessage.warning('视频正在上传，请稍候')
+    return
+  }
+  const sessionId = dialogSessionId
+  uploadingVideo.value = true
   try {
     const res: any = await fileApi.uploadAdVideo(options.file)
+    if (sessionId !== dialogSessionId || !dialogVisible.value) {
+      return
+    }
     if (res?.code === 200 && res.data) {
       form.adVideo = res.data
       ElMessage.success('视频上传成功')
@@ -385,8 +428,15 @@ const handleVideoUpload = async (options: any) => {
       ElMessage.error(message)
     }
   } catch (e) {
+    if (sessionId !== dialogSessionId || !dialogVisible.value) {
+      return
+    }
     debugError('上传广告视频失败', e)
     ElMessage.error(getErrorMessage(e, '视频上传失败'))
+  } finally {
+    if (sessionId === dialogSessionId) {
+      uploadingVideo.value = false
+    }
   }
 }
 
@@ -414,6 +464,13 @@ const upsertLocalProduct = (product: any) => {
 }
 
 const submitProduct = async () => {
+  if (saving.value) {
+    return
+  }
+  if (isUploadingMedia.value) {
+    ElMessage.warning('文件上传中，请稍候再提交')
+    return
+  }
   const normalizedImages = form.images.length > 0
     ? buildProductImagesPayload()
     : (form.mainImage ? [form.mainImage] : [])
@@ -567,11 +624,17 @@ onMounted(() => {
 .product-image {
   position: relative;
   height: 200px;
+  background: #f7f5f1;
+  border-bottom: 1px solid rgba(213, 205, 190, 0.72);
 }
 
 .product-image .el-image {
   width: 100%;
   height: 100%;
+}
+
+.product-image :deep(img) {
+  object-fit: contain;
 }
 
 .img-placeholder {
@@ -685,6 +748,8 @@ onMounted(() => {
   width: 100%;
   height: 120px;
   border-radius: 8px;
+  background: #f7f5f1;
+  border: 1px solid rgba(213, 205, 190, 0.72);
 }
 
 .upload-placeholder {

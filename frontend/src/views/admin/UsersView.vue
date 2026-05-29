@@ -48,22 +48,42 @@
           <el-table-column prop="createdTime" label="注册时间" width="140">
             <template #default="{ row }">{{ formatDate(row.createdTime) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="240" fixed="right">
+          <el-table-column label="操作" width="270" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link size="small" @click="viewDetail(row)">详情</el-button>
-              <el-dropdown trigger="click" @command="(role: string | number) => changeRole(row, String(role))">
-                <el-button type="primary" link size="small">角色</el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="BUYER" :disabled="row.role === 'BUYER'">买家</el-dropdown-item>
-                    <el-dropdown-item command="SELLER" :disabled="row.role === 'SELLER'">卖家</el-dropdown-item>
-                    <el-dropdown-item command="ADMIN" :disabled="row.role === 'ADMIN'">管理员</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-              <el-button type="info" link size="small" @click="resetCoupons(row)">重置券</el-button>
-              <el-button v-if="row.status === 1" type="warning" link size="small" @click="toggleStatus(row, 0)">禁用</el-button>
-              <el-button v-else type="success" link size="small" @click="toggleStatus(row, 1)">启用</el-button>
+              <div class="user-actions">
+                <el-button type="primary" link size="small" @click="viewDetail(row)">详情</el-button>
+                <el-dropdown
+                  trigger="click"
+                  :disabled="isCurrentSessionUser(row)"
+                  @command="(role: string | number) => changeRole(row, String(role))"
+                >
+                  <el-button
+                    type="primary"
+                    link
+                    size="small"
+                    :disabled="isCurrentSessionUser(row)"
+                    :title="isCurrentSessionUser(row) ? '当前登录账号不能调整自己的角色' : ''"
+                  >角色</el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="BUYER" :disabled="row.role === 'BUYER'">买家</el-dropdown-item>
+                      <el-dropdown-item command="SELLER" :disabled="row.role === 'SELLER'">卖家</el-dropdown-item>
+                      <el-dropdown-item command="ADMIN" :disabled="row.role === 'ADMIN'">管理员</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+                <el-button type="info" link size="small" @click="resetCoupons(row)">重置券</el-button>
+                <el-button
+                  v-if="isCurrentSessionUser(row)"
+                  type="info"
+                  link
+                  size="small"
+                  disabled
+                  title="当前登录账号不能禁用自己"
+                >本人</el-button>
+                <el-button v-else-if="row.status === 1" type="warning" link size="small" @click="toggleStatus(row, 0)">禁用</el-button>
+                <el-button v-else type="success" link size="small" @click="toggleStatus(row, 1)">启用</el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -143,6 +163,7 @@ const filterStatus = ref<UserStatusFilter>('ALL')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const currentSessionUserId = ref<number | null>(null)
 let latestUsersRequestId = 0
 const invalidateUserRequests = () => {
   latestUsersRequestId += 1
@@ -187,6 +208,19 @@ const getRoleTagType = (role: string): RoleTagType => {
   const map: Record<string, RoleTagType> = { BUYER: 'info', SELLER: 'success', ADMIN: 'danger' }
   return map[role] || 'info'
 }
+
+const loadCurrentSessionUserId = () => {
+  try {
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+    const id = Number(userInfo?.id || 0)
+    currentSessionUserId.value = id > 0 ? id : null
+  } catch {
+    currentSessionUserId.value = null
+  }
+}
+
+const isCurrentSessionUser = (user: any) =>
+  currentSessionUserId.value != null && Number(user?.id || 0) === currentSessionUserId.value
 
 const reconcileCurrentUser = () => {
   if (!currentUser.value) return
@@ -269,6 +303,10 @@ const applyLocalUserRole = (userId: number, role: string) => {
 
 const changeRole = async (user: any, role: string) => {
   if (user.role === role) return
+  if (isCurrentSessionUser(user) && role !== 'ADMIN') {
+    ElMessage.warning('不能调整当前登录管理员自己的角色')
+    return
+  }
   try {
     await ElMessageBox.confirm(`确定将用户"${user.username}"设置为${getRoleText(role)}吗？`, '调整角色', { type: 'warning' })
     const res: any = await adminApi.updateUserRole(user.id, role as any)
@@ -291,6 +329,10 @@ const changeRole = async (user: any, role: string) => {
 
 const toggleStatus = async (user: any, status: number) => {
   const action = status === 1 ? '启用' : '禁用'
+  if (status === 0 && isCurrentSessionUser(user)) {
+    ElMessage.warning('不能禁用当前登录管理员账号')
+    return
+  }
   try {
     await ElMessageBox.confirm(`确定要${action}用户"${user.username}"吗？`, '提示', { type: 'warning' })
     const res: any = await adminApi.updateUserStatus(user.id, status)
@@ -301,7 +343,7 @@ const toggleStatus = async (user: any, status: number) => {
       return
     }
     invalidateUserRequests()
-    applyLocalUserStatus(user.id, status)
+    applyLocalUserStatus(user.id, Number(res?.data?.status ?? status))
     await refreshUsersAfterSuccess(`${action}用户`)
     ElMessage.success(`用户已${action}`)
   } catch (error) {
@@ -329,7 +371,10 @@ const resetCoupons = async (user: any) => {
   }
 }
 
-onMounted(() => fetchUsers())
+onMounted(() => {
+  loadCurrentSessionUserId()
+  fetchUsers()
+})
 </script>
 
 <style scoped>
@@ -360,6 +405,24 @@ onMounted(() => fetchUsers())
 
 :deep(.el-table) { width: 100% !important; }
 :deep(.el-table__body-wrapper) { overflow-x: hidden !important; }
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  min-width: 0;
+}
+
+.user-actions :deep(.el-button) {
+  margin-left: 0 !important;
+  padding: 0;
+  min-height: 24px;
+}
+
+.user-actions :deep(.el-dropdown) {
+  line-height: 1;
+}
 
 .pagination { margin-top: 20px; display: flex; justify-content: flex-end; }
 

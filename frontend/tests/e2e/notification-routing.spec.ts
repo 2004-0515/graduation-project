@@ -7,7 +7,8 @@ import {
   getSession,
   login,
   logout,
-  neutralizeFloatingUi
+  neutralizeFloatingUi,
+  resolveProductId
 } from './helpers/session'
 
 function formatLocalDateTime(offsetDays: number) {
@@ -64,6 +65,35 @@ async function openNotificationByTitle(page: Page, title: string) {
 }
 
 test.describe.configure({ mode: 'serial' })
+
+test('旧版价格提醒通知不会误跳到优惠券页', async ({ page }) => {
+  const buyerSession = await getSession(page, E2E_USERS.buyer, E2E_PASSWORD)
+  const buyerUserId = Number((buyerSession.user as { id?: number }).id || 0)
+  expect(buyerUserId).toBeGreaterThan(0)
+  const productId = await resolveProductId(page, 'priceAlert')
+  const legacyPriceAlertTitle = `关注商品价格提醒-${Date.now()}`
+
+  await authedDelete(page.request, buyerSession.token, '/api/notifications/clear')
+
+  await sendNotification(page, buyerUserId, {
+    type: 'promotion',
+    title: legacyPriceAlertTitle,
+    message: '数据增强:您关注的「演示商品」近期价格有变化，可进入商品详情查看走势。',
+    relatedId: productId
+  })
+
+  await login(page, E2E_USERS.buyer, E2E_PASSWORD)
+
+  await openNotificationByTitle(page, legacyPriceAlertTitle)
+  await expect(page.locator('.detail-type.price_alert', { hasText: '价格提醒' })).toBeVisible()
+  await expect(page.getByTestId('notification-detail-promotion-action')).toHaveCount(0)
+  await page.getByTestId('notification-detail-price-alert-action').click()
+  await page.waitForURL(new RegExp(`/product/${productId}$`))
+  await expect(page.getByTestId('product-detail-view')).toBeVisible()
+
+  await logout(page)
+  await authedDelete(page.request, buyerSession.token, '/api/notifications/clear')
+})
 
 test('促销通知和文件审核通知跳转到正确的用户页面', async ({ page }) => {
   const buyerSession = await getSession(page, E2E_USERS.buyer, E2E_PASSWORD)

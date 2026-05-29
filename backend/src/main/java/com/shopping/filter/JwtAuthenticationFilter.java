@@ -57,6 +57,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 if (jwtUtil.validateToken(jwt)) {
                     UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+                    if (!userDetails.isEnabled()) {
+                        SecurityContextHolder.clearContext();
+                        writeUnauthorized(response, "账号已被禁用，请联系管理员");
+                        return;
+                    }
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities()
                     );

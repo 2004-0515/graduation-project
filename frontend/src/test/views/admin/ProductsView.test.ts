@@ -114,6 +114,31 @@ describe('ProductsView', () => {
       }
     })
 
+  it('opens a large product image review dialog for admin photo checks', async () => {
+    const wrapper = mountView()
+
+    await flushPromises()
+    const product = buildProduct({
+      name: '海盐轴 75 键机械键盘',
+      categoryName: '桌搭数码',
+      sellerName: 'lisi',
+      mainImage: '/uploads/products/桌搭数码/2026/05/desk-keyboard-75.jpg',
+      images: JSON.stringify([
+        '/uploads/products/桌搭数码/2026/05/desk-keyboard-75.jpg',
+        '/uploads/products/桌搭数码/2026/05/desk-keycaps-soda.jpg'
+      ])
+    } as any)
+
+    ;(wrapper.vm as any).openImageReview(product)
+
+    expect((wrapper.vm as any).imageReviewDialogVisible).toBe(true)
+    expect((wrapper.vm as any).imageReviewMain).toBe('/uploads/products/桌搭数码/2026/05/desk-keyboard-75.jpg')
+    expect((wrapper.vm as any).imageReviewImagePaths).toEqual([
+      '/uploads/products/桌搭数码/2026/05/desk-keyboard-75.jpg',
+      '/uploads/products/桌搭数码/2026/05/desk-keycaps-soda.jpg'
+    ])
+  })
+
   it('does not show an error when admin cancels deleting a product', async () => {
     messageBox.confirm.mockRejectedValue('cancel')
     const wrapper = mountView()

@@ -1,0 +1,28 @@
+@startuml
+!include common-activity-style.pumlinc
+title 创建订单活动图
+
+start
+:用户浏览商品;
+:加入购物车;
+:查看购物车;
+:点击结算;
+:验证商品状态;
+
+if (商品状态) then (已下架)
+  :移除商品并返回购物车;
+  stop
+else (正常)
+  :检查库存;
+  if (库存是否充足) then (不足)
+    :提示库存不足并返回购物车;
+    stop
+  else (充足)
+    :选择收货地址;
+    :创建待支付订单;
+    :清理已结算购物车商品;
+    :跳转支付页面;
+    stop
+  endif
+endif
+@enduml

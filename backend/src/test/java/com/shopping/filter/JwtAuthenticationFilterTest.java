@@ -71,6 +71,23 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void doFilterInternal_WhenUserDisabled_ShouldReturnChinese401() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer ok-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        UserDetails userDetails = User.withUsername("buyer").password("x").disabled(true).authorities("ROLE_USER").build();
+        when(jwtUtil.getUsernameFromToken("ok-token")).thenReturn("buyer");
+        when(jwtUtil.validateToken("ok-token")).thenReturn(true);
+        when(userDetailsService.loadUserByUsername("buyer")).thenReturn(userDetails);
+
+        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+        assertEquals(401, response.getStatus());
+        assertEquals("{\"code\": 401, \"message\": \"账号已被禁用，请联系管理员\", \"success\": false}", response.getContentAsString());
+    }
+
+    @Test
     void doFilterInternal_WhenUserDetailsLoadingFails_ShouldReturnChinese401() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("Authorization", "Bearer ok-token");

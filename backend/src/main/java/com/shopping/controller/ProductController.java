@@ -1,6 +1,8 @@
 package com.shopping.controller;
 
 import com.shopping.dto.Response;
+import com.shopping.constants.AuditConstants;
+import com.shopping.constants.ProductConstants;
 import com.shopping.entity.Product;
 import com.shopping.entity.Category;
 import com.shopping.entity.User;
@@ -154,11 +156,13 @@ public class ProductController {
     @GetMapping("/{id}")
     public Response<Product> getProductById(@PathVariable Long id) {
         Product product = productService.getProductById(id);
-        if (product != null) {
-            return Response.success(product);
-        } else {
+        if (product == null) {
             return Response.fail(404, "商品不存在");
         }
+        if (canCurrentUserViewProduct(product)) {
+            return Response.success(product);
+        }
+        return Response.fail(404, "商品不存在或已下架");
     }
     
     /**
@@ -620,6 +624,30 @@ public class ProductController {
             return java.util.Optional.empty();
         }
         return java.util.Optional.ofNullable(SecurityUtils.getCurrentUsername());
+    }
+
+    private boolean canCurrentUserViewProduct(Product product) {
+        boolean publicVisible = Integer.valueOf(AuditConstants.AuditStatus.APPROVED).equals(product.getAuditStatus())
+                && Integer.valueOf(ProductConstants.Status.ON_SHELF).equals(product.getStatus());
+        if (publicVisible) {
+            return true;
+        }
+
+        Optional<String> username = getCurrentUsernameIfAuthenticated();
+        if (username.isEmpty()) {
+            return false;
+        }
+        if (RoleUtils.isCurrentAdmin()) {
+            return true;
+        }
+        if (!RoleUtils.isCurrentSeller()) {
+            return false;
+        }
+
+        User user = userService.findByUsername(username.get());
+        return user != null
+                && product.getSellerId() != null
+                && product.getSellerId().equals(user.getId());
     }
 
     private String resolveProductImagesPayload(Map<String, Object> data, String mainImage) {

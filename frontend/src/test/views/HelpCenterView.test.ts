@@ -20,7 +20,9 @@ describe('HelpCenterView', () => {
     expect(wrapper.text()).toContain('帮助中心')
     expect(wrapper.text()).toContain('常见问题解答，帮助您更好地使用紫苑风鸢')
     expect(wrapper.text()).toContain('如何注册账号？')
-    expect(wrapper.text()).toContain('退款多久到账？')
+    expect(wrapper.text()).toContain('订单问题怎么联系平台处理？')
+    expect(wrapper.text()).not.toContain('忘记密码怎么办？')
+    expect(wrapper.text()).not.toContain('退款多久到账？')
   })
 
   it('filters faqs by selected category and toggles answer visibility', async () => {
@@ -37,5 +39,20 @@ describe('HelpCenterView', () => {
 
     await faqItem?.trigger('click')
     expect(wrapper.text()).toContain('登录后，点击右上角头像进入个人中心')
+  })
+
+  it('keeps support answers within implemented capability boundaries', async () => {
+    const wrapper = createWrapper()
+
+    await wrapper.findAll('li').find((item) => item.text() === '订单协助')?.trigger('click')
+
+    expect(wrapper.text()).toContain('提交取消申请后怎么看进度？')
+    expect(wrapper.text()).not.toContain('申请退货')
+
+    const faqItem = wrapper.findAll('.faq-item').find((item) => item.text().includes('订单问题怎么联系平台处理？'))
+    await faqItem?.trigger('click')
+
+    expect(wrapper.text()).toContain('“联系我们”页面提交留言')
+    expect(wrapper.text()).not.toContain('原路返回到您的支付账户')
   })
 })

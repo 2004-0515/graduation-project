@@ -1,5 +1,6 @@
 package com.shopping.service;
 
+import com.shopping.constants.NotificationConstants;
 import com.shopping.constants.PriceAlertConstants;
 import com.shopping.entity.PriceAlert;
 import com.shopping.entity.Product;
@@ -168,7 +169,12 @@ public class PriceAlertService {
             String message = String.format("您关注的商品「%s」已降价至 ¥%.2f，达到您设置的目标价格 ¥%.2f，快去抢购吧！",
                     product.getName(), newPrice, alert.getTargetPrice());
             
-            notificationService.createNotification(alert.getUserId(), "promotion", title, message, alert.getProductId());
+            notificationService.createNotification(
+                    alert.getUserId(),
+                    NotificationConstants.NotificationType.PRICE_ALERT,
+                    title,
+                    message,
+                    alert.getProductId());
             log.info("已发送降价提醒通知: userId={}, productId={}, newPrice={}", 
                     alert.getUserId(), alert.getProductId(), newPrice);
             return true;

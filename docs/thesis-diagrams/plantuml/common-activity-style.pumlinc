@@ -1,0 +1,19 @@
+skinparam monochrome true
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontSize 18
+skinparam roundcorner 18
+skinparam conditionStyle InsideDiamond
+skinparam ArrowColor black
+skinparam ArrowThickness 2.2
+skinparam ActivityBorderColor black
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderThickness 2.2
+skinparam ActivityDiamondBorderColor black
+skinparam ActivityDiamondBackgroundColor white
+skinparam ActivityDiamondBorderThickness 2.2
+skinparam ActivityBarColor black
+skinparam NoteBorderColor black
+skinparam NoteBackgroundColor white
+skinparam NoteFontColor black

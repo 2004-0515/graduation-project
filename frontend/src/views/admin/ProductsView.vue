@@ -60,17 +60,27 @@
         <el-table :data="products" v-loading="loading" stripe @selection-change="handleSelectionChange">
           <el-table-column v-if="activeTab === 'all'" type="selection" width="45" />
           <el-table-column prop="id" label="ID" width="60" />
-          <el-table-column label="图片" width="70">
+          <el-table-column label="图片" width="96">
             <template #default="{ row }">
-              <el-image 
-                :src="getImageUrl(row.mainImage)" 
-                style="width: 45px; height: 45px; border-radius: 4px; cursor: pointer" 
-                fit="cover"
-                :preview-src-list="parseProductImages(row.images, row.mainImage).map((item) => getImageUrl(item))"
-                preview-teleported
-              >
-                <template #error><div class="img-placeholder">暂无</div></template>
-              </el-image>
+              <div class="product-image-cell">
+                <el-image
+                  :src="getImageUrl(row.mainImage)"
+                  class="product-table-image"
+                  fit="contain"
+                  :preview-src-list="parseProductImages(row.images, row.mainImage).map((item) => getImageUrl(item))"
+                  preview-teleported
+                >
+                  <template #error><div class="img-placeholder">暂无</div></template>
+                </el-image>
+                <button
+                  type="button"
+                  class="image-review-link"
+                  :disabled="!row.mainImage"
+                  @click.stop="openImageReview(row)"
+                >
+                  大图
+                </button>
+              </div>
             </template>
           </el-table-column>
           <el-table-column prop="name" label="商品名称" min-width="180" show-overflow-tooltip />
@@ -142,6 +152,44 @@
         </div>
       </div>
 
+      <!-- 商品图片复核弹窗 -->
+      <el-dialog v-model="imageReviewDialogVisible" title="商品图片复核" width="720px" class="image-review-dialog">
+        <div v-if="imageReviewProduct" class="image-review-panel">
+          <div class="image-review-stage">
+            <el-image
+              :src="getImageUrl(imageReviewMain || imageReviewProduct.mainImage)"
+              fit="contain"
+              :preview-src-list="imageReviewUrls"
+              preview-teleported
+            >
+              <template #error><div class="image-review-error">图片加载失败</div></template>
+            </el-image>
+          </div>
+          <div class="image-review-meta">
+            <h3>{{ imageReviewProduct.name }}</h3>
+            <p>{{ imageReviewProduct.categoryName || '-' }} / {{ imageReviewProduct.sellerName || '平台' }}</p>
+            <p class="image-review-path">{{ imageReviewMain || imageReviewProduct.mainImage || '-' }}</p>
+          </div>
+          <div v-if="imageReviewImagePaths.length > 1" class="image-review-thumbs">
+            <button
+              v-for="image in imageReviewImagePaths"
+              :key="image"
+              type="button"
+              class="image-review-thumb"
+              :class="{ active: imageReviewMain === image }"
+              @click="imageReviewMain = image"
+            >
+              <el-image :src="getImageUrl(image)" fit="contain">
+                <template #error><div class="thumb-error">失败</div></template>
+              </el-image>
+            </button>
+          </div>
+        </div>
+        <template #footer>
+          <el-button @click="imageReviewDialogVisible = false">关闭</el-button>
+        </template>
+      </el-dialog>
+
       <!-- 编辑弹窗 -->
       <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑商品' : '添加商品'" width="600px">
         <el-form :model="form" label-width="100px">
@@ -179,6 +227,7 @@
                 :show-file-list="false"
                 :before-upload="beforeImageUpload"
                 :http-request="handleImageUpload"
+                :disabled="saving || uploadingImage || uploadingVideo"
                 accept="image/*"
               >
                 <div class="upload-placeholder upload-trigger">
@@ -188,7 +237,7 @@
               </el-upload>
               <div v-if="form.images.length > 0" class="image-grid">
                 <div v-for="image in form.images" :key="image" class="image-card" :class="{ active: form.mainImage === image }">
-                  <el-image :src="getImageUrl(image)" alt="商品图片" fit="cover" class="image-preview">
+                  <el-image :src="getImageUrl(image)" alt="商品图片" fit="contain" class="image-preview">
                     <template #error>
                       <div class="image-error">加载失败</div>
                     </template>
@@ -220,6 +269,7 @@
                 :show-file-list="false"
                 :before-upload="beforeVideoUpload"
                 :http-request="handleVideoUpload"
+                :disabled="saving || uploadingImage || uploadingVideo"
                 accept="video/*"
               >
                 <div v-if="form.adVideo" class="video-preview">
@@ -247,8 +297,8 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveProduct" :loading="saving">保存</el-button>
+          <el-button @click="closeProductDialog" :disabled="saving">取消</el-button>
+          <el-button type="primary" @click="saveProduct" :loading="saving" :disabled="saving || uploadingImage || uploadingVideo">保存</el-button>
         </template>
       </el-dialog>
 
@@ -315,7 +365,7 @@
         <div class="compare-container" v-if="compareProduct">
           <div class="compare-header">
             <div class="product-basic">
-              <el-image :src="getImageUrl(compareProduct.mainImage)" class="product-thumb" fit="cover">
+              <el-image :src="getImageUrl(compareProduct.mainImage)" class="product-thumb" fit="contain">
                 <template #error><div class="img-placeholder">暂无图片</div></template>
               </el-image>
               <div class="product-meta">
@@ -419,7 +469,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, VideoPlay, Bottom, Right } from '@element-plus/icons-vue'
 import AdminLayout from '@/components/AdminLayout.vue'
@@ -436,6 +486,8 @@ const categories = ref<any[]>([])
 const sellers = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
+const uploadingImage = ref(false)
+const uploadingVideo = ref(false)
 const auditing = ref(false)
 const dialogVisible = ref(false)
 const rejectDialogVisible = ref(false)
@@ -445,6 +497,9 @@ const activeTab = ref('all')
 const pendingCount = ref(0)
 const rejectRemark = ref('')
 const rejectProductId = ref<number | null>(null)
+const imageReviewDialogVisible = ref(false)
+const imageReviewProduct = ref<any>(null)
+const imageReviewMain = ref('')
 
 // 视频预览相关
 const videoPreviewVisible = ref(false)
@@ -470,12 +525,22 @@ const total = ref(0)
 const selectedProducts = ref<any[]>([])
 let latestProductsRequestId = 0
 let latestPendingCountRequestId = 0
+let dialogSessionId = 0
 const invalidateProductsRequests = () => {
   latestProductsRequestId += 1
 }
 const invalidatePendingCountRequests = () => {
   latestPendingCountRequestId += 1
 }
+const nextDialogSession = () => {
+  dialogSessionId += 1
+  return dialogSessionId
+}
+const resetUploadState = () => {
+  uploadingImage.value = false
+  uploadingVideo.value = false
+}
+const isUploadingMedia = computed(() => uploadingImage.value || uploadingVideo.value)
 
 const isMessageBoxCancel = (error: unknown) => error === 'cancel' || error === 'close'
 const getErrorMessage = (error: unknown, fallback: string) => {
@@ -519,6 +584,12 @@ const resetForm = () => {
   form.adVideoEnabled = 0
 }
 
+const closeProductDialog = () => {
+  nextDialogSession()
+  resetUploadState()
+  dialogVisible.value = false
+}
+
 type AuditTagType = 'success' | 'primary' | 'warning' | 'info' | 'danger'
 
 const getAuditTagType = (status: number): AuditTagType => {
@@ -532,6 +603,8 @@ const getAuditText = (status: number) => {
 }
 
 const openDialog = (product?: any) => {
+  nextDialogSession()
+  resetUploadState()
   if (product) {
     isEdit.value = true
     editId.value = product.id
@@ -583,6 +656,22 @@ const parseProductImages = (images: unknown, mainImage: string) => {
   return merged
 }
 
+const imageReviewImagePaths = computed(() => {
+  if (!imageReviewProduct.value) {
+    return []
+  }
+  return parseProductImages(imageReviewProduct.value.images, imageReviewProduct.value.mainImage || '')
+})
+
+const imageReviewUrls = computed(() => imageReviewImagePaths.value.map((image) => getImageUrl(image)))
+
+const openImageReview = (product: any) => {
+  const paths = parseProductImages(product?.images, product?.mainImage || '')
+  imageReviewProduct.value = product
+  imageReviewMain.value = product?.mainImage || paths[0] || ''
+  imageReviewDialogVisible.value = true
+}
+
 const buildProductImagesPayload = () => [...form.images]
 
 const getVideoUrl = (path: string) => {
@@ -606,10 +695,16 @@ const beforeImageUpload = (file: File) => {
 }
 
 const handleImageUpload = async (options: any) => {
+  if (saving.value || uploadingImage.value) {
+    ElMessage.warning('图片正在上传，请稍候')
+    return
+  }
   if (form.images.length >= 6) {
     ElMessage.warning('最多上传 6 张商品图片')
     return
   }
+  const sessionId = dialogSessionId
+  uploadingImage.value = true
   try {
     // 获取当前选择的分类名称，用于按分类存储图片
     const categoryName = form.categoryId 
@@ -618,6 +713,9 @@ const handleImageUpload = async (options: any) => {
     // 编辑时传入商品ID，管理员上传直接更新商品图片
     const productId = isEdit.value && editId.value ? editId.value : undefined
     const res: any = await fileApi.uploadProductImage(options.file, categoryName, productId)
+    if (sessionId !== dialogSessionId || !dialogVisible.value) {
+      return
+    }
     if (res?.code === 200 && res.data) {
       if (!form.images.includes(res.data)) {
         form.images = [...form.images, res.data]
@@ -632,8 +730,15 @@ const handleImageUpload = async (options: any) => {
       ElMessage.error(message)
     }
   } catch (e) {
+    if (sessionId !== dialogSessionId || !dialogVisible.value) {
+      return
+    }
     debugError('商品图片上传失败:', e)
     ElMessage.error(getErrorMessage(e, '图片上传失败'))
+  } finally {
+    if (sessionId === dialogSessionId) {
+      uploadingImage.value = false
+    }
   }
 }
 
@@ -664,8 +769,17 @@ const beforeVideoUpload = (file: File) => {
 }
 
 const handleVideoUpload = async (options: any) => {
+  if (saving.value || uploadingVideo.value) {
+    ElMessage.warning('视频正在上传，请稍候')
+    return
+  }
+  const sessionId = dialogSessionId
+  uploadingVideo.value = true
   try {
     const res: any = await fileApi.uploadAdVideo(options.file)
+    if (sessionId !== dialogSessionId || !dialogVisible.value) {
+      return
+    }
     if (res?.code === 200 && res.data) {
       form.adVideo = res.data
       ElMessage.success('视频上传成功')
@@ -675,8 +789,15 @@ const handleVideoUpload = async (options: any) => {
       ElMessage.error(message)
     }
   } catch (e) {
+    if (sessionId !== dialogSessionId || !dialogVisible.value) {
+      return
+    }
     debugError('广告视频上传失败:', e)
     ElMessage.error(getErrorMessage(e, '视频上传失败'))
+  } finally {
+    if (sessionId === dialogSessionId) {
+      uploadingVideo.value = false
+    }
   }
 }
 
@@ -850,6 +971,13 @@ const removeLocalProduct = (productId: number) => {
 }
 
 const saveProduct = async () => {
+  if (saving.value) {
+    return
+  }
+  if (isUploadingMedia.value) {
+    ElMessage.warning('文件上传中，请稍候再保存')
+    return
+  }
   const normalizedImages = form.images.length > 0
     ? buildProductImagesPayload()
     : (form.mainImage ? [form.mainImage] : [])
@@ -914,7 +1042,7 @@ const saveProduct = async () => {
       }
       ElMessage.success('商品添加成功')
     }
-    dialogVisible.value = false
+    closeProductDialog()
     await refreshProductsAfterSuccess(isEdit.value ? '保存商品' : '新增商品')
   } catch (e) {
     debugError('保存商品失败:', e)
@@ -1283,8 +1411,8 @@ onMounted(() => {
 }
 
 .img-placeholder {
-  width: 45px;
-  height: 45px;
+  width: 56px;
+  height: 56px;
   background: #f5f5f5;
   display: flex;
   align-items: center;
@@ -1292,6 +1420,126 @@ onMounted(() => {
   font-size: 10px;
   color: #999;
   border-radius: 4px;
+}
+
+.product-image-cell {
+  width: 64px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.product-table-image {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #f7f5f1;
+  border: 1px solid rgba(213, 205, 190, 0.72);
+}
+
+.image-review-link {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--el-color-primary);
+  font-size: 12px;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.image-review-link:disabled {
+  color: #b8bec8;
+  cursor: not-allowed;
+}
+
+.image-review-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.image-review-stage {
+  height: min(56vh, 440px);
+  min-height: 360px;
+  border: 1px solid rgba(213, 205, 190, 0.72);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f7f5f1;
+}
+
+.image-review-stage :deep(.el-image) {
+  width: 100%;
+  height: 100%;
+}
+
+.image-review-error {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #909399;
+  background: #f5f5f5;
+}
+
+.image-review-meta h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  line-height: 1.35;
+  color: #1f2937;
+}
+
+.image-review-meta p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.image-review-path {
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.image-review-thumbs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.image-review-thumb {
+  width: 64px;
+  height: 64px;
+  padding: 3px;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.image-review-thumb.active {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.14);
+}
+
+.image-review-thumb :deep(.el-image) {
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+  background: #f7f5f1;
+}
+
+.thumb-error {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #909399;
 }
 
 .low-stock {
@@ -1349,12 +1597,14 @@ onMounted(() => {
   position: relative;
   border-radius: 8px;
   overflow: hidden;
+  background: #f7f5f1;
+  border: 1px solid rgba(213, 205, 190, 0.72);
 }
 
 .image-preview img, .image-preview .el-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .image-grid {
@@ -1684,6 +1934,8 @@ onMounted(() => {
   height: 80px;
   border-radius: 8px;
   flex-shrink: 0;
+  background: #f7f5f1;
+  border: 1px solid rgba(213, 205, 190, 0.72);
 }
 
 .product-meta h3 {
@@ -1848,5 +2100,92 @@ onMounted(() => {
   padding: 12px;
   background: #f9f9f9;
   border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+  .products-manage {
+    min-width: 0;
+  }
+
+  .toolbar,
+  .toolbar-left,
+  .toolbar-right {
+    display: flex;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    flex-direction: column;
+  }
+
+  .toolbar-left :deep(.el-input),
+  .toolbar-left :deep(.el-select),
+  .toolbar-right :deep(.el-button),
+  .toolbar-right :deep(.el-button-group),
+  .threshold-input {
+    width: 100% !important;
+  }
+
+  .toolbar-right :deep(.el-button-group) {
+    display: flex;
+  }
+
+  .toolbar-right :deep(.el-button-group .el-button) {
+    flex: 1;
+  }
+
+  .threshold-input {
+    justify-content: space-between;
+  }
+
+  .table-card {
+    padding: 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-card :deep(.el-table) {
+    min-width: 980px;
+    max-width: none;
+  }
+
+  .table-card :deep(.el-table__body-wrapper) {
+    overflow-x: auto;
+  }
+
+  .pagination {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pagination :deep(.el-pagination) {
+    min-width: max-content;
+  }
+
+  :deep(.el-dialog) {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px);
+  }
+
+  :deep(.el-dialog__body) {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  .image-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compare-content,
+  .product-basic {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 </style>
