@@ -617,12 +617,15 @@ const loadMusic = async (isRetry = false) => {
         }
         currentIndex.value = restoredIndex
         
-        audioRef.value.src = musicList.value[currentIndex.value].url
         audioRef.value.volume = volume.value / 100
         audioRef.value.muted = isMuted.value
+
+        if (!isE2E) {
+          audioRef.value.src = musicList.value[currentIndex.value].url
+        }
         
         // 只有找到同一首歌时才恢复进度
-        if (savedState && savedState.isPlaying && shouldRestoreTime) {
+        if (!isE2E && savedState && savedState.isPlaying && shouldRestoreTime) {
           audioRef.value.currentTime = savedState.currentTime || 0
           // 尝试自动播放
           tryAutoPlay()
@@ -689,6 +692,7 @@ const scheduleInitialLoad = () => {
 
 // 尝试自动播放，如果被阻止则等待用户交互
 const tryAutoPlay = () => {
+  if (isE2E) return
   if (!audioRef.value) return
   
   audioRef.value.play().then(() => {
@@ -702,6 +706,7 @@ const tryAutoPlay = () => {
 
 // 用户交互后自动恢复播放
 const onUserInteraction = () => {
+  if (isE2E) return
   if (audioRef.value && !isPlaying.value) {
     // 标记已经有用户交互，可以播放了
     audioRef.value.play().then(() => {
@@ -736,6 +741,11 @@ const togglePlay = async () => {
   
   // 移除交互监听，因为用户已经点击了播放按钮
   removeInteractionListeners()
+  if (isE2E) {
+    isPlaying.value = !isPlaying.value
+    savePlayerState()
+    return
+  }
   if (isPlaying.value) {
     audioRef.value.pause()
     isPlaying.value = false
@@ -755,6 +765,12 @@ const playAt = (index: number) => {
   // 移除交互监听，标记已有用户交互
   removeInteractionListeners()
   currentIndex.value = index
+  if (isE2E) {
+    currentTime.value = 0
+    isPlaying.value = false
+    savePlayerState()
+    return
+  }
   audioRef.value.src = musicList.value[index].url
   audioRef.value.play().then(() => {
     isPlaying.value = true
@@ -812,6 +828,7 @@ const onLoaded = () => {
 }
 
 const onEnded = () => {
+  if (isE2E) return
   if (loopMode.value === 'single') {
     audioRef.value?.play().catch(() => {})
   } else if (loopMode.value === 'list') {
