@@ -124,5 +124,9 @@ outputs/
 .tools/
 shopping_mall_backup_before_rebuild_*.sql
 
-# Large local media files are not required for source review and are unsuitable for GitHub.
-uploads/music/
+# Keep distributable in-repo music so a clean checkout can run the demo directly.
+# Ignore any local drop-in music outside the curated lightweight library.
+uploads/music/*
+!uploads/music/library/
+!uploads/music/library/*.wav
+!uploads/music/library/README.md
