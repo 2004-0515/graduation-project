@@ -454,11 +454,27 @@ class Seeder:
         self.default_addresses: dict[int, dict[str, str]] = {}
         self.category_icon_paths: dict[int, str] = {}
         self.promotion_banner_paths: list[str] = []
+        self._ensure_ci_music_placeholders()
         self.music_files = self._scan_uploads("music", {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".opus"})
         self.avatar_files = self._scan_uploads("avatars", {".jpg", ".jpeg", ".png", ".webp"})
         self.video_files = self._scan_uploads("videos", {".mp4", ".webm", ".mov"})
         self.asset_manifest = self._load_asset_manifest()
         self.local_asset_pools = self._build_local_asset_pools()
+
+    def _ensure_ci_music_placeholders(self) -> None:
+        if os.environ.get("CI", "").lower() not in {"1", "true"}:
+            return
+
+        music_root = PROJECT_ROOT / "uploads" / "music"
+        if self._scan_uploads("music", {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".opus"}):
+            return
+
+        target_dir = music_root / "2026" / "05"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        for filename in MUSIC_FILE_METADATA.keys():
+            target = target_dir / filename
+            if not target.exists():
+                target.write_bytes(b"")
 
     def _scan_uploads(self, sub_path: str | Path, suffixes: set[str]) -> list[str]:
         base = PROJECT_ROOT / "uploads" / Path(sub_path)
