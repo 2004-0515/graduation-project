@@ -229,7 +229,11 @@ const couponConditionText = (coupon: any) =>
 const couponDateRange = (coupon: any) =>
   `${String(coupon.startTime || '').slice(0, 10)} - ${String(coupon.endTime || '').slice(0, 10)}`
 
-const canClaim = (coupon: any) => !coupon?.claimed && Number(coupon?.remaining ?? 0) > 0
+const canClaim = (coupon: any) => {
+  if (!coupon || coupon.claimed) return false
+  if (coupon.remaining === null || coupon.remaining === undefined) return true
+  return Number(coupon.remaining) > 0
+}
 const isCouponClaiming = (couponId: number) => claimingCouponIds.value.has(couponId)
 const setCouponClaiming = (couponId: number, claiming: boolean) => {
   const next = new Set(claimingCouponIds.value)

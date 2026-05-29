@@ -457,8 +457,11 @@ public class ProductService {
      * @param quantity 增加的数量
      */
     public void increaseStock(Long productId, Integer quantity) {
-        if (quantity == null || quantity <= 0) {
+        if (quantity == null || quantity < 0) {
             throw new com.shopping.exception.ValidationException("库存增加数量必须大于0");
+        }
+        if (quantity == 0) {
+            return;
         }
 
         Product product = productRepository.findById(productId).orElseThrow(
