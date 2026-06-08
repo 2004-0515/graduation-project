@@ -204,26 +204,12 @@ MUSIC_FILE_METADATA = {
     "杨丞琳-带我走 (Live丨典藏).mp3": ("带我走", "杨丞琳"),
     "爱错 - 王力宏.mp3": ("爱错", "王力宏"),
     "颜人中 - 我只能离开.mp3": ("我只能离开", "颜人中"),
-    "shion-light-01.wav": ("晨光轻行", "山川音室"),
-    "shion-light-02.wav": ("午后微风", "山川音室"),
-    "shion-light-03.wav": ("夜色书桌", "山川音室"),
-    "shion-light-04.wav": ("星河漫步", "山川音室"),
-    "shion-light-05.wav": ("温柔雨声", "山川音室"),
-    "shion-light-06.wav": ("云端小径", "山川音室"),
-    "shion-light-07.wav": ("月下回响", "山川音室"),
-    "shion-light-08.wav": ("海盐汽水", "山川音室"),
-    "shion-light-09.wav": ("木质时光", "山川音室"),
-    "shion-light-10.wav": ("静谧花园", "山川音室"),
-    "shion-light-11.wav": ("远山日落", "山川音室"),
-    "shion-light-12.wav": ("暖灯晚餐", "山川音室"),
-    "shion-light-13.wav": ("玻璃湖面", "山川音室"),
-    "shion-light-14.wav": ("轻快周末", "山川音室"),
-    "shion-light-15.wav": ("青柠节拍", "山川音室"),
-    "shion-light-16.wav": ("浅梦入眠", "山川音室"),
-    "shion-light-17.wav": ("城市慢拍", "山川音室"),
-    "shion-light-18.wav": ("白茶午后", "山川音室"),
-    "shion-light-19.wav": ("银杏小路", "山川音室"),
-    "shion-light-20.wav": ("晴空回廊", "山川音室"),
+}
+MUSIC_PLACEHOLDER_TITLES = {
+    "晨光轻行", "午后微风", "夜色书桌", "星河漫步", "温柔雨声",
+    "云端小径", "月下回响", "海盐汽水", "木质时光", "静谧花园",
+    "远山日落", "暖灯晚餐", "玻璃湖面", "轻快周末", "青柠节拍",
+    "浅梦入眠", "城市慢拍", "白茶午后", "银杏小路", "晴空回廊",
 }
 
 CATEGORY_DEFINITIONS = YOUNG_CATEGORY_DEFINITIONS
@@ -489,33 +475,16 @@ class Seeder:
         self.default_addresses: dict[int, dict[str, str]] = {}
         self.category_icon_paths: dict[int, str] = {}
         self.promotion_banner_paths: list[str] = []
-        self._ensure_ci_music_placeholders()
         self.music_files = self._scan_music_uploads()
         self.avatar_files = self._scan_uploads("avatars", {".jpg", ".jpeg", ".png", ".webp"})
         self.video_files = self._scan_uploads("videos", {".mp4", ".webm", ".mov"})
         self.asset_manifest = self._load_asset_manifest()
         self.local_asset_pools = self._build_local_asset_pools()
 
-    def _ensure_ci_music_placeholders(self) -> None:
-        if os.environ.get("CI", "").lower() not in {"1", "true"}:
-            return
-
-        music_root = PROJECT_ROOT / "uploads" / "music"
-        if self._scan_uploads("music", {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".opus"}):
-            return
-
-        target_dir = music_root / "library"
-        target_dir.mkdir(parents=True, exist_ok=True)
-        for filename in (f"shion-light-{index:02d}.wav" for index in range(1, TARGETS["music"] + 1)):
-            target = target_dir / filename
-            if not target.exists():
-                target.write_bytes(b"")
-
     def _scan_music_uploads(self) -> list[str]:
         suffixes = {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".opus"}
         music_files = self._scan_uploads("music", suffixes)
-        real_files = [path for path in music_files if not path.startswith("/uploads/music/library/")]
-        return real_files or music_files
+        return [path for path in music_files if "/shion-light-" not in path and not path.startswith("/uploads/music/library/")]
 
     def _scan_uploads(self, sub_path: str | Path, suffixes: set[str]) -> list[str]:
         base = PROJECT_ROOT / "uploads" / Path(sub_path)
@@ -1799,6 +1768,7 @@ FROM tb_product;
         missing_music_files = []
         invalid_music_paths = []
         music_metadata_mismatches = []
+        placeholder_music_rows = []
         music_rows = self.run_mysql(
             "SELECT id, title, IFNULL(artist, ''), url FROM music ORDER BY sort_order, id;"
         ).splitlines()
@@ -1809,6 +1779,8 @@ FROM tb_product;
                 continue
             if not url.startswith("/uploads/music/"):
                 invalid_music_paths.append(f"{music_id_raw}:{url}")
+            if "shion-light-" in url or title in MUSIC_PLACEHOLDER_TITLES or artist == "山川音室":
+                placeholder_music_rows.append(f"{music_id_raw}:{Path(url).name}:{title}/{artist}")
             if not (PROJECT_ROOT / url.lstrip("/")).exists():
                 missing_music_files.append(f"{music_id_raw}:{url}")
             expected_title, expected_artist = parse_music_metadata(url)
@@ -1818,6 +1790,7 @@ FROM tb_product;
                 )
         report["missing_music_files"] = missing_music_files
         report["invalid_music_paths"] = invalid_music_paths
+        report["placeholder_music_rows"] = placeholder_music_rows
         report["music_metadata_mismatches"] = music_metadata_mismatches
 
         missing_category_icons = []
@@ -1888,6 +1861,7 @@ FROM tb_product;
             and not missing_video_files
             and not missing_music_files
             and not invalid_music_paths
+            and not placeholder_music_rows
             and not music_metadata_mismatches
             and not missing_category_icons
             and not invalid_category_icons
