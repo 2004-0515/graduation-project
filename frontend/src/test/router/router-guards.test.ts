@@ -98,7 +98,8 @@ describe('router guards', () => {
 
     expect(mockUserStore.logout).toHaveBeenCalled()
     expect(router.currentRoute.value.name).toBe('login')
-    expect(router.currentRoute.value.query.redirect).toBe('/profile')
+    expect(router.currentRoute.value.query.loggedOut).toBe('1')
+    expect(router.currentRoute.value.query.redirect).toBeUndefined()
   })
 
   it('redirects non-admin user away from admin route', async () => {

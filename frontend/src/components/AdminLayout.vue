@@ -94,6 +94,7 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/userStore'
 import { useAdminStore } from '@/stores/adminStore'
 import { debugError } from '@/utils/debug'
+import { buildLoggedOutLoginLocation } from '@/utils/navigation'
 
 const route = useRoute()
 const router = useRouter()
@@ -128,7 +129,7 @@ const handleLogout = async () => {
   try {
     await userStore.logout()
     ElMessage.success('已退出登录')
-    router.push('/login')
+    router.replace(buildLoggedOutLoginLocation())
   } catch (error) {
     debugError('后台退出登录失败:', error)
     ElMessage.error('退出登录失败')

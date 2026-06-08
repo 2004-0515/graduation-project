@@ -4,6 +4,7 @@ import { defineComponent, h } from 'vue'
 
 const {
   routerPush,
+  routerReplace,
   currentRoute,
   messages,
   userStore,
@@ -13,6 +14,7 @@ const {
   debugError
 } = vi.hoisted(() => ({
   routerPush: vi.fn(),
+  routerReplace: vi.fn(),
   currentRoute: {
     value: {
       path: '/'
@@ -51,6 +53,7 @@ const {
 vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: routerPush,
+    replace: routerReplace,
     currentRoute
   })
 }))
@@ -193,7 +196,7 @@ describe('Navbar', () => {
     expect(notificationStore.fetchUnreadCount).not.toHaveBeenCalled()
   })
 
-  it('logout clears store state and returns to home', async () => {
+  it('logout clears store state and opens a fresh logged-out login page', async () => {
     const wrapper = mountView()
 
     await (wrapper.vm as any).handleLogout()
@@ -203,7 +206,11 @@ describe('Navbar', () => {
     expect(cartStore.items).toEqual([])
     expect(notificationStore.clearCount).toHaveBeenCalled()
     expect(messages.success).toHaveBeenCalledWith('已退出登录')
-    expect(routerPush).toHaveBeenCalledWith('/')
+    expect(routerReplace).toHaveBeenCalledWith({
+      path: '/login',
+      query: { loggedOut: '1' },
+      replace: true
+    })
   })
 
   it('shows chinese error when logout fails', async () => {
@@ -216,6 +223,7 @@ describe('Navbar', () => {
     expect(messages.error).toHaveBeenCalledWith('退出登录失败')
     expect(debugError).toHaveBeenCalledWith('退出登录失败', expect.any(Error))
     expect(routerPush).not.toHaveBeenCalled()
+    expect(routerReplace).not.toHaveBeenCalled()
   })
 
   it('shows login button for guest user', async () => {

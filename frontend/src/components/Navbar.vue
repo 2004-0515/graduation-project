@@ -169,6 +169,7 @@ import fileApi from '@/api/fileApi'
 import searchApi from '@/api/searchApi'
 import SearchDropdown from '@/components/SearchDropdown.vue'
 import { debugError } from '@/utils/debug'
+import { buildLoggedOutLoginLocation } from '@/utils/navigation'
 import { isAdminUser, isSellerUser } from '@/utils/roles'
 
 const router = useRouter()
@@ -297,7 +298,7 @@ const handleLogout = async () => {
     notificationStore.clearCount()
     stopUnreadPolling()
     ElMessage.success('已退出登录')
-    router.push('/')
+    router.replace(buildLoggedOutLoginLocation())
   } catch (error) {
     debugError('退出登录失败', error)
     ElMessage.error('退出登录失败')

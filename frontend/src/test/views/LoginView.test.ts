@@ -2,8 +2,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 
-const { routerPush, messages, userStore, generateRandomCode, debugError, routeState } = vi.hoisted(() => ({
-  routerPush: vi.fn(),
+const { routerReplace, messages, userStore, generateRandomCode, debugError, routeState } = vi.hoisted(() => ({
+  routerReplace: vi.fn(),
   messages: {
     success: vi.fn(),
     error: vi.fn()
@@ -20,7 +20,7 @@ const { routerPush, messages, userStore, generateRandomCode, debugError, routeSt
 }))
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: routerPush }),
+  useRouter: () => ({ replace: routerReplace }),
   useRoute: () => routeState
 }))
 
@@ -41,9 +41,12 @@ vi.mock('@/utils/debug', () => ({
 }))
 
 vi.mock('@/utils/navigation', () => ({
-  resolveRedirectTarget: (route: { query?: Record<string, unknown> }, fallback = '/') => {
+  resolvePostLoginTarget: (route: { query?: Record<string, unknown> }, user?: { role?: string }) => {
     const redirect = route.query?.redirect
-    return typeof redirect === 'string' ? redirect : fallback
+    if (route.query?.loggedOut === '1') {
+      return user?.role === 'ADMIN' ? '/admin' : user?.role === 'SELLER' ? '/my-products' : '/'
+    }
+    return typeof redirect === 'string' ? redirect : user?.role === 'ADMIN' ? '/admin' : user?.role === 'SELLER' ? '/my-products' : '/'
   }
 }))
 
@@ -114,7 +117,24 @@ describe('LoginView', () => {
 
     expect(userStore.login).toHaveBeenCalledWith({ username: 'buyer', password: 'secret123' })
     expect(messages.success).toHaveBeenCalledWith('登录成功')
-    expect(routerPush).toHaveBeenCalledWith('/orders')
+    expect(routerReplace).toHaveBeenCalledWith('/orders')
+  })
+
+  it('ignores stale redirect after explicit logout and uses role default target', async () => {
+    userStore.login.mockResolvedValue({
+      token: 'token',
+      user: { id: 1, username: 'admin', role: 'ADMIN' }
+    })
+    routeState.query = { redirect: '/admin/music', loggedOut: '1' }
+    const wrapper = mountView()
+
+    ;(wrapper.vm as any).loginForm.username = 'admin'
+    ;(wrapper.vm as any).loginForm.password = 'secret123'
+
+    await (wrapper.vm as any).handleLogin()
+    await flushPromises()
+
+    expect(routerReplace).toHaveBeenCalledWith('/admin')
   })
 
   it('shows backend chinese error and refreshes captcha after login fails', async () => {

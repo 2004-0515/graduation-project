@@ -1,8 +1,8 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { routerPush, routeMock, messages, userStore, adminStore, debugError } = vi.hoisted(() => ({
-  routerPush: vi.fn(),
+const { routerReplace, routeMock, messages, userStore, adminStore, debugError } = vi.hoisted(() => ({
+  routerReplace: vi.fn(),
   routeMock: {
     path: '/admin'
   },
@@ -26,7 +26,7 @@ const { routerPush, routeMock, messages, userStore, adminStore, debugError } = v
 vi.mock('vue-router', () => ({
   useRoute: () => routeMock,
   useRouter: () => ({
-    push: routerPush
+    replace: routerReplace
   })
 }))
 
@@ -92,7 +92,7 @@ describe('AdminLayout', () => {
     expect(iconTexts).not.toEqual(expect.arrayContaining(['展', '联', '券', '乐', '价', '理']))
   })
 
-  it('logs out and routes to login on success', async () => {
+  it('logs out and opens a fresh logged-out login page on success', async () => {
     const wrapper = mountView()
     await flushPromises()
 
@@ -102,7 +102,11 @@ describe('AdminLayout', () => {
 
     expect(userStore.logout).toHaveBeenCalled()
     expect(messages.success).toHaveBeenCalledWith('已退出登录')
-    expect(routerPush).toHaveBeenCalledWith('/login')
+    expect(routerReplace).toHaveBeenCalledWith({
+      path: '/login',
+      query: { loggedOut: '1' },
+      replace: true
+    })
   })
 
   it('shows chinese error when logout fails', async () => {
@@ -117,6 +121,6 @@ describe('AdminLayout', () => {
 
     expect(messages.error).toHaveBeenCalledWith('退出登录失败')
     expect(debugError).toHaveBeenCalledWith('后台退出登录失败:', expect.any(Error))
-    expect(routerPush).not.toHaveBeenCalled()
+    expect(routerReplace).not.toHaveBeenCalled()
   })
 })

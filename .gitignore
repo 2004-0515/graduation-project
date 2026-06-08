@@ -130,8 +130,6 @@ tools/
 uploads/screenshots/
 uploads/*.txt
 AGENTS.md
-run-dev-5174.cmd
-run-dev-5175.cmd
 frontend/public/login-*.html
 scripts/generate_db_mapping_diagram.py
 scripts/generate_thesis_*.py
@@ -146,9 +144,13 @@ scripts/scan-music.py
 scripts/login-and-goto.html
 shopping_mall_backup_before_rebuild_*.sql
 
-# Keep distributable in-repo music so a clean checkout can run the demo directly.
-# Ignore any local drop-in music outside the curated lightweight library.
+# Keep packaged demo music so a clean checkout can run the player directly.
+# Ignore ad-hoc local music drops outside the curated repository paths.
 uploads/music/*
+!uploads/music/2026/
+!uploads/music/2026/05/
+!uploads/music/2026/05/*.mp3
+!uploads/music/2026/05/*.flac
 !uploads/music/library/
 !uploads/music/library/*.wav
 !uploads/music/library/README.md
