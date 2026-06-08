@@ -138,7 +138,7 @@ describe('HomeView', () => {
 
     expect(wrapper.text()).toContain('已审核上架')
     expect(wrapper.text()).toContain('价格可追踪')
-    expect(wrapper.text()).toContain('支持想要清单')
+    expect(wrapper.text()).toContain('支持心愿单')
     expect(wrapper.text()).not.toContain('品质保证')
     expect(wrapper.text()).not.toContain('正品保障')
     expect(wrapper.text()).not.toContain('极速发货')

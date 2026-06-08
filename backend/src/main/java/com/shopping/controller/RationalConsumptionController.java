@@ -139,10 +139,10 @@ public class RationalConsumptionController {
         return Response.success(result);
     }
 
-    // ==================== 想要清单接口 ====================
+    // ==================== 心愿单接口 ====================
 
     /**
-     * 添加到想要清单
+     * 添加到心愿单
      */
     @PostMapping("/wishlist")
     public Response<?> addToWishlist(@RequestBody Map<String, Object> params) {
@@ -156,11 +156,11 @@ public class RationalConsumptionController {
         String reason = params.get("reason") != null ? params.get("reason").toString() : null;
 
         rationalConsumptionService.addToWishlist(username, productId, coolingDays, reason);
-        return Response.success("已添加到想要清单");
+        return Response.success("已添加到心愿单");
     }
 
     /**
-     * 检查商品是否在想要清单中
+     * 检查商品是否在心愿单中
      */
     @GetMapping("/wishlist/check/{productId}")
     public Response<?> checkInWishlist(@PathVariable Long productId) {
@@ -174,7 +174,7 @@ public class RationalConsumptionController {
     }
 
     /**
-     * 获取想要清单
+     * 获取心愿单
      */
     @GetMapping("/wishlist")
     public Response<?> getWishlist() {
@@ -188,7 +188,7 @@ public class RationalConsumptionController {
     }
 
     /**
-     * 获取想要清单统计
+     * 获取心愿单统计
      */
     @GetMapping("/wishlist/stats")
     public Response<?> getWishlistStats() {
@@ -202,7 +202,7 @@ public class RationalConsumptionController {
     }
 
     /**
-     * 从想要清单移除
+     * 从心愿单移除
      */
     @DeleteMapping("/wishlist/{id}")
     public Response<?> removeFromWishlist(@PathVariable Long id) {
@@ -272,7 +272,7 @@ public class RationalConsumptionController {
     }
 
     /**
-     * 【管理员】获取最近想要清单活动
+     * 【管理员】获取最近心愿单活动
      */
     @GetMapping("/admin/wishlist-activity")
     public Response<?> getWishlistActivity() {

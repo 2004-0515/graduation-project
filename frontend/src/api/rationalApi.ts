@@ -48,38 +48,38 @@ const rationalApi = {
     return axios.post('/rational-consumption/duplicate-check/batch', productIds)
   },
 
-  // ==================== 想要清单 ====================
+  // ==================== 心愿单 ====================
 
   /**
-   * 添加到想要清单
+   * 添加到心愿单
    */
   addToWishlist(productId: number, coolingDays?: number, reason?: string): Promise<ApiResponse<any>> {
     return axios.post('/rational-consumption/wishlist', { productId, coolingDays, reason })
   },
 
   /**
-   * 检查商品是否在想要清单中
+   * 检查商品是否在心愿单中
    */
   checkInWishlist(productId: number): Promise<ApiResponse<{ inWishlist: boolean }>> {
     return axios.get(`/rational-consumption/wishlist/check/${productId}`)
   },
 
   /**
-   * 获取想要清单
+   * 获取心愿单
    */
   getWishlist(): Promise<ApiResponse<any[]>> {
     return axios.get('/rational-consumption/wishlist')
   },
 
   /**
-   * 获取想要清单统计
+   * 获取心愿单统计
    */
   getWishlistStats(): Promise<ApiResponse<any>> {
     return axios.get('/rational-consumption/wishlist/stats')
   },
 
   /**
-   * 从想要清单移除
+   * 从心愿单移除
    */
   removeFromWishlist(id: number): Promise<ApiResponse<any>> {
     return axios.delete(`/rational-consumption/wishlist/${id}`)
@@ -118,7 +118,7 @@ const rationalApi = {
   },
 
   /**
-   * 【管理员】获取最近想要清单活动
+   * 【管理员】获取最近心愿单活动
    */
   getWishlistActivity(): Promise<ApiResponse<any[]>> {
     return axios.get('/rational-consumption/admin/wishlist-activity')

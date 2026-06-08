@@ -522,7 +522,7 @@ CREATE TABLE tb_consumption_budget (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消费预算表';
 
 -- =====================================================
--- 20. 想要清单表 (tb_wishlist) - 延迟满足功能
+-- 20. 心愿单表 (tb_wishlist) - 延迟满足功能
 -- =====================================================
 DROP TABLE IF EXISTS tb_wishlist;
 CREATE TABLE tb_wishlist (
@@ -540,7 +540,7 @@ CREATE TABLE tb_wishlist (
     INDEX idx_wishlist_status (status),
     CONSTRAINT fk_wishlist_user FOREIGN KEY (user_id) REFERENCES tb_user(id) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_wishlist_product FOREIGN KEY (product_id) REFERENCES tb_product(id) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='想要清单表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='心愿单表';
 
 -- =====================================================
 -- 21. 消费成就表 (tb_consumption_achievement)

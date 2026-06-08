@@ -168,9 +168,9 @@ REVIEW_REPLIES = [
     "感谢认真评价，祝你后续使用顺利。",
 ]
 ACHIEVEMENTS = [
-    ("FIRST_WISHLIST", "理性第一步", "首次使用想要清单"),
-    ("DELAYED_GRATIFICATION_3", "延迟满足达人", "通过想要清单购买3件商品"),
-    ("RATIONAL_GIVEUP_5", "理性放弃者", "从想要清单移除5件商品"),
+    ("FIRST_WISHLIST", "理性第一步", "首次使用心愿单"),
+    ("DELAYED_GRATIFICATION_3", "延迟满足达人", "通过心愿单购买3件商品"),
+    ("RATIONAL_GIVEUP_5", "理性放弃者", "从心愿单移除5件商品"),
     ("BUDGET_MASTER", "预算大师", "连续3个月未超预算"),
     ("SAVING_STAR", "节约之星", "单月节省超过500元"),
     ("RATIONAL_100", "理性消费达人", "理性指数达到100分"),
@@ -1357,7 +1357,7 @@ GROUP BY o.user_id, budget_month;
                     add_achievement(user_id, "RATIONAL_100", index)
                     index += 1
         if not values:
-            raise RuntimeError("无法从订单、预算和想要清单推导消费成就数据")
+            raise RuntimeError("无法从订单、预算和心愿单推导消费成就数据")
         self.execute_insert(
             "INSERT INTO tb_consumption_achievement (user_id, achievement_type, achievement_name, achievement_desc, achieved_time) VALUES ",
             values,

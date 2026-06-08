@@ -120,7 +120,7 @@ async function createWishlistItem(page: Page, token: string, productId: number, 
     coolingDays: 3,
     reason
   })
-  expect(response.ok(), `创建想要清单失败: ${response.status()} ${response.url()}`).toBeTruthy()
+  expect(response.ok(), `创建心愿单失败: ${response.status()} ${response.url()}`).toBeTruthy()
   const payload = await response.json()
   expect(payload?.code).toBe(200)
 
@@ -129,7 +129,7 @@ async function createWishlistItem(page: Page, token: string, productId: number, 
   const listPayload = await listResponse.json()
   const items = Array.isArray(listPayload?.data) ? listPayload.data : []
   const created = items.find((item: any) => item.reason === reason)
-  expect(created, '未找到刚创建的想要清单项').toBeTruthy()
+  expect(created, '未找到刚创建的心愿单项').toBeTruthy()
   return Number(created.id)
 }
 
@@ -331,7 +331,7 @@ test.describe('确认框视觉回归', () => {
       const wishlistItem = page.getByTestId(`wishlist-item-${wishlistId}`)
       await expect(wishlistItem).toBeVisible({ timeout: 15_000 })
       await page.getByTestId(`wishlist-remove-${wishlistId}`).click()
-      await cancelMessageBox(page, '理性消费想要清单移除取消')
+      await cancelMessageBox(page, '理性消费心愿单移除取消')
       await expect(wishlistItem).toBeVisible()
 
       const alertProduct = await resolveProduct(page, 'visual-price-alert', {

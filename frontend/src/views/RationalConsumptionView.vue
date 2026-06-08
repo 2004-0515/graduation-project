@@ -218,12 +218,12 @@
           </div>
         </div>
 
-        <!-- 想要清单Tab -->
+        <!-- 心愿单Tab -->
         <div v-show="activeTab === 'wishlist'" class="tab-content">
-          <p v-if="hasWishlistDataIssue" class="data-hint">想要清单数据暂未同步，请稍后刷新重试。</p>
+          <p v-if="hasWishlistDataIssue" class="data-hint">心愿单数据暂未同步，请稍后刷新重试。</p>
           <div class="wishlist-header glass-card">
             <div class="wishlist-intro">
-              <h3>延迟满足 - 想要清单</h3>
+              <h3>延迟满足 - 心愿单</h3>
               <p>将心仪商品加入清单，设置冷静期，避免冲动消费</p>
             </div>
             <div class="wishlist-stats">
@@ -302,8 +302,8 @@
             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
             </svg>
-            <p>想要清单为空</p>
-            <span>在商品详情页点击"加入想要清单"，开启理性消费之旅</span>
+            <p>心愿单为空</p>
+            <span>在商品详情页点击"加入心愿单"，开启理性消费之旅</span>
           </div>
         </div>
 
@@ -401,7 +401,7 @@ const userStore = useUserStore()
 
 const tabs = [
   { key: 'budget', label: '预算概览' },
-  { key: 'wishlist', label: '想要清单' },
+  { key: 'wishlist', label: '心愿单' },
   { key: 'achievements', label: '消费成就' }
 ]
 const activeTab = ref('budget')
@@ -577,13 +577,13 @@ const fetchWishlist = async () => {
       return
     }
     wishlistAvailable.value = false
-    debugError('获取想要清单失败:', res?.message || '想要清单返回异常')
+    debugError('获取心愿单失败:', res?.message || '心愿单返回异常')
   } catch (error) {
     if (requestId !== latestWishlistRequestId) {
       return
     }
     wishlistAvailable.value = false
-    debugError('获取想要清单失败:', error)
+    debugError('获取心愿单失败:', error)
   }
 }
 
@@ -649,7 +649,7 @@ const refreshWishlistAfterSuccess = async (actionLabel: string) => {
     fetchWishlistStats(),
     fetchAchievements()
   ])
-  const targetLabels = ['想要清单', '清单统计', '成就数据']
+  const targetLabels = ['心愿单', '清单统计', '成就数据']
 
   results.forEach((result, index) => {
     if (result.status !== 'rejected') {
@@ -709,7 +709,7 @@ const saveBudget = async () => {
 
 const handleRemoveWishlist = async (id: number) => {
   try {
-    await ElMessageBox.confirm('确定要从想要清单中移除吗？', '提示', {
+    await ElMessageBox.confirm('确定要从心愿单中移除吗？', '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning'
@@ -731,17 +731,17 @@ const handleRemoveWishlist = async (id: number) => {
         }))
       }
       ElMessage.success('已移除')
-      await refreshWishlistAfterSuccess('移除想要清单')
+      await refreshWishlistAfterSuccess('移除心愿单')
     } else {
       const message = res?.message || '操作失败'
-      debugError('移除想要清单失败:', message)
+      debugError('移除心愿单失败:', message)
       ElMessage.error(message)
     }
   } catch (e) {
     if (e === 'cancel' || e === 'close' || (e && typeof e === 'object' && 'action' in e && (((e as { action?: string }).action) === 'cancel' || ((e as { action?: string }).action) === 'close'))) {
       return
     }
-    debugError('移除想要清单失败:', e)
+    debugError('移除心愿单失败:', e)
     ElMessage.error(getErrorMessage(e, '操作失败'))
   }
 }
@@ -765,12 +765,12 @@ const goToBuy = async (productId: number, wishlistId: number) => {
           purchasedCount: Number(stats.purchasedCount || 0) + 1
         }))
       }
-      await refreshWishlistAfterSuccess('标记想要清单已购买')
+      await refreshWishlistAfterSuccess('标记心愿单已购买')
     } else {
-      debugError('标记想要清单为已购买失败:', res?.message || '业务返回异常')
+      debugError('标记心愿单为已购买失败:', res?.message || '业务返回异常')
     }
   } catch (e) {
-    debugError('标记想要清单为已购买失败:', e)
+    debugError('标记心愿单为已购买失败:', e)
   }
   router.push(`/product/${productId}`)
 }
@@ -925,7 +925,7 @@ onMounted(() => {
 .empty-tip { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
 .threshold-tip { display: block; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
 
-/* 想要清单 */
+/* 心愿单 */
 .wishlist-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; }
 .wishlist-intro h3 { margin: 0 0 8px; font-size: 18px; color: var(--text-title); }
 .wishlist-intro p { margin: 0; font-size: 14px; color: var(--text-muted); }

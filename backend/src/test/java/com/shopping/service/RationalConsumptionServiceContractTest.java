@@ -61,7 +61,7 @@ class RationalConsumptionServiceContractTest {
     }
 
     @Test
-    @DisplayName("添加到想要清单 - 商品不存在")
+    @DisplayName("添加到心愿单 - 商品不存在")
     void addToWishlist_ProductNotFound_ShouldThrow() {
         when(userService.getUserByUsername("buyer")).thenReturn(user);
         when(productRepository.findById(10L)).thenReturn(Optional.empty());
@@ -71,7 +71,7 @@ class RationalConsumptionServiceContractTest {
     }
 
     @Test
-    @DisplayName("添加到想要清单 - 已存在")
+    @DisplayName("添加到心愿单 - 已存在")
     void addToWishlist_AlreadyExists_ShouldThrow() {
         Product product = new Product();
         product.setId(10L);
@@ -93,11 +93,11 @@ class RationalConsumptionServiceContractTest {
 
         ValidationException ex = assertThrows(ValidationException.class,
                 () -> rationalConsumptionService.addToWishlist("buyer", 10L, 3, "reason"));
-        assertEquals("该商品已在想要清单中", ex.getMessage());
+        assertEquals("该商品已在心愿单中", ex.getMessage());
     }
 
     @Test
-    @DisplayName("移除想要清单 - 越权")
+    @DisplayName("移除心愿单 - 越权")
     void removeFromWishlist_Forbidden_ShouldThrow() {
         Wishlist wishlist = new Wishlist();
         wishlist.setId(5L);
@@ -131,7 +131,7 @@ class RationalConsumptionServiceContractTest {
     }
 
     @Test
-    @DisplayName("最近想要清单活动 - 用户缺失时回退未知用户")
+    @DisplayName("最近心愿单活动 - 用户缺失时回退未知用户")
     void getRecentWishlistActivity_WhenUserMissing_ShouldFallbackUsername() {
         Product product = new Product();
         product.setId(10L);

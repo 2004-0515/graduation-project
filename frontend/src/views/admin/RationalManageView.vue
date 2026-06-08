@@ -11,7 +11,7 @@
           </div>
           <div class="stat-info">
             <span class="stat-value">{{ stats.totalWishlistItems || 0 }}</span>
-            <span class="stat-label">想要清单总数</span>
+            <span class="stat-label">心愿单总数</span>
           </div>
         </div>
 
@@ -121,11 +121,11 @@
         </div>
       </div>
 
-      <!-- 想要清单活动 -->
+      <!-- 心愿单活动 -->
       <div v-show="activeTab === 'wishlist'" class="content-section">
         <div class="section-card">
           <div class="section-header">
-            <h3>最近想要清单活动</h3>
+            <h3>最近心愿单活动</h3>
             <div class="wishlist-summary">
               <span class="summary-item">
                 <span class="dot cooling"></span>冷静中: {{ stats.coolingItems || 0 }}
@@ -146,7 +146,7 @@
                   <span class="username">{{ item.username }}</span>
                   <span class="action">将</span>
                   <span class="product-name">{{ item.productName }}</span>
-                  <span class="action">加入想要清单</span>
+                  <span class="action">加入心愿单</span>
                 </div>
                 <div class="activity-meta">
                   <span :class="['status-tag', getStatusClass(item.status)]">{{ item.statusName }}</span>
@@ -156,7 +156,7 @@
               </div>
               <span class="price">¥{{ item.productPrice }}</span>
             </div>
-            <div v-if="wishlistActivity.length === 0" class="empty-tip">暂无想要清单活动</div>
+            <div v-if="wishlistActivity.length === 0" class="empty-tip">暂无心愿单活动</div>
           </div>
         </div>
       </div>
@@ -255,7 +255,7 @@ use([CanvasRenderer, BarChart, LineChart, GridComponent, LegendComponent, Toolti
 
 const tabs = [
   { key: 'trend', label: '消费趋势' },
-  { key: 'wishlist', label: '想要清单' },
+  { key: 'wishlist', label: '心愿单' },
   { key: 'achievements', label: '成就管理' }
 ]
 const activeTab = ref('trend')
@@ -388,10 +388,10 @@ const fetchWishlistActivity = async () => {
     if (res?.code === 200) {
       wishlistActivity.value = res.data || []
     } else {
-      debugError('获取想要清单活动失败:', getResponseMessage(res, '业务返回异常'))
+      debugError('获取心愿单活动失败:', getResponseMessage(res, '业务返回异常'))
     }
   } catch (e) {
-    debugError('获取想要清单活动失败', e)
+    debugError('获取心愿单活动失败', e)
   }
 }
 

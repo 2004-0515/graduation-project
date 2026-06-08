@@ -1,6 +1,0 @@
-<map id="10-sequence-order-cancel_map" name="10-sequence-order-cancel_map">
-<area shape="rect" id="id1" href="审核拒绝" title="审核拒绝" alt="" coords="574,1027,618,1041"/>
-<area shape="rect" id="id2" href="审核通过" title="审核通过" alt="" coords="646,884,690,899"/>
-<area shape="rect" id="id3" href="订单为待支付" title="订单为待支付" alt="" coords="388,256,454,271"/>
-<area shape="rect" id="id4" href="订单为待发货且已支付" title="订单为待发货且已支付" alt="" coords="316,368,426,383"/>
-</map>

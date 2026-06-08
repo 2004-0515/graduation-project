@@ -203,7 +203,7 @@ describe('ProductDetailView', () => {
 
     expect(wrapper.text()).toContain('价格走势')
     expect(wrapper.text()).toContain('降价提醒')
-    expect(wrapper.text()).toContain('想要清单')
+    expect(wrapper.text()).toContain('心愿单')
     expect(wrapper.text()).toContain('先记录再决定是否购买')
     expect(wrapper.text()).not.toContain('7天无理由')
     expect(wrapper.text()).not.toContain('正品保障')
@@ -327,7 +327,7 @@ describe('ProductDetailView', () => {
 
     expect(mockedRationalApi.addToWishlist).toHaveBeenCalled()
     expect(mockedRationalApi.checkInWishlist).toHaveBeenCalledTimes(2)
-    expect(messages.success).toHaveBeenCalledWith('已加入想要清单，冷静期3天')
+    expect(messages.success).toHaveBeenCalledWith('已加入心愿单，冷静期3天')
   })
 
   it('keeps wishlist add successful when wishlist status refresh fails afterward', async () => {
@@ -342,9 +342,9 @@ describe('ProductDetailView', () => {
     await (wrapper.vm as any).addToWishlist()
     await flushPromises()
 
-    expect(messages.success).toHaveBeenCalledWith('已加入想要清单，冷静期3天')
+    expect(messages.success).toHaveBeenCalledWith('已加入心愿单，冷静期3天')
     expect(messages.error).not.toHaveBeenCalled()
-    expect(debugError).toHaveBeenCalledWith('检查想要清单状态失败', expect.any(Error))
+    expect(debugError).toHaveBeenCalledWith('检查心愿单状态失败', expect.any(Error))
   })
 
   it('logs backend message when deleting review returns non-200', async () => {
@@ -430,15 +430,15 @@ describe('ProductDetailView', () => {
   })
 
   it('logs backend message when adding to wishlist returns non-200', async () => {
-    mockedRationalApi.addToWishlist.mockResolvedValueOnce({ code: 500, message: '想要清单已存在该商品' })
+    mockedRationalApi.addToWishlist.mockResolvedValueOnce({ code: 500, message: '心愿单已存在该商品' })
 
     const wrapper = mountView()
 
     await flushPromises()
     await (wrapper.vm as any).addToWishlist()
 
-    expect(messages.error).toHaveBeenCalledWith('想要清单已存在该商品')
-    expect(debugError).toHaveBeenCalledWith('添加想要清单失败', '想要清单已存在该商品')
+    expect(messages.error).toHaveBeenCalledWith('心愿单已存在该商品')
+    expect(debugError).toHaveBeenCalledWith('添加心愿单失败', '心愿单已存在该商品')
   })
 
   it('logs when adding to cart fails', async () => {
@@ -478,14 +478,14 @@ describe('ProductDetailView', () => {
 
   it('logs backend message when wishlist and duplicate checks return non-200', async () => {
     mockedRationalApi.checkDuplicate.mockResolvedValueOnce({ code: 500, message: '重复购买检测失败' })
-    mockedRationalApi.checkInWishlist.mockResolvedValueOnce({ code: 500, message: '想要清单状态读取失败' })
+    mockedRationalApi.checkInWishlist.mockResolvedValueOnce({ code: 500, message: '心愿单状态读取失败' })
 
     mountView()
 
     await flushPromises()
 
     expect(debugError).toHaveBeenCalledWith('检测重复购买失败', '重复购买检测失败')
-    expect(debugError).toHaveBeenCalledWith('检查想要清单状态失败', '想要清单状态读取失败')
+    expect(debugError).toHaveBeenCalledWith('检查心愿单状态失败', '心愿单状态读取失败')
   })
 
   it('falls back to comma-separated review images and logs when review image json is broken', async () => {

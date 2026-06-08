@@ -167,7 +167,7 @@
               </button>
             </div>
 
-            <!-- 想要清单按钮 -->
+            <!-- 心愿单按钮 -->
             <div class="wishlist-action">
               <button 
                 class="btn-wishlist" 
@@ -178,7 +178,7 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
                 </svg>
-                <span>{{ isInWishlist ? '已在想要清单' : '加入想要清单' }}</span>
+                <span>{{ isInWishlist ? '已在心愿单' : '加入心愿单' }}</span>
                 <span class="wishlist-tip" v-if="!isInWishlist">设置冷静期，先记录再决定是否购买</span>
                 <span class="wishlist-tip" v-else>点击查看清单</span>
               </button>
@@ -187,7 +187,7 @@
             <div class="service-row">
               <span>价格走势</span>
               <span>降价提醒</span>
-              <span>想要清单</span>
+              <span>心愿单</span>
             </div>
             
             <!-- 重复购买提醒 -->
@@ -349,11 +349,11 @@
       </div>
     </div>
     
-    <!-- 想要清单弹窗 -->
+    <!-- 心愿单弹窗 -->
     <div v-if="showWishlistDialog" class="wishlist-dialog-overlay" @click.self="showWishlistDialog = false">
       <div class="wishlist-dialog glass-card">
         <div class="wishlist-dialog-header">
-          <h3>加入想要清单</h3>
+          <h3>加入心愿单</h3>
           <button class="close-btn" @click="showWishlistDialog = false">×</button>
         </div>
         <div class="wishlist-dialog-body">
@@ -463,7 +463,7 @@ let adTimer: ReturnType<typeof setInterval> | null = null
 // 重复购买检测
 const duplicateWarnings = ref<any[]>([])
 
-// 想要清单
+// 心愿单
 const showWishlistDialog = ref(false)
 const addingWishlist = ref(false)
 const wishlistForm = ref({
@@ -1167,7 +1167,7 @@ const formatMoney = (val: number | undefined) => {
   return `¥${Number(val).toFixed(2)}`
 }
 
-// 添加到想要清单
+// 添加到心愿单
 const addToWishlist = async () => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
@@ -1185,24 +1185,24 @@ const addToWishlist = async () => {
     if (res?.code === 200) {
       invalidateWishlistStatusRequests()
       isInWishlist.value = true
-      ElMessage.success('已加入想要清单，冷静期' + wishlistForm.value.coolingDays + '天')
+      ElMessage.success('已加入心愿单，冷静期' + wishlistForm.value.coolingDays + '天')
       showWishlistDialog.value = false
       wishlistForm.value = { coolingDays: 3, reason: '' }
       await refreshWishlistStatusAfterSuccess()
     } else {
       const message = res?.message || '添加失败'
-      debugError('添加想要清单失败', message)
+      debugError('添加心愿单失败', message)
       ElMessage.error(message)
     }
   } catch (e) {
-    debugError('添加想要清单失败', e)
+    debugError('添加心愿单失败', e)
     ElMessage.error(getErrorMessage(e, '添加失败'))
   } finally {
     addingWishlist.value = false
   }
 }
 
-// 检查商品是否在想要清单中
+// 检查商品是否在心愿单中
 const checkWishlistStatus = async () => {
   if (!userStore.isLoggedIn) {
     isInWishlist.value = false
@@ -1218,13 +1218,13 @@ const checkWishlistStatus = async () => {
     if (res?.code === 200) {
       isInWishlist.value = res.data?.inWishlist || false
     } else {
-      debugError('检查想要清单状态失败', res?.message || '想要清单状态返回异常')
+      debugError('检查心愿单状态失败', res?.message || '心愿单状态返回异常')
     }
   } catch (e) {
     if (requestId !== latestWishlistStatusRequestId) {
       return
     }
-    debugError('检查想要清单状态失败', e)
+    debugError('检查心愿单状态失败', e)
   }
 }
 
@@ -1232,11 +1232,11 @@ const refreshWishlistStatusAfterSuccess = async () => {
   try {
     await checkWishlistStatus()
   } catch (error) {
-    debugError('添加想要清单成功后刷新清单状态失败', error)
+    debugError('添加心愿单成功后刷新清单状态失败', error)
   }
 }
 
-// 处理想要清单按钮点击
+// 处理心愿单按钮点击
 const handleWishlistClick = () => {
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录')
@@ -1999,7 +1999,7 @@ onUnmounted(() => {
   padding: 10px 0;
 }
 
-/* 想要清单按钮 */
+/* 心愿单按钮 */
 .wishlist-action {
   margin-top: 16px;
 }
@@ -2046,7 +2046,7 @@ onUnmounted(() => {
   margin-left: 8px;
 }
 
-/* 想要清单弹窗 */
+/* 心愿单弹窗 */
 .wishlist-dialog-overlay {
   position: fixed;
   inset: 0;

@@ -20,9 +20,9 @@ GENERATED_ORDER_PREFIX = "RC"
 GENERATED_WISHLIST_REASON_PREFIX = "理性消费助手数据同步"
 
 ACHIEVEMENT_DEFS = {
-    "FIRST_WISHLIST": ("理性第一步", "首次使用想要清单"),
-    "DELAYED_GRATIFICATION_3": ("延迟满足达人", "通过想要清单购买3件商品"),
-    "RATIONAL_GIVEUP_5": ("理性放弃者", "从想要清单移除5件商品"),
+    "FIRST_WISHLIST": ("理性第一步", "首次使用心愿单"),
+    "DELAYED_GRATIFICATION_3": ("延迟满足达人", "通过心愿单购买3件商品"),
+    "RATIONAL_GIVEUP_5": ("理性放弃者", "从心愿单移除5件商品"),
     "BUDGET_MASTER": ("预算大师", "连续3个月未超预算"),
     "SAVING_STAR": ("节约之星", "单月节省超过500元"),
     "RATIONAL_100": ("理性消费达人", "理性指数达到100分"),
@@ -759,7 +759,7 @@ def write_report(report: dict, execution: dict | None = None) -> Path:
         f"- 当前月优惠节省: {report['current_month_saved_amount']}",
         f"- 预算记录数: {report['budget_count']}",
         f"- 成就记录数: {report['achievement_count']}",
-        f"- 想要清单记录数: {report['wishlist_count']}",
+        f"- 心愿单记录数: {report['wishlist_count']}",
         f"- 非法成就类型数: {report['invalid_achievement_types']}",
         f"- 逻辑就绪: {'通过' if report['ready'] else '不通过'}",
         "",
@@ -778,7 +778,7 @@ def write_report(report: dict, execution: dict | None = None) -> Path:
             f"- 备份文件: `{execution['backup_path']}`",
             f"- 新增当前月订单: {execution['inserted_orders']}",
             f"- 新增当前月订单项: {execution['inserted_order_items']}",
-            f"- 新增想要清单: {execution['inserted_wishlists']}",
+            f"- 新增心愿单: {execution['inserted_wishlists']}",
             f"- 重算预算记录: {execution['budget_rows']}",
             f"- 重算成就记录: {execution['achievement_rows']}",
         ])

@@ -1,4 +1,4 @@
-﻿# 浏览器测试与 E2E 运行说明
+# 浏览器测试与 E2E 运行说明
 
 ## 两层验证怎么用
 
@@ -356,9 +356,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\rebuild-graduation-data.ps1 -
   - 成功提示保持中文
   - 跳到购物车页后可看到服务端真实返回的购物车项
 - `product-detail-wishlist.spec.ts`
-  - 用户可从商品详情页直接加入想要清单
+  - 用户可从商品详情页直接加入心愿单
   - 成功提示保持中文
-  - 理性消费页的想要清单会按服务端真实状态出现该商品
+  - 理性消费页的心愿单会按服务端真实状态出现该商品
 - `payment-management.spec.ts`
   - 用户可直接在支付页切换支付方式
   - 模拟支付成功后会显示正确的支付方式和成功态
@@ -369,7 +369,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\rebuild-graduation-data.ps1 -
   - 降价提醒页会按服务端真实状态出现该提醒记录
 - `rational-consumption-flow.spec.ts`
   - 理性消费页设置预算
-  - 想要清单真实删除
+  - 心愿单真实删除
   - 动作后按服务端状态刷新
 - `notifications-operations.spec.ts`
   - 通知页全部已读

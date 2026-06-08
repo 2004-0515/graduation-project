@@ -134,12 +134,12 @@ describe('RationalConsumptionView', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const wishlistTab = wrapper.findAll('button').find((button) => button.text() === '想要清单')
+    const wishlistTab = wrapper.findAll('button').find((button) => button.text() === '心愿单')
     await wishlistTab!.trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('想要清单数据暂未同步，请稍后刷新重试。')
-    expect(wrapper.text()).not.toContain('想要清单为空')
+    expect(wrapper.text()).toContain('心愿单数据暂未同步，请稍后刷新重试。')
+    expect(wrapper.text()).not.toContain('心愿单为空')
     expect(debugError).toHaveBeenCalled()
   })
 
@@ -163,7 +163,7 @@ describe('RationalConsumptionView', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const wishlistTab = wrapper.findAll('button').find((button) => button.text() === '想要清单')
+    const wishlistTab = wrapper.findAll('button').find((button) => button.text() === '心愿单')
     await wishlistTab!.trigger('click')
     await flushPromises()
 
@@ -193,7 +193,7 @@ describe('RationalConsumptionView', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const wishlistTab = wrapper.findAll('button').find((button) => button.text() === '想要清单')
+    const wishlistTab = wrapper.findAll('button').find((button) => button.text() === '心愿单')
     await wishlistTab!.trigger('click')
     await flushPromises()
 
@@ -281,7 +281,7 @@ describe('RationalConsumptionView', () => {
     await flushPromises()
 
     expect(messages.error).toHaveBeenCalledWith('清单项不存在')
-    expect(debugError).toHaveBeenCalledWith('移除想要清单失败:', expect.any(Object))
+    expect(debugError).toHaveBeenCalledWith('移除心愿单失败:', expect.any(Object))
   })
 
   it('logs backend message when removing wishlist returns non-200 payload', async () => {
@@ -295,7 +295,7 @@ describe('RationalConsumptionView', () => {
     await flushPromises()
 
     expect(messages.error).toHaveBeenCalledWith('清单移除失败')
-    expect(debugError).toHaveBeenCalledWith('移除想要清单失败:', '清单移除失败')
+    expect(debugError).toHaveBeenCalledWith('移除心愿单失败:', '清单移除失败')
   })
 
   it('logs non-200 mark purchased response and still navigates to product', async () => {
@@ -307,7 +307,7 @@ describe('RationalConsumptionView', () => {
     await (wrapper.vm as any).goToBuy(15, 8)
     await flushPromises()
 
-    expect(debugError).toHaveBeenCalledWith('标记想要清单为已购买失败:', '标记失败')
+    expect(debugError).toHaveBeenCalledWith('标记心愿单为已购买失败:', '标记失败')
     expect(mockPush).toHaveBeenCalledWith('/product/15')
   })
 
