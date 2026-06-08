@@ -29,6 +29,6 @@ test('账户与设置链路冒烟', async ({ page }) => {
     element.click()
   })
   await page.getByRole('button', { name: '确定' }).click()
-  await page.waitForURL(/\/$/)
-  await expect(page.getByTestId('home-view')).toBeVisible()
+  await page.waitForURL(/\/login\?loggedOut=1/)
+  await expect(page.getByTestId('login-form')).toBeVisible()
 })
