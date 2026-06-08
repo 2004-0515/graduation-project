@@ -9,7 +9,8 @@ const { mockRoute, mockRouter, settingsApi, messageBox, messages, mockUserStore,
       }
     },
     mockRouter: {
-      push: vi.fn()
+      push: vi.fn(),
+      replace: vi.fn()
     },
     settingsApi: {
       getNotificationSettings: vi.fn(),
@@ -460,7 +461,11 @@ describe('SettingsView', () => {
 
     expect(mockUserStore.logout).toHaveBeenCalled()
     expect(messages.success).toHaveBeenCalledWith('已退出登录')
-    expect(mockRouter.push).toHaveBeenCalledWith('/')
+    expect(mockRouter.replace).toHaveBeenCalledWith({
+      path: '/login',
+      query: { loggedOut: '1' },
+      replace: true
+    })
   })
 
   it('waits for user store account deletion before redirecting', async () => {

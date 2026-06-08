@@ -13,6 +13,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import unquote
 
 from young_catalog_data import (
     AD_VIDEO_SLUGS,
@@ -35,6 +36,12 @@ RANDOM_SEED = 20260518
 SQL_BATCH_SIZE = 200
 FIXED_NOW = datetime(2026, 5, 15, 10, 0, 0)
 BANNED_MARKERS = ["演示", "demo", "test", "mock", "sample"]
+UPLOAD_REF_PATTERN = re.compile(
+    r"/uploads/[^\"'<>;\]\}\r\n]+?\."
+    r"(?:jpg|jpeg|png|webp|gif|mp4|webm|mov|mp3|flac|wav|ogg|m4a|opus|md)"
+    r"(?=$|[\s\"'<>),;\]\}])",
+    re.IGNORECASE,
+)
 SHOWCASE_USERNAMES = ["admin", "zhangsan", "lisi", "wangwu", "chenmo", "sunqi"]
 TARGETS = {
     "users": 30,
@@ -177,6 +184,26 @@ ACHIEVEMENTS = [
 ]
 SEARCH_KEYWORDS = ["蓝牙耳机", "防晒霜", "挂耳咖啡", "羽绒服", "投影仪", "瑜伽垫", "行车记录仪", "收纳箱", "益生菌", "珍珠耳钉", "四件套", "绘本"]
 MUSIC_FILE_METADATA = {
+    "010.买辣椒也用券 - 起风了.mp3": ("起风了", "买辣椒也用券"),
+    "0107-长安姑娘 - 李常超（Lao乾妈）.mp3": ("长安姑娘", "李常超（Lao乾妈）"),
+    "022.阿桑-一直很安静【八倍音质】.mp3": ("一直很安静", "阿桑"),
+    "0230.奇然_沈谧仁-琵琶行.mp3": ("琵琶行", "奇然 / 沈谧仁"),
+    "026.后弦-下完这场雨【八倍音质】.mp3": ("下完这场雨", "后弦"),
+    "0627.袁凤瑛 - 天若有情.mp3": ("天若有情", "袁凤瑛"),
+    "126.何野《天亮以前说再见》 - 何野.mp3": ("天亮以前说再见", "何野"),
+    "251.任然-疑心病【八倍音质】.mp3": ("疑心病", "任然"),
+    "29.剑心.mp3": ("剑心", "未知歌手"),
+    "Dizzy Dizzo (蔡诗芸)-雨过后的风景.flac": ("雨过后的风景", "Dizzy Dizzo（蔡诗芸）"),
+    "M800000r7I6R3VjL8c.mp3": ("把回忆拼好给你", "苏星婕"),
+    "M800002AYkzb16Wkjz.mp3": ("离开我的依赖", "王艳薇"),
+    "一个人想着一个人 - 曾沛慈.mp3": ("一个人想着一个人", "曾沛慈"),
+    "徐良&小凌-无颜女.mp3": ("无颜女", "徐良 / 小凌"),
+    "我欲成冰再也无退路(DJ完整原版)-虞姬.mp3": ("我欲成冰再也无退路", "虞姬"),
+    "李秉成-只为你着迷.mp3": ("只为你着迷", "李秉成"),
+    "李荣浩,梁咏琪 - 紫荆花盛开.mp3": ("紫荆花盛开", "李荣浩 / 梁咏琪"),
+    "杨丞琳-带我走 (Live丨典藏).mp3": ("带我走", "杨丞琳"),
+    "爱错 - 王力宏.mp3": ("爱错", "王力宏"),
+    "颜人中 - 我只能离开.mp3": ("我只能离开", "颜人中"),
     "shion-light-01.wav": ("晨光轻行", "山川音室"),
     "shion-light-02.wav": ("午后微风", "山川音室"),
     "shion-light-03.wav": ("夜色书桌", "山川音室"),
@@ -397,6 +424,10 @@ def sql_escape(value: str) -> str:
     return value.replace("\\", "\\\\").replace("'", "\\'")
 
 
+def quote_identifier(value: str) -> str:
+    return "`" + value.replace("`", "``") + "`"
+
+
 def to_sql_string(value: str | None) -> str:
     if value is None:
         return "NULL"
@@ -442,6 +473,10 @@ def parse_music_metadata(path: str) -> tuple[str, str]:
     return stem or filename, "未知歌手"
 
 
+def extract_upload_refs(value: str) -> list[str]:
+    return [unquote(match.group(0)) for match in UPLOAD_REF_PATTERN.finditer(value)]
+
+
 class Seeder:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
@@ -471,17 +506,16 @@ class Seeder:
 
         target_dir = music_root / "library"
         target_dir.mkdir(parents=True, exist_ok=True)
-        for filename in MUSIC_FILE_METADATA.keys():
+        for filename in (f"shion-light-{index:02d}.wav" for index in range(1, TARGETS["music"] + 1)):
             target = target_dir / filename
             if not target.exists():
                 target.write_bytes(b"")
 
     def _scan_music_uploads(self) -> list[str]:
         suffixes = {".mp3", ".flac", ".wav", ".ogg", ".m4a", ".opus"}
-        library_files = self._scan_uploads(Path("music") / "library", suffixes)
-        if library_files:
-            return library_files
-        return self._scan_uploads("music", suffixes)
+        music_files = self._scan_uploads("music", suffixes)
+        real_files = [path for path in music_files if not path.startswith("/uploads/music/library/")]
+        return real_files or music_files
 
     def _scan_uploads(self, sub_path: str | Path, suffixes: set[str]) -> list[str]:
         base = PROJECT_ROOT / "uploads" / Path(sub_path)
@@ -574,6 +608,56 @@ class Seeder:
         if completed.returncode != 0:
             raise RuntimeError(completed.stderr.strip() or completed.stdout.strip())
         return completed.stdout.strip()
+
+    def collect_database_upload_refs(self) -> dict[str, set[str]]:
+        columns_sql = (
+            "SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+            f"WHERE TABLE_SCHEMA = '{sql_escape(self.args.db_name)}' "
+            "AND DATA_TYPE IN ('char','varchar','tinytext','text','mediumtext','longtext') "
+            "ORDER BY TABLE_NAME, COLUMN_NAME;"
+        )
+        refs: dict[str, set[str]] = defaultdict(set)
+        for row in self.run_mysql(columns_sql).splitlines():
+            table_name, column_name = (row.split("\t") + [""])[:2]
+            if not table_name or not column_name:
+                continue
+            table_expr = quote_identifier(table_name)
+            column_expr = quote_identifier(column_name)
+            values = self.run_mysql(
+                f"SELECT {column_expr} FROM {table_expr} WHERE {column_expr} LIKE '%/uploads/%';"
+            )
+            for value in values.splitlines():
+                for upload_ref in extract_upload_refs(value):
+                    refs[upload_ref].add(f"{table_name}.{column_name}")
+        return refs
+
+    def audit_git_tracked_upload_refs(self) -> tuple[int, list[str], str | None]:
+        upload_refs = self.collect_database_upload_refs()
+        if not (PROJECT_ROOT / ".git").exists():
+            return len(upload_refs), [], "skipped: .git metadata is not present"
+
+        try:
+            completed = subprocess.run(
+                ["git", "-c", "core.quotePath=false", "ls-files", "uploads"],
+                cwd=PROJECT_ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+        except OSError as error:
+            return len(upload_refs), [], f"skipped: git unavailable: {error}"
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout).strip()
+            return len(upload_refs), [], f"skipped: git ls-files failed: {detail}"
+
+        tracked_uploads = {line.strip() for line in completed.stdout.splitlines() if line.strip()}
+        untracked_refs = [
+            f"{','.join(sorted(sources))}:{upload_ref}"
+            for upload_ref, sources in sorted(upload_refs.items())
+            if upload_ref.lstrip("/") not in tracked_uploads
+        ]
+        return len(upload_refs), untracked_refs, None
 
     def get_table_columns(self, table_name: str) -> list[str]:
         rows = self.run_mysql(f"SHOW COLUMNS FROM {table_name};")
@@ -934,7 +1018,7 @@ class Seeder:
             if use_asset_columns:
                 values.append(
                     "("
-                    f"'{sql_escape(title)}', '{sql_escape(artist)}', '{sql_escape(path)}', NULL, 'REPOSITORY', 'ORIGINAL_PROJECT_AUDIO', '2026-05', "
+                    f"'{sql_escape(title)}', '{sql_escape(artist)}', '{sql_escape(path)}', NULL, 'REPOSITORY', 'LOCAL_DEMO_AUDIO', '2026-05', "
                     f"{duration}, {index}, 1, '{created_time.strftime('%Y-%m-%d %H:%M:%S')}', '{FIXED_NOW.strftime('%Y-%m-%d %H:%M:%S')}'"
                     ")"
                 )
@@ -1776,6 +1860,12 @@ FROM tb_product;
         report["missing_showcase_files"] = missing_showcase_files
         report["invalid_showcase_paths"] = invalid_showcase_paths
 
+        upload_refs_checked, untracked_upload_refs, upload_ref_git_check = self.audit_git_tracked_upload_refs()
+        report["upload_refs_checked"] = upload_refs_checked
+        report["untracked_upload_refs"] = untracked_upload_refs
+        if upload_ref_git_check:
+            report["upload_ref_git_check"] = upload_ref_git_check
+
         hot_sample = sorted(approved_rows, key=lambda item: (-item["sales"], item["id"]))[:8]
         newest_sample = sorted(approved_rows, key=lambda item: item["created_time"], reverse=True)[:10]
         category_sample = sorted(approved_rows, key=lambda item: item["created_time"], reverse=True)[:12]
@@ -1804,6 +1894,7 @@ FROM tb_product;
             and not legacy_category_icons
             and not missing_showcase_files
             and not invalid_showcase_paths
+            and not untracked_upload_refs
             and all(report["sample_uniqueness"].values())
             and all(
                 [

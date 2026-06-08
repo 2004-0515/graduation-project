@@ -86,7 +86,7 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import { generateRandomCode } from '../utils/captcha'
 import { debugError } from '../utils/debug'
-import { resolveRedirectTarget } from '../utils/navigation'
+import { resolvePostLoginTarget } from '../utils/navigation'
 
 const router = useRouter()
 const route = useRoute()
@@ -142,9 +142,9 @@ const handleLogin = async () => {
     if (valid) {
       loading.value = true
       try {
-        await userStore.login({ username: loginForm.username, password: loginForm.password })
+        const { user } = await userStore.login({ username: loginForm.username, password: loginForm.password })
         ElMessage.success('登录成功')
-        router.push(resolveRedirectTarget(route, '/'))
+        router.replace(resolvePostLoginTarget(route, user))
       } catch (error) {
         debugError('登录失败:', userStore.error || error)
         ElMessage.error(userStore.error || '登录失败')

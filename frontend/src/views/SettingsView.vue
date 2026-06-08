@@ -230,6 +230,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../stores/userStore'
 import settingsApi from '../api/settingsApi'
 import { debugError } from '../utils/debug'
+import { buildLoggedOutLoginLocation } from '../utils/navigation'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
@@ -637,7 +638,7 @@ const handleLogout = async () => {
     })
     await userStore.logout()
     ElMessage.success('已退出登录')
-    router.push('/')
+    router.replace(buildLoggedOutLoginLocation())
   } catch (error: any) {
     if (error === 'cancel' || error === 'close' || error?.action === 'cancel' || error?.action === 'close') {
       return

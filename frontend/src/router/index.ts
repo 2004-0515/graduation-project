@@ -234,26 +234,27 @@ const router = createRouter({
 // 路由守卫
 import { useUserStore } from '@/stores/userStore'
 import { isAdminUser, isSellerUser } from '@/utils/roles'
+import { buildLoggedOutLoginLocation, buildLoginLocation } from '@/utils/navigation'
 
 router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore()
 
   if (to.meta.requiresAuth) {
     if (!userStore.token) {
-      next({ name: 'login', query: { redirect: to.fullPath } })
+      next(buildLoginLocation(to.fullPath))
       return
     }
 
     try {
       await userStore.fetchCurrentUser()
     } catch (error) {
-      next({ name: 'login', query: { redirect: to.fullPath } })
+      next(buildLoginLocation(to.fullPath))
       return
     }
 
     if (userStore.userInfo?.status === 0) {
       await userStore.logout()
-      next({ name: 'login', query: { redirect: to.fullPath } })
+      next(buildLoggedOutLoginLocation())
       return
     }
     

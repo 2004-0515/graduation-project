@@ -1,4 +1,28 @@
 import { useRouter, type RouteLocationNormalizedLoaded, type RouteLocationRaw, type Router } from 'vue-router'
+import type { User } from '@/types'
+import { isAdminUser, isSellerUser } from '@/utils/roles'
+
+const firstQueryValue = (value: unknown): string | undefined => {
+  if (Array.isArray(value)) {
+    return typeof value[0] === 'string' ? value[0] : undefined
+  }
+  return typeof value === 'string' ? value : undefined
+}
+
+const isAuthPagePath = (path: string): boolean =>
+  path === '/login' ||
+  path === '/register' ||
+  path.startsWith('/login?') ||
+  path.startsWith('/register?')
+
+const isSafeAppRedirect = (path: unknown): path is string =>
+  typeof path === 'string' &&
+  path.startsWith('/') &&
+  !path.startsWith('//') &&
+  !isAuthPagePath(path)
+
+const isAfterExplicitLogout = (route: Pick<RouteLocationNormalizedLoaded, 'query'>): boolean =>
+  firstQueryValue(route.query.loggedOut) === '1'
 
 const hasBrowserHistory = () => {
   if (typeof window === 'undefined') {
@@ -21,17 +45,42 @@ export const resolveRedirectTarget = (
   route: Pick<RouteLocationNormalizedLoaded, 'query'>,
   fallback: RouteLocationRaw = '/'
 ) => {
-  const redirect = Array.isArray(route.query.redirect) ? route.query.redirect[0] : route.query.redirect
-  if (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')) {
+  const redirect = firstQueryValue(route.query.redirect)
+  if (!isAfterExplicitLogout(route) && isSafeAppRedirect(redirect)) {
     return redirect
   }
 
   return fallback
 }
 
-export const buildLoginLocation = (redirect: string): RouteLocationRaw => ({
+export const resolveDefaultPostLoginTarget = (user?: Pick<User, 'role'> | null): RouteLocationRaw => {
+  if (isAdminUser(user)) {
+    return '/admin'
+  }
+  if (isSellerUser(user)) {
+    return '/my-products'
+  }
+  return '/'
+}
+
+export const resolvePostLoginTarget = (
+  route: Pick<RouteLocationNormalizedLoaded, 'query'>,
+  user?: Pick<User, 'role'> | null
+): RouteLocationRaw => resolveRedirectTarget(route, resolveDefaultPostLoginTarget(user))
+
+export const buildLoginLocation = (redirect: string): RouteLocationRaw => {
+  const query = isSafeAppRedirect(redirect) ? { redirect } : undefined
+  return {
+    path: '/login',
+    query,
+    replace: true
+  }
+}
+
+export const buildLoggedOutLoginLocation = (): RouteLocationRaw => ({
   path: '/login',
-  query: { redirect }
+  query: { loggedOut: '1' },
+  replace: true
 })
 
 export const navigateTo = (
