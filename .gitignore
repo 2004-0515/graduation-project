@@ -122,6 +122,28 @@ backend/.m2repo/
 scratch/
 outputs/
 .tools/
+.tmp/
+.codex-history-complete-archive/
+.codex-pdf-audit-latest/
+docs/
+tools/
+uploads/screenshots/
+uploads/*.txt
+AGENTS.md
+run-dev-5174.cmd
+run-dev-5175.cmd
+frontend/public/login-*.html
+scripts/generate_db_mapping_diagram.py
+scripts/generate_thesis_*.py
+scripts/add_budget_price_tables.py
+scripts/curate_catalog_assets.py
+scripts/fetch_loremflickr_catalog_assets.py
+scripts/repair_product_catalog.py
+scripts/generate_catalog_contact_sheets.ps1
+scripts/screenshot-rational.js
+scripts/update_thesis_source_alignment.py
+scripts/scan-music.py
+scripts/login-and-goto.html
 shopping_mall_backup_before_rebuild_*.sql
 
 # Keep distributable in-repo music so a clean checkout can run the demo directly.
