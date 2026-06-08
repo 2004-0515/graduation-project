@@ -15,7 +15,7 @@ import {
 
 async function clearWishlist(page: Page, token: string) {
   const response = await authedGet(page.request, token, '/api/rational-consumption/wishlist')
-  expect(response.ok(), `获取想要清单失败: ${response.status()} ${response.url()}`).toBeTruthy()
+  expect(response.ok(), `获取心愿单失败: ${response.status()} ${response.url()}`).toBeTruthy()
   const payload = await response.json()
   expect(payload?.code).toBe(200)
   const items = Array.isArray(payload?.data) ? payload.data : []
@@ -59,10 +59,10 @@ test('用户可在理性消费页设置预算并刷新预算展示', async ({ pa
   await logout(page)
 })
 
-test('用户可在理性消费页移除想要清单项并刷新列表', async ({ page }) => {
+test('用户可在理性消费页移除心愿单项并刷新列表', async ({ page }) => {
   const buyerSession = await getSession(page, E2E_USERS.buyer, E2E_PASSWORD)
   const productId = await resolveProductId(page, 'rational-wishlist', { excludeSellerUsername: E2E_USERS.buyer })
-  const uniqueReason = `E2E想要清单-${Date.now()}`
+  const uniqueReason = `E2E心愿单-${Date.now()}`
 
   await clearWishlist(page, buyerSession.token)
 
@@ -71,7 +71,7 @@ test('用户可在理性消费页移除想要清单项并刷新列表', async ({
     coolingDays: 3,
     reason: uniqueReason
   })
-  expect(createResponse.ok(), `创建想要清单失败: ${createResponse.status()} ${createResponse.url()}`).toBeTruthy()
+  expect(createResponse.ok(), `创建心愿单失败: ${createResponse.status()} ${createResponse.url()}`).toBeTruthy()
   const createPayload = await createResponse.json()
   expect(createPayload?.code).toBe(200)
 
@@ -81,7 +81,7 @@ test('用户可在理性消费页移除想要清单项并刷新列表', async ({
   expect(wishlistPayload?.code).toBe(200)
   const items = Array.isArray(wishlistPayload?.data) ? wishlistPayload.data : []
   const createdItem = items.find((item: any) => item.reason === uniqueReason)
-  expect(createdItem, '未找到刚创建的想要清单项').toBeTruthy()
+  expect(createdItem, '未找到刚创建的心愿单项').toBeTruthy()
   const createdItemId = Number(createdItem.id)
 
   await login(page, E2E_USERS.buyer, E2E_PASSWORD)
@@ -102,7 +102,7 @@ test('用户可在理性消费页移除想要清单项并刷新列表', async ({
 
   await confirmMessageBox(page)
   const deleteResponse = await deleteResponsePromise
-  expect(deleteResponse.ok(), `移除想要清单失败: ${deleteResponse.status()} ${deleteResponse.url()}`).toBeTruthy()
+  expect(deleteResponse.ok(), `移除心愿单失败: ${deleteResponse.status()} ${deleteResponse.url()}`).toBeTruthy()
 
   await expect(page.getByText('已移除')).toBeVisible({ timeout: 15_000 })
   await expect(page.getByTestId(`wishlist-item-${createdItemId}`)).toHaveCount(0)

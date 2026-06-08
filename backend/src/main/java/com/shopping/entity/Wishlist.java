@@ -5,7 +5,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 想要清单实体 - 延迟满足功能
+ * 心愿单实体 - 延迟满足功能
  */
 @Entity
 @Table(name = "tb_wishlist")

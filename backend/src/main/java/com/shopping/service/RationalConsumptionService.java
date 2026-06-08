@@ -547,10 +547,10 @@ public class RationalConsumptionService {
         return duplicates.stream().limit(5).collect(Collectors.toList());
     }
 
-    // ==================== 想要清单功能 ====================
+    // ==================== 心愿单功能 ====================
 
     /**
-     * 添加到想要清单
+     * 添加到心愿单
      */
     @Transactional
     public Wishlist addToWishlist(String username, Long productId, Integer coolingDays, String reason) {
@@ -564,7 +564,7 @@ public class RationalConsumptionService {
                     WishlistConstants.WishlistStatus.COOLING, 
                     WishlistConstants.WishlistStatus.READY));
         if (existing.isPresent()) {
-            throw new ValidationException("该商品已在想要清单中");
+            throw new ValidationException("该商品已在心愿单中");
         }
         
         Wishlist wishlist = new Wishlist();
@@ -578,13 +578,13 @@ public class RationalConsumptionService {
         Wishlist saved = wishlistRepository.save(wishlist);
         
         // 检查成就
-        checkAndGrantAchievement(user.getId(), "FIRST_WISHLIST", "理性第一步", "首次使用想要清单");
+        checkAndGrantAchievement(user.getId(), "FIRST_WISHLIST", "理性第一步", "首次使用心愿单");
         
         return saved;
     }
 
     /**
-     * 获取想要清单
+     * 获取心愿单
      */
     public List<Map<String, Object>> getWishlist(String username) {
         User user = userService.getUserByUsername(username);
@@ -651,7 +651,7 @@ public class RationalConsumptionService {
     }
 
     /**
-     * 从想要清单移除
+     * 从心愿单移除
      */
     @Transactional
     public void removeFromWishlist(String username, Long wishlistId) {
@@ -669,7 +669,7 @@ public class RationalConsumptionService {
         // 检查成就 - 理性放弃
         int removedCount = wishlistRepository.countRemovedFromWishlist(user.getId());
         if (removedCount >= 5) {
-            checkAndGrantAchievement(user.getId(), "RATIONAL_GIVEUP_5", "理性放弃者", "从想要清单移除5件商品");
+            checkAndGrantAchievement(user.getId(), "RATIONAL_GIVEUP_5", "理性放弃者", "从心愿单移除5件商品");
         }
     }
 
@@ -692,12 +692,12 @@ public class RationalConsumptionService {
         // 检查成就 - 延迟满足
         int purchasedCount = wishlistRepository.countPurchasedFromWishlist(user.getId());
         if (purchasedCount >= 3) {
-            checkAndGrantAchievement(user.getId(), "DELAYED_GRATIFICATION_3", "延迟满足达人", "通过想要清单购买3件商品");
+            checkAndGrantAchievement(user.getId(), "DELAYED_GRATIFICATION_3", "延迟满足达人", "通过心愿单购买3件商品");
         }
     }
 
     /**
-     * 获取想要清单统计
+     * 获取心愿单统计
      */
     public Map<String, Object> getWishlistStats(String username) {
         User user = userService.getUserByUsername(username);
@@ -712,7 +712,7 @@ public class RationalConsumptionService {
     }
 
     /**
-     * 检查商品是否在想要清单中
+     * 检查商品是否在心愿单中
      */
     public boolean isInWishlist(String username, Long productId) {
         User user = userService.getUserByUsername(username);
@@ -750,9 +750,9 @@ public class RationalConsumptionService {
         
         // 定义所有成就
         String[][] achievementDefs = {
-            {"FIRST_WISHLIST", "理性第一步", "首次使用想要清单", "wishlist"},
-            {"DELAYED_GRATIFICATION_3", "延迟满足达人", "通过想要清单购买3件商品", "clock"},
-            {"RATIONAL_GIVEUP_5", "理性放弃者", "从想要清单移除5件商品", "x-circle"},
+            {"FIRST_WISHLIST", "理性第一步", "首次使用心愿单", "wishlist"},
+            {"DELAYED_GRATIFICATION_3", "延迟满足达人", "通过心愿单购买3件商品", "clock"},
+            {"RATIONAL_GIVEUP_5", "理性放弃者", "从心愿单移除5件商品", "x-circle"},
             {"BUDGET_MASTER", "预算大师", "连续3个月未超预算", "target"},
             {"SAVING_STAR", "节约之星", "单月节省超过500元", "star"},
             {"RATIONAL_100", "理性消费达人", "理性指数达到100分", "award"}
@@ -832,7 +832,7 @@ public class RationalConsumptionService {
         Map<String, Object> stats = new HashMap<>();
         String currentMonth = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMM"));
         
-        // 想要清单统计
+        // 心愿单统计
         stats.put("totalWishlistItems", wishlistRepository.countAll());
         stats.put("coolingItems", wishlistRepository.countCooling());
         stats.put("purchasedFromWishlist", wishlistRepository.countPurchased());
@@ -906,7 +906,7 @@ public class RationalConsumptionService {
     }
 
     /**
-     * 获取最近的想要清单活动
+     * 获取最近的心愿单活动
      */
     public List<Map<String, Object>> getRecentWishlistActivity() {
         List<Wishlist> recentItems = wishlistRepository.findRecentWishlists();
@@ -986,9 +986,9 @@ public class RationalConsumptionService {
     public void grantAchievement(Long userId, String type) {
         // 成就定义
         Map<String, String[]> achievementDefs = new HashMap<>();
-        achievementDefs.put("FIRST_WISHLIST", new String[]{"理性第一步", "首次使用想要清单"});
-        achievementDefs.put("DELAYED_GRATIFICATION_3", new String[]{"延迟满足达人", "通过想要清单购买3件商品"});
-        achievementDefs.put("RATIONAL_GIVEUP_5", new String[]{"理性放弃者", "从想要清单移除5件商品"});
+        achievementDefs.put("FIRST_WISHLIST", new String[]{"理性第一步", "首次使用心愿单"});
+        achievementDefs.put("DELAYED_GRATIFICATION_3", new String[]{"延迟满足达人", "通过心愿单购买3件商品"});
+        achievementDefs.put("RATIONAL_GIVEUP_5", new String[]{"理性放弃者", "从心愿单移除5件商品"});
         achievementDefs.put("BUDGET_MASTER", new String[]{"预算大师", "连续3个月未超预算"});
         achievementDefs.put("SAVING_STAR", new String[]{"节约之星", "单月节省超过500元"});
         achievementDefs.put("RATIONAL_100", new String[]{"理性消费达人", "理性指数达到100分"});

@@ -14,7 +14,7 @@ import {
 
 async function cleanupWishlistByProduct(request: APIRequestContext, token: string, productId: number) {
   const wishlistResponse = await authedGet(request, token, '/api/rational-consumption/wishlist')
-  expect(wishlistResponse.ok(), `获取想要清单失败: ${wishlistResponse.status()} ${wishlistResponse.url()}`).toBeTruthy()
+  expect(wishlistResponse.ok(), `获取心愿单失败: ${wishlistResponse.status()} ${wishlistResponse.url()}`).toBeTruthy()
   const payload = await wishlistResponse.json()
   expect(payload?.code).toBe(200)
   const items = Array.isArray(payload?.data) ? payload.data : []
@@ -25,7 +25,7 @@ async function cleanupWishlistByProduct(request: APIRequestContext, token: strin
   }
 }
 
-test('用户可从商品详情页加入想要清单并在理性消费页看到真实列表', async ({ page }) => {
+test('用户可从商品详情页加入心愿单并在理性消费页看到真实列表', async ({ page }) => {
   const { consoleErrors, failedRequests } = attachPageWatchers(page)
   const buyerSession = await getSession(page, E2E_USERS.buyer, E2E_PASSWORD)
   const product = await resolveProduct(page, 'product-detail-wishlist', {
@@ -41,7 +41,7 @@ test('用户可从商品详情页加入想要清单并在理性消费页看到�
 
     await expect(page.getByTestId('product-detail-view')).toBeVisible()
     await page.getByTestId('product-add-to-wishlist').click()
-    await expect(page.getByRole('heading', { name: '加入想要清单' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '加入心愿单' })).toBeVisible()
 
     const createResponse = page.waitForResponse((response) =>
       response.url().includes('/api/rational-consumption/wishlist') &&
@@ -49,13 +49,13 @@ test('用户可从商品详情页加入想要清单并在理性消费页看到�
     )
     await page.getByTestId('product-wishlist-confirm').click()
     const createWishlistResponse = await createResponse
-    expect(createWishlistResponse.ok(), `添加想要清单失败: ${createWishlistResponse.status()} ${createWishlistResponse.url()}`).toBeTruthy()
+    expect(createWishlistResponse.ok(), `添加心愿单失败: ${createWishlistResponse.status()} ${createWishlistResponse.url()}`).toBeTruthy()
 
     const createWishlistPayload = await createWishlistResponse.json()
     expect(createWishlistPayload?.code).toBe(200)
 
-    await expect(page.getByRole('heading', { name: '加入想要清单' })).toHaveCount(0, { timeout: 15_000 })
-    await expect(page.getByTestId('product-add-to-wishlist')).toContainText('已在想要清单', { timeout: 15_000 })
+    await expect(page.getByRole('heading', { name: '加入心愿单' })).toHaveCount(0, { timeout: 15_000 })
+    await expect(page.getByTestId('product-add-to-wishlist')).toContainText('已在心愿单', { timeout: 15_000 })
 
     await page.goto('/rational-consumption?tab=wishlist')
     await neutralizeFloatingUi(page)

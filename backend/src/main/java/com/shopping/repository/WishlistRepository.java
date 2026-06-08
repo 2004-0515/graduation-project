@@ -32,7 +32,7 @@ public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
     
     // ==================== 管理员统计查询 ====================
     
-    /** 统计全站想要清单总数 */
+    /** 统计全站心愿单总数 */
     @Query("SELECT COUNT(w) FROM Wishlist w")
     long countAll();
     
@@ -51,11 +51,11 @@ public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
     @Query("SELECT COUNT(w) FROM Wishlist w WHERE w.status = 3")
     long countRemoved();
     
-    /** 获取最近的想要清单记录（分页） */
+    /** 获取最近的心愿单记录（分页） */
     @Query("SELECT w FROM Wishlist w ORDER BY w.createdTime DESC")
     List<Wishlist> findRecentWishlists();
     
-    /** 按用户统计想要清单数量 */
+    /** 按用户统计心愿单数量 */
     @Query("SELECT w.userId, COUNT(w) FROM Wishlist w GROUP BY w.userId ORDER BY COUNT(w) DESC")
     List<Object[]> countByUserGrouped();
 }

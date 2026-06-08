@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="home" data-testid="home-view">
     <div class="deco-layer">
       <div class="deco-bg"></div>
@@ -142,7 +142,7 @@
                 <div class="expand-tags">
                   <span class="expand-tag">已审核上架</span>
                   <span class="expand-tag">价格可追踪</span>
-                  <span class="expand-tag">支持想要清单</span>
+                  <span class="expand-tag">支持心愿单</span>
                 </div>
                 <div class="expand-footer">
                   <div class="expand-price">
