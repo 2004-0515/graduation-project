@@ -36,7 +36,12 @@ RANDOM_SEED = 20260518
 SQL_BATCH_SIZE = 200
 FIXED_NOW = datetime(2026, 5, 15, 10, 0, 0)
 BANNED_MARKERS = ["演示", "demo", "test", "mock", "sample"]
-UPLOAD_REF_PATTERN = re.compile(r"/uploads/[^\s\"'<>),\]\}]+")
+UPLOAD_REF_PATTERN = re.compile(
+    r"/uploads/[^\"'<>;\]\}\r\n]+?\."
+    r"(?:jpg|jpeg|png|webp|gif|mp4|webm|mov|mp3|flac|wav|ogg|m4a|opus|md)"
+    r"(?=$|[\s\"'<>),;\]\}])",
+    re.IGNORECASE,
+)
 SHOWCASE_USERNAMES = ["admin", "zhangsan", "lisi", "wangwu", "chenmo", "sunqi"]
 TARGETS = {
     "users": 30,
