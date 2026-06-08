@@ -232,7 +232,16 @@ function Stop-ProcessTree {
         return
     }
 
-    Write-Host "Stopping process $($Process.Id)..."
+    Write-Host "Stopping process tree $($Process.Id)..."
+    if (Get-Command 'taskkill.exe' -ErrorAction SilentlyContinue) {
+        & taskkill.exe /PID $Process.Id /T /F 2>$null | Out-Host
+        Start-Sleep -Milliseconds 500
+        $Process.Refresh()
+        if ($Process.HasExited) {
+            return
+        }
+    }
+
     Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 500
     $Process.Refresh()
@@ -358,6 +367,8 @@ if (-not $AllowPortFallback -and -not (Test-PortAvailable -Port $frontendPort)) 
 }
 
 $processes = @()
+$startedBackendProcess = $null
+$startedFrontendProcess = $null
 try {
     Write-Host "Backend:       $backendUrl"
     Write-Host "Frontend:      $frontendUrl"
@@ -374,7 +385,7 @@ try {
     } else {
         $mavenCommand = Resolve-RequiredCommandPath -CommandName 'mvn'
         Write-Host "Starting backend on $backendUrl..."
-        $processes += Start-LoggedProcess `
+        $startedBackendProcess = Start-LoggedProcess `
             -Name 'backend' `
             -FilePath $mavenCommand `
             -Arguments @('spring-boot:run') `
@@ -383,6 +394,7 @@ try {
                 SERVER_PORT = $backendPort
                 JPA_DDL_AUTO = 'none'
             }
+        $processes += $startedBackendProcess
     }
 
     Wait-HttpReady -Url $backendHealthUrl -Attempts $BackendReadyAttempts -Processes @($processes)
@@ -402,7 +414,7 @@ try {
         ) -Tooling $tooling
 
         Write-Host "Starting frontend on $frontendUrl..."
-        $processes += Start-LoggedProcess `
+        $startedFrontendProcess = Start-LoggedProcess `
             -Name 'frontend' `
             -FilePath $viteInvocation.CommandPath `
             -Arguments $viteInvocation.Arguments `
@@ -410,6 +422,7 @@ try {
             -Environment @{
                 VITE_PROXY_TARGET = "http://127.0.0.1:$backendPort"
             }
+        $processes += $startedFrontendProcess
     }
 
     Wait-HttpReady -Url $frontendUrl -Attempts $FrontendReadyAttempts -Processes @($processes)
@@ -443,5 +456,12 @@ try {
         if ($process -and -not $process.HasExited) {
             Stop-ProcessTree -Process $process
         }
+    }
+
+    if ($startedFrontendProcess) {
+        Stop-PortListeners -Port $frontendPort -Name 'frontend'
+    }
+    if ($startedBackendProcess) {
+        Stop-PortListeners -Port $backendPort -Name 'backend'
     }
 }
