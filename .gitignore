@@ -128,7 +128,6 @@ outputs/
 .codex-tmp/
 .codex-history-complete-archive/
 .codex-pdf-audit-latest/
-.github/
 .idea/
 docs/
 tools/
