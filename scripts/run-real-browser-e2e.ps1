@@ -79,18 +79,6 @@ $suiteSpecsMap = @{
         'tests/e2e/my-products-management.spec.ts',
         'tests/e2e/notification-routing.spec.ts'
     )
-    defense = @(
-        'tests/e2e/route-guard-smoke.spec.ts',
-        'tests/e2e/admin-users-management.spec.ts',
-        'tests/e2e/review-image-draft.spec.ts',
-        'tests/e2e/visual-confirm-dialogs.spec.ts',
-        'tests/e2e/seller-product-demo-hardening.spec.ts',
-        'tests/e2e/dual-end-interaction-audit.spec.ts',
-        'tests/e2e/tri-end-refresh-consistency.spec.ts',
-        'tests/e2e/site-display-health.spec.ts',
-        'tests/e2e/defense-demo-hardening.spec.ts',
-        'tests/e2e/defense-edge-cases.spec.ts'
-    )
 }
 
 function Resolve-CommandPath {

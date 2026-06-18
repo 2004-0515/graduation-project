@@ -214,4 +214,3 @@ jobs:
             frontend/vite-browser.log
             frontend/vite-browser.err.log
             wrapper-browser.log
-
