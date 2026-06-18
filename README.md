@@ -10,9 +10,21 @@ showcase can run without external placeholder providers.
 
 - JDK 17
 - Node.js `>=20.19.0` or `>=22.12.0`
-- MySQL 8 with database `shopping_mall`
+- MySQL 8
 - Redis 7
-- Frontend dependencies installed once with `npm install`
+- Maven
+- Frontend dependencies installed once with `npm ci`
+
+## Database
+
+The root SQL dump `shopping_mall_init.sql` creates and initializes the
+`shopping_mall` database.
+
+Import it before starting the project:
+
+```powershell
+mysql -uroot -p < .\shopping_mall_init.sql
+```
 
 ## Start
 
